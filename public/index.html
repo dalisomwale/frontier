@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frontier Marketplace - Livestock Trading Platform</title>
+    <link rel="icon" href="images/logo-icon.jpg" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css" />
+    <!-- Loaded blocking, in <head>, so the bottom nav below can be painted
+         on first render instead of popping in after the page has already
+         shown without it. -->
+    <script src="/js/main.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/species.js"></script>
+    <script src="/js/app-shell.js"></script>
+  </head>
+  <body class="bg-gray-50">
+    <!-- Header/Navigation -->
+    <nav id="page-topnav" class="bg-white shadow-md sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <div class="flex items-center gap-3">
+            <div class="brand-mark-full">
+              <img
+                src="images/logo-full.jpg"
+                alt="Frontier Farms &amp; Consult"
+              />
+            </div>
+          </div>
+
+          <div id="nav-auth" class="relative hidden md:block">
+            <button
+              id="nav-auth-toggle"
+              type="button"
+              class="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-label="Account"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                width="20"
+                height="20"
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
+              </svg>
+            </button>
+            <div
+              id="nav-auth-menu"
+              class="hidden absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
+            >
+              <a
+                href="login.html"
+                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >Login</a
+              >
+              <a
+                href="register.html"
+                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >Register</a
+              >
+            </div>
+          </div>
+
+          <div id="nav-authenticated" class="hidden flex items-center gap-4">
+            <a
+              href="dashboard.html"
+              class="text-gray-600 hover:text-gray-900 font-medium"
+              >Dashboard</a
+            >
+            <a
+              href="messages.html"
+              class="text-gray-600 hover:text-gray-900 font-medium"
+              >Messages</a
+            >
+            <a
+              href="profile.html"
+              class="text-gray-600 hover:text-gray-900 font-medium"
+              >Profile</a
+            >
+            <button
+              id="logout-btn"
+              class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div id="tab-self-content">
+      <!-- Hero Section -->
+      <section class="hero-photo text-white py-10 md:py-14">
+        <div id="hero-slides" class="hero-slides"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-6">
+            <h2 class="text-4xl md:text-5xl font-bold mb-3">
+              Buy and Sell Livestock
+            </h2>
+            <p class="text-xl text-blue-100 mb-4">
+              Livestock trading made easy. Connect with buyers and sellers
+              across Zambia.
+            </p>
+          </div>
+
+          <!-- Search Section -->
+          <div class="bg-white rounded-lg shadow-lg p-6 max-w-4xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Species</label
+                >
+                <select
+                  id="filter-species"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">All Species</option>
+                  <option value="Cattle">Cattle</option>
+                  <option value="Goats">Goats</option>
+                  <option value="Sheep">Sheep</option>
+                  <option value="Pigs">Pigs</option>
+                  <option value="Poultry">Poultry</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Location</label
+                >
+                <input
+                  type="text"
+                  id="filter-location"
+                  placeholder="e.g., Lusaka"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div class="flex items-end">
+                <button
+                  id="search-btn"
+                  class="w-full bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Listings: shown directly on the home page, no navigation required -->
+      <section
+        id="listings-section"
+        class="bg-gray-50 py-8 border-t border-gray-100"
+        style="scroll-margin-top: 80px"
+      >
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="mb-4">
+            <h2 class="text-3xl font-bold text-gray-900">Livestock Listings</h2>
+          </div>
+
+          <!-- Compact species chips for quick switching -->
+          <div id="species-picker" class="flex flex-wrap gap-2 mb-4"></div>
+
+          <!-- Listings Container -->
+          <div
+            id="listings-container"
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6"
+          >
+            <!-- Listings will be loaded here -->
+          </div>
+
+          <!-- Pagination -->
+          <div id="pagination-container">
+            <!-- Pagination will be rendered here -->
+          </div>
+        </div>
+      </section>
+    </div>
+    <div id="tab-frame-host" class="tab-frame-host hidden"></div>
+
+    <!-- Mobile app-style bottom navigation: rendered synchronously, right
+         here, instead of waiting for DOMContentLoaded. -->
+    <div id="app-bottom-nav"></div>
+    <script>
+      renderBottomNav("public");
+    </script>
+
+    <script>
+      const SPECIES_OPTIONS = [
+        "",
+        "Cattle",
+        "Goats",
+        "Sheep",
+        "Pigs",
+        "Poultry",
+      ];
+      const HERO_SLIDE_SPECIES = [
+        "Cattle",
+        "Goats",
+        "Sheep",
+        "Pigs",
+        "Poultry",
+      ];
+      const HERO_SLIDE_INTERVAL_MS = 4500;
+
+      let currentPage = 1;
+
+      function renderHeroSlides() {
+        document.getElementById("hero-slides").innerHTML =
+          HERO_SLIDE_SPECIES.map(
+            (species, index) => `
+          <div class="hero-slide ${index === 0 ? "active" : ""}" style="background-image: url('${speciesImage(species)}')"></div>`,
+          ).join("");
+      }
+
+      function startHeroSlideshow() {
+        const slides = document.querySelectorAll("#hero-slides .hero-slide");
+        if (slides.length < 2) return;
+        let index = 0;
+        setInterval(() => {
+          slides[index].classList.remove("active");
+          index = (index + 1) % slides.length;
+          slides[index].classList.add("active");
+        }, HERO_SLIDE_INTERVAL_MS);
+      }
+
+      function renderSpeciesPicker() {
+        const picker = document.getElementById("species-picker");
+        const select = document.getElementById("filter-species");
+
+        function paint() {
+          picker.querySelectorAll("button").forEach((btn) => {
+            btn.classList.toggle("active", btn.dataset.value === select.value);
+          });
+        }
+
+        picker.innerHTML = SPECIES_OPTIONS.map((value) => {
+          const label = value || "All";
+          return `
+            <button type="button" data-value="${value}" class="species-chip justify-center px-3">
+              <span>${label}</span>
+            </button>`;
+        }).join("");
+
+        picker.querySelectorAll("button").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            select.value = btn.dataset.value;
+            paint();
+            currentPage = 1;
+            loadListings(1);
+          });
+        });
+
+        window.paintSpeciesPicker = paint;
+        paint();
+      }
+
+      function applyFiltersAndScroll() {
+        currentPage = 1;
+        loadListings(1);
+        document
+          .getElementById("listings-section")
+          .scrollIntoView({ behavior: "smooth" });
+      }
+
+      // Initialize homepage
+      document.addEventListener("DOMContentLoaded", async () => {
+        renderHeroSlides();
+        startHeroSlideshow();
+        renderSpeciesPicker();
+        await checkAuthentication();
+        // Re-run after the server round-trip resolves, in case the
+        // optimistic localStorage snapshot used for the instant render
+        // above was missing or stale.
+        renderBottomNav("public");
+
+        // Support deep links (e.g. ?species=Cattle) without a separate page
+        const query = getQueryParams();
+        ["species", "location"].forEach((key) => {
+          const field = document.getElementById(`filter-${key}`);
+          if (field && query[key]) field.value = query[key];
+        });
+        paintSpeciesPicker();
+
+        await loadListings(1);
+        if (Object.keys(query).length > 0) {
+          document
+            .getElementById("listings-section")
+            .scrollIntoView({ behavior: "smooth" });
+        }
+
+        // Hero search
+        document
+          .getElementById("search-btn")
+          .addEventListener("click", applyFiltersAndScroll);
+
+        // Logout
+        const logoutBtn = document.getElementById("logout-btn");
+        if (logoutBtn) {
+          logoutBtn.addEventListener("click", async () => {
+            await logout();
+          });
+        }
+      });
+
+      /**
+       * Load listings from API
+       */
+      async function loadListings(page = 1) {
+        showLoading();
+
+        try {
+          const species = document.getElementById("filter-species").value;
+          const location = document.getElementById("filter-location").value;
+
+          const params = new URLSearchParams();
+          if (species) params.append("species", species);
+          if (location) params.append("location", location);
+          params.append("sort", "newest");
+          params.append("page", page);
+          params.append("limit", 12);
+
+          const response = await apiRequest(
+            `/api/listings?${params.toString()}`,
+          );
+
+          if (response.success) {
+            renderListings(response.data);
+            renderPagination(response.pagination);
+          } else {
+            showNotification("Failed to load listings", "error");
+          }
+        } catch (error) {
+          console.error("Load listings error:", error);
+          showNotification("Failed to load listings", "error");
+        } finally {
+          hideLoading();
+        }
+      }
+
+      /**
+       * Render listings
+       */
+      function renderListings(listings) {
+        const container = document.getElementById("listings-container");
+
+        if (listings.length === 0) {
+          renderEmptyState(container, "No livestock listings available yet.");
+          return;
+        }
+
+        container.innerHTML = listings
+          .map(
+            (listing) => `
+        <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition cursor-pointer"
+             onclick="window.location.href = 'listing.html?id=${listing.id}'">
+          <div class="bg-gray-200 h-48 flex items-center justify-center">
+            ${listing.main_image ? `<img src="${listing.main_image}" alt="Livestock listing" class="h-full w-full object-cover">` : speciesFallbackMedia(listing.species)}
+          </div>
+          <div class="p-4">
+            <h3 class="text-lg font-semibold text-gray-900 line-clamp-2 mb-2">${escapeHtml(listing.title)}</h3>
+            <p class="text-sm text-gray-600 mb-2 flex items-center flex-wrap gap-2">
+              <span class="species-chip">${speciesIcon(listing.species)}<span>${escapeHtml(listing.species)}</span></span>
+              ${listing.breed ? `<span class="text-gray-700">${escapeHtml(listing.breed)}</span>` : ""}
+            </p>
+            <div class="text-2xl font-bold text-blue-600 mb-3">K${parseFloat(listing.price).toLocaleString()}</div>
+            <div class="text-sm text-gray-600 space-y-1 mb-3">
+              ${listing.age ? `<p>Age: ${listing.age}</p>` : ""}
+              ${listing.weight ? `<p>Weight: ${listing.weight}</p>` : ""}
+              ${listing.location ? `<p>Location: ${listing.location}</p>` : ""}
+              ${listing.health_status ? `<p>Health: ${escapeHtml(listing.health_status)}</p>` : ""}
+            </div>
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-gray-600">Seller: ${escapeHtml(listing.seller_name)}</span>
+              <span class="text-gray-500">${formatDateShort(listing.created_at)}</span>
+            </div>
+          </div>
+        </div>
+      `,
+          )
+          .join("");
+      }
+
+      /**
+       * Render pagination
+       */
+      function renderPagination(pagination) {
+        const container = document.getElementById("pagination-container");
+
+        if (pagination.total <= 1) {
+          container.innerHTML = "";
+          return;
+        }
+
+        const paginationHtml = createPagination(
+          pagination.current,
+          pagination.total,
+          (page) => {
+            currentPage = page;
+            document
+              .getElementById("listings-section")
+              .scrollIntoView({ behavior: "smooth" });
+            loadListings(page);
+          },
+        );
+
+        container.innerHTML = "";
+        container.appendChild(paginationHtml);
+      }
+    </script>
+  </body>
+</html>

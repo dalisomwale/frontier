@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard - Frontier Marketplace</title>
+    <link rel="icon" href="../images/logo-icon.jpg" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../css/style.css" />
+    <!-- Loaded blocking, in <head>, so the bottom nav below can be painted
+         on first render instead of popping in after the page has already
+         shown without it. -->
+    <script src="../js/main.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/species.js"></script>
+    <script src="../js/app-shell.js"></script>
+  </head>
+  <body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <div class="flex items-center gap-3">
+            <a href="/" class="flex items-center gap-3">
+              <div class="brand-mark-full">
+                <img src="../images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
+              </div>
+            </a>
+          </div>
+
+          <div class="flex items-center gap-4">
+            <a
+              href="../dashboard.html"
+              class="hidden sm:inline text-gray-600 hover:text-gray-900 font-medium"
+              >User Dashboard</a
+            >
+            <button
+              id="logout-btn"
+              class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Admin Sidebar + Content -->
+    <div
+      class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col lg:flex-row gap-6"
+    >
+      <!-- Sidebar (desktop only - the bottom nav covers this on mobile) -->
+      <div class="hidden lg:block lg:w-64 flex-shrink-0">
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 lg:sticky lg:top-20">
+          <h2 class="text-lg font-bold text-gray-900 mb-4">Admin Menu</h2>
+          <nav class="space-y-2">
+            <a
+              href="index.html"
+              class="flex items-center gap-3 bg-blue-100 text-blue-600 px-4 py-2 rounded-lg font-medium"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+              Dashboard
+            </a>
+            <a
+              href="users.html"
+              class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.3 14.1c2.5.4 4.2 2.1 4.2 4.9"/></svg>
+              Manage Users
+            </a>
+            <a
+              href="listings.html"
+              class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M8 11h8M8 14.5h8M8 18h5"/></svg>
+              Moderate Listings
+            </a>
+            <a
+              href="reports.html"
+              class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></svg>
+              View Reports
+            </a>
+          </nav>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="flex-1 min-w-0">
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">
+          Dashboard Overview
+        </h1>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <!-- Total Users -->
+          <div class="stat-tile">
+            <span class="stat-tile-icon bg-blue-100 text-blue-600">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.3 14.1c2.5.4 4.2 2.1 4.2 4.9"/></svg>
+            </span>
+            <div>
+              <p class="text-gray-600 text-sm font-medium">Total Users</p>
+              <p id="stat-total-users" class="text-3xl font-bold text-gray-900">0</p>
+            </div>
+          </div>
+
+          <!-- Active Listings -->
+          <div class="stat-tile">
+            <span class="stat-tile-icon bg-green-100 text-green-600">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M8 11h8M8 14.5h8M8 18h5"/></svg>
+            </span>
+            <div>
+              <p class="text-gray-600 text-sm font-medium">Active Listings</p>
+              <p id="stat-active-listings" class="text-3xl font-bold text-gray-900">0</p>
+            </div>
+          </div>
+
+          <!-- Pending Listings -->
+          <div class="stat-tile">
+            <span class="stat-tile-icon bg-yellow-100 text-yellow-700">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+            </span>
+            <div>
+              <p class="text-gray-600 text-sm font-medium">Pending Listings</p>
+              <p id="stat-pending-listings" class="text-3xl font-bold text-yellow-600">0</p>
+            </div>
+          </div>
+
+          <!-- Pending Reports -->
+          <div class="stat-tile">
+            <span class="stat-tile-icon bg-red-100 text-red-600">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></svg>
+            </span>
+            <div>
+              <p class="text-gray-600 text-sm font-medium">Pending Reports</p>
+              <p id="stat-pending-reports" class="text-3xl font-bold text-red-600">0</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Breakdown -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <!-- Buyers -->
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Buyers</h3>
+            <p id="stat-buyers" class="text-4xl font-bold text-blue-600">0</p>
+            <a
+              href="users.html?role=buyer"
+              class="text-blue-600 hover:text-blue-700 text-sm font-medium mt-3 inline-block"
+            >
+              View All →
+            </a>
+          </div>
+
+          <!-- Sellers -->
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Sellers</h3>
+            <p id="stat-sellers" class="text-4xl font-bold text-green-600">0</p>
+            <a
+              href="users.html?role=seller"
+              class="text-blue-600 hover:text-blue-700 text-sm font-medium mt-3 inline-block"
+            >
+              View All →
+            </a>
+          </div>
+
+          <!-- Service Providers -->
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">
+              Service Providers
+            </h3>
+            <p id="stat-providers" class="text-4xl font-bold text-purple-600">
+              0
+            </p>
+            <a
+              href="users.html?role=service_provider"
+              class="text-blue-600 hover:text-blue-700 text-sm font-medium mt-3 inline-block"
+            >
+              View All →
+            </a>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h2 class="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <a
+              href="listings.html?status=pending"
+              class="bg-yellow-50 border border-yellow-200 hover:border-yellow-400 rounded-lg p-4 text-center transition"
+            >
+              <p class="font-semibold text-gray-900">Review Pending</p>
+              <p class="text-sm text-gray-600">Approve or reject listings</p>
+            </a>
+
+            <a
+              href="users.html?status=suspended"
+              class="bg-red-50 border border-red-200 hover:border-red-400 rounded-lg p-4 text-center transition"
+            >
+              <p class="font-semibold text-gray-900">Suspended Users</p>
+              <p class="text-sm text-gray-600">View and manage suspensions</p>
+            </a>
+
+            <a
+              href="reports.html?status=pending"
+              class="bg-red-50 border border-red-200 hover:border-red-400 rounded-lg p-4 text-center transition"
+            >
+              <p class="font-semibold text-gray-900">Review Reports</p>
+              <p class="text-sm text-gray-600">
+                Handle reported content and users
+              </p>
+            </a>
+
+            <a
+              href="listings.html"
+              class="bg-blue-50 border border-blue-200 hover:border-blue-400 rounded-lg p-4 text-center transition"
+            >
+              <p class="font-semibold text-gray-900">All Listings</p>
+              <p class="text-sm text-gray-600">
+                Browse and moderate all listings
+              </p>
+            </a>
+          </div>
+        </div>
+
+        <!-- Legal Notice -->
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-8">
+          <h3 class="font-semibold text-yellow-900 mb-2">
+            Admin Responsibilities
+          </h3>
+          <p class="text-sm text-yellow-800">
+            As an administrator, you have access to user data and platform
+            content. Please ensure all moderation decisions are fair,
+            documented, and comply with platform policies. Misuse of admin
+            powers may result in account termination.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile app-style bottom navigation: rendered synchronously, right
+         here, instead of waiting for DOMContentLoaded. -->
+    <div id="app-bottom-nav"></div>
+    <script>
+      renderBottomNav("admin");
+    </script>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", async () => {
+        requireAuth();
+        await checkAuthentication();
+        // Re-run after the server round-trip resolves, in case the
+        // optimistic localStorage snapshot used for the instant render
+        // above was missing or stale.
+        renderBottomNav("admin");
+
+        const user = getCurrentUser();
+        if (user?.role !== "admin") {
+          showNotification("You do not have admin access", "error");
+          setTimeout(() => (window.location.href = "../dashboard.html"), 2000);
+          return;
+        }
+
+        await loadStats();
+
+        document
+          .getElementById("logout-btn")
+          .addEventListener("click", async () => {
+            await logout();
+          });
+      });
+
+      /**
+       * Load admin statistics
+       */
+      async function loadStats() {
+        try {
+          const response = await apiRequest("/api/admin/stats");
+
+          if (response.success) {
+            const stats = response.data;
+
+            document.getElementById("stat-total-users").textContent =
+              stats.users || 0;
+            document.getElementById("stat-active-listings").textContent =
+              stats.active_listings || 0;
+            document.getElementById("stat-pending-listings").textContent =
+              stats.pending_listings || 0;
+            document.getElementById("stat-pending-reports").textContent =
+              stats.pending_reports || 0;
+
+            // User breakdown
+            document.getElementById("stat-buyers").textContent =
+              stats.buyers || 0;
+            document.getElementById("stat-sellers").textContent =
+              stats.sellers || 0;
+            document.getElementById("stat-providers").textContent =
+              stats.service_providers || 0;
+          } else {
+            showNotification("Failed to load statistics", "error");
+          }
+        } catch (error) {
+          console.error("Load stats error:", error);
+          showNotification("Failed to load statistics", "error");
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reports · Frontier Admin</title>
+    <link rel="icon" href="../images/logo-icon.jpg" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../css/style.css" />
+    <!-- Loaded blocking, in <head>, so the bottom nav below can be painted
+         on first render instead of popping in after the page has already
+         shown without it. -->
+    <script src="../js/main.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/species.js"></script>
+    <script src="../js/app-shell.js"></script>
+  </head>
+  <body class="bg-gray-50 text-gray-900">
+    <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
+      <div
+        class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4"
+      >
+        <a href="index.html" class="flex items-center gap-3 font-bold">
+          <div class="brand-mark-full">
+            <img src="../images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
+          </div>
+        </a>
+        <div class="flex items-center gap-4">
+          <a
+            href="../dashboard.html"
+            class="hidden sm:inline text-sm font-medium text-gray-600"
+            >User Dashboard</a
+          >
+          <button
+            id="logout-btn"
+            class="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </nav>
+    <div
+      class="mx-auto max-w-7xl px-4 py-8 flex flex-col lg:flex-row gap-6"
+    >
+      <!-- Sidebar (desktop only - the bottom nav covers this on mobile) -->
+      <div class="hidden lg:block lg:w-64 flex-shrink-0">
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 lg:sticky lg:top-20">
+          <h2 class="text-lg font-bold text-gray-900 mb-4">Admin Menu</h2>
+          <nav class="space-y-2">
+            <a
+              href="index.html"
+              class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+              Dashboard
+            </a>
+            <a
+              href="users.html"
+              class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.3 14.1c2.5.4 4.2 2.1 4.2 4.9"/></svg>
+              Manage Users
+            </a>
+            <a
+              href="listings.html"
+              class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M8 11h8M8 14.5h8M8 18h5"/></svg>
+              Moderate Listings
+            </a>
+            <a
+              href="reports.html"
+              class="flex items-center gap-3 bg-blue-100 text-blue-600 px-4 py-2 rounded-lg font-medium"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></svg>
+              View Reports
+            </a>
+          </nav>
+        </div>
+      </div>
+
+      <main class="flex-1 min-w-0">
+        <div
+          class="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"
+        >
+          <div>
+            <h1 class="text-3xl font-bold">Content reports</h1>
+            <p class="mt-1 text-gray-600">
+              Review reports submitted by marketplace users.
+            </p>
+          </div>
+          <label class="text-sm font-medium"
+            >Status
+            <select
+              id="status-filter"
+              class="ml-2 rounded-lg border border-gray-300 px-3 py-2"
+            >
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="reviewed">Reviewed</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </label>
+        </div>
+        <div class="overflow-x-auto rounded-lg bg-white shadow-sm">
+          <table class="w-full text-left text-sm">
+            <thead class="border-b bg-gray-50 text-gray-600">
+              <tr>
+                <th class="p-4">Report</th>
+                <th class="p-4">Target</th>
+                <th class="p-4">Submitted by</th>
+                <th class="p-4">Date</th>
+                <th class="p-4">Status</th>
+                <th class="p-4">Action</th>
+              </tr>
+            </thead>
+            <tbody id="reports-table">
+              <tr>
+                <td colspan="6" class="p-8 text-center text-gray-600">
+                  Loading reports…
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="pagination" class="mt-6"></div>
+      </main>
+    </div>
+
+    <!-- Mobile app-style bottom navigation: rendered synchronously, right
+         here, instead of waiting for DOMContentLoaded. -->
+    <div id="app-bottom-nav"></div>
+    <script>
+      renderBottomNav("admin");
+    </script>
+
+    <script>
+      let currentPage = 1;
+      document.addEventListener("DOMContentLoaded", async () => {
+        await checkAuthentication();
+        // Re-run after the server round-trip resolves, in case the
+        // optimistic localStorage snapshot used for the instant render
+        // above was missing or stale.
+        renderBottomNav("admin");
+        if (getCurrentUser()?.role !== "admin")
+          return (window.location.href = "../dashboard.html");
+        const query = getQueryParams();
+        if (query.status)
+          document.getElementById("status-filter").value = query.status;
+        document
+          .getElementById("status-filter")
+          .addEventListener("change", () => loadReports(1));
+        document.getElementById("logout-btn").addEventListener("click", logout);
+        await loadReports(1);
+      });
+      async function loadReports(page) {
+        currentPage = page;
+        const params = new URLSearchParams({ page, limit: 20 });
+        const status = document.getElementById("status-filter").value;
+        if (status) params.set("status", status);
+        try {
+          const response = await apiRequest("/api/admin/reports?" + params);
+          renderReports(response.data || []);
+          const pageHost = document.getElementById("pagination");
+          pageHost.innerHTML = "";
+          if (response.pagination?.total > 1)
+            pageHost.appendChild(
+              createPagination(page, response.pagination.total, loadReports),
+            );
+        } catch (error) {
+          document.getElementById("reports-table").innerHTML =
+            '<tr><td colspan="6" class="p-8 text-center text-red-700">Reports could not be loaded.</td></tr>';
+        }
+      }
+      function renderReports(reports) {
+        const body = document.getElementById("reports-table");
+        if (!reports.length) {
+          body.innerHTML =
+            '<tr><td colspan="6" class="p-8 text-center text-gray-600">No reports require review.</td></tr>';
+          return;
+        }
+        body.innerHTML = reports
+          .map(
+            (report) =>
+              `<tr class="border-b"><td class="p-4"><p class="font-medium">${escapeHtml(report.reason)}</p><p class="text-xs text-gray-500">#${report.id}</p></td><td class="p-4">${escapeHtml(report.listing_title || report.reported_user_name || "Message")}</td><td class="p-4">${escapeHtml(report.reporter_name || "Unknown")}</td><td class="p-4">${formatDateShort(report.created_at)}</td><td class="p-4"><span class="capitalize">${escapeHtml(report.status)}</span></td><td class="p-4"><select onchange="updateReport(${report.id}, this.value)" class="rounded border border-gray-300 px-2 py-1"><option value="">Update…</option><option value="reviewed">Reviewed</option><option value="resolved">Resolved</option></select></td></tr>`,
+          )
+          .join("");
+      }
+      async function updateReport(id, status) {
+        if (!status) return;
+        try {
+          const response = await apiRequest("/api/admin/reports/" + id, {
+            method: "PATCH",
+            body: JSON.stringify({ status }),
+          });
+          showNotification(response.message, "success");
+          await loadReports(currentPage);
+        } catch (error) {
+          showNotification(error.message || "Unable to update report", "error");
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Messages - Frontier Marketplace</title>
+    <link rel="icon" href="images/logo-icon.jpg" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="stylesheet" href="css/style.css" />
+    <!-- Loaded blocking, in <head>, so the sidebar/bottom-nav below can be
+         painted on first render instead of popping in after the page has
+         already shown without them (that flash is what made switching
+         between Dashboard/Messages/Profile feel like a reload/glitch). -->
+    <script src="/js/main.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/species.js"></script>
+    <script src="/js/app-shell.js"></script>
+  </head>
+  <body class="bg-gray-50">
+    <!-- Desktop sidebar: rendered synchronously right here (not on
+         DOMContentLoaded) so it exists before the browser's first paint. -->
+    <div id="app-sidebar"></div>
+    <script>
+      renderSidebar("messages");
+    </script>
+
+    <nav id="page-topnav" class="bg-white border-b border-gray-100 sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <div class="flex items-center gap-3">
+            <a href="/" class="flex items-center gap-3">
+              <div class="brand-mark-full">
+                <img src="images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
+              </div>
+            </a>
+          </div>
+
+          <div class="flex items-center gap-4">
+            <button
+              id="logout-btn"
+              class="lg:hidden bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div id="tab-self-content">
+    <!-- Main Content -->
+    <div
+      class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-[calc(100vh-120px)] flex gap-4"
+    >
+      <!-- Conversations List -->
+      <div class="w-full lg:w-80 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col">
+        <div class="border-b p-4">
+          <h2 class="text-lg font-bold text-gray-900">Messages</h2>
+          <p class="text-sm text-gray-600 mt-1">
+            <span id="unread-count">0</span> unread messages
+          </p>
+        </div>
+
+        <div id="conversations-list" class="flex-1 overflow-y-auto">
+          <div class="p-4">
+            <p class="text-gray-600 text-center">Loading conversations...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Message Area -->
+      <div
+        id="message-area"
+        class="hidden flex-1 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col"
+      >
+        <!-- Conversation Header -->
+        <div class="border-b p-4 flex items-center justify-between">
+          <div>
+            <h3
+              id="conversation-title"
+              class="text-lg font-bold text-gray-900"
+            ></h3>
+            <p id="user-status" class="text-sm text-gray-600 mt-1"></p>
+          </div>
+          <button id="close-chat" class="text-gray-600 hover:text-gray-900">
+            <span class="text-xl">×</span>
+          </button>
+        </div>
+
+        <!-- Messages Display -->
+        <div
+          id="messages-container"
+          class="flex-1 overflow-y-auto p-4 bg-gray-50"
+        >
+          <!-- Messages will be rendered here -->
+        </div>
+
+        <!-- Message Input -->
+        <div class="border-t p-4 bg-white">
+          <form id="message-form" class="flex gap-2">
+            <input
+              id="message-input"
+              type="text"
+              placeholder="Type a message..."
+              class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <button
+              type="submit"
+              class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
+            >
+              Send
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div id="empty-state" class="flex-1 flex items-center justify-center">
+        <div class="text-center">
+          <p class="text-gray-600 text-lg">
+            Select a conversation to start messaging
+          </p>
+        </div>
+      </div>
+    </div>
+
+    </div>
+    <div id="tab-frame-host" class="tab-frame-host hidden"></div>
+
+    <!-- Mobile app-style bottom navigation: rendered synchronously, same
+         reasoning as the sidebar above. -->
+    <div id="app-bottom-nav"></div>
+    <script>
+      renderBottomNav("app");
+    </script>
+
+    <script>
+      let socket = null;
+      let currentUserId = null;
+      let selectedConversationUser = null;
+      let conversationMessages = [];
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        if (!requireAuth()) return;
+        await checkAuthentication();
+        // Re-run after the server round-trip resolves, in case the
+        // optimistic localStorage snapshot used for the instant render
+        // above was missing or stale (e.g. role changed elsewhere).
+        renderAppShell({ active: "messages", bottomNavVariant: "app" });
+
+        currentUserId = getCurrentUser().id;
+
+        // Initialize Socket.IO
+        initializeSocket();
+
+        // Load conversations
+        await loadConversations();
+
+        // Setup event listeners
+        document
+          .getElementById("message-form")
+          .addEventListener("submit", sendMessage);
+        document
+          .getElementById("close-chat")
+          .addEventListener("click", closeConversation);
+        document
+          .getElementById("logout-btn")
+          .addEventListener("click", async () => {
+            await logout();
+          });
+
+        // Check if opening conversation from URL param
+        const params = getQueryParams();
+        if (params.seller) {
+          await selectConversation(params.seller);
+        }
+      });
+
+      /**
+       * Initialize Socket.IO connection
+       */
+      function initializeSocket() {
+        socket = io();
+
+        socket.on("connect", () => {
+          console.log("Connected to messaging server");
+          socket.emit("user_join", { userId: currentUserId });
+        });
+
+        socket.on("receive_message", (data) => {
+          if (data.sender_id === selectedConversationUser) {
+            conversationMessages.push(data);
+            renderMessages();
+            scrollToBottom();
+          }
+          // Reload conversations to show unread count
+          loadConversations();
+        });
+
+        socket.on("user_online", (data) => {
+          if (data.userId === selectedConversationUser) {
+            updateUserStatus("Online");
+          }
+        });
+
+        socket.on("user_offline", (data) => {
+          if (data.userId === selectedConversationUser) {
+            updateUserStatus("Offline");
+          }
+        });
+
+        socket.on("disconnect", () => {
+          console.log("Disconnected from messaging server");
+        });
+      }
+
+      /**
+       * Load conversations list
+       */
+      async function loadConversations() {
+        try {
+          const response = await apiRequest("/api/messages");
+
+          if (response.success) {
+            const conversations = response.data || [];
+
+            // Count unread messages
+            const unreadCount = conversations.reduce(
+              (sum, conv) => sum + (conv.unread_count || 0),
+              0,
+            );
+            document.getElementById("unread-count").textContent = unreadCount;
+
+            // Render conversations
+            const conversationsList =
+              document.getElementById("conversations-list");
+            if (conversations.length === 0) {
+              conversationsList.innerHTML = `
+              <div class="p-4">
+                <p class="text-gray-600 text-center">No conversations yet</p>
+                <p class="text-gray-500 text-sm text-center mt-2">Contact sellers by sending them inquiries or messages</p>
+              </div>
+            `;
+              return;
+            }
+
+            conversationsList.innerHTML = conversations
+              .map(
+                (conv) => `
+            <div 
+              class="border-b px-4 py-3 hover:bg-gray-50 cursor-pointer transition ${selectedConversationUser === conv.other_user_id ? "bg-blue-50" : ""}"
+              onclick="selectConversation(${conv.other_user_id})"
+            >
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0">
+                  ${escapeHtml((conv.user_name || "?").trim().charAt(0).toUpperCase())}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h4 class="font-semibold text-gray-900">${escapeHtml(conv.user_name)}</h4>
+                  <p class="text-sm text-gray-600 truncate">${escapeHtml(conv.last_message || "No messages yet")}</p>
+                  <p class="text-xs text-gray-500 mt-1">${formatDateShort(conv.last_message_time || conv.created_at)}</p>
+                </div>
+                ${conv.unread_count ? `<span class="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">${conv.unread_count}</span>` : ""}
+              </div>
+            </div>
+          `,
+              )
+              .join("");
+          }
+        } catch (error) {
+          console.error("Load conversations error:", error);
+          showNotification("Failed to load conversations", "error");
+        }
+      }
+
+      /**
+       * Select conversation
+       */
+      async function selectConversation(userId) {
+        selectedConversationUser = userId;
+        conversationMessages = [];
+
+        document.getElementById("message-area").classList.remove("hidden");
+        document.getElementById("empty-state").classList.add("hidden");
+
+        // Reload conversations to highlight selected
+        await loadConversations();
+
+        // Load message history
+        await loadMessages(userId);
+
+        document.getElementById("message-input").focus();
+      }
+
+      /**
+       * Load message history
+       */
+      async function loadMessages(userId) {
+        try {
+          const response = await apiRequest(`/api/messages/${userId}`);
+
+          if (response.success) {
+            conversationMessages = response.data || [];
+
+            // Get user info
+            const userResponse = await apiRequest(`/api/users/${userId}`);
+            if (userResponse.success) {
+              document.getElementById("conversation-title").textContent =
+                userResponse.data.name;
+              updateUserStatus("Online");
+            }
+
+            renderMessages();
+            scrollToBottom();
+          }
+        } catch (error) {
+          console.error("Load messages error:", error);
+          showNotification("Failed to load messages", "error");
+        }
+      }
+
+      /**
+       * Render messages
+       */
+      function renderMessages() {
+        const container = document.getElementById("messages-container");
+
+        if (conversationMessages.length === 0) {
+          container.innerHTML = `
+          <div class="flex items-center justify-center h-full">
+            <div class="text-center text-gray-600">
+              <p>No messages yet. Start the conversation!</p>
+            </div>
+          </div>
+        `;
+          return;
+        }
+
+        container.innerHTML = conversationMessages
+          .map(
+            (msg) => `
+        <div class="mb-4 flex ${msg.sender_id === currentUserId ? "justify-end" : "justify-start"}">
+          <div class="${msg.sender_id === currentUserId ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-900"} px-4 py-2 rounded-lg max-w-xs">
+            <p class="text-sm">${escapeHtml(msg.message)}</p>
+            <p class="text-xs ${msg.sender_id === currentUserId ? "text-blue-100" : "text-gray-600"} mt-1">
+              ${formatDate(msg.created_at)}
+            </p>
+          </div>
+        </div>
+      `,
+          )
+          .join("");
+      }
+
+      /**
+       * Send message
+       */
+      async function sendMessage(e) {
+        e.preventDefault();
+
+        if (!selectedConversationUser) return;
+
+        const messageInput = document.getElementById("message-input");
+        const message = messageInput.value.trim();
+
+        if (!message) return;
+
+        try {
+          const response = await apiRequest("/api/messages", {
+            method: "POST",
+            body: JSON.stringify({
+              recipient_id: selectedConversationUser,
+              message,
+            }),
+          });
+
+          if (response.success) {
+            messageInput.value = "";
+
+            // Add message to local array
+            conversationMessages.push({
+              sender_id: currentUserId,
+              recipient_id: selectedConversationUser,
+              message,
+              created_at: new Date().toISOString(),
+              is_read: false,
+            });
+
+            renderMessages();
+            scrollToBottom();
+          } else {
+            showNotification(
+              response.message || "Failed to send message",
+              "error",
+            );
+          }
+        } catch (error) {
+          console.error("Send message error:", error);
+          showNotification("Failed to send message", "error");
+        }
+      }
+
+      /**
+       * Close conversation
+       */
+      function closeConversation() {
+        selectedConversationUser = null;
+        conversationMessages = [];
+        document.getElementById("message-area").classList.add("hidden");
+        document.getElementById("empty-state").classList.remove("hidden");
+        loadConversations();
+      }
+
+      /**
+       * Update user online status
+       */
+      function updateUserStatus(status) {
+        const userStatusEl = document.getElementById("user-status");
+        if (userStatusEl) {
+          userStatusEl.textContent = status === "Online" ? "Online" : "Offline";
+        }
+      }
+
+      /**
+       * Scroll to bottom of messages
+       */
+      function scrollToBottom() {
+        const container = document.getElementById("messages-container");
+        container.scrollTop = container.scrollHeight;
+      }
+    </script>
+  </body>
+</html>
