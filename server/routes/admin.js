@@ -18,11 +18,8 @@ router.get("/stats", async (req, res) => {
     const [totalUsers] = await pool.query(
       'SELECT COUNT(*) as count FROM users WHERE role != "admin"',
     );
-    const [totalBuyers] = await pool.query(
-      'SELECT COUNT(*) as count FROM users WHERE role = "buyer"',
-    );
-    const [totalSellers] = await pool.query(
-      'SELECT COUNT(*) as count FROM users WHERE role = "seller"',
+    const [totalMembers] = await pool.query(
+      'SELECT COUNT(*) as count FROM users WHERE role = "member"',
     );
     const [totalServiceProviders] = await pool.query(
       'SELECT COUNT(*) as count FROM users WHERE role = "service_provider"',
@@ -46,8 +43,7 @@ router.get("/stats", async (req, res) => {
       success: true,
       data: {
         users: totalUsers[0].count,
-        buyers: totalBuyers[0].count,
-        sellers: totalSellers[0].count,
+        members: totalMembers[0].count,
         service_providers: totalServiceProviders[0].count,
         total_listings: totalListings[0].count,
         pending_listings: pendingListings[0].count,
@@ -214,18 +210,11 @@ router.get("/listings/:id", async (req, res) => {
 
     // Get media
     const [media] = await pool.query(
-      "SELECT id, file_path, file_type FROM listing_media WHERE listing_id = ?",
-      [id],
-    );
-
-    // Get documents
-    const [documents] = await pool.query(
-      "SELECT id, file_path, document_type, status FROM listing_documents WHERE listing_id = ?",
+      "SELECT id, file_path FROM listing_media WHERE listing_id = ?",
       [id],
     );
 
     listing.media = media;
-    listing.documents = documents;
 
     return res.json({
       success: true,
@@ -240,56 +229,9 @@ router.get("/listings/:id", async (req, res) => {
   }
 });
 
-// PATCH /api/admin/listings/:id/approve - Approve listing
-router.patch("/listings/:id/approve", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const [result] = await pool.query(
-      'UPDATE listings SET status = "active" WHERE id = ? AND status = "pending"',
-      [id],
-    );
-    if (!result.affectedRows) return res.status(400).json({ success: false, message: "Only pending listings can be approved" });
-
-    return res.json({
-      success: true,
-      message: "Listing approved successfully",
-    });
-  } catch (error) {
-    console.error("Approve listing error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to approve listing",
-    });
-  }
-});
-
-// PATCH /api/admin/listings/:id/reject - Reject listing
-router.patch("/listings/:id/reject", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const [result] = await pool.query(
-      'UPDATE listings SET status = "rejected" WHERE id = ? AND status = "pending"',
-      [id],
-    );
-    if (!result.affectedRows) return res.status(400).json({ success: false, message: "Only pending listings can be rejected" });
-
-    return res.json({
-      success: true,
-      message: "Listing rejected",
-    });
-  } catch (error) {
-    console.error("Reject listing error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to reject listing",
-    });
-  }
-});
-
-// PATCH /api/admin/listings/:id/status - simple moderation control for active
-// listings. It intentionally cannot bypass the pending review workflow.
+// PATCH /api/admin/listings/:id/status - moderation control: activate or
+// deactivate a listing (e.g. in response to a report). Listings go live
+// directly when sellers create them, so there is no approval queue here.
 router.patch("/listings/:id/status", async (req, res) => {
   try {
     const { status } = req.body;

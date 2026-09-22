@@ -16,7 +16,10 @@ CREATE TABLE IF NOT EXISTS users (
   email               VARCHAR(255) NOT NULL UNIQUE,
   phone               VARCHAR(20)  NULL,
   password_hash       VARCHAR(255) NOT NULL,
-  role                ENUM('buyer', 'seller', 'service_provider', 'admin') NOT NULL,
+  -- A "member" can both buy and sell from the same account - there is no
+  -- separate buyer/seller distinction. service_provider and admin remain
+  -- their own distinct roles.
+  role                ENUM('member', 'service_provider', 'admin') NOT NULL,
   location            VARCHAR(255) NOT NULL,
   service_description TEXT NULL,
   profile_image       VARCHAR(500) NULL,
@@ -35,15 +38,11 @@ CREATE TABLE IF NOT EXISTS listings (
   seller_id     INT UNSIGNED NOT NULL,
   title         VARCHAR(255) NOT NULL,
   species       VARCHAR(100) NOT NULL,
-  breed         VARCHAR(100) NOT NULL,
-  age           VARCHAR(50)  NOT NULL,
-  weight        DECIMAL(10, 2) NOT NULL,
   location      VARCHAR(255) NOT NULL,
-  health_status VARCHAR(100) NOT NULL,
   price         DECIMAL(12, 2) NOT NULL,
-  description   TEXT NOT NULL,
+  description   TEXT NULL,
   status        ENUM('pending', 'active', 'approved', 'rejected', 'paused', 'deactivated', 'sold')
-                  NOT NULL DEFAULT 'pending',
+                  NOT NULL DEFAULT 'active',
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_listings_seller FOREIGN KEY (seller_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -61,26 +60,9 @@ CREATE TABLE IF NOT EXISTS listing_media (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   listing_id  INT UNSIGNED NOT NULL,
   file_path   VARCHAR(500) NOT NULL,
-  file_type   ENUM('image', 'video') NOT NULL,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_media_listing FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
   INDEX idx_media_listing (listing_id)
-) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- ---------------------------------------------------------------------------
--- listing_documents (PDF certificates/permits)
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS listing_documents (
-  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  listing_id     INT UNSIGNED NOT NULL,
-  seller_id      INT UNSIGNED NOT NULL,
-  file_path      VARCHAR(500) NOT NULL,
-  document_type  VARCHAR(100) NOT NULL,
-  status         ENUM('pending', 'verified', 'rejected') NOT NULL DEFAULT 'pending',
-  uploaded_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_documents_listing FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
-  CONSTRAINT fk_documents_seller FOREIGN KEY (seller_id) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_documents_listing (listing_id)
 ) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------------

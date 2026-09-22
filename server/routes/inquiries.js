@@ -1,6 +1,6 @@
 const express = require("express");
 const pool = require("../db");
-const { isAuthenticated, isBuyer } = require("../middleware/auth");
+const { isAuthenticated, isMember } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -8,24 +8,16 @@ const router = express.Router();
 router.get("/", isAuthenticated, async (req, res) => {
   try {
     const userId = req.session.userId;
-    const userRole = req.session.userRole;
 
+    // A member can both send inquiries (as the buyer) and receive them (as
+    // the seller of the listing) from the same account, so show both sides
+    // rather than branching on role.
     let query = `SELECT i.*, l.title as listing_title, u.name as sender_name
                  FROM inquiries i
                  JOIN listings l ON i.listing_id = l.id
                  LEFT JOIN users u ON i.buyer_id = u.id
-                 WHERE 1=1`;
-    const params = [];
-
-    // If seller, show inquiries about their listings
-    // If buyer, show inquiries they sent
-    if (userRole === "seller") {
-      query += " AND i.seller_id = ?";
-      params.push(userId);
-    } else if (userRole === "buyer") {
-      query += " AND i.buyer_id = ?";
-      params.push(userId);
-    }
+                 WHERE (i.buyer_id = ? OR i.seller_id = ?)`;
+    const params = [userId, userId];
 
     query += " ORDER BY i.created_at DESC";
 
@@ -81,7 +73,7 @@ router.get("/:id", isAuthenticated, async (req, res) => {
 });
 
 // POST /api/inquiries - Create inquiry
-router.post("/", isAuthenticated, isBuyer, async (req, res) => {
+router.post("/", isAuthenticated, isMember, async (req, res) => {
   try {
     const { listing_id, message } = req.body;
     const buyer_id = req.session.userId;

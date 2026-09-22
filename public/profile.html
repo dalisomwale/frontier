@@ -7,91 +7,102 @@
     <link rel="icon" href="images/logo-icon.jpg" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="css/style.css" />
-    <!-- Loaded blocking, in <head>, so the sidebar/bottom-nav below can be
-         painted on first render instead of popping in after the page has
-         already shown without them (that flash is what made switching
-         between Dashboard/Messages/Profile feel like a reload/glitch). -->
     <script src="/js/main.js"></script>
     <script src="/js/auth.js"></script>
     <script src="/js/species.js"></script>
     <script src="/js/app-shell.js"></script>
   </head>
   <body class="bg-gray-50">
-    <!-- Desktop sidebar: rendered synchronously right here (not on
-         DOMContentLoaded) so it exists before the browser's first paint. -->
     <div id="app-sidebar"></div>
     <script>
       renderSidebar("profile");
     </script>
 
-    <nav id="page-topnav" class="bg-white border-b border-gray-100 sticky top-0 z-50">
+    <nav
+      id="page-topnav"
+      class="bg-white border-b border-gray-100 sticky top-0 z-50"
+    >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center gap-3">
             <a href="/" class="flex items-center gap-3">
               <div class="brand-mark-full">
-                <img src="images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
+                <img
+                  src="images/logo-full.jpg"
+                  alt="Frontier Farms &amp; Consult"
+                />
               </div>
             </a>
-          </div>
-
-          <div class="flex items-center gap-4">
-            <button
-              id="logout-btn"
-              class="lg:hidden bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium"
-            >
-              Logout
-            </button>
           </div>
         </div>
       </div>
     </nav>
 
     <div id="tab-self-content">
-    <!-- Main Content -->
-    <div class="app-content-shifted max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 class="text-3xl font-bold text-gray-900 mb-8">My Profile</h1>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Profile Sidebar -->
-        <div class="lg:col-span-1">
-          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <div class="text-center mb-6">
-              <div
-                id="profile-avatar"
-                class="w-24 h-24 bg-blue-100 text-blue-700 text-3xl font-bold rounded-full mx-auto mb-4 flex items-center justify-center"
-              ></div>
-              <h2
-                id="profile-name"
-                class="text-xl font-bold text-gray-900"
-              ></h2>
-              <p id="profile-role" class="text-gray-600 text-sm mt-1"></p>
-            </div>
-
-            <div class="space-y-3">
-              <a
-                href="dashboard.html"
-                class="block w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium text-center"
-              >
-                Back to Dashboard
-              </a>
-              <button
-                id="change-password-btn"
-                class="w-full border border-blue-600 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 font-medium"
-              >
-                Change Password
-              </button>
-            </div>
-          </div>
+      <div
+        class="app-content-shifted max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+      >
+        <div class="flex items-center justify-between mb-8">
+          <h1 class="text-3xl font-bold text-gray-900">My Profile</h1>
+          <button
+            type="button"
+            id="edit-profile-btn"
+            aria-label="Edit profile"
+            class="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 flex-shrink-0"
+          ></button>
         </div>
 
-        <!-- Profile Form -->
-        <div class="lg:col-span-2">
+        <div id="profile-view">
+          <div
+            class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 text-center mb-6"
+          >
+            <div
+              id="profile-avatar"
+              class="w-24 h-24 bg-blue-100 text-blue-700 text-3xl font-bold rounded-full mx-auto mb-4 flex items-center justify-center"
+            ></div>
+            <h2 id="profile-name" class="text-xl font-bold text-gray-900"></h2>
+            <p id="profile-role" class="text-gray-600 text-sm mt-1"></p>
+          </div>
+
+          <div
+            class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6 space-y-4"
+          >
+            <div>
+              <p class="text-sm text-gray-600">Email</p>
+              <p id="view-email" class="font-semibold text-gray-900"></p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-600">Phone</p>
+              <p id="view-phone" class="font-semibold text-gray-900">-</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-600">Location</p>
+              <p id="view-location" class="font-semibold text-gray-900"></p>
+            </div>
+            <div id="view-service-description-field" class="hidden">
+              <p class="text-sm text-gray-600">Service description</p>
+              <p
+                id="view-service-description"
+                class="font-semibold text-gray-900 whitespace-pre-wrap"
+              ></p>
+            </div>
+          </div>
+
+          <!-- Phone-only logout: on desktop the sidebar footer already carries
+             a logout button, so this duplicate is hidden at lg and up. -->
+          <button
+            id="logout-btn"
+            class="lg:hidden w-full bg-red-600 text-white px-4 py-3 rounded-lg hover:bg-red-700 font-medium"
+          >
+            Logout
+          </button>
+        </div>
+
+        <div id="profile-edit" class="hidden">
           <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 class="text-2xl font-bold text-gray-900 mb-6">Edit Profile</h2>
+            <h2 class="text-lg font-bold text-gray-900 mb-6">Edit Profile</h2>
 
             <form id="profile-form" class="space-y-6">
-              <!-- Name -->
               <div>
                 <label
                   for="name"
@@ -110,7 +121,6 @@
                 ></div>
               </div>
 
-              <!-- Email (Read-only) -->
               <div>
                 <label
                   for="email"
@@ -129,7 +139,6 @@
                 </p>
               </div>
 
-              <!-- Phone -->
               <div>
                 <label
                   for="phone"
@@ -148,7 +157,6 @@
                 ></div>
               </div>
 
-              <!-- Location -->
               <div>
                 <label
                   for="location"
@@ -167,7 +175,6 @@
                 ></div>
               </div>
 
-              <!-- Account Info -->
               <div id="service-description-field" class="hidden">
                 <label
                   for="service-description"
@@ -184,37 +191,6 @@
                 ></textarea>
               </div>
 
-              <!-- Account Info -->
-              <div class="bg-gray-50 p-4 rounded-lg">
-                <h3 class="font-semibold text-gray-900 mb-2">
-                  Account Information
-                </h3>
-                <div class="text-sm text-gray-600 space-y-1">
-                  <p>
-                    Role:
-                    <span
-                      id="account-role"
-                      class="font-semibold text-gray-900"
-                    ></span>
-                  </p>
-                  <p>
-                    Status:
-                    <span
-                      id="account-status"
-                      class="font-semibold text-gray-900"
-                    ></span>
-                  </p>
-                  <p>
-                    Member Since:
-                    <span
-                      id="account-created"
-                      class="font-semibold text-gray-900"
-                    ></span>
-                  </p>
-                </div>
-              </div>
-
-              <!-- Submit Button -->
               <div class="flex gap-3">
                 <button
                   type="submit"
@@ -232,96 +208,11 @@
               </div>
             </form>
           </div>
-
-          <!-- Danger Zone -->
-          <div class="bg-red-50 border border-red-200 rounded-lg p-6 mt-6">
-            <h3 class="text-lg font-bold text-red-900 mb-3">Danger Zone</h3>
-            <p class="text-red-700 text-sm mb-4">
-              These actions are permanent and cannot be undone.
-            </p>
-            <button
-              id="deactivate-btn"
-              class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium"
-            >
-              Deactivate Account
-            </button>
-          </div>
         </div>
       </div>
     </div>
-
-    <!-- Change Password Modal -->
-    <div
-      id="password-modal"
-      class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50"
-    >
-      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h2 class="text-xl font-bold text-gray-900 mb-4">Change Password</h2>
-        <form id="password-form" class="space-y-4">
-          <div>
-            <label
-              for="current-password"
-              class="block text-sm font-medium text-gray-700 mb-2"
-              >Current Password</label
-            >
-            <input
-              type="password"
-              id="current-password"
-              required
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label
-              for="new-password"
-              class="block text-sm font-medium text-gray-700 mb-2"
-              >New Password</label
-            >
-            <input
-              type="password"
-              id="new-password"
-              required
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <p class="text-gray-500 text-sm mt-1">At least 6 characters</p>
-          </div>
-          <div>
-            <label
-              for="confirm-password"
-              class="block text-sm font-medium text-gray-700 mb-2"
-              >Confirm Password</label
-            >
-            <input
-              type="password"
-              id="confirm-password"
-              required
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <div class="flex gap-3">
-            <button
-              type="submit"
-              class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
-            >
-              Update Password
-            </button>
-            <button
-              type="button"
-              id="password-cancel"
-              class="flex-1 bg-gray-300 text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-400 font-medium"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    </div>
     <div id="tab-frame-host" class="tab-frame-host hidden"></div>
 
-    <!-- Mobile app-style bottom navigation: rendered synchronously, same
-         reasoning as the sidebar above. -->
     <div id="app-bottom-nav"></div>
     <script>
       renderBottomNav("app");
@@ -331,37 +222,27 @@
       let currentUser = null;
 
       document.addEventListener("DOMContentLoaded", async () => {
-        if (!requireAuth()) return;
+        if (!requireAuth("profile")) return;
         await checkAuthentication();
-        // Re-run after the server round-trip resolves, in case the
-        // optimistic localStorage snapshot used for the instant render
-        // above was missing or stale (e.g. role changed elsewhere).
         renderAppShell({ active: "profile", bottomNavVariant: "app" });
 
         currentUser = getCurrentUser();
         if (!currentUser) return;
 
+        document.getElementById("edit-profile-btn").innerHTML = uiIcon("edit");
+
         await loadProfile();
 
-        // Setup event listeners
+        document
+          .getElementById("edit-profile-btn")
+          .addEventListener("click", showEditMode);
         document
           .getElementById("profile-form")
           .addEventListener("submit", saveProfile);
-        document
-          .getElementById("cancel-btn")
-          .addEventListener("click", loadProfile);
-        document
-          .getElementById("change-password-btn")
-          .addEventListener("click", showPasswordModal);
-        document
-          .getElementById("password-cancel")
-          .addEventListener("click", hidePasswordModal);
-        document
-          .getElementById("password-form")
-          .addEventListener("submit", changePassword);
-        document
-          .getElementById("deactivate-btn")
-          .addEventListener("click", deactivateAccount);
+        document.getElementById("cancel-btn").addEventListener("click", () => {
+          loadProfile();
+          showViewMode();
+        });
         document
           .getElementById("logout-btn")
           .addEventListener("click", async () => {
@@ -369,9 +250,16 @@
           });
       });
 
-      /**
-       * Load user profile
-       */
+      function showViewMode() {
+        document.getElementById("profile-edit").classList.add("hidden");
+        document.getElementById("profile-view").classList.remove("hidden");
+      }
+
+      function showEditMode() {
+        document.getElementById("profile-view").classList.add("hidden");
+        document.getElementById("profile-edit").classList.remove("hidden");
+      }
+
       async function loadProfile() {
         try {
           const response = await apiRequest("/api/users/profile");
@@ -394,22 +282,26 @@
             document.getElementById("email").value = user.email || "";
             document.getElementById("phone").value = user.phone || "";
             document.getElementById("location").value = user.location || "";
+
+            document.getElementById("view-email").textContent = user.email;
+            document.getElementById("view-phone").textContent =
+              user.phone || "-";
+            document.getElementById("view-location").textContent =
+              user.location || "-";
+
             if (user.role === "service_provider") {
               document
                 .getElementById("service-description-field")
                 .classList.remove("hidden");
               document.getElementById("service-description").value =
                 user.service_description || "";
-            }
 
-            document.getElementById("account-role").textContent = user.role
-              .replace("_", " ")
-              .toUpperCase();
-            document.getElementById("account-status").textContent =
-              user.status.toUpperCase();
-            document.getElementById("account-created").textContent = formatDate(
-              user.created_at,
-            );
+              document
+                .getElementById("view-service-description-field")
+                .classList.remove("hidden");
+              document.getElementById("view-service-description").textContent =
+                user.service_description || "Not provided yet.";
+            }
           }
         } catch (error) {
           console.error("Load profile error:", error);
@@ -417,9 +309,6 @@
         }
       }
 
-      /**
-       * Save profile changes
-       */
       async function saveProfile(e) {
         e.preventDefault();
 
@@ -431,7 +320,6 @@
             ? document.getElementById("service-description").value.trim()
             : undefined;
 
-        // Validation
         document.querySelectorAll('[id$="-error"]').forEach((el) => {
           el.classList.add("hidden");
         });
@@ -461,6 +349,14 @@
 
         if (hasError) return;
 
+        const confirmed = await confirmAction({
+          title: "Save profile changes?",
+          message:
+            "Your updated details will be visible to other marketplace users.",
+          confirmText: "Save changes",
+        });
+        if (!confirmed) return;
+
         try {
           const response = await apiRequest("/api/users/profile", {
             method: "PUT",
@@ -475,6 +371,7 @@
           if (response.success) {
             showNotification("Profile updated successfully", "success");
             await loadProfile();
+            showViewMode();
           } else {
             showNotification(
               response.message || "Failed to update profile",
@@ -485,84 +382,6 @@
           console.error("Save profile error:", error);
           showNotification("Failed to save profile", "error");
         }
-      }
-
-      /**
-       * Show password change modal
-       */
-      function showPasswordModal() {
-        document.getElementById("password-modal").classList.remove("hidden");
-      }
-
-      /**
-       * Hide password change modal
-       */
-      function hidePasswordModal() {
-        document.getElementById("password-modal").classList.add("hidden");
-        document.getElementById("password-form").reset();
-      }
-
-      /**
-       * Change password
-       */
-      async function changePassword(e) {
-        e.preventDefault();
-
-        const currentPassword =
-          document.getElementById("current-password").value;
-        const newPassword = document.getElementById("new-password").value;
-        const confirmPassword =
-          document.getElementById("confirm-password").value;
-
-        if (!currentPassword || !newPassword || !confirmPassword) {
-          showNotification("All fields are required", "warning");
-          return;
-        }
-
-        if (newPassword.length < 8) {
-          showNotification(
-            "New password must be at least 8 characters",
-            "warning",
-          );
-          return;
-        }
-
-        if (newPassword !== confirmPassword) {
-          showNotification("Passwords do not match", "warning");
-          return;
-        }
-
-        try {
-          const response = await apiRequest("/api/users/password", {
-            method: "PUT",
-            body: JSON.stringify({
-              currentPassword,
-              newPassword,
-              confirmPassword,
-            }),
-          });
-          showNotification(response.message, "success");
-          hidePasswordModal();
-        } catch (error) {
-          console.error("Change password error:", error);
-          showNotification("Failed to change password", "error");
-        }
-      }
-
-      /**
-       * Deactivate account
-       */
-      async function deactivateAccount() {
-        const confirmed = confirm(
-          "Are you sure you want to deactivate your account? This action cannot be undone and all your data will be removed from the platform.",
-        );
-
-        if (!confirmed) return;
-
-        showNotification(
-          "Self-service deactivation is not available. Please contact platform support.",
-          "info",
-        );
       }
     </script>
   </body>

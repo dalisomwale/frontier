@@ -73,12 +73,21 @@ const jsonRateLimitHandler = (req, res) => {
   });
 };
 
+// Rate limiting exists to slow down real attackers hitting a live,
+// internet-facing server - not to throttle local development, where a
+// developer (or automated testing) reusing the same machine's IP address
+// can otherwise burn through the whole budget in minutes and lock
+// themselves out for the rest of the window. Skip both limiters outside
+// production so that only matters for the deployed app.
+const isProduction = process.env.NODE_ENV === "production";
+
 // Scoped to /api only, so loading pages, scripts, and stylesheets during
 // normal browsing doesn't eat into the same budget as API calls.
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   handler: jsonRateLimitHandler,
+  skip: () => !isProduction,
 });
 
 // Applied only to /api/auth/login and /api/auth/register (see below),
@@ -91,6 +100,7 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   handler: jsonRateLimitHandler,
+  skip: () => !isProduction,
 });
 
 app.use("/api", limiter);

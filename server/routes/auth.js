@@ -63,7 +63,7 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    const validRoles = ["buyer", "seller", "service_provider"];
+    const validRoles = ["member", "service_provider"];
     if (!validRoles.includes(role)) {
       return res.status(400).json({
         success: false,
@@ -217,7 +217,8 @@ router.post("/forgot-password", async (req, res) => {
     return res.status(501).json({
       success: false,
       message:
-        "Password reset email is not configured. Please contact platform support.",
+        "Password reset email is not configured. Please contact platform developers.",
+
     });
   } catch (error) {
     console.error("Forgot password error:", error);

@@ -16,8 +16,17 @@
     <script src="../js/app-shell.js"></script>
   </head>
   <body class="bg-gray-50">
-    <!-- Navigation -->
-    <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
+    <!-- Desktop sidebar: rendered synchronously right here (not on
+         DOMContentLoaded) so it exists before the browser's first paint. -->
+    <div id="app-sidebar"></div>
+    <script>
+      renderSidebar("admin-dashboard");
+    </script>
+
+    <!-- Compact top bar: brand always visible, logout shown on mobile only
+         since the sidebar (desktop) and bottom nav (mobile) carry the rest
+         of the navigation. -->
+    <nav id="page-topnav" class="bg-white border-b border-gray-100 sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center gap-3">
@@ -31,7 +40,7 @@
           <div class="flex items-center gap-4">
             <a
               href="../dashboard.html"
-              class="hidden sm:inline text-gray-600 hover:text-gray-900 font-medium"
+              class="hidden sm:inline lg:hidden text-gray-600 hover:text-gray-900 font-medium"
               >User Dashboard</a
             >
             <button
@@ -45,55 +54,13 @@
       </div>
     </nav>
 
-    <!-- Admin Sidebar + Content -->
-    <div
-      class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col lg:flex-row gap-6"
-    >
-      <!-- Sidebar (desktop only - the bottom nav covers this on mobile) -->
-      <div class="hidden lg:block lg:w-64 flex-shrink-0">
-        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 lg:sticky lg:top-20">
-          <h2 class="text-lg font-bold text-gray-900 mb-4">Admin Menu</h2>
-          <nav class="space-y-2">
-            <a
-              href="index.html"
-              class="flex items-center gap-3 bg-blue-100 text-blue-600 px-4 py-2 rounded-lg font-medium"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-              Dashboard
-            </a>
-            <a
-              href="users.html"
-              class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.3 14.1c2.5.4 4.2 2.1 4.2 4.9"/></svg>
-              Manage Users
-            </a>
-            <a
-              href="listings.html"
-              class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M8 11h8M8 14.5h8M8 18h5"/></svg>
-              Moderate Listings
-            </a>
-            <a
-              href="reports.html"
-              class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></svg>
-              View Reports
-            </a>
-          </nav>
-        </div>
-      </div>
-
-      <!-- Main Content -->
-      <div class="flex-1 min-w-0">
+    <div class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 class="text-3xl font-bold text-gray-900 mb-6">
           Dashboard Overview
         </h1>
 
         <!-- Stats Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <!-- Total Users -->
           <div class="stat-tile">
             <span class="stat-tile-icon bg-blue-100 text-blue-600">
@@ -116,17 +83,6 @@
             </div>
           </div>
 
-          <!-- Pending Listings -->
-          <div class="stat-tile">
-            <span class="stat-tile-icon bg-yellow-100 text-yellow-700">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-            </span>
-            <div>
-              <p class="text-gray-600 text-sm font-medium">Pending Listings</p>
-              <p id="stat-pending-listings" class="text-3xl font-bold text-yellow-600">0</p>
-            </div>
-          </div>
-
           <!-- Pending Reports -->
           <div class="stat-tile">
             <span class="stat-tile-icon bg-red-100 text-red-600">
@@ -140,25 +96,13 @@
         </div>
 
         <!-- User Breakdown -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <!-- Buyers -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <!-- Members (can both buy and sell) -->
           <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Buyers</h3>
-            <p id="stat-buyers" class="text-4xl font-bold text-blue-600">0</p>
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Members</h3>
+            <p id="stat-members" class="text-4xl font-bold text-blue-600">0</p>
             <a
-              href="users.html?role=buyer"
-              class="text-blue-600 hover:text-blue-700 text-sm font-medium mt-3 inline-block"
-            >
-              View All →
-            </a>
-          </div>
-
-          <!-- Sellers -->
-          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Sellers</h3>
-            <p id="stat-sellers" class="text-4xl font-bold text-green-600">0</p>
-            <a
-              href="users.html?role=seller"
+              href="users.html?role=member"
               class="text-blue-600 hover:text-blue-700 text-sm font-medium mt-3 inline-block"
             >
               View All →
@@ -185,15 +129,7 @@
         <!-- Quick Actions -->
         <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
           <h2 class="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <a
-              href="listings.html?status=pending"
-              class="bg-yellow-50 border border-yellow-200 hover:border-yellow-400 rounded-lg p-4 text-center transition"
-            >
-              <p class="font-semibold text-gray-900">Review Pending</p>
-              <p class="text-sm text-gray-600">Approve or reject listings</p>
-            </a>
-
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <a
               href="users.html?status=suspended"
               class="bg-red-50 border border-red-200 hover:border-red-400 rounded-lg p-4 text-center transition"
@@ -236,7 +172,6 @@
             powers may result in account termination.
           </p>
         </div>
-      </div>
     </div>
 
     <!-- Mobile app-style bottom navigation: rendered synchronously, right
@@ -285,16 +220,12 @@
               stats.users || 0;
             document.getElementById("stat-active-listings").textContent =
               stats.active_listings || 0;
-            document.getElementById("stat-pending-listings").textContent =
-              stats.pending_listings || 0;
             document.getElementById("stat-pending-reports").textContent =
               stats.pending_reports || 0;
 
             // User breakdown
-            document.getElementById("stat-buyers").textContent =
-              stats.buyers || 0;
-            document.getElementById("stat-sellers").textContent =
-              stats.sellers || 0;
+            document.getElementById("stat-members").textContent =
+              stats.members || 0;
             document.getElementById("stat-providers").textContent =
               stats.service_providers || 0;
           } else {

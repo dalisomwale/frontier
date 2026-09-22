@@ -58,7 +58,7 @@ Frontier Marketplace is an online platform for Frontier Farms & Consult Ltd that
 
 ### Seller Features
 
-- Create livestock listings with descriptions
+- Create livestock listings with descriptions - listings go live immediately, no admin approval required
 - Upload multiple images and videos
 - Upload supporting documents (PDF)
 - Manage listings (edit, pause, deactivate, delete)
@@ -67,6 +67,7 @@ Frontier Marketplace is an online platform for Frontier Farms & Consult Ltd that
 
 ### Buyer Features
 
+- Browse listings and message sellers directly - no separate buyer dashboard
 - Search and filter listings
 - View listing details with media
 - Send inquiries to sellers
@@ -77,7 +78,7 @@ Frontier Marketplace is an online platform for Frontier Farms & Consult Ltd that
 
 - Dashboard with marketplace statistics
 - User management (suspend, activate)
-- Listing moderation (approve, reject)
+- Listing moderation (activate, deactivate)
 - Report management
 
 ### Real-time Messaging
@@ -177,7 +178,7 @@ frontier-marketplace/
 │   ├── admin/                       # Admin pages
 │   │   ├── index.html               # Admin dashboard
 │   │   ├── users.html               # User management
-│   │   ├── listings.html            # Listing moderation
+│   │   ├── listings.html            # Listing moderation (activate/deactivate)
 │   │   └── reports.html             # Report management
 │   ├── css/
 │   │   └── style.css                # Custom styles
@@ -254,8 +255,7 @@ frontier-marketplace/
 - `GET /api/admin/users` - Get users
 - `PATCH /api/admin/users/:id/status` - Suspend/activate user
 - `GET /api/admin/listings` - Get all listings
-- `PATCH /api/admin/listings/:id/approve` - Approve listing
-- `PATCH /api/admin/listings/:id/reject` - Reject listing
+- `PATCH /api/admin/listings/:id/status` - Activate/deactivate listing
 - `GET /api/admin/reports` - Get reports
 - `PATCH /api/admin/reports/:id` - Update report status
 
@@ -332,9 +332,7 @@ Before deploying to production:
 ### Listings
 
 - [ ] Seller creates listing
-- [ ] Listing appears as pending
-- [ ] Admin approves listing
-- [ ] Listing appears public after approval
+- [ ] Listing appears publicly immediately, with no approval step
 - [ ] Seller can edit own listing
 - [ ] Seller cannot edit other listings
 - [ ] Buyer can view listings
@@ -365,7 +363,7 @@ Before deploying to production:
 ### Admin Features
 
 - [ ] View dashboard statistics
-- [ ] Approve/reject listings
+- [ ] Activate/deactivate listings
 - [ ] Suspend users
 - [ ] View reports
 
@@ -398,7 +396,7 @@ All rights reserved. Frontier Farms & Consult Ltd.
 - [x] Listing creation and management
 - [x] Media uploads (images, videos, documents)
 - [x] Real-time messaging with Socket.IO
-- [x] Admin moderation tools
+- [x] Direct listing publishing with admin moderation tools for reported content
 - [x] Responsive design with Tailwind CSS
 - [x] Production-ready security
 - [x] Empty database at startup

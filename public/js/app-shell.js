@@ -41,7 +41,9 @@ function renderBottomNav(variant = "public") {
       { href: "/dashboard.html", icon: "home", label: "Site", active: false },
     ],
     // Signed-in app pages (Dashboard/Messages/Profile): no Marketplace tab -
-    // those pages are about managing your own account, not browsing.
+    // those pages are about managing your own account, not browsing. Every
+    // member can both buy and sell from the same account, so everyone gets
+    // the same tabs here.
     app: [
       {
         href: "/dashboard.html",
@@ -116,19 +118,32 @@ function renderSidebar(active) {
   mount.classList.add("app-sidebar");
 
   const user = getCurrentUser();
-  const items = [
-    { key: "dashboard", href: "/dashboard.html", icon: "dashboard", label: "Overview" },
-    { key: "messages", href: "/messages.html", icon: "messages", label: "Messages" },
-  ];
-  if (user?.role === "seller") {
-    items.push({
-      key: "listings",
-      href: "/listing.html?mine=1",
-      icon: "listings",
-      label: "My Listings",
-    });
+  const isAdminSection = window.location.pathname.startsWith("/admin/");
+
+  let items;
+  if (isAdminSection) {
+    items = [
+      { key: "admin-dashboard", href: "/admin/index.html", icon: "dashboard", label: "Dashboard" },
+      { key: "admin-users", href: "/admin/users.html", icon: "users", label: "Manage Users" },
+      { key: "admin-listings", href: "/admin/listings.html", icon: "listings", label: "Moderate Listings" },
+      { key: "admin-reports", href: "/admin/reports.html", icon: "reports", label: "View Reports" },
+      { key: "admin-back", href: "/dashboard.html", icon: "home", label: "Back to Site" },
+    ];
+  } else {
+    items = [
+      { key: "dashboard", href: "/dashboard.html", icon: "dashboard", label: "Overview" },
+      { key: "messages", href: "/messages.html", icon: "messages", label: "Messages" },
+    ];
+    if (user?.role === "member") {
+      items.push({
+        key: "listings",
+        href: "/listing.html?mine=1",
+        icon: "listings",
+        label: "My Listings",
+      });
+    }
+    items.push({ key: "profile", href: "/profile.html", icon: "profile", label: "Profile" });
   }
-  items.push({ key: "profile", href: "/profile.html", icon: "profile", label: "Profile" });
 
   mount.innerHTML = `
     <div class="app-sidebar-brand">

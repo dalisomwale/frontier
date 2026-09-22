@@ -8,6 +8,13 @@
   --warning-color: #f59e0b;
   --light-bg: #f9fafb;
   --border-color: #e5e7eb;
+  --sidebar-bg: #0b2a5e;
+  --sidebar-bg-hover: rgba(255, 255, 255, 0.08);
+  --sidebar-bg-active: rgba(255, 255, 255, 0.14);
+  --sidebar-text: rgba(255, 255, 255, 0.72);
+  --sidebar-text-active: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-accent: #60a5fa;
 }
 
 * {
@@ -459,6 +466,151 @@ body {
   border-color: var(--primary-color);
 }
 
+/* Small inline icon used next to listing card text (e.g. location) */
+.meta-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: #9ca3af;
+}
+
+.meta-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ==========================================================================
+   Listing image gallery: a single frame with prev/next controls instead of
+   a thumbnail strip, so all listing photos share one consistent viewport.
+   ========================================================================== */
+.gallery-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #d1d5db;
+  overflow: hidden;
+}
+
+.gallery-frame img,
+.gallery-frame video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gallery-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  color: #1f2937;
+}
+
+.gallery-nav svg {
+  width: 18px;
+  height: 18px;
+}
+
+.gallery-nav:hover {
+  background: #fff;
+}
+
+.gallery-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.gallery-nav-prev {
+  left: 10px;
+}
+
+.gallery-nav-next {
+  right: 10px;
+}
+
+.gallery-dots {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.gallery-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.6);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.gallery-dot.active {
+  background: #fff;
+  width: 18px;
+}
+
+.gallery-favorite {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  color: #374151;
+}
+
+.gallery-favorite svg {
+  width: 20px;
+  height: 20px;
+}
+
+.gallery-favorite.active {
+  color: #ef4444;
+}
+
+.gallery-favorite.active svg {
+  fill: #ef4444;
+}
+
+/* ==========================================================================
+   Seller "My Listings" cards: a top-right kebab menu with Edit/Delete
+   ========================================================================== */
+.listing-menu-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Chat conversation header: back-to-list arrow on phone screens */
+#close-chat svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Profile page: pencil icon that reveals the edit form */
+#edit-profile-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
 /* Hero banner: auto-transitioning photo slideshow behind a fixed gradient */
 .hero-photo {
   position: relative;
@@ -601,8 +753,8 @@ body {
     left: 0;
     bottom: 0;
     width: 250px;
-    background: #ffffff;
-    border-right: 1px solid var(--border-color);
+    background: var(--sidebar-bg);
+    box-shadow: 1px 0 0 rgba(0, 0, 0, 0.08);
     display: flex;
     flex-direction: column;
     z-index: 40;
@@ -616,8 +768,22 @@ body {
     margin-left: 250px !important;
   }
 
-  body:has(#app-sidebar) .tab-frame-host {
+  body:has(.app-sidebar) .tab-frame-host {
     margin-left: 250px !important;
+  }
+
+  /* The sidebar already carries the brand mark and (in its footer) a
+     logout control, so the top bar - otherwise just a duplicate logo
+     plus a mobile-only logout button - is redundant chrome on desktop.
+     Without this, its full-width sticky bar (z-index 50) painted over
+     the sidebar's own brand block (z-index 40) at the same top-left
+     corner, showing two overlapping logos. */
+  body:has(.app-sidebar) #page-topnav {
+    display: none;
+  }
+
+  body:has(.app-sidebar) .tab-frame {
+    height: 100vh;
   }
 }
 
@@ -670,8 +836,8 @@ html.embedded-tab body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 20px;
+  border-bottom: 1px solid var(--sidebar-border);
 }
 
 .app-sidebar-nav {
@@ -689,12 +855,13 @@ html.embedded-tab body {
   gap: 12px;
   padding: 10px 12px;
   border-radius: 10px;
-  color: #4b5563;
+  color: var(--sidebar-text);
   font-weight: 500;
   font-size: 0.925rem;
   text-align: left;
   background: transparent;
   border: none;
+  border-left: 3px solid transparent;
   cursor: pointer;
 }
 
@@ -708,17 +875,19 @@ html.embedded-tab body {
 
 .app-sidebar-nav a:hover,
 .app-sidebar-nav button:hover {
-  background: #f3f4f6;
+  background: var(--sidebar-bg-hover);
+  color: var(--sidebar-text-active);
 }
 
 .app-sidebar-nav a.active {
-  background: #eff6ff;
-  color: var(--primary-color);
+  background: var(--sidebar-bg-active);
+  color: var(--sidebar-text-active);
+  border-left-color: var(--sidebar-accent);
 }
 
 .app-sidebar-footer {
   padding: 12px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--sidebar-border);
 }
 
 .app-sidebar-footer button {
@@ -728,11 +897,16 @@ html.embedded-tab body {
   gap: 10px;
   padding: 10px 12px;
   border-radius: 10px;
-  color: #b91c1c;
+  color: #fca5a5;
   font-weight: 500;
-  background: #fef2f2;
+  background: rgba(239, 68, 68, 0.14);
   border: none;
   cursor: pointer;
+}
+
+.app-sidebar-footer button:hover {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fecaca;
 }
 
 /* Utility Classes */

@@ -8,30 +8,30 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <link rel="stylesheet" href="css/style.css" />
-    <!-- Loaded blocking, in <head>, so the sidebar/bottom-nav below can be
-         painted on first render instead of popping in after the page has
-         already shown without them (that flash is what made switching
-         between Dashboard/Messages/Profile feel like a reload/glitch). -->
     <script src="/js/main.js"></script>
     <script src="/js/auth.js"></script>
     <script src="/js/species.js"></script>
     <script src="/js/app-shell.js"></script>
   </head>
   <body class="bg-gray-50">
-    <!-- Desktop sidebar: rendered synchronously right here (not on
-         DOMContentLoaded) so it exists before the browser's first paint. -->
     <div id="app-sidebar"></div>
     <script>
       renderSidebar("messages");
     </script>
 
-    <nav id="page-topnav" class="bg-white border-b border-gray-100 sticky top-0 z-50">
+    <nav
+      id="page-topnav"
+      class="bg-white border-b border-gray-100 sticky top-0 z-50"
+    >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center gap-3">
             <a href="/" class="flex items-center gap-3">
               <div class="brand-mark-full">
-                <img src="images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
+                <img
+                  src="images/logo-full.jpg"
+                  alt="Frontier Farms &amp; Consult"
+                />
               </div>
             </a>
           </div>
@@ -49,87 +49,113 @@
     </nav>
 
     <div id="tab-self-content">
-    <!-- Main Content -->
-    <div
-      class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-[calc(100vh-120px)] flex gap-4"
-    >
-      <!-- Conversations List -->
-      <div class="w-full lg:w-80 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col">
-        <div class="border-b p-4">
-          <h2 class="text-lg font-bold text-gray-900">Messages</h2>
-          <p class="text-sm text-gray-600 mt-1">
-            <span id="unread-count">0</span> unread messages
-          </p>
-        </div>
-
-        <div id="conversations-list" class="flex-1 overflow-y-auto">
-          <div class="p-4">
-            <p class="text-gray-600 text-center">Loading conversations...</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Message Area -->
       <div
-        id="message-area"
-        class="hidden flex-1 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col"
+        class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
       >
-        <!-- Conversation Header -->
-        <div class="border-b p-4 flex items-center justify-between">
-          <div>
-            <h3
-              id="conversation-title"
-              class="text-lg font-bold text-gray-900"
-            ></h3>
-            <p id="user-status" class="text-sm text-gray-600 mt-1"></p>
+        <h1 class="text-3xl font-bold text-gray-900 mb-8">My Messages</h1>
+
+        <div class="h-[calc(100vh-252px)] flex gap-4">
+          <div
+            id="conversations-panel"
+            class="w-full lg:w-80 lg:flex bg-white rounded-xl border border-gray-100 shadow-sm flex-col"
+          >
+            <div class="border-b flex">
+              <button
+                type="button"
+                id="chats-subtab-btn"
+                class="flex-1 min-w-0 flex items-center justify-center gap-2 px-2 py-3 text-sm font-semibold border-b-2 border-blue-600 text-blue-600 transition"
+              >
+                <span class="truncate">My Chats</span>
+                <span
+                  id="chats-count-badge"
+                  class="bg-blue-100 text-blue-700 text-xs font-bold min-w-[20px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+                  >0</span
+                >
+              </button>
+              <button
+                type="button"
+                id="inquiries-subtab-btn"
+                class="flex-1 min-w-0 flex items-center justify-center gap-2 px-2 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition"
+              >
+                <span class="truncate">Inquiries</span>
+                <span
+                  id="inquiries-count-badge"
+                  class="bg-gray-100 text-gray-600 text-xs font-bold min-w-[20px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+                  >0</span
+                >
+              </button>
+            </div>
+
+            <div id="conversations-list" class="flex-1 overflow-y-auto">
+              <div class="p-4">
+                <p class="text-gray-600 text-center">
+                  Loading conversations...
+                </p>
+              </div>
+            </div>
           </div>
-          <button id="close-chat" class="text-gray-600 hover:text-gray-900">
-            <span class="text-xl">×</span>
-          </button>
-        </div>
 
-        <!-- Messages Display -->
-        <div
-          id="messages-container"
-          class="flex-1 overflow-y-auto p-4 bg-gray-50"
-        >
-          <!-- Messages will be rendered here -->
-        </div>
+          <div
+            id="message-area"
+            class="hidden flex-1 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col"
+          >
+            <div class="border-b p-4 flex items-center gap-3">
+              <button
+                id="close-chat"
+                class="text-gray-600 hover:text-gray-900 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 flex-shrink-0"
+                aria-label="Back to chats"
+              ></button>
+              <div
+                class="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0"
+                id="conversation-avatar"
+              ></div>
+              <div class="min-w-0">
+                <h3
+                  id="conversation-title"
+                  class="text-lg font-bold text-gray-900 truncate"
+                ></h3>
+                <p id="user-status" class="text-sm text-gray-600"></p>
+              </div>
+            </div>
 
-        <!-- Message Input -->
-        <div class="border-t p-4 bg-white">
-          <form id="message-form" class="flex gap-2">
-            <input
-              id="message-input"
-              type="text"
-              placeholder="Type a message..."
-              class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button
-              type="submit"
-              class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
-            >
-              Send
-            </button>
-          </form>
+            <div
+              id="messages-container"
+              class="flex-1 overflow-y-auto p-4 bg-gray-50"
+            ></div>
+
+            <div class="border-t p-4 bg-white">
+              <form id="message-form" class="flex gap-2">
+                <input
+                  id="message-input"
+                  type="text"
+                  placeholder="Type a message..."
+                  class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  type="submit"
+                  class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  Send
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div
+            id="empty-state"
+            class="max-lg:hidden flex-1 flex items-center justify-center"
+          >
+            <div class="text-center">
+              <p class="text-gray-600 text-lg">
+                Select a conversation to start messaging
+              </p>
+            </div>
+          </div>
         </div>
       </div>
-
-      <!-- Empty State -->
-      <div id="empty-state" class="flex-1 flex items-center justify-center">
-        <div class="text-center">
-          <p class="text-gray-600 text-lg">
-            Select a conversation to start messaging
-          </p>
-        </div>
-      </div>
-    </div>
-
     </div>
     <div id="tab-frame-host" class="tab-frame-host hidden"></div>
 
-    <!-- Mobile app-style bottom navigation: rendered synchronously, same
-         reasoning as the sidebar above. -->
     <div id="app-bottom-nav"></div>
     <script>
       renderBottomNav("app");
@@ -140,24 +166,21 @@
       let currentUserId = null;
       let selectedConversationUser = null;
       let conversationMessages = [];
+      let conversationsData = [];
+      let inquiriesData = [];
+      let activeSubtab = "chats";
 
       document.addEventListener("DOMContentLoaded", async () => {
-        if (!requireAuth()) return;
+        if (!requireAuth("chat")) return;
         await checkAuthentication();
-        // Re-run after the server round-trip resolves, in case the
-        // optimistic localStorage snapshot used for the instant render
-        // above was missing or stale (e.g. role changed elsewhere).
         renderAppShell({ active: "messages", bottomNavVariant: "app" });
 
         currentUserId = getCurrentUser().id;
+        document.getElementById("close-chat").innerHTML = uiIcon("chevronLeft");
 
-        // Initialize Socket.IO
         initializeSocket();
+        await Promise.all([loadConversations(), loadInquiries()]);
 
-        // Load conversations
-        await loadConversations();
-
-        // Setup event listeners
         document
           .getElementById("message-form")
           .addEventListener("submit", sendMessage);
@@ -169,104 +192,69 @@
           .addEventListener("click", async () => {
             await logout();
           });
+        document
+          .getElementById("chats-subtab-btn")
+          .addEventListener("click", () => setActiveSubtab("chats"));
+        document
+          .getElementById("inquiries-subtab-btn")
+          .addEventListener("click", () => setActiveSubtab("inquiries"));
 
-        // Check if opening conversation from URL param
         const params = getQueryParams();
-        if (params.seller) {
-          await selectConversation(params.seller);
-        }
+        if (params.seller) await selectConversation(params.seller);
       });
 
-      /**
-       * Initialize Socket.IO connection
-       */
       function initializeSocket() {
         socket = io();
-
         socket.on("connect", () => {
           console.log("Connected to messaging server");
           socket.emit("user_join", { userId: currentUserId });
         });
-
         socket.on("receive_message", (data) => {
           if (data.sender_id === selectedConversationUser) {
             conversationMessages.push(data);
             renderMessages();
             scrollToBottom();
           }
-          // Reload conversations to show unread count
           loadConversations();
         });
-
         socket.on("user_online", (data) => {
-          if (data.userId === selectedConversationUser) {
+          if (data.userId === selectedConversationUser)
             updateUserStatus("Online");
-          }
         });
-
         socket.on("user_offline", (data) => {
-          if (data.userId === selectedConversationUser) {
+          if (data.userId === selectedConversationUser)
             updateUserStatus("Offline");
-          }
         });
-
         socket.on("disconnect", () => {
           console.log("Disconnected from messaging server");
         });
       }
 
-      /**
-       * Load conversations list
-       */
+      function setActiveSubtab(tab) {
+        activeSubtab = tab;
+        const isChats = tab === "chats";
+        const chatsBtn = document.getElementById("chats-subtab-btn");
+        const inquiriesBtn = document.getElementById("inquiries-subtab-btn");
+        chatsBtn.classList.toggle("border-blue-600", isChats);
+        chatsBtn.classList.toggle("text-blue-600", isChats);
+        chatsBtn.classList.toggle("border-transparent", !isChats);
+        chatsBtn.classList.toggle("text-gray-500", !isChats);
+        inquiriesBtn.classList.toggle("border-blue-600", !isChats);
+        inquiriesBtn.classList.toggle("text-blue-600", !isChats);
+        inquiriesBtn.classList.toggle("border-transparent", isChats);
+        inquiriesBtn.classList.toggle("text-gray-500", isChats);
+        if (isChats) renderConversations();
+        else renderInquiries();
+      }
+
       async function loadConversations() {
         try {
           const response = await apiRequest("/api/messages");
-
           if (response.success) {
-            const conversations = response.data || [];
-
-            // Count unread messages
-            const unreadCount = conversations.reduce(
-              (sum, conv) => sum + (conv.unread_count || 0),
-              0,
-            );
-            document.getElementById("unread-count").textContent = unreadCount;
-
-            // Render conversations
-            const conversationsList =
-              document.getElementById("conversations-list");
-            if (conversations.length === 0) {
-              conversationsList.innerHTML = `
-              <div class="p-4">
-                <p class="text-gray-600 text-center">No conversations yet</p>
-                <p class="text-gray-500 text-sm text-center mt-2">Contact sellers by sending them inquiries or messages</p>
-              </div>
-            `;
-              return;
-            }
-
-            conversationsList.innerHTML = conversations
-              .map(
-                (conv) => `
-            <div 
-              class="border-b px-4 py-3 hover:bg-gray-50 cursor-pointer transition ${selectedConversationUser === conv.other_user_id ? "bg-blue-50" : ""}"
-              onclick="selectConversation(${conv.other_user_id})"
-            >
-              <div class="flex items-start gap-3">
-                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0">
-                  ${escapeHtml((conv.user_name || "?").trim().charAt(0).toUpperCase())}
-                </div>
-                <div class="flex-1 min-w-0">
-                  <h4 class="font-semibold text-gray-900">${escapeHtml(conv.user_name)}</h4>
-                  <p class="text-sm text-gray-600 truncate">${escapeHtml(conv.last_message || "No messages yet")}</p>
-                  <p class="text-xs text-gray-500 mt-1">${formatDateShort(conv.last_message_time || conv.created_at)}</p>
-                </div>
-                ${conv.unread_count ? `<span class="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">${conv.unread_count}</span>` : ""}
-              </div>
-            </div>
-          `,
-              )
-              .join("");
+            conversationsData = response.data || [];
+            document.getElementById("chats-count-badge").textContent =
+              conversationsData.length;
+            if (activeSubtab === "chats") renderConversations();
           }
         } catch (error) {
           console.error("Load conversations error:", error);
@@ -274,43 +262,136 @@
         }
       }
 
-      /**
-       * Select conversation
-       */
+      function renderConversations() {
+        const conversationsList = document.getElementById("conversations-list");
+        if (conversationsData.length === 0) {
+          conversationsList.innerHTML = `
+              <div class="p-4">
+                <p class="text-gray-600 text-center">No conversations yet</p>
+                <p class="text-gray-500 text-sm text-center mt-2">Contact sellers by sending them inquiries or messages</p>
+              </div>
+            `;
+          return;
+        }
+
+        conversationsList.innerHTML = conversationsData
+          .map(
+            (conv) => `
+            <div class="flex items-center gap-3 px-4 py-3 border-b border-l-4 hover:bg-gray-50 cursor-pointer transition ${selectedConversationUser === conv.other_user_id ? "bg-blue-50 border-l-blue-600" : "border-l-transparent"}"
+              onclick="selectConversation(${conv.other_user_id})">
+              <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-lg flex-shrink-0">
+                ${escapeHtml((conv.user_name || "?").trim().charAt(0).toUpperCase())}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                  <h4 class="font-semibold text-gray-900 truncate">${escapeHtml(conv.user_name)}</h4>
+                  <span class="text-xs text-gray-500 flex-shrink-0">${formatDateShort(conv.last_message_time || conv.created_at)}</span>
+                </div>
+                <div class="flex items-center justify-between gap-2 mt-0.5">
+                  <p class="text-sm text-gray-600 truncate">${escapeHtml(conv.last_message || "No messages yet")}</p>
+                  ${conv.unread_count ? `<span class="bg-blue-600 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full flex-shrink-0">${conv.unread_count}</span>` : ""}
+                </div>
+              </div>
+            </div>
+          `,
+          )
+          .join("");
+      }
+
+      async function loadInquiries() {
+        try {
+          const response = await apiRequest("/api/inquiries");
+          if (response.success) {
+            inquiriesData = response.data || [];
+            const openCount = inquiriesData.filter(
+              (inquiry) => inquiry.status !== "closed",
+            ).length;
+            document.getElementById("inquiries-count-badge").textContent =
+              openCount;
+            if (activeSubtab === "inquiries") renderInquiries();
+          }
+        } catch (error) {
+          console.error("Load inquiries error:", error);
+          showNotification("Failed to load inquiries", "error");
+        }
+      }
+
+      function renderInquiries() {
+        const conversationsList = document.getElementById("conversations-list");
+        if (inquiriesData.length === 0) {
+          conversationsList.innerHTML = `
+              <div class="p-4">
+                <p class="text-gray-600 text-center">No inquiries yet</p>
+                <p class="text-gray-500 text-sm text-center mt-2">Buying inquiries on your listings, and any you've sent, will appear here</p>
+              </div>
+            `;
+          return;
+        }
+
+        const statusStyles = {
+          pending: "bg-yellow-100 text-yellow-800",
+          responded: "bg-blue-100 text-blue-800",
+          closed: "bg-gray-200 text-gray-600",
+        };
+
+        conversationsList.innerHTML = inquiriesData
+          .map((inquiry) => {
+            const otherUserId =
+              inquiry.buyer_id === currentUserId
+                ? inquiry.seller_id
+                : inquiry.buyer_id;
+            return `
+            <div class="flex items-center gap-3 px-4 py-3 border-b hover:bg-gray-50 cursor-pointer transition"
+              onclick="selectConversation(${otherUserId})">
+              <div class="w-12 h-12 rounded-full bg-green-100 text-green-700 flex items-center justify-center flex-shrink-0">
+                ${uiIcon("messages")}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                  <h4 class="font-semibold text-gray-900 truncate">${escapeHtml(inquiry.listing_title)}</h4>
+                  <span class="text-xs text-gray-500 flex-shrink-0">${formatDateShort(inquiry.created_at)}</span>
+                </div>
+                <div class="flex items-center justify-between gap-2 mt-0.5">
+                  <p class="text-sm text-gray-600 truncate">${escapeHtml(inquiry.message)}</p>
+                  <span class="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 capitalize ${statusStyles[inquiry.status] || "bg-gray-100 text-gray-600"}">${inquiry.status}</span>
+                </div>
+              </div>
+            </div>
+          `;
+          })
+          .join("");
+      }
+
       async function selectConversation(userId) {
         selectedConversationUser = userId;
         conversationMessages = [];
 
         document.getElementById("message-area").classList.remove("hidden");
         document.getElementById("empty-state").classList.add("hidden");
+        document.getElementById("conversations-panel").classList.add("hidden");
 
-        // Reload conversations to highlight selected
         await loadConversations();
-
-        // Load message history
         await loadMessages(userId);
-
         document.getElementById("message-input").focus();
       }
 
-      /**
-       * Load message history
-       */
       async function loadMessages(userId) {
         try {
           const response = await apiRequest(`/api/messages/${userId}`);
-
           if (response.success) {
             conversationMessages = response.data || [];
-
-            // Get user info
             const userResponse = await apiRequest(`/api/users/${userId}`);
             if (userResponse.success) {
               document.getElementById("conversation-title").textContent =
                 userResponse.data.name;
+              document.getElementById("conversation-avatar").textContent = (
+                userResponse.data.name || "?"
+              )
+                .trim()
+                .charAt(0)
+                .toUpperCase();
               updateUserStatus("Online");
             }
-
             renderMessages();
             scrollToBottom();
           }
@@ -320,12 +401,8 @@
         }
       }
 
-      /**
-       * Render messages
-       */
       function renderMessages() {
         const container = document.getElementById("messages-container");
-
         if (conversationMessages.length === 0) {
           container.innerHTML = `
           <div class="flex items-center justify-center h-full">
@@ -353,17 +430,12 @@
           .join("");
       }
 
-      /**
-       * Send message
-       */
       async function sendMessage(e) {
         e.preventDefault();
-
         if (!selectedConversationUser) return;
 
         const messageInput = document.getElementById("message-input");
         const message = messageInput.value.trim();
-
         if (!message) return;
 
         try {
@@ -377,8 +449,6 @@
 
           if (response.success) {
             messageInput.value = "";
-
-            // Add message to local array
             conversationMessages.push({
               sender_id: currentUserId,
               recipient_id: selectedConversationUser,
@@ -386,7 +456,6 @@
               created_at: new Date().toISOString(),
               is_read: false,
             });
-
             renderMessages();
             scrollToBottom();
           } else {
@@ -401,30 +470,24 @@
         }
       }
 
-      /**
-       * Close conversation
-       */
       function closeConversation() {
         selectedConversationUser = null;
         conversationMessages = [];
         document.getElementById("message-area").classList.add("hidden");
         document.getElementById("empty-state").classList.remove("hidden");
+        document
+          .getElementById("conversations-panel")
+          .classList.remove("hidden");
         loadConversations();
+        loadInquiries();
       }
 
-      /**
-       * Update user online status
-       */
       function updateUserStatus(status) {
         const userStatusEl = document.getElementById("user-status");
-        if (userStatusEl) {
+        if (userStatusEl)
           userStatusEl.textContent = status === "Online" ? "Online" : "Offline";
-        }
       }
 
-      /**
-       * Scroll to bottom of messages
-       */
       function scrollToBottom() {
         const container = document.getElementById("messages-container");
         container.scrollTop = container.scrollHeight;

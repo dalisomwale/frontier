@@ -55,14 +55,11 @@ const isAdmin = (req, res, next) => {
   return hasRole("admin")(req, res, next);
 };
 
-// Check if user is seller
-const isSeller = (req, res, next) => {
-  return hasRole("seller")(req, res, next);
-};
-
-// Check if user is buyer
-const isBuyer = (req, res, next) => {
-  return hasRole("buyer")(req, res, next);
+// Check if user is a member - the single marketplace-participant role that
+// can both buy and sell from the same account (there is no separate
+// buyer/seller distinction).
+const isMember = (req, res, next) => {
+  return hasRole("member")(req, res, next);
 };
 
 // Check if user is service provider
@@ -74,7 +71,6 @@ module.exports = {
   isAuthenticated,
   hasRole,
   isAdmin,
-  isSeller,
-  isBuyer,
+  isMember,
   isServiceProvider,
 };

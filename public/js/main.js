@@ -42,7 +42,6 @@ async function apiRequest(url, options = {}) {
  * Show notification
  */
 function showNotification(message, type = "info") {
-  // Create notification element
   const notification = document.createElement("div");
   notification.className = `fixed top-4 right-4 p-4 rounded-lg text-white shadow-lg z-50 notification-${type}`;
 
@@ -60,7 +59,6 @@ function showNotification(message, type = "info") {
 
   document.body.appendChild(notification);
 
-  // Remove after 3 seconds
   setTimeout(() => {
     notification.remove();
   }, 3000);
@@ -171,7 +169,6 @@ function createPagination(currentPage, totalPages, onPageChange) {
   const pagination = document.createElement("div");
   pagination.className = "flex justify-center items-center gap-2 mt-8";
 
-  // Previous button
   const prevBtn = document.createElement("button");
   prevBtn.className =
     "px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50";
@@ -180,7 +177,6 @@ function createPagination(currentPage, totalPages, onPageChange) {
   prevBtn.addEventListener("click", () => onPageChange(currentPage - 1));
   pagination.appendChild(prevBtn);
 
-  // Page numbers
   for (
     let i = Math.max(1, currentPage - 2);
     i <= Math.min(totalPages, currentPage + 2);
@@ -193,7 +189,6 @@ function createPagination(currentPage, totalPages, onPageChange) {
     pagination.appendChild(pageBtn);
   }
 
-  // Next button
   const nextBtn = document.createElement("button");
   nextBtn.className =
     "px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50";
@@ -272,14 +267,12 @@ function showModal(title, content, buttons = []) {
 
   document.body.appendChild(modal);
 
-  // Close modal
   function closeModal() {
     modal.remove();
   }
 
   document.getElementById("btn-cancel").addEventListener("click", closeModal);
 
-  // Add button event listeners
   buttons.forEach((btn) => {
     const btnElement = document.getElementById(`btn-${btn.id}`);
     if (btnElement) {
@@ -293,6 +286,75 @@ function showModal(title, content, buttons = []) {
   });
 
   return closeModal;
+}
+
+/**
+ * Promise-based confirmation dialog. Replaces window.confirm() so
+ * destructive and irreversible actions get a styled prompt that matches the
+ * rest of the UI and is keyboard-accessible.
+ *
+ * Resolves true when the user confirms, false when they cancel, press
+ * Escape, click the backdrop, or press Enter on the cancel path.
+ *
+ *   if (!(await confirmAction({ title: "Delete?", message: "Cannot be undone.", variant: "danger", confirmText: "Delete" }))) return;
+ */
+function confirmAction({
+  title = "Are you sure?",
+  message = "",
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  variant = "primary",
+} = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className =
+      "fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 p-4";
+
+    const confirmClass =
+      variant === "danger"
+        ? "bg-red-600 hover:bg-red-700 text-white"
+        : "bg-blue-600 hover:bg-blue-700 text-white";
+
+    overlay.innerHTML = `
+      <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6" role="dialog" aria-modal="true" aria-labelledby="confirm-action-title">
+        <h3 id="confirm-action-title" class="text-lg font-bold text-gray-900 mb-2">${escapeHtml(title)}</h3>
+        ${message ? `<p class="text-sm text-gray-600 mb-6 whitespace-pre-line">${escapeHtml(message)}</p>` : `<div class="mb-6"></div>`}
+        <div class="flex gap-3 justify-end">
+          <button type="button" data-confirm-cancel class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium">${escapeHtml(cancelText)}</button>
+          <button type="button" data-confirm-ok class="px-4 py-2 rounded-lg font-medium ${confirmClass}">${escapeHtml(confirmText)}</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const okBtn = overlay.querySelector("[data-confirm-ok]");
+    const cancelBtn = overlay.querySelector("[data-confirm-cancel]");
+
+    const onKey = (event) => {
+      if (event.key === "Escape") {
+        finish(false);
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        finish(true);
+      }
+    };
+
+    function finish(result) {
+      document.removeEventListener("keydown", onKey);
+      overlay.remove();
+      resolve(result);
+    }
+
+    okBtn.addEventListener("click", () => finish(true));
+    cancelBtn.addEventListener("click", () => finish(false));
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) finish(false);
+    });
+
+    document.addEventListener("keydown", onKey);
+    okBtn.focus();
+  });
 }
 
 /**

@@ -74,6 +74,11 @@
             </div>
             <h2 class="text-3xl font-bold text-gray-900 mb-2">Login</h2>
 
+            <div
+              id="login-reason-banner"
+              class="hidden mb-4 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-sm px-4 py-3"
+            ></div>
+
             <form id="login-form" class="space-y-4">
               <div>
                 <label
@@ -149,8 +154,29 @@
     <script src="/js/main.js"></script>
     <script src="/js/auth.js"></script>
     <script>
+      const LOGIN_REASON_MESSAGES = {
+        sell: "Log in to create and manage your livestock listings.",
+        chat: "Log in to view and send messages.",
+        profile: "Log in to view your profile.",
+        dashboard: "Log in to view your dashboard.",
+        message: "Log in to message this seller.",
+        "seller-profile": "Log in to view this seller's profile.",
+        buy: "Log in to send a buying inquiry.",
+        favorite: "Log in to save favorites.",
+      };
+
+      function showLoginReasonBanner() {
+        const { reason } = getQueryParams();
+        const message = LOGIN_REASON_MESSAGES[reason];
+        if (!message) return;
+        const banner = document.getElementById("login-reason-banner");
+        banner.textContent = message;
+        banner.classList.remove("hidden");
+      }
+
       document.addEventListener("DOMContentLoaded", () => {
         redirectIfAuthenticated();
+        showLoginReasonBanner();
 
         const form = document.getElementById("login-form");
         form.addEventListener("submit", async (e) => {

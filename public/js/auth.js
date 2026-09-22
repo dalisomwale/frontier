@@ -9,11 +9,9 @@ async function checkAuthentication() {
     const data = await response.json();
 
     if (data.success && data.authenticated) {
-      // User is authenticated
       showAuthenticatedNav(data.data);
       return true;
     } else {
-      // User is not authenticated
       hideAuthenticatedNav();
       return false;
     }
@@ -36,7 +34,6 @@ function showAuthenticatedNav(user) {
     authenticatedNav.classList.remove("hidden");
     authenticatedNav.style.display = "flex";
 
-    // Add admin link if user is admin
     if (user.role === "admin") {
       const adminLink = document.createElement("a");
       adminLink.href = "admin/index.html";
@@ -46,7 +43,6 @@ function showAuthenticatedNav(user) {
     }
   }
 
-  // Store user in localStorage for frontend use
   localStorage.setItem("user", JSON.stringify(user));
 }
 
@@ -57,9 +53,6 @@ function hideAuthenticatedNav() {
   const authNav = document.getElementById("nav-auth");
   const authenticatedNav = document.getElementById("nav-authenticated");
 
-  // Clear any inline override from showAuthenticatedNav() so nav-auth falls
-  // back to its own responsive classes (hidden on phones, visible on desktop)
-  // instead of being forced to a fixed display value at every breakpoint.
   if (authNav) authNav.style.display = "";
   if (authenticatedNav) {
     authenticatedNav.classList.add("hidden");
@@ -79,9 +72,6 @@ async function register(formData) {
       body: JSON.stringify(formData),
     });
 
-    // Store the session user immediately so the next page's requireAuth()
-    // check (which runs synchronously, before checkAuthentication() has a
-    // chance to populate this) doesn't bounce the user straight back here.
     localStorage.setItem("user", JSON.stringify(data.data));
 
     showNotification("Registration successful! Redirecting...", "success");
@@ -106,15 +96,13 @@ async function login(email, password) {
       body: JSON.stringify({ email, password }),
     });
 
-    // Store the session user immediately so the next page's requireAuth()
-    // check (which runs synchronously, before checkAuthentication() has a
-    // chance to populate this) doesn't bounce the user straight back here.
     localStorage.setItem("user", JSON.stringify(data.data));
 
     showNotification("Login successful! Redirecting...", "success");
     setTimeout(() => {
-      window.location.href =
+      const destination =
         data.data.role === "admin" ? "/admin/index.html" : "/dashboard.html";
+      window.location.href = destination;
     }, 1500);
     return true;
   } catch (error) {
@@ -125,9 +113,18 @@ async function login(email, password) {
 }
 
 /**
- * Logout user
+ * Logout user. Confirmed via a modal because it ends the session, which on
+ * shared devices is easy to trigger by accident.
  */
 async function logout() {
+  const confirmed = await confirmAction({
+    title: "Log out?",
+    message: "You'll need to sign in again to access your account.",
+    confirmText: "Log out",
+    variant: "danger",
+  });
+  if (!confirmed) return;
+
   try {
     await apiRequest("/api/auth/logout", { method: "POST" });
 
@@ -151,20 +148,22 @@ function getCurrentUser() {
 }
 
 /**
- * Check if user is authenticated and redirect if not. Returns whether the
- * caller should continue - callers must stop their own init on false,
- * since the redirect above doesn't halt the current script by itself.
- * Uses replace() rather than an href assignment so this page never becomes
- * a back-button entry a signed-out visitor would just get bounced off of
- * again - important both for ordinary navigation and for a tab-frame
- * iframe (see app-shell.js), where an href assignment here adds a second
- * entry to the browser's shared joint session history that can make the
- * back button step through the iframe's own redirect before it affects the
- * visible tab.
+ * Send a signed-out visitor to login, tagging the destination with a
+ * `reason` so login.html can explain why it interrupted them.
  */
-function requireAuth() {
+function goToLogin(reason, { replace = false } = {}) {
+  const suffix = reason ? `?reason=${encodeURIComponent(reason)}` : "";
+  const url = `/login.html${suffix}`;
+  if (replace) window.location.replace(url);
+  else window.location.href = url;
+}
+
+/**
+ * Check if user is authenticated and redirect if not.
+ */
+function requireAuth(reason) {
   if (!getCurrentUser()) {
-    window.location.replace("/login.html");
+    goToLogin(reason, { replace: true });
     return false;
   }
   return true;
@@ -182,7 +181,8 @@ function hasRole(role) {
  * Redirect non-authenticated users
  */
 function redirectIfAuthenticated() {
-  if (getCurrentUser()) {
-    window.location.href = "/dashboard.html";
-  }
+  const user = getCurrentUser();
+  if (!user) return;
+  window.location.href =
+    user.role === "admin" ? "/admin/index.html" : "/dashboard.html";
 }

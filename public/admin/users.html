@@ -16,8 +16,17 @@
     <script src="../js/app-shell.js"></script>
   </head>
   <body class="bg-gray-50">
-    <!-- Navigation -->
-    <nav class="bg-white border-b border-gray-100 sticky top-0 z-50">
+    <!-- Desktop sidebar: rendered synchronously right here (not on
+         DOMContentLoaded) so it exists before the browser's first paint. -->
+    <div id="app-sidebar"></div>
+    <script>
+      renderSidebar("admin-users");
+    </script>
+
+    <!-- Compact top bar: brand always visible, logout shown on mobile only
+         since the sidebar (desktop) and bottom nav (mobile) carry the rest
+         of the navigation. -->
+    <nav id="page-topnav" class="bg-white border-b border-gray-100 sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center gap-3">
@@ -31,7 +40,7 @@
           <div class="flex items-center gap-4">
             <a
               href="../dashboard.html"
-              class="hidden sm:inline text-gray-600 hover:text-gray-900 font-medium"
+              class="hidden sm:inline lg:hidden text-gray-600 hover:text-gray-900 font-medium"
               >User Dashboard</a
             >
             <button
@@ -45,49 +54,7 @@
       </div>
     </nav>
 
-    <!-- Admin Sidebar + Content -->
-    <div
-      class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col lg:flex-row gap-6"
-    >
-      <!-- Sidebar (desktop only - the bottom nav covers this on mobile) -->
-      <div class="hidden lg:block lg:w-64 flex-shrink-0">
-        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 lg:sticky lg:top-20">
-          <h2 class="text-lg font-bold text-gray-900 mb-4">Admin Menu</h2>
-          <nav class="space-y-2">
-            <a
-              href="index.html"
-              class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-              Dashboard
-            </a>
-            <a
-              href="users.html"
-              class="flex items-center gap-3 bg-blue-100 text-blue-600 px-4 py-2 rounded-lg font-medium"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.3 14.1c2.5.4 4.2 2.1 4.2 4.9"/></svg>
-              Manage Users
-            </a>
-            <a
-              href="listings.html"
-              class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M8 11h8M8 14.5h8M8 18h5"/></svg>
-              Moderate Listings
-            </a>
-            <a
-              href="reports.html"
-              class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0"><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></svg>
-              View Reports
-            </a>
-          </nav>
-        </div>
-      </div>
-
-      <!-- Main Content -->
-      <div class="flex-1 min-w-0">
+    <div class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div class="flex items-center justify-between mb-6">
           <h1 class="text-3xl font-bold text-gray-900">Manage Users</h1>
           <a href="index.html" class="text-blue-600 hover:text-blue-700"
@@ -109,8 +76,7 @@
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">All Roles</option>
-                <option value="buyer">Buyer</option>
-                <option value="seller">Seller</option>
+                <option value="member">Member</option>
                 <option value="service_provider">Service Provider</option>
               </select>
             </div>
@@ -211,7 +177,6 @@
 
         <!-- Pagination -->
         <div id="pagination-container" class="mt-6"></div>
-      </div>
     </div>
 
     <!-- Status Change Modal -->

@@ -7,357 +7,337 @@
     <link rel="icon" href="images/logo-icon.jpg" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="css/style.css" />
-    <!-- Loaded blocking, in <head>, so the bottom nav below can be painted
-         on first render instead of popping in after the page has already
-         shown without it. -->
     <script src="/js/main.js"></script>
     <script src="/js/auth.js"></script>
     <script src="/js/species.js"></script>
     <script src="/js/app-shell.js"></script>
   </head>
   <body class="bg-gray-50">
-    <!-- Navigation -->
+    <div id="app-sidebar"></div>
+
     <nav id="page-topnav" class="bg-white shadow-md sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
           <div class="flex items-center gap-3">
             <a href="/" class="flex items-center gap-3">
               <div class="brand-mark-full">
-                <img src="images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
+                <img
+                  src="images/logo-full.jpg"
+                  alt="Frontier Farms &amp; Consult"
+                />
               </div>
             </a>
-          </div>
-
-          <div id="nav-auth" class="relative hidden md:block">
-            <button
-              id="nav-auth-toggle"
-              type="button"
-              class="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              aria-haspopup="true"
-              aria-expanded="false"
-              aria-label="Account"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                width="20"
-                height="20"
-              >
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
-              </svg>
-            </button>
-            <div
-              id="nav-auth-menu"
-              class="hidden absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
-            >
-              <a
-                href="login.html"
-                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >Login</a
-              >
-              <a
-                href="register.html"
-                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >Register</a
-              >
-            </div>
-          </div>
-
-          <div id="nav-authenticated" class="hidden flex items-center gap-4">
-            <a
-              href="dashboard.html"
-              class="text-gray-600 hover:text-gray-900 font-medium"
-              >Dashboard</a
-            >
-            <a
-              href="messages.html"
-              class="text-gray-600 hover:text-gray-900 font-medium"
-              >Messages</a
-            >
-            <a
-              href="profile.html"
-              class="text-gray-600 hover:text-gray-900 font-medium"
-              >Profile</a
-            >
-            <button
-              id="logout-btn"
-              class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium"
-            >
-              Logout
-            </button>
           </div>
         </div>
       </div>
     </nav>
 
     <div id="tab-self-content">
-    <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <a href="marketplace.html" class="text-blue-600 hover:text-blue-700 mb-4"
-        >← Back to Marketplace</a
+      <div
+        id="public-listing-view"
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
       >
+        <a
+          href="index.html"
+          class="inline-block text-sm font-medium text-blue-600 hover:text-blue-700 mb-6"
+          >← Back to Home</a
+        >
 
-      <div id="listing-container" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Left Column - Images and Details -->
-        <div class="lg:col-span-2">
-          <!-- Image Gallery -->
-          <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-            <div
-              class="bg-gray-300 h-96 flex items-center justify-center"
-              id="main-image"
-            >
-              <span class="text-gray-600 text-lg">Loading photo…</span>
-            </div>
-            <div
-              id="thumbnails"
-              class="flex gap-2 p-4 bg-gray-50 overflow-x-auto"
-            >
-              <!-- Thumbnails will be populated here -->
+        <div
+          id="listing-container"
+          class="grid grid-cols-1 lg:grid-cols-3 gap-8"
+        >
+          <div class="lg:col-span-2">
+            <div class="gallery-frame">
+              <div
+                id="main-image"
+                class="w-full h-full flex items-center justify-center"
+              >
+                <span class="text-base text-gray-500">Loading photo…</span>
+              </div>
+              <button
+                type="button"
+                id="gallery-favorite-btn"
+                class="gallery-favorite"
+                aria-label="Add to favorites"
+              ></button>
+              <button
+                type="button"
+                id="gallery-prev"
+                class="gallery-nav gallery-nav-prev hidden"
+                aria-label="Previous photo"
+              ></button>
+              <button
+                type="button"
+                id="gallery-next"
+                class="gallery-nav gallery-nav-next hidden"
+                aria-label="Next photo"
+              ></button>
+              <div id="gallery-dots" class="gallery-dots"></div>
             </div>
           </div>
 
-          <!-- Listing Details -->
-          <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h1
-              id="listing-title"
-              class="text-3xl font-bold text-gray-900 mb-4"
-            ></h1>
+          <div class="lg:col-span-1">
+            <div class="lg:sticky lg:top-20">
+              <div class="mb-6 pb-6 border-b border-gray-200">
+                <h1
+                  id="listing-title"
+                  class="text-2xl sm:text-3xl font-bold text-gray-900 mb-3"
+                ></h1>
+                <p
+                  id="listing-description"
+                  class="hidden text-base text-gray-700 leading-relaxed"
+                ></p>
+              </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div class="bg-blue-50 p-4 rounded-lg flex items-center gap-2">
-                <span id="listing-species-icon"></span>
-                <div>
-                  <p class="text-gray-600 text-sm">Species</p>
-                  <p id="listing-species" class="font-semibold text-gray-900"></p>
+              <div class="mb-6">
+                <p class="text-sm font-medium text-gray-500 mb-1">Price</p>
+                <div
+                  class="text-3xl sm:text-4xl font-extrabold text-emerald-600"
+                  id="listing-price"
+                >
+                  K0
                 </div>
               </div>
-              <div class="bg-green-50 p-4 rounded-lg">
-                <p class="text-gray-600 text-sm">Breed</p>
-                <p id="listing-breed" class="font-semibold text-gray-900">-</p>
+
+              <div class="grid grid-cols-2 gap-3 mb-6">
+                <button
+                  id="inquiry-btn"
+                  class="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 font-semibold transition"
+                >
+                  Buy
+                </button>
+                <button
+                  id="contact-btn"
+                  class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold transition"
+                >
+                  Message
+                </button>
               </div>
-              <div class="bg-yellow-50 p-4 rounded-lg">
-                <p class="text-gray-600 text-sm">Age</p>
-                <p id="listing-age" class="font-semibold text-gray-900">-</p>
-              </div>
-              <div class="bg-purple-50 p-4 rounded-lg">
-                <p class="text-gray-600 text-sm">Weight</p>
-                <p id="listing-weight" class="font-semibold text-gray-900">-</p>
-              </div>
-            </div>
 
-            <div class="mb-6">
-              <h2 class="text-lg font-bold text-gray-900 mb-3">Description</h2>
-              <p
-                id="listing-description"
-                class="text-gray-700 leading-relaxed"
-              ></p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <h3 class="text-sm font-medium text-gray-600">Location</h3>
-                <p id="listing-location" class="text-gray-900 font-semibold">
-                  -
-                </p>
-              </div>
-              <div>
-                <h3 class="text-sm font-medium text-gray-600">Health Status</h3>
-                <p id="listing-health" class="text-gray-900 font-semibold">-</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Documents -->
-          <div
-            id="documents-section"
-            class="bg-white rounded-lg shadow-md p-6 hidden"
-          >
-            <h2 class="text-lg font-bold text-gray-900 mb-4">Documents</h2>
-            <div id="documents-list" class="space-y-2">
-              <!-- Documents will be populated here -->
-            </div>
-            <p class="text-sm text-gray-600 mt-3">
-              Documents are provided by the seller for informational purposes.
-              Frontier Marketplace does not verify documents during Phase 1.
-            </p>
-          </div>
-        </div>
-
-        <!-- Right Column - Price and Actions -->
-        <div class="lg:col-span-1">
-          <!-- Price Card -->
-          <div class="bg-white rounded-lg shadow-md p-6 mb-6 sticky top-20">
-            <div class="mb-6">
-              <p class="text-gray-600 text-sm mb-1">Price</p>
-              <div class="text-4xl font-bold text-blue-600" id="listing-price">
-                K0
-              </div>
-            </div>
-
-            <div class="space-y-3 mb-6">
-              <button
-                id="favorite-btn"
-                class="w-full border-2 border-blue-600 text-blue-600 px-4 py-3 rounded-lg hover:bg-blue-50 font-medium transition"
-              >
-                Add to Favorites
-              </button>
-
-              <button
-                id="contact-btn"
-                class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-medium transition"
-              >
-                Contact Seller
-              </button>
-
-              <button
-                id="inquiry-btn"
-                class="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 font-medium transition"
-              >
-                Send Inquiry
-              </button>
-            </div>
-
-            <div class="border-t pt-4">
-              <h3 class="font-semibold text-gray-900 mb-3">
-                Seller Information
-              </h3>
-              <div class="space-y-2">
-                <div>
-                  <p class="text-gray-600 text-sm">Name</p>
-                  <p id="seller-name" class="font-semibold text-gray-900">-</p>
-                </div>
-                <div>
-                  <p class="text-gray-600 text-sm">Location</p>
-                  <p id="seller-location" class="font-semibold text-gray-900">
-                    -
-                  </p>
+              <div class="border-t border-gray-200 pt-5">
+                <h3 class="text-base font-semibold text-gray-900 mb-4">
+                  Seller Information
+                </h3>
+                <div class="space-y-3">
+                  <div>
+                    <p class="text-sm font-medium text-gray-500 mb-1">Name</p>
+                    <p
+                      id="seller-name"
+                      class="text-base font-semibold text-gray-900"
+                    >
+                      -
+                    </p>
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium text-gray-500 mb-1">
+                      Location
+                    </p>
+                    <p
+                      id="seller-location"
+                      class="text-base font-semibold text-gray-900"
+                    >
+                      -
+                    </p>
+                  </div>
                 </div>
                 <button
-                  class="w-full mt-4 text-center text-blue-600 hover:text-blue-700 font-medium"
+                  id="view-seller-profile-btn"
+                  type="button"
+                  class="w-full mt-5 text-sm font-medium text-blue-600 hover:text-blue-700"
                 >
                   View Seller Profile
                 </button>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Legal Notice -->
-          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <h3 class="font-semibold text-yellow-900 mb-2">Important Notice</h3>
-            <p class="text-sm text-yellow-800">
-              Frontier Marketplace facilitates connections between buyers and
-              sellers. You are responsible for verifying livestock information
-              and conducting due diligence before making any transaction.
-            </p>
+        <div
+          id="seller-listings-section"
+          class="hidden mt-10 pt-8 border-t border-gray-200"
+        >
+          <h2
+            id="seller-listings-heading"
+            class="text-xl sm:text-2xl font-bold text-gray-900 mb-4"
+          >
+            More from this seller
+          </h2>
+          <div
+            id="seller-listings-container"
+            class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6"
+          ></div>
+        </div>
+      </div>
+
+      <div
+        id="seller-workspace"
+        class="hidden app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+      >
+        <div id="seller-workspace-content"></div>
+      </div>
+
+      <div
+        id="inquiry-modal"
+        class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50"
+      >
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <h2 class="text-xl font-bold text-gray-900 mb-4">
+            Interested in Buying?
+          </h2>
+          <textarea
+            id="inquiry-message"
+            placeholder="Tell the seller about your interest..."
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4"
+            rows="4"
+          ></textarea>
+          <div class="flex gap-3">
+            <button
+              id="inquiry-submit"
+              class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
+            >
+              Send
+            </button>
+            <button
+              id="inquiry-cancel"
+              class="flex-1 bg-gray-300 text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-400 font-medium"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- Seller workspace: only rendered for authenticated sellers when the
-         create or mine query option is selected. -->
-    <div id="seller-workspace" class="hidden max-w-3xl mx-auto"></div>
-
-    <!-- Inquiry Modal -->
-    <div
-      id="inquiry-modal"
-      class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50"
-    >
-      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h2 class="text-xl font-bold text-gray-900 mb-4">Send Inquiry</h2>
-        <textarea
-          id="inquiry-message"
-          placeholder="Tell the seller about your interest..."
-          class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4"
-          rows="4"
-        ></textarea>
-        <div class="flex gap-3">
-          <button
-            id="inquiry-submit"
-            class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
-          >
-            Send
-          </button>
-          <button
-            id="inquiry-cancel"
-            class="flex-1 bg-gray-300 text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-400 font-medium"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-
-    </div>
     <div id="tab-frame-host" class="tab-frame-host hidden"></div>
 
-    <!-- Mobile app-style bottom navigation: rendered synchronously, right
-         here, instead of waiting for DOMContentLoaded. -->
     <div id="app-bottom-nav"></div>
     <script>
-      renderBottomNav("public");
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const wantsWorkspace =
+          params.has("create") || params.has("mine") || params.has("edit");
+        const user = getCurrentUser();
+        const sellerMode = wantsWorkspace && user?.role === "member";
+        if (sellerMode) renderSidebar("listings");
+        renderBottomNav(sellerMode ? "app" : "public");
+      })();
     </script>
 
     <script>
+      const LISTING_STATUS_BADGES = {
+        active: "bg-green-600 text-white",
+        paused: "bg-yellow-500 text-white",
+        sold: "bg-blue-600 text-white",
+        deactivated: "bg-gray-600 text-white",
+      };
+
+      const STATUS_CHANGE_PROMPTS = {
+        active: {
+          title: "Reactivate this listing?",
+          message: "It will appear in the marketplace again for buyers to see.",
+          confirmText: "Reactivate",
+          variant: "primary",
+        },
+        paused: {
+          title: "Pause this listing?",
+          message:
+            "It will be hidden from the marketplace until you reactivate it.",
+          confirmText: "Pause",
+          variant: "danger",
+        },
+        deactivated: {
+          title: "Deactivate this listing?",
+          message:
+            "It will be hidden from the marketplace permanently. This cannot be undone.",
+          confirmText: "Deactivate",
+          variant: "danger",
+        },
+        sold: {
+          title: "Mark as sold?",
+          message: "The listing will be closed and cannot be reactivated.",
+          confirmText: "Mark as sold",
+          variant: "danger",
+        },
+      };
+
       let currentListing = null;
+      let galleryMedia = [];
+      let galleryIndex = 0;
 
       document.addEventListener("DOMContentLoaded", async () => {
+        document.getElementById("gallery-favorite-btn").innerHTML =
+          uiIcon("heart");
+        document.getElementById("gallery-prev").innerHTML =
+          uiIcon("chevronLeft");
+        document.getElementById("gallery-next").innerHTML =
+          uiIcon("chevronRight");
+        document
+          .getElementById("gallery-prev")
+          .addEventListener("click", () => {
+            if (galleryIndex > 0) {
+              galleryIndex--;
+              renderGalleryFrame();
+            }
+          });
+        document
+          .getElementById("gallery-next")
+          .addEventListener("click", () => {
+            if (galleryIndex < galleryMedia.length - 1) {
+              galleryIndex++;
+              renderGalleryFrame();
+            }
+          });
+        document
+          .getElementById("gallery-favorite-btn")
+          .addEventListener("click", toggleFavorite);
+
         await checkAuthentication();
-        // Re-run after the server round-trip resolves, in case the
-        // optimistic localStorage snapshot used for the instant render
-        // above was missing or stale.
-        renderBottomNav("public");
 
         const params = getQueryParams();
         const listingId = params.id;
-        const wantsSellerWorkspace = !!(params.create || params.mine || params.edit);
+        const wantsSellerWorkspace = !!(
+          params.create ||
+          params.mine ||
+          params.edit
+        );
 
-        // Same gate as the other bottom-nav tabs (Chat/Account): a
-        // signed-out visitor tapping Sell should land on the login page,
-        // not the "choose a listing" fallback below.
-        if (wantsSellerWorkspace && !requireAuth()) return;
+        if (wantsSellerWorkspace && !requireAuth("sell")) return;
 
         const user = getCurrentUser();
 
-        if (wantsSellerWorkspace && user?.role === "seller") {
-          document.getElementById("listing-container").classList.add("hidden");
+        if (wantsSellerWorkspace && user?.role === "member") {
           document
-            .querySelector('a[href="marketplace.html"]')
+            .getElementById("public-listing-view")
             .classList.add("hidden");
           await showSellerWorkspace(params);
-          document
-            .getElementById("logout-btn")
-            ?.addEventListener("click", async () => {
-              await logout();
-            });
           return;
         }
 
         if (!listingId) {
-          showNotification("Choose a listing from the marketplace", "error");
-          setTimeout(() => (window.location.href = "marketplace.html"), 2000);
+          showNotification("Choose a listing from the homepage", "error");
+          setTimeout(() => (window.location.href = "index.html"), 2000);
           return;
         }
 
         await loadListing(listingId);
 
-        // Setup event listeners
-        document
-          .getElementById("favorite-btn")
-          .addEventListener("click", toggleFavorite);
         document.getElementById("contact-btn").addEventListener("click", () => {
           if (!getCurrentUser()) {
-            showNotification("Please login to contact sellers", "warning");
-            window.location.href = "login.html";
+            goToLogin("message");
             return;
           }
           window.location.href = `messages.html?seller=${currentListing.seller_id}`;
         });
+
+        document
+          .getElementById("view-seller-profile-btn")
+          .addEventListener("click", () => {
+            if (!getCurrentUser()) {
+              goToLogin("seller-profile");
+              return;
+            }
+            window.location.href = `seller.html?id=${currentListing.seller_id}`;
+          });
 
         document
           .getElementById("inquiry-btn")
@@ -368,46 +348,31 @@
         document
           .getElementById("inquiry-submit")
           .addEventListener("click", sendInquiry);
-
-        document
-          .getElementById("logout-btn")
-          ?.addEventListener("click", async () => {
-            await logout();
-          });
       });
 
-      /**
-       * Load listing details
-       */
       async function loadListing(id) {
         showLoading();
         try {
           const response = await apiRequest(`/api/listings/${id}`);
-
           if (response.success) {
             currentListing = response.data;
             renderListing(currentListing);
+            loadSellerListings(currentListing);
 
-            // Check if favorited
             const user = getCurrentUser();
             if (user) {
               const favResponse = await apiRequest(
                 `/api/favorites/check/${id}`,
               );
               if (favResponse.success && favResponse.isFavorited) {
-                document
-                  .getElementById("favorite-btn")
-                  .classList.remove("border-blue-600", "text-blue-600");
-                document
-                  .getElementById("favorite-btn")
-                  .classList.add("bg-red-500", "text-white", "border-red-500");
-                document.getElementById("favorite-btn").textContent =
-                  "Remove from Favorites";
+                const favBtn = document.getElementById("gallery-favorite-btn");
+                favBtn.classList.add("active");
+                favBtn.setAttribute("aria-label", "Remove from favorites");
               }
             }
           } else {
             showNotification("Listing not found", "error");
-            setTimeout(() => (window.location.href = "marketplace.html"), 2000);
+            setTimeout(() => (window.location.href = "index.html"), 2000);
           }
         } catch (error) {
           console.error("Load listing error:", error);
@@ -417,59 +382,136 @@
         }
       }
 
+      const MAX_LISTING_PHOTOS = 5;
+
+      function imageUploadField() {
+        return `
+          <div class="mt-1">
+            <input id="listing-photos-input" multiple type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="block w-full text-sm text-gray-700">
+            <ul id="listing-photos-list" class="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2"></ul>
+          </div>`;
+      }
+
       function listingForm(listing = {}) {
         const isEditing = Boolean(listing.id);
         const values = {
           title: listing.title || "",
           species: listing.species || "",
-          breed: listing.breed || "",
-          age: listing.age || "",
-          weight: listing.weight || "",
           location: listing.location || "",
-          health_status: listing.health_status || "",
           price: listing.price || "",
           description: listing.description || "",
         };
-        const options = ["Cattle", "Goats", "Sheep", "Pigs", "Poultry", "Other"]
+        const options = ["Cattle", "Goats", "Sheep", "Pigs", "Poultry"]
           .map(
             (species) =>
               `<option value="${species}" ${values.species === species ? "selected" : ""}>${species}</option>`,
           )
           .join("");
         return `
-          <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center justify-between gap-4 mb-6">
+          <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div><h1 class="text-2xl font-bold text-gray-900">${isEditing ? "Edit listing" : "Create livestock listing"}</h1>
-              <p class="text-sm text-gray-600 mt-1">New and resubmitted listings are sent to an administrator for review.</p></div>
-              <a href="listing.html?mine=1" class="text-blue-600 font-medium">My listings</a>
+              <p class="text-sm text-gray-600 mt-1">Your listing goes live on the marketplace as soon as you create it.</p></div>
             </div>
             <form id="seller-listing-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label class="block text-sm font-medium text-gray-700">Title<input name="title" required maxlength="255" value="${escapeHtml(values.title)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
               <label class="block text-sm font-medium text-gray-700">Species<select name="species" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"><option value="">Choose a category</option>${options}</select></label>
-              <label class="block text-sm font-medium text-gray-700">Breed<input name="breed" required maxlength="100" value="${escapeHtml(values.breed)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
-              <label class="block text-sm font-medium text-gray-700">Age<input name="age" required maxlength="50" value="${escapeHtml(values.age)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
-              <label class="block text-sm font-medium text-gray-700">Weight (kg)<input name="weight" required min="0.01" step="0.01" type="number" value="${escapeHtml(values.weight)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
               <label class="block text-sm font-medium text-gray-700">Location<input name="location" required maxlength="255" value="${escapeHtml(values.location)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
-              <label class="block text-sm font-medium text-gray-700">Health status<input name="healthStatus" required maxlength="100" value="${escapeHtml(values.health_status)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
               <label class="block text-sm font-medium text-gray-700">Price (ZMW)<input name="price" required min="0.01" step="0.01" type="number" value="${escapeHtml(values.price)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
-              <label class="block text-sm font-medium text-gray-700 md:col-span-2">Description<textarea name="description" required maxlength="20000" rows="5" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">${escapeHtml(values.description)}</textarea></label>
-              <div class="md:col-span-2 flex justify-end gap-3"><a href="dashboard.html" class="rounded-lg border border-gray-300 px-4 py-2">Cancel</a><button class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">${isEditing ? "Save changes" : "Create listing"}</button></div>
             </form>
-            ${isEditing ? uploadForm(listing.id) : ""}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <label class="block text-sm font-medium text-gray-700">Description <span class="font-normal text-gray-500">(optional)</span><textarea name="description" form="seller-listing-form" maxlength="20000" rows="5" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">${escapeHtml(values.description)}</textarea></label>
+              <div class="block text-sm font-medium text-gray-700">Images <span class="font-normal text-gray-500">(optional, up to ${MAX_LISTING_PHOTOS} photos)</span>
+                ${imageUploadField()}
+              </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+              ${
+                isEditing
+                  ? `<a href="listing.html?create=1" class="rounded-lg border border-gray-300 px-4 py-2">Cancel</a>`
+                  : `<button type="button" id="cancel-create-btn" class="rounded-lg border border-gray-300 px-4 py-2">Cancel</button>`
+              }
+              <button form="seller-listing-form" class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">${isEditing ? "Save changes" : "Create listing"}</button>
+            </div>
           </div>`;
       }
 
-      function uploadForm(id) {
-        return `<div class="mt-8 border-t pt-6"><h2 class="text-lg font-bold text-gray-900">Photos, video and documents</h2>
-          <p class="mt-1 text-sm text-gray-600">Images and short videos are shown on the listing. PDFs are stored as seller-provided documents with verification pending.</p>
-          <form id="media-upload-form" class="mt-4 flex flex-wrap gap-3 items-end"><label class="text-sm font-medium">Images / videos<input name="files" multiple type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" class="block mt-1"></label><button class="rounded-lg bg-gray-800 px-4 py-2 text-white">Upload media</button></form>
-          <form id="document-upload-form" class="mt-4 flex flex-wrap gap-3 items-end"><label class="text-sm font-medium">PDF documents<input name="documents" multiple type="file" accept="application/pdf" class="block mt-1"></label><label class="text-sm font-medium">Document type<input name="document_type" maxlength="100" placeholder="Certificate or permit" class="block mt-1 rounded border border-gray-300 px-3 py-2"></label><button class="rounded-lg bg-gray-800 px-4 py-2 text-white">Upload documents</button></form>
-          <p class="mt-3 text-sm text-yellow-700">Verification: Pending. Documents are not verified in Phase 1.</p></div>`;
+      function setInputFiles(input, files) {
+        const dataTransfer = new DataTransfer();
+        files.forEach((file) => dataTransfer.items.add(file));
+        input.files = dataTransfer.files;
+      }
+
+      function bindPhotoStaging() {
+        const input = document.getElementById("listing-photos-input");
+        if (!input || input.dataset.bound) return;
+        input.dataset.bound = "true";
+        input.addEventListener("change", async () => {
+          let files = Array.from(input.files || []);
+          if (files.length > MAX_LISTING_PHOTOS) {
+            showNotification(
+              `You can attach up to ${MAX_LISTING_PHOTOS} photos`,
+              "warning",
+            );
+            files = files.slice(0, MAX_LISTING_PHOTOS);
+            setInputFiles(input, files);
+          }
+          await renderPhotoList(input);
+        });
+      }
+
+      async function renderPhotoList(input) {
+        const list = document.getElementById("listing-photos-list");
+        if (!list) return;
+        const files = Array.from(input.files || []);
+        const previews = await Promise.all(
+          files.map((file) => createImagePreview(file)),
+        );
+        list.innerHTML = files
+          .map(
+            (file, index) => `
+          <li class="relative">
+            <img src="${previews[index]}" alt="${escapeHtml(file.name)}" class="w-full aspect-square object-cover rounded-lg border border-gray-200">
+            <button type="button" class="photo-remove-btn absolute -top-2 -right-2 w-6 h-6 flex items-center justify-center rounded-full bg-gray-900 text-white text-xs leading-none" data-index="${index}" aria-label="Remove photo">&times;</button>
+          </li>`,
+          )
+          .join("");
+        list.querySelectorAll(".photo-remove-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const index = parseInt(btn.dataset.index, 10);
+            const remaining = Array.from(input.files || []).filter(
+              (_, i) => i !== index,
+            );
+            setInputFiles(input, remaining);
+            renderPhotoList(input);
+          });
+        });
+      }
+
+      function resetListingPhotos() {
+        const input = document.getElementById("listing-photos-input");
+        if (!input) return;
+        setInputFiles(input, []);
+        const list = document.getElementById("listing-photos-list");
+        if (list) list.innerHTML = "";
+      }
+
+      async function uploadStagedPhotos(listingId) {
+        const input = document.getElementById("listing-photos-input");
+        const files = Array.from(input?.files || []);
+        if (!files.length) return;
+        const formData = new FormData();
+        files.forEach((file) => formData.append("files", file));
+        await apiRequest(`/api/listings/${listingId}/media`, {
+          method: "POST",
+          body: formData,
+        });
       }
 
       async function showSellerWorkspace(params) {
-        const workspace = document.getElementById("seller-workspace");
-        workspace.classList.remove("hidden");
+        const workspace = document.getElementById("seller-workspace-content");
+        document.getElementById("seller-workspace").classList.remove("hidden");
+
         if (params.edit) {
           try {
             const response = await apiRequest(
@@ -477,26 +519,180 @@
             );
             workspace.innerHTML = listingForm(response.data);
             bindListingForm(response.data.id);
-            bindUploads(response.data.id);
+            bindPhotoStaging();
           } catch (error) {
             workspace.innerHTML =
               '<div class="rounded-lg bg-red-50 p-6 text-red-700">The listing could not be loaded.</div>';
           }
           return;
         }
+
         if (params.mine) {
-          try {
-            const response = await apiRequest("/api/listings/mine?limit=50");
-            const listings = response.data || [];
-            workspace.innerHTML = `<div class="flex items-center justify-between mb-6"><div><h1 class="text-2xl font-bold">My livestock listings</h1><p class="text-gray-600">Manage your own listings and their moderation status.</p></div><a href="listing.html?create=1" class="rounded-lg bg-blue-600 px-4 py-2 text-white">Add livestock</a></div><div class="space-y-3">${listings.length ? listings.map((listing) => `<div class="rounded-lg bg-white shadow-sm p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"><div><h2 class="font-semibold">${escapeHtml(listing.title)}</h2><p class="text-sm text-gray-600">${escapeHtml(listing.species)} · ${formatCurrency(listing.price)} · <span class="capitalize">${listing.status}</span></p></div><div class="flex gap-2"><a class="rounded border border-blue-600 px-3 py-1 text-blue-700" href="listing.html?edit=${listing.id}">Edit</a>${listing.status === "active" ? `<button onclick="changeListingStatus(${listing.id}, 'paused')" class="rounded border px-3 py-1">Pause</button>` : ""}${listing.status === "paused" ? `<button onclick="changeListingStatus(${listing.id}, 'active')" class="rounded border px-3 py-1">Reactivate</button>` : ""}${["active", "paused", "pending", "rejected"].includes(listing.status) ? `<button onclick="changeListingStatus(${listing.id}, 'deactivated')" class="rounded border border-red-300 px-3 py-1 text-red-700">Deactivate</button>` : ""}</div></div>`).join("") : '<div class="rounded-lg bg-white p-8 text-center text-gray-600">You haven\'t created any livestock listings yet.</div>'}</div>`;
-          } catch (error) {
-            workspace.innerHTML =
-              '<div class="rounded-lg bg-red-50 p-6 text-red-700">Your listings could not be loaded.</div>';
-          }
+          workspace.innerHTML = `
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div><h1 class="text-3xl font-bold text-gray-900">My Listings</h1><p class="text-gray-600 mt-1">Manage your own listings.</p></div>
+              <a href="listing.html?create=1" class="rounded-lg bg-blue-600 px-4 py-2 text-white text-center">Add livestock</a>
+            </div>
+            <div id="my-listings-container" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4"></div>
+          `;
+          bindMyListingsMenu();
+          await refreshMyListings();
           return;
         }
-        workspace.innerHTML = listingForm();
+
+        workspace.innerHTML = `
+          <h1 class="text-3xl font-bold text-gray-900 mb-8">My Listings</h1>
+          <div id="create-listing-trigger" class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
+            <button type="button" id="show-create-form-btn" class="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-medium">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 flex-shrink-0"><path d="M12 5v14M5 12h14"/></svg>
+              Create Listing
+            </button>
+          </div>
+          <div id="create-listing-form-wrapper" class="hidden opacity-0 -translate-y-2 transition-all duration-300 mb-6">
+            ${listingForm()}
+          </div>
+          <div id="my-listings-container" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4"></div>
+        `;
         bindListingForm();
+        bindPhotoStaging();
+        bindMyListingsMenu();
+        document
+          .getElementById("show-create-form-btn")
+          .addEventListener("click", showCreateListingForm);
+        await refreshMyListings();
+      }
+
+      function showCreateListingForm() {
+        document
+          .getElementById("create-listing-trigger")
+          .classList.add("hidden");
+        const formWrapper = document.getElementById(
+          "create-listing-form-wrapper",
+        );
+        formWrapper.classList.remove("hidden");
+        requestAnimationFrame(() => {
+          formWrapper.classList.remove("opacity-0", "-translate-y-2");
+        });
+        formWrapper.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      function hideCreateListingForm() {
+        const formWrapper = document.getElementById(
+          "create-listing-form-wrapper",
+        );
+        formWrapper.classList.add("hidden", "opacity-0", "-translate-y-2");
+        document
+          .getElementById("create-listing-trigger")
+          .classList.remove("hidden");
+      }
+
+      async function refreshMyListings() {
+        const container = document.getElementById("my-listings-container");
+        if (!container) return;
+        try {
+          const response = await apiRequest("/api/listings/mine?limit=50");
+          renderMyListingsCards(response.data || []);
+        } catch (error) {
+          renderEmptyState(container, "Your listings could not be loaded.");
+        }
+      }
+
+      function renderMyListingsCards(listings) {
+        const container = document.getElementById("my-listings-container");
+        if (!container) return;
+        if (!listings.length) {
+          renderEmptyState(
+            container,
+            "You haven't created any livestock listings yet.",
+          );
+          return;
+        }
+        container.innerHTML = listings
+          .map(
+            (listing) => `
+          <div class="relative bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="relative bg-gray-200 aspect-square sm:aspect-[4/3] flex items-center justify-center">
+              ${listing.main_image ? `<img src="${listing.main_image}" alt="${escapeHtml(listing.title)}" class="h-full w-full object-cover">` : speciesFallbackMedia(listing.species)}
+              <span class="absolute top-2 left-2 px-2 py-0.5 text-[10px] font-semibold rounded-full capitalize ${LISTING_STATUS_BADGES[listing.status] || "bg-gray-600 text-white"}">${escapeHtml(listing.status)}</span>
+              <button type="button" class="listing-menu-toggle absolute top-2 right-2 w-8 h-8 flex items-center justify-center text-white drop-shadow" data-id="${listing.id}" aria-haspopup="true" aria-expanded="false" aria-label="Listing actions">${uiIcon("dots")}</button>
+              <div class="listing-menu hidden absolute top-12 right-2 w-36 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10" data-id="${listing.id}">
+                <a href="listing.html?edit=${listing.id}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Edit</a>
+                <button type="button" class="listing-delete-btn block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" data-id="${listing.id}">Delete</button>
+              </div>
+            </div>
+            <div class="p-2.5 sm:p-3">
+              <h3 class="text-xs sm:text-sm font-semibold text-gray-900 line-clamp-2 mb-1.5">${escapeHtml(listing.title)}</h3>
+              <div class="text-sm sm:text-base font-bold text-emerald-600 leading-none">K${parseFloat(listing.price).toLocaleString()}</div>
+              ${listing.status === "paused" ? `<div class="flex flex-wrap gap-2 mt-2"><button onclick="changeListingStatus(${listing.id}, 'active')" class="rounded border px-2 py-0.5 text-xs">Reactivate</button></div>` : ""}
+            </div>
+          </div>
+        `,
+          )
+          .join("");
+      }
+
+      function closeAllListingMenus(container) {
+        container
+          .querySelectorAll(".listing-menu")
+          .forEach((menu) => menu.classList.add("hidden"));
+        container
+          .querySelectorAll(".listing-menu-toggle")
+          .forEach((btn) => btn.setAttribute("aria-expanded", "false"));
+      }
+
+      function bindMyListingsMenu() {
+        const container = document.getElementById("my-listings-container");
+        if (!container || container.dataset.bound) return;
+        container.dataset.bound = "true";
+
+        container.addEventListener("click", async (event) => {
+          const toggle = event.target.closest(".listing-menu-toggle");
+          if (toggle) {
+            event.stopPropagation();
+            const id = toggle.dataset.id;
+            const menu = container.querySelector(
+              `.listing-menu[data-id="${id}"]`,
+            );
+            const isOpen = !menu.classList.contains("hidden");
+            closeAllListingMenus(container);
+            if (!isOpen) {
+              menu.classList.remove("hidden");
+              toggle.setAttribute("aria-expanded", "true");
+            }
+            return;
+          }
+
+          const deleteBtn = event.target.closest(".listing-delete-btn");
+          if (deleteBtn) {
+            const id = deleteBtn.dataset.id;
+            const confirmed = await confirmAction({
+              title: "Delete this listing?",
+              message:
+                "This cannot be undone. All photos will also be removed from the marketplace.",
+              confirmText: "Delete",
+              variant: "danger",
+            });
+            if (!confirmed) return;
+
+            try {
+              const response = await apiRequest(`/api/listings/${id}`, {
+                method: "DELETE",
+              });
+              showNotification(response.message, "success");
+              await refreshMyListings();
+            } catch (error) {
+              showNotification(
+                error.message || "Unable to delete listing",
+                "error",
+              );
+            }
+          }
+        });
+
+        document.addEventListener("click", (event) => {
+          if (!container.contains(event.target))
+            closeAllListingMenus(container);
+        });
       }
 
       function bindListingForm(id) {
@@ -506,14 +702,45 @@
             event.preventDefault();
             const form = new FormData(event.currentTarget);
             const payload = Object.fromEntries(form.entries());
+            const isEditing = Boolean(id);
+
+            const confirmed = await confirmAction({
+              title: isEditing
+                ? "Save changes to this listing?"
+                : "Publish this listing?",
+              message: isEditing
+                ? "Your updated details go live on the marketplace immediately."
+                : "Your listing goes live on the marketplace as soon as you confirm.",
+              confirmText: isEditing ? "Save changes" : "Publish listing",
+            });
+            if (!confirmed) return;
+
             try {
               const response = await apiRequest(
                 id ? `/api/listings/${id}` : "/api/listings",
-                { method: id ? "PUT" : "POST", body: JSON.stringify(payload) },
+                {
+                  method: id ? "PUT" : "POST",
+                  body: JSON.stringify(payload),
+                },
               );
+              const listingId = id || response.data.id;
+              try {
+                await uploadStagedPhotos(listingId);
+              } catch (photoError) {
+                showNotification(
+                  photoError.message ||
+                    "Listing saved, but photos could not be uploaded",
+                  "warning",
+                );
+              }
               showNotification(response.message, "success");
-              if (!id)
-                window.location.href = `listing.html?edit=${response.data.id}`;
+              if (id) {
+                window.location.href = "listing.html?create=1";
+              } else {
+                hideCreateListingForm();
+                resetListingPhotos();
+                await refreshMyListings();
+              }
             } catch (error) {
               showNotification(
                 error.message || "Unable to save listing",
@@ -521,163 +748,188 @@
               );
             }
           });
-      }
 
-      function bindUploads(id) {
         document
-          .getElementById("media-upload-form")
-          .addEventListener("submit", async (event) => {
-            event.preventDefault();
-            try {
-              const response = await apiRequest(`/api/listings/${id}/media`, {
-                method: "POST",
-                body: new FormData(event.currentTarget),
-              });
-              showNotification(response.message, "success");
-              event.currentTarget.reset();
-            } catch (error) {
-              showNotification(error.message || "Media upload failed", "error");
-            }
-          });
-        document
-          .getElementById("document-upload-form")
-          .addEventListener("submit", async (event) => {
-            event.preventDefault();
-            try {
-              const response = await apiRequest(
-                `/api/listings/${id}/documents`,
-                { method: "POST", body: new FormData(event.currentTarget) },
-              );
-              showNotification(response.message, "success");
-              event.currentTarget.reset();
-            } catch (error) {
-              showNotification(
-                error.message || "Document upload failed",
-                "error",
-              );
-            }
-          });
+          .getElementById("cancel-create-btn")
+          ?.addEventListener("click", hideCreateListingForm);
       }
 
       async function changeListingStatus(id, status) {
+        const prompt = STATUS_CHANGE_PROMPTS[status] || {
+          title: "Update this listing?",
+          message: "",
+          confirmText: "Update",
+        };
+        const confirmed = await confirmAction(prompt);
+        if (!confirmed) return;
+
         try {
           const response = await apiRequest(`/api/listings/${id}/status`, {
             method: "PATCH",
             body: JSON.stringify({ status }),
           });
           showNotification(response.message, "success");
-          await showSellerWorkspace({ mine: true });
+          await refreshMyListings();
         } catch (error) {
           showNotification(error.message || "Unable to update status", "error");
         }
       }
 
-      /**
-       * Render listing details
-       */
       function renderListing(listing) {
         document.getElementById("listing-title").textContent = listing.title;
-        document.getElementById("listing-species").textContent =
-          listing.species || "-";
-        document.getElementById("listing-species-icon").innerHTML =
-          listing.species ? speciesIcon(listing.species, "w-9 h-9") : "";
-        document.getElementById("listing-breed").textContent =
-          listing.breed || "-";
-        document.getElementById("listing-age").textContent = listing.age || "-";
-        document.getElementById("listing-weight").textContent =
-          listing.weight || "-";
-        document.getElementById("listing-description").textContent =
-          listing.description || "No description provided";
-        document.getElementById("listing-location").textContent =
-          listing.location || "-";
-        document.getElementById("listing-health").textContent =
-          listing.health_status || "-";
+
+        const descriptionEl = document.getElementById("listing-description");
+        if (listing.description) {
+          descriptionEl.textContent = listing.description;
+          descriptionEl.classList.remove("hidden");
+        } else {
+          descriptionEl.classList.add("hidden");
+        }
+
         document.getElementById("listing-price").textContent = formatCurrency(
           listing.price,
         );
-
         document.getElementById("seller-name").textContent =
           listing.seller_name || "-";
         document.getElementById("seller-location").textContent =
           listing.seller_location || "-";
 
-        // Render media
-        const firstImage = listing.media?.find((m) => m.file_type === "image");
-        document.getElementById("main-image").innerHTML = firstImage
-          ? `<img src="${firstImage.file_path}" alt="Listing image" class="w-full h-full object-cover">`
-          : speciesFallbackMedia(listing.species);
+        galleryMedia = listing.media || [];
+        galleryIndex = 0;
+        renderGalleryFrame();
 
-        if (listing.media && listing.media.length > 0) {
-          // Render thumbnails
-          const thumbnails = document.getElementById("thumbnails");
-          thumbnails.innerHTML = listing.media
-            .map((media) =>
-              media.file_type === "video"
-                ? `<video src="${media.file_path}" controls class="w-28 h-20 rounded bg-black"></video>`
-                : `<img src="${media.file_path}" alt="Listing thumbnail" class="w-20 h-20 object-cover rounded cursor-pointer border-2 border-transparent hover:border-blue-500 transition">`,
-            )
-            .join("");
-        }
-
-        // Render documents
-        if (listing.documents && listing.documents.length > 0) {
-          document
-            .getElementById("documents-section")
-            .classList.remove("hidden");
-          document.getElementById("documents-list").innerHTML =
-            listing.documents
-              .map(
-                (doc) => `
-          <div class="border border-gray-300 rounded-lg p-3 flex items-center justify-between">
-            <div>
-              <p class="font-medium text-gray-900">${escapeHtml(doc.document_type || "Document")}</p>
-              <p class="text-sm text-gray-600">Document uploaded · <span class="font-semibold">Verification: Pending</span></p>
-            </div>
-          </div>
-        `,
-              )
-              .join("");
-        }
         const currentUser = getCurrentUser();
-        if (currentUser?.role !== "buyer") {
-          document.getElementById("favorite-btn").classList.add("hidden");
+        const isOwnListing = currentUser?.id === listing.seller_id;
+        if (currentUser?.role !== "member" || isOwnListing) {
+          document
+            .getElementById("gallery-favorite-btn")
+            .classList.add("hidden");
           document.getElementById("inquiry-btn").classList.add("hidden");
         }
-        if (currentUser?.id === listing.seller_id) {
+        if (isOwnListing) {
           document.getElementById("contact-btn").classList.add("hidden");
         }
       }
 
-      /**
-       * Toggle favorite
-       */
+      async function loadSellerListings(listing) {
+        const section = document.getElementById("seller-listings-section");
+        const container = document.getElementById("seller-listings-container");
+        document.getElementById("seller-listings-heading").textContent =
+          listing.seller_name
+            ? `More from ${listing.seller_name}`
+            : "More from this seller";
+        section.classList.remove("hidden");
+
+        try {
+          const response = await apiRequest(
+            `/api/listings?sellerId=${listing.seller_id}&limit=9&sort=newest`,
+          );
+          const others = response.success
+            ? response.data.filter((item) => item.id !== listing.id)
+            : [];
+          if (others.length === 0) {
+            renderEmptyState(
+              container,
+              "This seller doesn't have any other listings yet.",
+            );
+          } else {
+            renderSellerListingCards(others);
+          }
+        } catch (error) {
+          console.error("Load seller listings error:", error);
+          renderEmptyState(
+            container,
+            "This seller doesn't have any other listings yet.",
+          );
+        }
+      }
+
+      function renderSellerListingCards(listings) {
+        const container = document.getElementById("seller-listings-container");
+        container.innerHTML = listings
+          .map(
+            (listing) => `
+        <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition cursor-pointer"
+             onclick="window.location.href = 'listing.html?id=${listing.id}'">
+          <div class="bg-gray-200 aspect-square sm:aspect-[4/3] flex items-center justify-center">
+            ${listing.main_image ? `<img src="${listing.main_image}" alt="${escapeHtml(listing.title)}" class="h-full w-full object-cover">` : speciesFallbackMedia(listing.species)}
+          </div>
+          <div class="p-2.5 sm:p-3">
+            <h3 class="text-xs sm:text-sm font-semibold text-gray-900 line-clamp-2 mb-1.5">${escapeHtml(listing.title)}</h3>
+            <div class="flex items-baseline justify-between gap-2 min-w-0">
+              <span class="text-sm sm:text-base font-bold text-emerald-600 leading-none">K${parseFloat(listing.price).toLocaleString()}</span>
+              ${listing.location ? `<span class="text-[10px] sm:text-xs text-gray-500 flex items-center gap-1 min-w-0"><span class="meta-icon">${uiIcon("location")}</span><span class="truncate">${escapeHtml(listing.location)}</span></span>` : ""}
+            </div>
+          </div>
+        </div>
+      `,
+          )
+          .join("");
+      }
+
+      function renderGalleryFrame() {
+        const mainImage = document.getElementById("main-image");
+        const prevBtn = document.getElementById("gallery-prev");
+        const nextBtn = document.getElementById("gallery-next");
+        const dots = document.getElementById("gallery-dots");
+
+        if (galleryMedia.length === 0) {
+          mainImage.innerHTML = speciesFallbackMedia(currentListing.species);
+          prevBtn.classList.add("hidden");
+          nextBtn.classList.add("hidden");
+          dots.innerHTML = "";
+          return;
+        }
+
+        const media = galleryMedia[galleryIndex];
+        mainImage.innerHTML = `<img src="${media.file_path}" alt="Listing photo ${galleryIndex + 1} of ${galleryMedia.length}" class="w-full h-full object-cover">`;
+
+        const hasMultiple = galleryMedia.length > 1;
+        prevBtn.classList.toggle("hidden", !hasMultiple);
+        nextBtn.classList.toggle("hidden", !hasMultiple);
+        prevBtn.disabled = galleryIndex === 0;
+        nextBtn.disabled = galleryIndex === galleryMedia.length - 1;
+
+        dots.innerHTML = hasMultiple
+          ? galleryMedia
+              .map(
+                (_, i) =>
+                  `<button type="button" class="gallery-dot ${i === galleryIndex ? "active" : ""}" data-index="${i}" aria-label="Photo ${i + 1}"></button>`,
+              )
+              .join("")
+          : "";
+        dots.querySelectorAll("button").forEach((dot) => {
+          dot.addEventListener("click", () => {
+            galleryIndex = parseInt(dot.dataset.index, 10);
+            renderGalleryFrame();
+          });
+        });
+      }
+
       async function toggleFavorite() {
         const user = getCurrentUser();
         if (!user) {
-          showNotification("Please login to save favorites", "warning");
-          window.location.href = "login.html";
+          goToLogin("favorite");
           return;
         }
 
         try {
-          const btn = document.getElementById("favorite-btn");
-          const isFavorited = btn.classList.contains("bg-red-500");
+          const btn = document.getElementById("gallery-favorite-btn");
+          const isFavorited = btn.classList.contains("active");
 
           if (isFavorited) {
             await apiRequest(`/api/favorites/${currentListing.id}`, {
               method: "DELETE",
             });
-            btn.classList.remove("bg-red-500", "text-white", "border-red-500");
-            btn.classList.add("border-blue-600", "text-blue-600");
-            btn.textContent = "Add to Favorites";
+            btn.classList.remove("active");
+            btn.setAttribute("aria-label", "Add to favorites");
             showNotification("Removed from favorites", "success");
           } else {
             await apiRequest(`/api/favorites/${currentListing.id}`, {
               method: "POST",
             });
-            btn.classList.remove("border-blue-600", "text-blue-600");
-            btn.classList.add("bg-red-500", "text-white", "border-red-500");
-            btn.textContent = "Remove from Favorites";
+            btn.classList.add("active");
+            btn.setAttribute("aria-label", "Remove from favorites");
             showNotification("Added to favorites", "success");
           }
         } catch (error) {
@@ -686,34 +938,22 @@
         }
       }
 
-      /**
-       * Show inquiry modal
-       */
       function showInquiryModal() {
         const user = getCurrentUser();
         if (!user) {
-          showNotification("Please login to send inquiries", "warning");
-          window.location.href = "login.html";
+          goToLogin("buy");
           return;
         }
-
         document.getElementById("inquiry-modal").classList.remove("hidden");
       }
 
-      /**
-       * Hide inquiry modal
-       */
       function hideInquiryModal() {
         document.getElementById("inquiry-modal").classList.add("hidden");
         document.getElementById("inquiry-message").value = "";
       }
 
-      /**
-       * Send inquiry
-       */
       async function sendInquiry() {
         const message = document.getElementById("inquiry-message").value.trim();
-
         if (!message) {
           showNotification("Please enter a message", "warning");
           return;
@@ -722,12 +962,8 @@
         try {
           const response = await apiRequest("/api/inquiries", {
             method: "POST",
-            body: JSON.stringify({
-              listing_id: currentListing.id,
-              message,
-            }),
+            body: JSON.stringify({ listing_id: currentListing.id, message }),
           });
-
           if (response.success) {
             showNotification("Inquiry sent successfully!", "success");
             hideInquiryModal();

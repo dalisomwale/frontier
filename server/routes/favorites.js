@@ -1,11 +1,11 @@
 const express = require("express");
 const pool = require("../db");
-const { isAuthenticated, isBuyer } = require("../middleware/auth");
+const { isAuthenticated, isMember } = require("../middleware/auth");
 
 const router = express.Router();
 
 // GET /api/favorites - Get user's favorite listings
-router.get("/", isAuthenticated, isBuyer, async (req, res) => {
+router.get("/", isAuthenticated, isMember, async (req, res) => {
   try {
     const userId = req.session.userId;
     const { page = 1, limit = 12 } = req.query;
@@ -50,7 +50,7 @@ router.get("/", isAuthenticated, isBuyer, async (req, res) => {
 });
 
 // POST /api/favorites/:listingId - Add to favorites
-router.post("/:listingId", isAuthenticated, isBuyer, async (req, res) => {
+router.post("/:listingId", isAuthenticated, isMember, async (req, res) => {
   try {
     const { listingId } = req.params;
     const userId = req.session.userId;
@@ -103,7 +103,7 @@ router.post("/:listingId", isAuthenticated, isBuyer, async (req, res) => {
 });
 
 // DELETE /api/favorites/:listingId - Remove from favorites
-router.delete("/:listingId", isAuthenticated, isBuyer, async (req, res) => {
+router.delete("/:listingId", isAuthenticated, isMember, async (req, res) => {
   try {
     const { listingId } = req.params;
     const userId = req.session.userId;
@@ -127,7 +127,7 @@ router.delete("/:listingId", isAuthenticated, isBuyer, async (req, res) => {
 });
 
 // GET /api/favorites/check/:listingId - Check if listing is favorited
-router.get("/check/:listingId", isAuthenticated, isBuyer, async (req, res) => {
+router.get("/check/:listingId", isAuthenticated, isMember, async (req, res) => {
   try {
     const { listingId } = req.params;
     const userId = req.session.userId;
