@@ -392,6 +392,8 @@
           </div>`;
       }
 
+      // Both Cancel buttons (create and edit) route back to the "My Listings"
+      // management view at ?mine=1, where the seller sees their full list.
       function listingForm(listing = {}) {
         const isEditing = Boolean(listing.id);
         const values = {
@@ -426,11 +428,7 @@
               </div>
             </div>
             <div class="flex justify-end gap-3 mt-6">
-              ${
-                isEditing
-                  ? `<a href="listing.html?create=1" class="rounded-lg border border-gray-300 px-4 py-2">Cancel</a>`
-                  : `<button type="button" id="cancel-create-btn" class="rounded-lg border border-gray-300 px-4 py-2">Cancel</button>`
-              }
+              <a href="listing.html?mine=1" class="rounded-lg border border-gray-300 px-4 py-2">Cancel</a>
               <button form="seller-listing-form" class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">${isEditing ? "Save changes" : "Create listing"}</button>
             </div>
           </div>`;
@@ -488,14 +486,6 @@
         });
       }
 
-      function resetListingPhotos() {
-        const input = document.getElementById("listing-photos-input");
-        if (!input) return;
-        setInputFiles(input, []);
-        const list = document.getElementById("listing-photos-list");
-        if (list) list.innerHTML = "";
-      }
-
       async function uploadStagedPhotos(listingId) {
         const input = document.getElementById("listing-photos-input");
         const files = Array.from(input?.files || []);
@@ -540,15 +530,13 @@
           return;
         }
 
+        // Create page (?create=1): the form is shown immediately - no
+        // intermediate "Create Listing" button, since arriving here already
+        // signals intent to create. Existing listings render below the form
+        // so a seller can see their new listing appear once submitted.
         workspace.innerHTML = `
           <h1 class="text-3xl font-bold text-gray-900 mb-8">My Listings</h1>
-          <div id="create-listing-trigger" class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
-            <button type="button" id="show-create-form-btn" class="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-medium">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 flex-shrink-0"><path d="M12 5v14M5 12h14"/></svg>
-              Create Listing
-            </button>
-          </div>
-          <div id="create-listing-form-wrapper" class="hidden opacity-0 -translate-y-2 transition-all duration-300 mb-6">
+          <div class="mb-8">
             ${listingForm()}
           </div>
           <div id="my-listings-container" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4"></div>
@@ -556,34 +544,7 @@
         bindListingForm();
         bindPhotoStaging();
         bindMyListingsMenu();
-        document
-          .getElementById("show-create-form-btn")
-          .addEventListener("click", showCreateListingForm);
         await refreshMyListings();
-      }
-
-      function showCreateListingForm() {
-        document
-          .getElementById("create-listing-trigger")
-          .classList.add("hidden");
-        const formWrapper = document.getElementById(
-          "create-listing-form-wrapper",
-        );
-        formWrapper.classList.remove("hidden");
-        requestAnimationFrame(() => {
-          formWrapper.classList.remove("opacity-0", "-translate-y-2");
-        });
-        formWrapper.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-
-      function hideCreateListingForm() {
-        const formWrapper = document.getElementById(
-          "create-listing-form-wrapper",
-        );
-        formWrapper.classList.add("hidden", "opacity-0", "-translate-y-2");
-        document
-          .getElementById("create-listing-trigger")
-          .classList.remove("hidden");
       }
 
       async function refreshMyListings() {
@@ -734,13 +695,9 @@
                 );
               }
               showNotification(response.message, "success");
-              if (id) {
-                window.location.href = "listing.html?create=1";
-              } else {
-                hideCreateListingForm();
-                resetListingPhotos();
-                await refreshMyListings();
-              }
+              // Both create and edit land on the management view, where the
+              // seller can see the listing in context with the rest of theirs.
+              window.location.href = "listing.html?mine=1";
             } catch (error) {
               showNotification(
                 error.message || "Unable to save listing",
@@ -748,10 +705,6 @@
               );
             }
           });
-
-        document
-          .getElementById("cancel-create-btn")
-          ?.addEventListener("click", hideCreateListingForm);
       }
 
       async function changeListingStatus(id, status) {
