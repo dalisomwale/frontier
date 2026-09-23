@@ -88,6 +88,14 @@
             </div>
           </div>
 
+          <button
+            type="button"
+            id="change-password-btn"
+            class="w-full mb-3 bg-white border border-gray-300 text-gray-900 px-4 py-3 rounded-lg hover:bg-gray-50 font-medium"
+          >
+            Change Password
+          </button>
+
           <!-- Phone-only logout: on desktop the sidebar footer already carries
              a logout button, so this duplicate is hidden at lg and up. -->
           <button
@@ -209,6 +217,94 @@
             </form>
           </div>
         </div>
+
+        <div id="password-view" class="hidden">
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-2">
+              Change Password
+            </h2>
+            <p class="text-sm text-gray-600 mb-6">
+              You'll stay signed in on this device after changing your password.
+            </p>
+
+            <form id="password-form" class="space-y-6">
+              <div>
+                <label
+                  for="current-password"
+                  class="block text-sm font-medium text-gray-700 mb-2"
+                  >Current password</label
+                >
+                <input
+                  type="password"
+                  id="current-password"
+                  autocomplete="current-password"
+                  required
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <div
+                  id="current-password-error"
+                  class="text-red-500 text-sm mt-1 hidden"
+                ></div>
+              </div>
+
+              <div>
+                <label
+                  for="new-password"
+                  class="block text-sm font-medium text-gray-700 mb-2"
+                  >New password</label
+                >
+                <input
+                  type="password"
+                  id="new-password"
+                  autocomplete="new-password"
+                  required
+                  minlength="8"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p class="text-gray-500 text-sm mt-1">At least 8 characters</p>
+                <div
+                  id="new-password-error"
+                  class="text-red-500 text-sm mt-1 hidden"
+                ></div>
+              </div>
+
+              <div>
+                <label
+                  for="confirm-new-password"
+                  class="block text-sm font-medium text-gray-700 mb-2"
+                  >Confirm new password</label
+                >
+                <input
+                  type="password"
+                  id="confirm-new-password"
+                  autocomplete="new-password"
+                  required
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <div
+                  id="confirm-new-password-error"
+                  class="text-red-500 text-sm mt-1 hidden"
+                ></div>
+              </div>
+
+              <div class="flex gap-3">
+                <button
+                  type="submit"
+                  class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  Update Password
+                </button>
+                <button
+                  type="button"
+                  id="password-cancel-btn"
+                  class="flex-1 border border-gray-300 text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
     <div id="tab-frame-host" class="tab-frame-host hidden"></div>
@@ -244,20 +340,48 @@
           showViewMode();
         });
         document
+          .getElementById("change-password-btn")
+          .addEventListener("click", showPasswordMode);
+        document
+          .getElementById("password-form")
+          .addEventListener("submit", savePassword);
+        document
+          .getElementById("password-cancel-btn")
+          .addEventListener("click", () => {
+            document.getElementById("password-form").reset();
+            hideAllErrors();
+            showViewMode();
+          });
+        document
           .getElementById("logout-btn")
           .addEventListener("click", async () => {
             await logout();
           });
       });
 
+      function hideAllErrors() {
+        document
+          .querySelectorAll('[id$="-error"]')
+          .forEach((el) => el.classList.add("hidden"));
+      }
+
       function showViewMode() {
         document.getElementById("profile-edit").classList.add("hidden");
+        document.getElementById("password-view").classList.add("hidden");
         document.getElementById("profile-view").classList.remove("hidden");
       }
 
       function showEditMode() {
         document.getElementById("profile-view").classList.add("hidden");
+        document.getElementById("password-view").classList.add("hidden");
         document.getElementById("profile-edit").classList.remove("hidden");
+      }
+
+      function showPasswordMode() {
+        document.getElementById("profile-view").classList.add("hidden");
+        document.getElementById("profile-edit").classList.add("hidden");
+        document.getElementById("password-view").classList.remove("hidden");
+        document.getElementById("current-password").focus();
       }
 
       async function loadProfile() {
@@ -320,9 +444,7 @@
             ? document.getElementById("service-description").value.trim()
             : undefined;
 
-        document.querySelectorAll('[id$="-error"]').forEach((el) => {
-          el.classList.add("hidden");
-        });
+        hideAllErrors();
 
         let hasError = false;
 
@@ -381,6 +503,80 @@
         } catch (error) {
           console.error("Save profile error:", error);
           showNotification("Failed to save profile", "error");
+        }
+      }
+
+      async function savePassword(e) {
+        e.preventDefault();
+
+        const currentPassword =
+          document.getElementById("current-password").value;
+        const newPassword = document.getElementById("new-password").value;
+        const confirmPassword = document.getElementById(
+          "confirm-new-password",
+        ).value;
+
+        hideAllErrors();
+
+        let hasError = false;
+        if (!currentPassword) {
+          document.getElementById("current-password-error").textContent =
+            "Enter your current password";
+          document
+            .getElementById("current-password-error")
+            .classList.remove("hidden");
+          hasError = true;
+        }
+        if (newPassword.length < 8) {
+          document.getElementById("new-password-error").textContent =
+            "Password must be at least 8 characters";
+          document
+            .getElementById("new-password-error")
+            .classList.remove("hidden");
+          hasError = true;
+        }
+        if (newPassword !== confirmPassword) {
+          document.getElementById("confirm-new-password-error").textContent =
+            "Passwords do not match";
+          document
+            .getElementById("confirm-new-password-error")
+            .classList.remove("hidden");
+          hasError = true;
+        }
+        if (hasError) return;
+
+        const confirmed = await confirmAction({
+          title: "Change your password?",
+          message: "You'll stay signed in on this device.",
+          confirmText: "Change password",
+        });
+        if (!confirmed) return;
+
+        try {
+          const response = await apiRequest("/api/users/password", {
+            method: "PUT",
+            body: JSON.stringify({
+              currentPassword,
+              newPassword,
+              confirmPassword,
+            }),
+          });
+          if (response.success) {
+            showNotification("Password updated successfully", "success");
+            document.getElementById("password-form").reset();
+            showViewMode();
+          } else {
+            showNotification(
+              response.message || "Failed to update password",
+              "error",
+            );
+          }
+        } catch (error) {
+          console.error("Save password error:", error);
+          showNotification(
+            error.message || "Failed to update password",
+            "error",
+          );
         }
       }
     </script>

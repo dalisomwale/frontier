@@ -100,6 +100,66 @@
                 </div>
               </div>
 
+              <!-- Species / breed / age / weight / health: rendered only when
+                   the seller supplied a value for a given row. -->
+              <div id="listing-attributes" class="mb-6 hidden">
+                <h3 class="text-base font-semibold text-gray-900 mb-3">
+                  Details
+                </h3>
+                <div class="space-y-2">
+                  <div
+                    id="attr-species-row"
+                    class="hidden flex justify-between gap-3"
+                  >
+                    <span class="text-sm text-gray-500">Species</span>
+                    <span
+                      id="attr-species"
+                      class="text-sm font-semibold text-gray-900 text-right"
+                    ></span>
+                  </div>
+                  <div
+                    id="attr-breed-row"
+                    class="hidden flex justify-between gap-3"
+                  >
+                    <span class="text-sm text-gray-500">Breed</span>
+                    <span
+                      id="attr-breed"
+                      class="text-sm font-semibold text-gray-900 text-right"
+                    ></span>
+                  </div>
+                  <div
+                    id="attr-age-row"
+                    class="hidden flex justify-between gap-3"
+                  >
+                    <span class="text-sm text-gray-500">Age</span>
+                    <span
+                      id="attr-age"
+                      class="text-sm font-semibold text-gray-900 text-right"
+                    ></span>
+                  </div>
+                  <div
+                    id="attr-weight-row"
+                    class="hidden flex justify-between gap-3"
+                  >
+                    <span class="text-sm text-gray-500">Weight</span>
+                    <span
+                      id="attr-weight"
+                      class="text-sm font-semibold text-gray-900 text-right"
+                    ></span>
+                  </div>
+                  <div
+                    id="attr-health-row"
+                    class="hidden flex justify-between gap-3"
+                  >
+                    <span class="text-sm text-gray-500">Health</span>
+                    <span
+                      id="attr-health"
+                      class="text-sm font-semibold text-gray-900 text-right"
+                    ></span>
+                  </div>
+                </div>
+              </div>
+
               <div class="grid grid-cols-2 gap-3 mb-6">
                 <button
                   id="inquiry-btn"
@@ -229,6 +289,13 @@
         paused: "bg-yellow-500 text-white",
         sold: "bg-blue-600 text-white",
         deactivated: "bg-gray-600 text-white",
+      };
+
+      const HEALTH_LABELS = {
+        healthy: "Healthy",
+        treated: "Treated (recovered)",
+        under_treatment: "Under treatment",
+        unknown: "Not specified",
       };
 
       const STATUS_CHANGE_PROMPTS = {
@@ -392,21 +459,29 @@
           </div>`;
       }
 
-      // Both Cancel buttons (create and edit) route back to the "My Listings"
-      // management view at ?mine=1, where the seller sees their full list.
       function listingForm(listing = {}) {
         const isEditing = Boolean(listing.id);
         const values = {
           title: listing.title || "",
           species: listing.species || "",
+          breed: listing.breed || "",
           location: listing.location || "",
           price: listing.price || "",
           description: listing.description || "",
+          age_months: listing.age_months || "",
+          weight_kg: listing.weight_kg || "",
+          health_status: listing.health_status || "unknown",
         };
-        const options = ["Cattle", "Goats", "Sheep", "Pigs", "Poultry"]
+        const speciesOptions = ["Cattle", "Goats", "Sheep", "Pigs", "Poultry"]
           .map(
             (species) =>
               `<option value="${species}" ${values.species === species ? "selected" : ""}>${species}</option>`,
+          )
+          .join("");
+        const healthOptions = Object.entries(HEALTH_LABELS)
+          .map(
+            ([value, label]) =>
+              `<option value="${value}" ${values.health_status === value ? "selected" : ""}>${label}</option>`,
           )
           .join("");
         return `
@@ -417,8 +492,12 @@
             </div>
             <form id="seller-listing-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label class="block text-sm font-medium text-gray-700">Title<input name="title" required maxlength="255" value="${escapeHtml(values.title)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
-              <label class="block text-sm font-medium text-gray-700">Species<select name="species" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"><option value="">Choose a category</option>${options}</select></label>
+              <label class="block text-sm font-medium text-gray-700">Species<select name="species" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"><option value="">Choose a category</option>${speciesOptions}</select></label>
+              <label class="block text-sm font-medium text-gray-700">Breed <span class="font-normal text-gray-500">(optional)</span><input name="breed" maxlength="100" value="${escapeHtml(values.breed)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" placeholder="e.g., Boran, Boer, Dorper"></label>
               <label class="block text-sm font-medium text-gray-700">Location<input name="location" required maxlength="255" value="${escapeHtml(values.location)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
+              <label class="block text-sm font-medium text-gray-700">Age <span class="font-normal text-gray-500">(months, optional)</span><input name="age_months" min="1" max="600" step="1" type="number" value="${escapeHtml(values.age_months)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" placeholder="e.g., 18"></label>
+              <label class="block text-sm font-medium text-gray-700">Weight <span class="font-normal text-gray-500">(kg, optional)</span><input name="weight_kg" min="0.01" step="0.01" type="number" value="${escapeHtml(values.weight_kg)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" placeholder="e.g., 320"></label>
+              <label class="block text-sm font-medium text-gray-700">Health status<select name="health_status" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">${healthOptions}</select></label>
               <label class="block text-sm font-medium text-gray-700">Price (ZMW)<input name="price" required min="0.01" step="0.01" type="number" value="${escapeHtml(values.price)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
             </form>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -530,10 +609,9 @@
           return;
         }
 
-        // Create page (?create=1): the form is shown immediately - no
-        // intermediate "Create Listing" button, since arriving here already
-        // signals intent to create. Existing listings render below the form
-        // so a seller can see their new listing appear once submitted.
+        // Create page (?create=1): form appears directly, existing listings
+        // render below so a seller can see the new listing appear once
+        // submitted.
         workspace.innerHTML = `
           <h1 class="text-3xl font-bold text-gray-900 mb-8">My Listings</h1>
           <div class="mb-8">
@@ -695,8 +773,6 @@
                 );
               }
               showNotification(response.message, "success");
-              // Both create and edit land on the management view, where the
-              // seller can see the listing in context with the rest of theirs.
               window.location.href = "listing.html?mine=1";
             } catch (error) {
               showNotification(
@@ -728,6 +804,21 @@
         }
       }
 
+      // Populate the attribute rows on the public detail view. Each row is
+      // individually hidden when the seller left that field blank, so a
+      // listing with only a title and price still reads cleanly.
+      function setAttrRow(rowId, valueId, value) {
+        const row = document.getElementById(rowId);
+        const target = document.getElementById(valueId);
+        if (!row || !target) return;
+        if (value === null || value === undefined || value === "") {
+          row.classList.add("hidden");
+          return;
+        }
+        target.textContent = value;
+        row.classList.remove("hidden");
+      }
+
       function renderListing(listing) {
         document.getElementById("listing-title").textContent = listing.title;
 
@@ -746,6 +837,35 @@
           listing.seller_name || "-";
         document.getElementById("seller-location").textContent =
           listing.seller_location || "-";
+
+        setAttrRow("attr-species-row", "attr-species", listing.species || null);
+        setAttrRow("attr-breed-row", "attr-breed", listing.breed || null);
+        setAttrRow(
+          "attr-age-row",
+          "attr-age",
+          listing.age_months ? `${listing.age_months} months` : null,
+        );
+        setAttrRow(
+          "attr-weight-row",
+          "attr-weight",
+          listing.weight_kg
+            ? `${Number(listing.weight_kg).toLocaleString()} kg`
+            : null,
+        );
+        // "unknown" is a valid server-side default and not worth surfacing to
+        // buyers as a row - only show health when the seller actually said.
+        setAttrRow(
+          "attr-health-row",
+          "attr-health",
+          listing.health_status && listing.health_status !== "unknown"
+            ? HEALTH_LABELS[listing.health_status] || listing.health_status
+            : null,
+        );
+
+        const attributes = document.getElementById("listing-attributes");
+        const anyVisible =
+          attributes.querySelectorAll('[id$="-row"]:not(.hidden)').length > 0;
+        attributes.classList.toggle("hidden", !anyVisible);
 
         galleryMedia = listing.media || [];
         galleryIndex = 0;
