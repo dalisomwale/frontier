@@ -35,7 +35,6 @@ function listingPayload(body, { partial = false } = {}) {
   const breed = text(body.breed, 100);
   const location = text(body.location, 255);
   const price = finiteNumber(body.price);
-  const description = text(body.description, 20000);
   const ageMonths = positiveInteger(body.age_months, null);
   const weightKg = finiteNumber(body.weight_kg);
   const healthStatus = text(body.health_status, 32);
@@ -60,9 +59,6 @@ function listingPayload(body, { partial = false } = {}) {
       error: `Weight must be between 0 and ${MAX_WEIGHT_KG.toLocaleString()} kg`,
     };
   }
-  // On partial updates, a field that is explicitly present must be valid if
-  // the client sent a non-empty value for it. Fields the client omitted are
-  // simply not touched.
   if (
     (body.title !== undefined && !title) ||
     (body.species !== undefined && (!species || !SPECIES.includes(species))) ||
@@ -87,7 +83,6 @@ function listingPayload(body, { partial = false } = {}) {
     breed,
     location,
     price,
-    description,
     age_months: ageMonths,
     weight_kg: weightKg,
     health_status: healthStatus || "unknown",
@@ -135,13 +130,26 @@ router.get("/", async (req, res, next) => {
     const sellerId = positiveInteger(req.query.sellerId, null);
 
     if (keyword) {
-      // MATCH AGAINST uses the FULLTEXT index on (title, description, breed,
-      // location). Falls back gracefully to zero rows on very short terms,
-      // which MySQL's default minimum word length rejects.
-      where.push(
-        "MATCH (l.title, l.description, l.breed, l.location) AGAINST (? IN NATURAL LANGUAGE MODE)",
-      );
-      params.push(keyword);
+      // IN BOOLEAN MODE avoids NATURAL LANGUAGE MODE's 50% threshold,
+      // which silently drops any word appearing in more than half the
+      // table - very easy to hit on a small dataset. The trailing * on
+      // each word makes it a prefix match (so "goat" finds "goats").
+      // Non-alphanumeric characters are stripped to stop a user typing
+      // boolean operators (+ - " < > ( ) ~ *) or accidentally producing
+      // a malformed query.
+      const safeKeyword = String(keyword)
+        .replace(/[^\p{L}\p{N}\s]/gu, " ")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word) => `${word}*`)
+        .join(" ");
+      if (safeKeyword) {
+        where.push(
+          "MATCH (l.title, l.breed, l.location) AGAINST (? IN BOOLEAN MODE)",
+        );
+        params.push(safeKeyword);
+      }
     }
     if (species && SPECIES.includes(species)) {
       where.push("l.species = ?");
@@ -285,7 +293,7 @@ router.get("/mine/:id", isAuthenticated, isMember, async (req, res, next) => {
         .json({ success: false, message: "Listing not found" });
     const listing = listings[0];
     const [media] = await pool.query(
-      "SELECT id, file_path, created_at FROM listing_media WHERE listing_id = ? ORDER BY id ASC",
+      "SELECT id, file_path, media_type, created_at FROM listing_media WHERE listing_id = ? ORDER BY id ASC",
       [id],
     );
     return res.json({ success: true, data: { ...listing, media } });
@@ -313,7 +321,7 @@ router.get("/:id", async (req, res, next) => {
         .json({ success: false, message: "Listing not found" });
     const listing = listings[0];
     const [media] = await pool.query(
-      "SELECT id, file_path, created_at FROM listing_media WHERE listing_id = ? ORDER BY id ASC",
+      "SELECT id, file_path, media_type, created_at FROM listing_media WHERE listing_id = ? ORDER BY id ASC",
       [id],
     );
     return res.json({ success: true, data: { ...listing, media } });
@@ -329,8 +337,8 @@ router.post("/", isAuthenticated, isMember, async (req, res, next) => {
       return res.status(400).json({ success: false, message: data.error });
     const [result] = await pool.query(
       `INSERT INTO listings
-        (seller_id, title, species, breed, location, price, description, age_months, weight_kg, health_status, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+        (seller_id, title, species, breed, location, price, age_months, weight_kg, health_status, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
       [
         req.session.userId,
         data.title,
@@ -338,7 +346,6 @@ router.post("/", isAuthenticated, isMember, async (req, res, next) => {
         data.breed,
         data.location,
         data.price,
-        data.description,
         data.age_months,
         data.weight_kg,
         data.health_status,
@@ -371,7 +378,6 @@ router.put(
         "breed",
         "location",
         "price",
-        "description",
         "age_months",
         "weight_kg",
         "health_status",
@@ -452,8 +458,9 @@ router.delete(
       await pool.query("DELETE FROM listings WHERE id = ?", [req.listing.id]);
       files.forEach(({ file_path }) => {
         const absolute = path.resolve("public", `.${file_path}`);
-        if (absolute.startsWith(path.resolve("public/uploads") + path.sep))
+        if (absolute.startsWith(path.resolve("public/uploads") + path.sep)) {
           fs.unlink(absolute, () => {});
+        }
       });
       return res.json({
         success: true,
@@ -465,6 +472,9 @@ router.delete(
   },
 );
 
+// Media upload: photos and short videos. multer handles the multipart body;
+// this handler reads req.files, tags each file image vs video by MIME type,
+// and inserts one row per file into listing_media.
 router.post(
   "/:id/media",
   isAuthenticated,
@@ -474,16 +484,23 @@ router.post(
   async (req, res, next) => {
     try {
       const files = req.files || [];
-      if (!files.length)
+      if (!files.length) {
         return res
           .status(400)
-          .json({ success: false, message: "Choose at least one image" });
-      const values = files.map((file) => [
-        req.listing.id,
-        `/uploads/livestock/${file.filename}`,
-      ]);
+          .json({ success: false, message: "Choose at least one file" });
+      }
+      const values = files.map((file) => {
+        const mediaType = file.mimetype.startsWith("video/")
+          ? "video"
+          : "image";
+        return [
+          req.listing.id,
+          `/uploads/livestock/${file.filename}`,
+          mediaType,
+        ];
+      });
       const [result] = await pool.query(
-        "INSERT INTO listing_media (listing_id, file_path) VALUES ?",
+        "INSERT INTO listing_media (listing_id, file_path, media_type) VALUES ?",
         [values],
       );
       return res.status(201).json({

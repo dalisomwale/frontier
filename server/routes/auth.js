@@ -17,7 +17,13 @@ async function createSession(req, user) {
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
   try {
-    const { phone, password, confirmPassword, role } = req.body;
+    const {
+      phone,
+      password,
+      confirmPassword,
+      role,
+      accepted_terms: acceptedTerms,
+    } = req.body;
     const name = normalize(req.body.name);
     const email = normalize(req.body.email).toLowerCase();
     const location = normalize(req.body.location);
@@ -29,11 +35,13 @@ router.post("/register", async (req, res) => {
       !password ||
       !confirmPassword ||
       !location ||
-      !role
+      !role ||
+      !acceptedTerms
     ) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required",
+        message:
+          "All fields are required, including acceptance of the Terms of Service",
       });
     }
 
@@ -87,9 +95,12 @@ router.post("/register", async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Create user. terms_accepted_at is set to NOW() because the accepted_terms
+    // boolean was validated above - this is the audit trail of when the user
+    // agreed to the ToS.
     const [result] = await pool.query(
-      "INSERT INTO users (name, email, phone, password_hash, role, location) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO users (name, email, phone, password_hash, role, location, terms_accepted_at) " +
+        "VALUES (?, ?, ?, ?, ?, ?, NOW())",
       [name, email, phone || null, passwordHash, role, location],
     );
 
@@ -218,7 +229,6 @@ router.post("/forgot-password", async (req, res) => {
       success: false,
       message:
         "Password reset email is not configured. Please contact platform developers.",
-
     });
   } catch (error) {
     console.error("Forgot password error:", error);

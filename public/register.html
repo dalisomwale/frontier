@@ -63,12 +63,6 @@
       <div class="flex-1 py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-2xl mx-auto">
           <div class="bg-white rounded-lg shadow-lg p-8">
-            <div class="lg:hidden brand-mark brand-mark-lg mb-4">
-              <img
-                src="images/logo-icon.jpg"
-                alt="Frontier Farms &amp; Consult logo"
-              />
-            </div>
             <h2 class="text-3xl font-bold text-gray-900 mb-2">
               Create Your Account
             </h2>
@@ -219,6 +213,42 @@
                 ></div>
               </div>
 
+              <!-- Terms acceptance: required by the backend (register.js
+                   checks accepted_terms) so the checkbox must be ticked to
+                   create an account. Links open in a new tab so the user
+                   doesn't lose the form they've just filled in. -->
+              <div>
+                <label class="flex items-start gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    id="accept-terms"
+                    name="accept-terms"
+                    required
+                    class="mt-1"
+                  />
+                  <span>
+                    I have read and agree to the
+                    <a
+                      href="terms.html"
+                      target="_blank"
+                      class="text-blue-600 hover:underline font-medium"
+                      >Terms of Service</a
+                    >
+                    and
+                    <a
+                      href="privacy.html"
+                      target="_blank"
+                      class="text-blue-600 hover:underline font-medium"
+                      >Privacy Policy</a
+                    >.
+                  </span>
+                </label>
+                <div
+                  id="accept-terms-error"
+                  class="text-red-500 text-sm mt-1 hidden"
+                ></div>
+              </div>
+
               <!-- Submit Button -->
               <button
                 type="submit"
@@ -262,6 +292,7 @@
           const password = document.getElementById("password").value;
           const confirmPassword =
             document.getElementById("confirmPassword").value;
+          const acceptedTerms = document.getElementById("accept-terms").checked;
 
           // Clear previous errors
           document.querySelectorAll('[id$="-error"]').forEach((el) => {
@@ -319,6 +350,15 @@
             hasError = true;
           }
 
+          if (!acceptedTerms) {
+            document.getElementById("accept-terms-error").textContent =
+              "You must accept the Terms of Service and Privacy Policy";
+            document
+              .getElementById("accept-terms-error")
+              .classList.remove("hidden");
+            hasError = true;
+          }
+
           if (hasError) {
             return;
           }
@@ -338,6 +378,7 @@
             role,
             password,
             confirmPassword,
+            accepted_terms: acceptedTerms,
           });
 
           if (!success) {

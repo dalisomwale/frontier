@@ -16,6 +16,7 @@ const inquiriesRoutes = require("./routes/inquiries");
 const favoritesRoutes = require("./routes/favorites");
 const adminRoutes = require("./routes/admin");
 const reportsRoutes = require("./routes/reports");
+const documentsRoutes = require("./routes/documents");
 
 const app = express();
 const server = http.createServer(app);
@@ -139,6 +140,7 @@ app.use("/api/inquiries", inquiriesRoutes);
 app.use("/api/favorites", favoritesRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/reports", reportsRoutes);
+app.use("/api/documents", documentsRoutes);
 
 // Socket.IO shares the HTTP session, so clients cannot impersonate another
 // account by supplying a user id in a socket event.

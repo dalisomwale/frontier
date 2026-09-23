@@ -65,13 +65,13 @@
                 type="button"
                 id="gallery-prev"
                 class="gallery-nav gallery-nav-prev hidden"
-                aria-label="Previous photo"
+                aria-label="Previous media"
               ></button>
               <button
                 type="button"
                 id="gallery-next"
                 class="gallery-nav gallery-nav-next hidden"
-                aria-label="Next photo"
+                aria-label="Next media"
               ></button>
               <div id="gallery-dots" class="gallery-dots"></div>
             </div>
@@ -82,12 +82,8 @@
               <div class="mb-6 pb-6 border-b border-gray-200">
                 <h1
                   id="listing-title"
-                  class="text-2xl sm:text-3xl font-bold text-gray-900 mb-3"
+                  class="text-2xl sm:text-3xl font-bold text-gray-900"
                 ></h1>
-                <p
-                  id="listing-description"
-                  class="hidden text-base text-gray-700 leading-relaxed"
-                ></p>
               </div>
 
               <div class="mb-6">
@@ -100,8 +96,6 @@
                 </div>
               </div>
 
-              <!-- Species / breed / age / weight / health: rendered only when
-                   the seller supplied a value for a given row. -->
               <div id="listing-attributes" class="mb-6 hidden">
                 <h3 class="text-base font-semibold text-gray-900 mb-3">
                   Details
@@ -158,6 +152,13 @@
                     ></span>
                   </div>
                 </div>
+              </div>
+
+              <div id="public-documents-section" class="mb-6 hidden">
+                <h3 class="text-base font-semibold text-gray-900 mb-3">
+                  Verified documents
+                </h3>
+                <ul id="public-documents-list" class="space-y-2"></ul>
               </div>
 
               <div class="grid grid-cols-2 gap-3 mb-6">
@@ -298,6 +299,19 @@
         unknown: "Not specified",
       };
 
+      const DOCUMENT_TYPE_LABELS = {
+        permit: "Permit",
+        certificate: "Certificate",
+        health_record: "Health record",
+        other: "Other",
+      };
+
+      const DOCUMENT_STATUS_BADGES = {
+        pending: "bg-yellow-100 text-yellow-800",
+        approved: "bg-green-100 text-green-800",
+        rejected: "bg-red-100 text-red-800",
+      };
+
       const STATUS_CHANGE_PROMPTS = {
         active: {
           title: "Reactivate this listing?",
@@ -390,7 +404,9 @@
 
         document.getElementById("contact-btn").addEventListener("click", () => {
           if (!getCurrentUser()) {
-            goToLogin("message");
+            goToLogin("message", {
+              next: `/listing.html?id=${currentListing.id}`,
+            });
             return;
           }
           window.location.href = `messages.html?seller=${currentListing.seller_id}`;
@@ -400,7 +416,9 @@
           .getElementById("view-seller-profile-btn")
           .addEventListener("click", () => {
             if (!getCurrentUser()) {
-              goToLogin("seller-profile");
+              goToLogin("seller-profile", {
+                next: `/seller.html?id=${currentListing.seller_id}`,
+              });
               return;
             }
             window.location.href = `seller.html?id=${currentListing.seller_id}`;
@@ -425,6 +443,7 @@
             currentListing = response.data;
             renderListing(currentListing);
             loadSellerListings(currentListing);
+            loadPublicDocuments(id);
 
             const user = getCurrentUser();
             if (user) {
@@ -450,11 +469,15 @@
       }
 
       const MAX_LISTING_PHOTOS = 5;
+      const MAX_LISTING_VIDEOS = 2;
 
-      function imageUploadField() {
+      function mediaUploadField() {
         return `
           <div class="mt-1">
-            <input id="listing-photos-input" multiple type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="block w-full text-sm text-gray-700">
+            <input id="listing-photos-input" multiple type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
+              class="block w-full text-sm text-gray-700">
+            <p class="text-xs text-gray-500 mt-1">Up to ${MAX_LISTING_PHOTOS} photos or ${MAX_LISTING_VIDEOS} videos (50 MB max per video).</p>
             <ul id="listing-photos-list" class="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2"></ul>
           </div>`;
       }
@@ -467,7 +490,6 @@
           breed: listing.breed || "",
           location: listing.location || "",
           price: listing.price || "",
-          description: listing.description || "",
           age_months: listing.age_months || "",
           weight_kg: listing.weight_kg || "",
           health_status: listing.health_status || "unknown",
@@ -500,16 +522,43 @@
               <label class="block text-sm font-medium text-gray-700">Health status<select name="health_status" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">${healthOptions}</select></label>
               <label class="block text-sm font-medium text-gray-700">Price (ZMW)<input name="price" required min="0.01" step="0.01" type="number" value="${escapeHtml(values.price)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
             </form>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <label class="block text-sm font-medium text-gray-700">Description <span class="font-normal text-gray-500">(optional)</span><textarea name="description" form="seller-listing-form" maxlength="20000" rows="5" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">${escapeHtml(values.description)}</textarea></label>
-              <div class="block text-sm font-medium text-gray-700">Images <span class="font-normal text-gray-500">(optional, up to ${MAX_LISTING_PHOTOS} photos)</span>
-                ${imageUploadField()}
+            <div class="mt-4">
+              <div class="block text-sm font-medium text-gray-700">Photos &amp; videos
+                ${mediaUploadField()}
               </div>
             </div>
             <div class="flex justify-end gap-3 mt-6">
               <a href="listing.html?mine=1" class="rounded-lg border border-gray-300 px-4 py-2">Cancel</a>
               <button form="seller-listing-form" class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">${isEditing ? "Save changes" : "Create listing"}</button>
             </div>
+          </div>`;
+      }
+
+      function documentsPanel(listingId) {
+        return `
+          <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mt-6" id="documents-panel">
+            <h2 class="text-lg font-bold text-gray-900 mb-1">Verification documents</h2>
+            <p class="text-sm text-gray-600 mb-4">Upload permits, health certificates, or other PDFs. An administrator reviews each one before it appears on your public listing.</p>
+
+            <form id="document-upload-form" class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end mb-6">
+              <label class="block text-sm font-medium text-gray-700 sm:col-span-2">Title
+                <input name="title" required maxlength="255" placeholder="e.g., Veterinary health certificate 2026" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+              </label>
+              <label class="block text-sm font-medium text-gray-700">Type
+                <select name="document_type" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
+                  <option value="certificate">Certificate</option>
+                  <option value="permit">Permit</option>
+                  <option value="health_record">Health record</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label class="block text-sm font-medium text-gray-700 sm:col-span-2">PDF file
+                <input name="document" type="file" accept="application/pdf" required class="mt-1 w-full text-sm text-gray-700">
+              </label>
+              <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">Upload document</button>
+            </form>
+
+            <div id="seller-documents-list" class="space-y-2"></div>
           </div>`;
       }
 
@@ -525,19 +574,29 @@
         input.dataset.bound = "true";
         input.addEventListener("change", async () => {
           let files = Array.from(input.files || []);
-          if (files.length > MAX_LISTING_PHOTOS) {
+          const videos = files.filter((f) => f.type.startsWith("video/"));
+          const images = files.filter((f) => f.type.startsWith("image/"));
+
+          if (videos.length > MAX_LISTING_VIDEOS) {
+            showNotification(
+              `You can attach up to ${MAX_LISTING_VIDEOS} videos`,
+              "warning",
+            );
+            files = [...images, ...videos.slice(0, MAX_LISTING_VIDEOS)];
+            setInputFiles(input, files);
+          } else if (images.length > MAX_LISTING_PHOTOS) {
             showNotification(
               `You can attach up to ${MAX_LISTING_PHOTOS} photos`,
               "warning",
             );
-            files = files.slice(0, MAX_LISTING_PHOTOS);
+            files = [...images.slice(0, MAX_LISTING_PHOTOS), ...videos];
             setInputFiles(input, files);
           }
-          await renderPhotoList(input);
+          await renderMediaList(input);
         });
       }
 
-      async function renderPhotoList(input) {
+      async function renderMediaList(input) {
         const list = document.getElementById("listing-photos-list");
         if (!list) return;
         const files = Array.from(input.files || []);
@@ -545,13 +604,18 @@
           files.map((file) => createImagePreview(file)),
         );
         list.innerHTML = files
-          .map(
-            (file, index) => `
+          .map((file, index) => {
+            const isVideo = file.type.startsWith("video/");
+            const inner = isVideo
+              ? `<video src="${previews[index]}" class="w-full aspect-square object-cover rounded-lg border border-gray-200" muted></video>
+               <span class="absolute bottom-1 left-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">VIDEO</span>`
+              : `<img src="${previews[index]}" alt="${escapeHtml(file.name)}" class="w-full aspect-square object-cover rounded-lg border border-gray-200">`;
+            return `
           <li class="relative">
-            <img src="${previews[index]}" alt="${escapeHtml(file.name)}" class="w-full aspect-square object-cover rounded-lg border border-gray-200">
-            <button type="button" class="photo-remove-btn absolute -top-2 -right-2 w-6 h-6 flex items-center justify-center rounded-full bg-gray-900 text-white text-xs leading-none" data-index="${index}" aria-label="Remove photo">&times;</button>
-          </li>`,
-          )
+            ${inner}
+            <button type="button" class="photo-remove-btn absolute -top-2 -right-2 w-6 h-6 flex items-center justify-center rounded-full bg-gray-900 text-white text-xs leading-none" data-index="${index}" aria-label="Remove">&times;</button>
+          </li>`;
+          })
           .join("");
         list.querySelectorAll(".photo-remove-btn").forEach((btn) => {
           btn.addEventListener("click", () => {
@@ -560,12 +624,12 @@
               (_, i) => i !== index,
             );
             setInputFiles(input, remaining);
-            renderPhotoList(input);
+            renderMediaList(input);
           });
         });
       }
 
-      async function uploadStagedPhotos(listingId) {
+      async function uploadStagedMedia(listingId) {
         const input = document.getElementById("listing-photos-input");
         const files = Array.from(input?.files || []);
         if (!files.length) return;
@@ -586,9 +650,11 @@
             const response = await apiRequest(
               `/api/listings/mine/${params.edit}`,
             );
-            workspace.innerHTML = listingForm(response.data);
+            workspace.innerHTML =
+              listingForm(response.data) + documentsPanel(response.data.id);
             bindListingForm(response.data.id);
             bindPhotoStaging();
+            bindDocumentsPanel(response.data.id);
           } catch (error) {
             workspace.innerHTML =
               '<div class="rounded-lg bg-red-50 p-6 text-red-700">The listing could not be loaded.</div>';
@@ -609,14 +675,9 @@
           return;
         }
 
-        // Create page (?create=1): form appears directly, existing listings
-        // render below so a seller can see the new listing appear once
-        // submitted.
         workspace.innerHTML = `
           <h1 class="text-3xl font-bold text-gray-900 mb-8">My Listings</h1>
-          <div class="mb-8">
-            ${listingForm()}
-          </div>
+          <div class="mb-8">${listingForm()}</div>
           <div id="my-listings-container" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4"></div>
         `;
         bindListingForm();
@@ -707,7 +768,7 @@
             const confirmed = await confirmAction({
               title: "Delete this listing?",
               message:
-                "This cannot be undone. All photos will also be removed from the marketplace.",
+                "This cannot be undone. All photos, videos, and documents will also be removed.",
               confirmText: "Delete",
               variant: "danger",
             });
@@ -764,11 +825,11 @@
               );
               const listingId = id || response.data.id;
               try {
-                await uploadStagedPhotos(listingId);
-              } catch (photoError) {
+                await uploadStagedMedia(listingId);
+              } catch (mediaError) {
                 showNotification(
-                  photoError.message ||
-                    "Listing saved, but photos could not be uploaded",
+                  mediaError.message ||
+                    "Listing saved, but media could not be uploaded",
                   "warning",
                 );
               }
@@ -781,6 +842,133 @@
               );
             }
           });
+      }
+
+      async function bindDocumentsPanel(listingId) {
+        const form = document.getElementById("document-upload-form");
+        const list = document.getElementById("seller-documents-list");
+        if (!form || !list) return;
+
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const data = new FormData(form);
+          if (
+            !(data.get("document") instanceof File) ||
+            !data.get("document").size
+          ) {
+            showNotification("Choose a PDF to upload", "warning");
+            return;
+          }
+          try {
+            const response = await apiRequest(
+              `/api/documents/listing/${listingId}`,
+              {
+                method: "POST",
+                body: data,
+              },
+            );
+            showNotification(response.message, "success");
+            form.reset();
+            await refreshDocumentsPanel(listingId);
+          } catch (error) {
+            showNotification(
+              error.message || "Unable to upload document",
+              "error",
+            );
+          }
+        });
+
+        await refreshDocumentsPanel(listingId);
+      }
+
+      async function refreshDocumentsPanel(listingId) {
+        const list = document.getElementById("seller-documents-list");
+        if (!list) return;
+        try {
+          const response = await apiRequest(
+            `/api/documents/listing/${listingId}`,
+          );
+          const docs = response.data || [];
+          if (!docs.length) {
+            list.innerHTML =
+              '<p class="text-sm text-gray-500">No documents uploaded yet.</p>';
+            return;
+          }
+          list.innerHTML = docs
+            .map(
+              (doc) => `
+            <div class="flex items-start gap-3 border border-gray-200 rounded-lg p-3">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h3 class="font-semibold text-gray-900 text-sm truncate">${escapeHtml(doc.title)}</h3>
+                  <span class="text-[10px] font-semibold rounded-full px-2 py-0.5 ${DOCUMENT_STATUS_BADGES[doc.status] || "bg-gray-100 text-gray-700"} capitalize">${doc.status}</span>
+                  <span class="text-[10px] text-gray-500 uppercase tracking-wide">${escapeHtml(DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type)}</span>
+                </div>
+                ${doc.review_notes ? `<p class="text-xs text-gray-600 mt-1">Review note: ${escapeHtml(doc.review_notes)}</p>` : ""}
+              </div>
+              <a href="${doc.file_path}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:text-blue-700 font-medium flex-shrink-0">View</a>
+              ${doc.status !== "approved" ? `<button type="button" class="document-delete-btn text-sm text-red-600 hover:text-red-700 font-medium flex-shrink-0" data-id="${doc.id}">Delete</button>` : ""}
+            </div>
+          `,
+            )
+            .join("");
+
+          list.querySelectorAll(".document-delete-btn").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+              const id = btn.dataset.id;
+              const confirmed = await confirmAction({
+                title: "Remove this document?",
+                message: "It will be deleted and cannot be recovered.",
+                confirmText: "Remove",
+                variant: "danger",
+              });
+              if (!confirmed) return;
+              try {
+                const response = await apiRequest(`/api/documents/${id}`, {
+                  method: "DELETE",
+                });
+                showNotification(response.message, "success");
+                await refreshDocumentsPanel(listingId);
+              } catch (error) {
+                showNotification(
+                  error.message || "Unable to remove document",
+                  "error",
+                );
+              }
+            });
+          });
+        } catch (error) {
+          list.innerHTML =
+            '<p class="text-sm text-red-600">Documents could not be loaded.</p>';
+        }
+      }
+
+      async function loadPublicDocuments(listingId) {
+        try {
+          const response = await apiRequest(
+            `/api/documents/listing/${listingId}/public`,
+          );
+          const docs = response.data || [];
+          if (!docs.length) return;
+          const section = document.getElementById("public-documents-section");
+          const list = document.getElementById("public-documents-list");
+          list.innerHTML = docs
+            .map(
+              (doc) => `
+            <li class="flex items-center justify-between gap-3 border border-gray-200 rounded-lg px-3 py-2">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-gray-900 truncate">${escapeHtml(doc.title)}</p>
+                <p class="text-xs text-gray-500">${escapeHtml(DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type)}</p>
+              </div>
+              <a href="${doc.file_path}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:text-blue-700 font-medium flex-shrink-0">View</a>
+            </li>
+          `,
+            )
+            .join("");
+          section.classList.remove("hidden");
+        } catch (error) {
+          console.error("Load public documents error:", error);
+        }
       }
 
       async function changeListingStatus(id, status) {
@@ -804,9 +992,6 @@
         }
       }
 
-      // Populate the attribute rows on the public detail view. Each row is
-      // individually hidden when the seller left that field blank, so a
-      // listing with only a title and price still reads cleanly.
       function setAttrRow(rowId, valueId, value) {
         const row = document.getElementById(rowId);
         const target = document.getElementById(valueId);
@@ -821,14 +1006,6 @@
 
       function renderListing(listing) {
         document.getElementById("listing-title").textContent = listing.title;
-
-        const descriptionEl = document.getElementById("listing-description");
-        if (listing.description) {
-          descriptionEl.textContent = listing.description;
-          descriptionEl.classList.remove("hidden");
-        } else {
-          descriptionEl.classList.add("hidden");
-        }
 
         document.getElementById("listing-price").textContent = formatCurrency(
           listing.price,
@@ -852,8 +1029,6 @@
             ? `${Number(listing.weight_kg).toLocaleString()} kg`
             : null,
         );
-        // "unknown" is a valid server-side default and not worth surfacing to
-        // buyers as a row - only show health when the seller actually said.
         setAttrRow(
           "attr-health-row",
           "attr-health",
@@ -871,14 +1046,29 @@
         galleryIndex = 0;
         renderGalleryFrame();
 
+        // Buy button: visible to signed-out visitors so the primary CTA is
+        // always discoverable - clicking it redirects them to login with a
+        // "buy" reason (and a next= back to this listing). It's hidden only
+        // for signed-in users who can't transact (admin, service_provider)
+        // or who are viewing their own listing.
         const currentUser = getCurrentUser();
+        const isSignedIn = Boolean(currentUser);
         const isOwnListing = currentUser?.id === listing.seller_id;
-        if (currentUser?.role !== "member" || isOwnListing) {
+        const roleCanBuy = currentUser?.role === "member";
+
+        if (isSignedIn && (!roleCanBuy || isOwnListing)) {
+          document.getElementById("inquiry-btn").classList.add("hidden");
+        }
+
+        // Favourite requires an account to persist the save, so it's hidden
+        // for signed-out visitors as well as for admin/service_provider and
+        // the seller's own listing.
+        if (!roleCanBuy || isOwnListing) {
           document
             .getElementById("gallery-favorite-btn")
             .classList.add("hidden");
-          document.getElementById("inquiry-btn").classList.add("hidden");
         }
+
         if (isOwnListing) {
           document.getElementById("contact-btn").classList.add("hidden");
         }
@@ -955,7 +1145,10 @@
         }
 
         const media = galleryMedia[galleryIndex];
-        mainImage.innerHTML = `<img src="${media.file_path}" alt="Listing photo ${galleryIndex + 1} of ${galleryMedia.length}" class="w-full h-full object-cover">`;
+        const isVideo = media.media_type === "video";
+        mainImage.innerHTML = isVideo
+          ? `<video src="${media.file_path}" controls playsinline preload="metadata" class="w-full h-full object-cover bg-black"></video>`
+          : `<img src="${media.file_path}" alt="Listing photo ${galleryIndex + 1} of ${galleryMedia.length}" class="w-full h-full object-cover">`;
 
         const hasMultiple = galleryMedia.length > 1;
         prevBtn.classList.toggle("hidden", !hasMultiple);
@@ -965,10 +1158,10 @@
 
         dots.innerHTML = hasMultiple
           ? galleryMedia
-              .map(
-                (_, i) =>
-                  `<button type="button" class="gallery-dot ${i === galleryIndex ? "active" : ""}" data-index="${i}" aria-label="Photo ${i + 1}"></button>`,
-              )
+              .map((m, i) => {
+                const kind = m.media_type === "video" ? "video" : "photo";
+                return `<button type="button" class="gallery-dot ${i === galleryIndex ? "active" : ""}" data-index="${i}" aria-label="${kind} ${i + 1}"></button>`;
+              })
               .join("")
           : "";
         dots.querySelectorAll("button").forEach((dot) => {
@@ -982,7 +1175,9 @@
       async function toggleFavorite() {
         const user = getCurrentUser();
         if (!user) {
-          goToLogin("favorite");
+          goToLogin("favorite", {
+            next: `/listing.html?id=${currentListing.id}`,
+          });
           return;
         }
 
@@ -1014,7 +1209,7 @@
       function showInquiryModal() {
         const user = getCurrentUser();
         if (!user) {
-          goToLogin("buy");
+          goToLogin("buy", { next: `/listing.html?id=${currentListing.id}` });
           return;
         }
         document.getElementById("inquiry-modal").classList.remove("hidden");

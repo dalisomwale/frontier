@@ -87,7 +87,24 @@ async function register(formData) {
 }
 
 /**
- * Login user
+ * Return a same-origin destination from a `next` query parameter, or null if
+ * the value is missing, empty, or not a safe in-app path. Blocks absolute
+ * URLs (`https://evil.com`) and protocol-relative URLs (`//evil.com`) that
+ * would otherwise turn the login page into an open redirector.
+ */
+function getSafeNextPath() {
+  const next = getQueryParams().next;
+  if (!next || typeof next !== "string") return null;
+  if (!next.startsWith("/")) return null;
+  if (next.startsWith("//")) return null;
+  return next;
+}
+
+/**
+ * Login user. If the page was opened with a `?next=/path` query parameter
+ * (set by goToLogin when a signed-out user tried to do something that needs
+ * an account), the user is returned there after a successful sign-in.
+ * Otherwise they land on their role's default page.
  */
 async function login(email, password) {
   try {
@@ -100,9 +117,9 @@ async function login(email, password) {
 
     showNotification("Login successful! Redirecting...", "success");
     setTimeout(() => {
-      const destination =
+      const defaultDest =
         data.data.role === "admin" ? "/admin/index.html" : "/dashboard.html";
-      window.location.href = destination;
+      window.location.href = getSafeNextPath() || defaultDest;
     }, 1500);
     return true;
   } catch (error) {
@@ -149,17 +166,33 @@ function getCurrentUser() {
 
 /**
  * Send a signed-out visitor to login, tagging the destination with a
- * `reason` so login.html can explain why it interrupted them.
+ * `reason` so login.html can explain why it interrupted them, and (optionally)
+ * a `next` path to return to after a successful sign-in.
+ *
+ * `replace: true` avoids adding a back-button entry - see requireAuth().
+ * `next` must be a same-origin path starting with "/"; absolute and
+ * protocol-relative URLs are silently dropped.
  */
-function goToLogin(reason, { replace = false } = {}) {
-  const suffix = reason ? `?reason=${encodeURIComponent(reason)}` : "";
-  const url = `/login.html${suffix}`;
+function goToLogin(reason, { replace = false, next = null } = {}) {
+  const params = new URLSearchParams();
+  if (reason) params.set("reason", reason);
+  if (
+    next &&
+    typeof next === "string" &&
+    next.startsWith("/") &&
+    !next.startsWith("//")
+  ) {
+    params.set("next", next);
+  }
+  const query = params.toString();
+  const url = `/login.html${query ? `?${query}` : ""}`;
   if (replace) window.location.replace(url);
   else window.location.href = url;
 }
 
 /**
- * Check if user is authenticated and redirect if not.
+ * Check if user is authenticated and redirect if not. Returns whether the
+ * caller should continue.
  */
 function requireAuth(reason) {
   if (!getCurrentUser()) {

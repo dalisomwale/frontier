@@ -34,7 +34,8 @@
 
     <!-- Login Section -->
     <div class="min-h-[calc(100vh-64px)] flex">
-      <!-- Photo panel (hidden on small screens) -->
+      <!-- Photo panel (hidden on small screens). Logo box matches the
+           register.html hero panel so both sign-in screens read the same. -->
       <div
         class="hidden lg:flex lg:w-1/2 hero-photo items-center justify-center p-12"
         style="
@@ -66,17 +67,15 @@
       >
         <div class="w-full max-w-md">
           <div class="bg-white rounded-lg shadow-lg p-8">
-            <div class="lg:hidden brand-mark brand-mark-lg mb-4">
-              <img
-                src="images/logo-icon.jpg"
-                alt="Frontier Farms &amp; Consult logo"
-              />
-            </div>
             <h2 class="text-3xl font-bold text-gray-900 mb-2">Login</h2>
 
+            <!-- Reason banner: plain red text, no box. Populated by
+                 showLoginReasonBanner() from the ?reason= query param when
+                 a signed-out user was bounced here by an action they tried
+                 to take (buy, message, favourite, etc.). -->
             <div
               id="login-reason-banner"
-              class="hidden mb-4 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-sm px-4 py-3"
+              class="hidden mb-4 text-sm font-medium text-red-600"
             ></div>
 
             <form id="login-form" class="space-y-4">
@@ -96,7 +95,7 @@
                 />
                 <div
                   id="email-error"
-                  class="text-red-500 text-sm mt-1 hidden"
+                  class="text-red-600 text-sm mt-1 hidden"
                 ></div>
               </div>
 
@@ -116,7 +115,7 @@
                 />
                 <div
                   id="password-error"
-                  class="text-red-500 text-sm mt-1 hidden"
+                  class="text-red-600 text-sm mt-1 hidden"
                 ></div>
               </div>
 
