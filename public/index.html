@@ -25,6 +25,11 @@
             </div>
           </div>
 
+          <!-- Single account affordance in the header: an icon whose
+               dropdown contents swap based on auth state. Signed out shows
+               Login/Register; signed in shows Dashboard/Messages/Profile/Logout.
+               The four-link strip that used to sit next to this was redundant
+               with the mobile bottom nav and has been removed. -->
           <div id="nav-auth" class="relative hidden md:block">
             <button
               id="nav-auth-toggle"
@@ -50,7 +55,7 @@
             </button>
             <div
               id="nav-auth-menu"
-              class="hidden absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
+              class="hidden absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
             >
               <a
                 href="login.html"
@@ -63,31 +68,6 @@
                 >Register</a
               >
             </div>
-          </div>
-
-          <div id="nav-authenticated" class="hidden flex items-center gap-4">
-            <a
-              id="nav-dashboard-link"
-              href="dashboard.html"
-              class="text-gray-600 hover:text-gray-900 font-medium"
-              >Dashboard</a
-            >
-            <a
-              href="messages.html"
-              class="text-gray-600 hover:text-gray-900 font-medium"
-              >Messages</a
-            >
-            <a
-              href="profile.html"
-              class="text-gray-600 hover:text-gray-900 font-medium"
-              >Profile</a
-            >
-            <button
-              id="logout-btn"
-              class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium"
-            >
-              Logout
-            </button>
           </div>
         </div>
       </div>
@@ -250,6 +230,29 @@
           <div id="pagination-container"></div>
         </div>
       </section>
+
+      <footer class="bg-white border-t border-gray-200 mt-10">
+        <div
+          class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-gray-500"
+        >
+          <p>
+            © <span id="footer-year"></span> Frontier Farms &amp; Consult. All
+            rights reserved.
+          </p>
+          <nav class="flex flex-wrap gap-x-5 gap-y-2">
+            <a href="terms.html" class="hover:text-gray-700"
+              >Terms of Service</a
+            >
+            <a href="privacy.html" class="hover:text-gray-700"
+              >Privacy Policy</a
+            >
+          </nav>
+        </div>
+      </footer>
+      <script>
+        document.getElementById("footer-year").textContent =
+          new Date().getFullYear();
+      </script>
     </div>
     <div id="tab-frame-host" class="tab-frame-host hidden"></div>
 
@@ -379,13 +382,6 @@
         document
           .getElementById("clear-filters-btn")
           .addEventListener("click", clearFilters);
-
-        const logoutBtn = document.getElementById("logout-btn");
-        if (logoutBtn) {
-          logoutBtn.addEventListener("click", async () => {
-            await logout();
-          });
-        }
       });
 
       async function loadListings(page = 1) {

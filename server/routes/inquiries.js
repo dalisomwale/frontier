@@ -78,10 +78,16 @@ router.post("/", isAuthenticated, isMember, async (req, res) => {
     const { listing_id, message } = req.body;
     const buyer_id = req.session.userId;
 
-    if (!listing_id || typeof message !== "string" || !message.trim() || message.trim().length > 5000) {
+    if (
+      !listing_id ||
+      typeof message !== "string" ||
+      !message.trim() ||
+      message.trim().length > 5000
+    ) {
       return res.status(400).json({
         success: false,
-        message: "A listing and a message of up to 5,000 characters are required",
+        message:
+          "A listing and a message of up to 5,000 characters are required",
       });
     }
 
@@ -100,13 +106,35 @@ router.post("/", isAuthenticated, isMember, async (req, res) => {
 
     const seller_id = listings[0].seller_id;
     if (seller_id === buyer_id) {
-      return res.status(400).json({ success: false, message: "You cannot inquire about your own listing" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "You cannot inquire about your own listing",
+        });
     }
 
     const [result] = await pool.query(
       'INSERT INTO inquiries (listing_id, buyer_id, seller_id, message, status) VALUES (?, ?, ?, ?, "pending")',
       [listing_id, buyer_id, seller_id, message.trim()],
     );
+
+    // Notify the seller's open sockets so their unread badge updates without
+    // waiting for a poll. Fired after the insert so the eventual refetch
+    // sees the new row.
+    const io = req.app.get("io");
+    if (io) {
+      const [buyers] = await pool.query("SELECT name FROM users WHERE id = ?", [
+        buyer_id,
+      ]);
+      io.to("user:" + seller_id).emit("new_inquiry", {
+        id: result.insertId,
+        listing_id,
+        buyer_id,
+        buyer_name: buyers[0]?.name || "Someone",
+        created_at: new Date().toISOString(),
+      });
+    }
 
     return res.status(201).json({
       success: true,
@@ -141,7 +169,7 @@ router.patch("/:id", isAuthenticated, async (req, res) => {
 
     // Verify ownership (seller can update)
     const [inquiries] = await pool.query(
-      "SELECT seller_id FROM inquiries WHERE id = ?",
+      "SELECT seller_id, buyer_id FROM inquiries WHERE id = ?",
       [id],
     );
 
@@ -163,6 +191,16 @@ router.patch("/:id", isAuthenticated, async (req, res) => {
       status,
       id,
     ]);
+
+    // Tell both parties so their badge counts refresh. The seller's badge
+    // was pinned on this inquiry until the status moved off pending; the
+    // buyer's UI also shows the current status.
+    const io = req.app.get("io");
+    if (io) {
+      const payload = { id: Number(id), status };
+      io.to("user:" + inquiries[0].seller_id).emit("inquiry_updated", payload);
+      io.to("user:" + inquiries[0].buyer_id).emit("inquiry_updated", payload);
+    }
 
     return res.json({
       success: true,

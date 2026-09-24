@@ -40,10 +40,6 @@ function renderBottomNav(variant = "public") {
       },
       { href: "/dashboard.html", icon: "home", label: "Site", active: false },
     ],
-    // Signed-in app pages (Dashboard/Messages/Profile): no Marketplace tab -
-    // those pages are about managing your own account, not browsing. Every
-    // member can both buy and sell from the same account, so everyone gets
-    // the same tabs here.
     app: [
       {
         href: "/dashboard.html",
@@ -70,8 +66,6 @@ function renderBottomNav(variant = "public") {
         active: isActive(["/profile.html"]),
       },
     ],
-    // Home already surfaces the full listings feed and its own filters, so
-    // there's no separate Market tab here - just Home, Sell, Chat, Account.
     public: [
       {
         href: "/index.html",
@@ -102,11 +96,18 @@ function renderBottomNav(variant = "public") {
 
   const tabs = TABS_BY_VARIANT[variant] || TABS_BY_VARIANT.public;
 
+  // Chat tab gets an unread badge. The icon is wrapped in a relative span so
+  // the badge can anchor to its top-right corner; other tabs render the icon
+  // plain, unchanged from before.
   mount.innerHTML = tabs
-    .map(
-      (tab) =>
-        `<a href="${tab.href}" class="${tab.active ? "active" : ""}">${uiIcon(tab.icon)}<span>${tab.label}</span></a>`,
-    )
+    .map((tab) => {
+      const isChat =
+        typeof tab.href === "string" && tab.href.includes("messages.html");
+      const iconBlock = isChat
+        ? `<span class="relative inline-flex">${uiIcon(tab.icon)}<span data-unread-badge class="hidden absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center leading-none">0</span></span>`
+        : uiIcon(tab.icon);
+      return `<a href="${tab.href}" class="${tab.active ? "active" : ""}">${iconBlock}<span>${tab.label}</span></a>`;
+    })
     .join("");
 
   setupTabRouterLinks(mount, variant);
@@ -123,16 +124,51 @@ function renderSidebar(active) {
   let items;
   if (isAdminSection) {
     items = [
-      { key: "admin-dashboard", href: "/admin/index.html", icon: "dashboard", label: "Dashboard" },
-      { key: "admin-users", href: "/admin/users.html", icon: "users", label: "Manage Users" },
-      { key: "admin-listings", href: "/admin/listings.html", icon: "listings", label: "Moderate Listings" },
-      { key: "admin-reports", href: "/admin/reports.html", icon: "reports", label: "View Reports" },
-      { key: "admin-back", href: "/dashboard.html", icon: "home", label: "Back to Site" },
+      {
+        key: "admin-dashboard",
+        href: "/admin/index.html",
+        icon: "dashboard",
+        label: "Dashboard",
+      },
+      {
+        key: "admin-users",
+        href: "/admin/users.html",
+        icon: "users",
+        label: "Manage Users",
+      },
+      {
+        key: "admin-listings",
+        href: "/admin/listings.html",
+        icon: "listings",
+        label: "Moderate Listings",
+      },
+      {
+        key: "admin-reports",
+        href: "/admin/reports.html",
+        icon: "reports",
+        label: "View Reports",
+      },
+      {
+        key: "admin-back",
+        href: "/dashboard.html",
+        icon: "home",
+        label: "Back to Site",
+      },
     ];
   } else {
     items = [
-      { key: "dashboard", href: "/dashboard.html", icon: "dashboard", label: "Overview" },
-      { key: "messages", href: "/messages.html", icon: "messages", label: "Messages" },
+      {
+        key: "dashboard",
+        href: "/dashboard.html",
+        icon: "dashboard",
+        label: "Overview",
+      },
+      {
+        key: "messages",
+        href: "/messages.html",
+        icon: "messages",
+        label: "Messages",
+      },
     ];
     if (user?.role === "member") {
       items.push({
@@ -142,19 +178,31 @@ function renderSidebar(active) {
         label: "My Listings",
       });
     }
-    items.push({ key: "profile", href: "/profile.html", icon: "profile", label: "Profile" });
+    items.push({
+      key: "profile",
+      href: "/profile.html",
+      icon: "profile",
+      label: "Profile",
+    });
   }
 
+  // Same badge as the mobile tab bar, but pushed to the far right of the
+  // sidebar item via ml-auto. Only the Messages row gets one.
   mount.innerHTML = `
     <div class="app-sidebar-brand">
       <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div>
     </div>
     <nav class="app-sidebar-nav">
       ${items
-        .map(
-          (item) =>
-            `<a href="${item.href}" class="${item.key === active ? "active" : ""}">${uiIcon(item.icon)}<span>${item.label}</span></a>`,
-        )
+        .map((item) => {
+          const isMessages =
+            typeof item.href === "string" &&
+            item.href.includes("messages.html");
+          const badge = isMessages
+            ? `<span data-unread-badge class="hidden ml-auto bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-4 px-1 rounded-full flex items-center justify-center leading-none">0</span>`
+            : "";
+          return `<a href="${item.href}" class="${item.key === active ? "active" : ""}">${uiIcon(item.icon)}<span>${item.label}</span>${badge}</a>`;
+        })
         .join("")}
     </nav>
     <div class="app-sidebar-footer">
@@ -162,9 +210,11 @@ function renderSidebar(active) {
     </div>
   `;
 
-  document.getElementById("app-shell-logout")?.addEventListener("click", async () => {
-    await logout();
-  });
+  document
+    .getElementById("app-shell-logout")
+    ?.addEventListener("click", async () => {
+      await logout();
+    });
 }
 
 function renderAppShell(options = {}) {
@@ -237,14 +287,18 @@ function showTab(url) {
 }
 
 function setupTabRouterLinks(mount, variant) {
-  if (!document.getElementById("tab-self-content") || !document.getElementById("tab-frame-host")) {
+  if (
+    !document.getElementById("tab-self-content") ||
+    !document.getElementById("tab-frame-host")
+  ) {
     return;
   }
 
   mount.querySelectorAll("a[href]").forEach((link) => {
     link.addEventListener("click", (event) => {
       if (event.defaultPrevented || event.button !== 0) return;
-      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+        return;
 
       let url;
       try {
@@ -256,14 +310,21 @@ function setupTabRouterLinks(mount, variant) {
 
       event.preventDefault();
       showTab(url);
-      history.pushState({ tabKey: tabKeyFor(url) }, "", url.pathname + url.search);
+      history.pushState(
+        { tabKey: tabKeyFor(url) },
+        "",
+        url.pathname + url.search,
+      );
       renderBottomNav(variant);
     });
   });
 }
 
 window.addEventListener("popstate", () => {
-  if (!document.getElementById("tab-self-content") || !document.getElementById("tab-frame-host")) {
+  if (
+    !document.getElementById("tab-self-content") ||
+    !document.getElementById("tab-frame-host")
+  ) {
     return;
   }
   showTab(new URL(window.location.href));
@@ -286,8 +347,121 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.addEventListener("click", (event) => {
-    if (menu.classList.contains("hidden") || menu.contains(event.target) || event.target === toggle) return;
+    if (
+      menu.classList.contains("hidden") ||
+      menu.contains(event.target) ||
+      event.target === toggle
+    )
+      return;
     menu.classList.add("hidden");
     toggle.setAttribute("aria-expanded", "false");
   });
 });
+
+// ============================================================================
+// Unread message + inquiry badge
+// ============================================================================
+// The Chat tab in the bottom nav and the "Messages" item in the sidebar show
+// a live count of unread conversations plus pending inquiries (where the
+// current user is the seller). Updates are event-driven via Socket.IO rather
+// than polled, so the number moves the moment something happens.
+
+let badgeSocket = null;
+
+async function ensureSocketIO() {
+  if (window.io) return true;
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.socket.io/4.5.4/socket.io.min.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.head.appendChild(script);
+  });
+}
+
+function renderUnreadBadges(total) {
+  document.querySelectorAll("[data-unread-badge]").forEach((el) => {
+    if (total > 0) {
+      el.textContent = total > 99 ? "99+" : String(total);
+      el.classList.remove("hidden");
+    } else {
+      el.classList.add("hidden");
+      el.textContent = "0";
+    }
+  });
+}
+
+async function refreshUnreadBadge() {
+  const user = getCurrentUser();
+  if (!user) {
+    renderUnreadBadges(0);
+    return;
+  }
+  try {
+    const [messagesRes, inquiriesRes] = await Promise.all([
+      fetch("/api/messages", { credentials: "same-origin" }),
+      fetch("/api/inquiries", { credentials: "same-origin" }),
+    ]);
+    const messagesData = messagesRes.ok ? await messagesRes.json() : null;
+    const inquiriesData = inquiriesRes.ok ? await inquiriesRes.json() : null;
+
+    const unreadMessages = messagesData?.success
+      ? (messagesData.data || []).reduce(
+          (sum, conv) => sum + (Number(conv.unread_count) || 0),
+          0,
+        )
+      : 0;
+
+    // Only inquiries that are still pending AND were received by this user
+    // (i.e. they're the seller). Inquiries the user sent themselves don't
+    // need their attention, so they don't pin the badge.
+    const pendingInquiries = inquiriesData?.success
+      ? (inquiriesData.data || []).filter(
+          (inq) => inq.status === "pending" && inq.seller_id === user.id,
+        ).length
+      : 0;
+
+    renderUnreadBadges(unreadMessages + pendingInquiries);
+  } catch {
+    // Silent - the next event (or visibility change) will retry.
+  }
+}
+
+async function connectBadgeSocket() {
+  if (badgeSocket) return;
+  const ok = await ensureSocketIO();
+  if (!ok || !window.io) return;
+
+  badgeSocket = io();
+
+  const onEvent = () => refreshUnreadBadge();
+  badgeSocket.on("receive_message", onEvent);
+  badgeSocket.on("new_inquiry", onEvent);
+  badgeSocket.on("inquiry_updated", onEvent);
+  badgeSocket.on("messages_read", onEvent);
+
+  // If the socket dropped and reconnected while the tab was inactive, do a
+  // one-shot refresh so we're not showing a stale count.
+  badgeSocket.on("connect", onEvent);
+}
+
+async function startUnreadBadgePolling() {
+  if (window.self !== window.top) return;
+  if (!document.querySelector("[data-unread-badge]")) return;
+  if (!getCurrentUser()) return;
+
+  await refreshUnreadBadge();
+  await connectBadgeSocket();
+
+  // Safety net: if the tab was hidden and socket events were missed while
+  // the browser throttled background connections, refresh on focus.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshUnreadBadge();
+  });
+}
+
+window.refreshUnreadBadge = refreshUnreadBadge;
+
+if (typeof window !== "undefined") {
+  document.addEventListener("DOMContentLoaded", startUnreadBadgePolling);
+}

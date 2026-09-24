@@ -96,10 +96,12 @@ async function ownedListing(req, res, next) {
       [req.params.id, req.session.userId],
     );
     if (!rows.length) {
-      return res.status(404).json({
-        success: false,
-        message: "Listing not found or access is not permitted",
-      });
+      return res
+        .status(404)
+        .json({
+          success: false,
+          message: "Listing not found or access is not permitted",
+        });
     }
     req.listing = rows[0];
     return next();
@@ -130,13 +132,6 @@ router.get("/", async (req, res, next) => {
     const sellerId = positiveInteger(req.query.sellerId, null);
 
     if (keyword) {
-      // IN BOOLEAN MODE avoids NATURAL LANGUAGE MODE's 50% threshold,
-      // which silently drops any word appearing in more than half the
-      // table - very easy to hit on a small dataset. The trailing * on
-      // each word makes it a prefix match (so "goat" finds "goats").
-      // Non-alphanumeric characters are stripped to stop a user typing
-      // boolean operators (+ - " < > ( ) ~ *) or accidentally producing
-      // a malformed query.
       const safeKeyword = String(keyword)
         .replace(/[^\p{L}\p{N}\s]/gu, " ")
         .trim()
@@ -183,10 +178,12 @@ router.get("/", async (req, res, next) => {
       if (req.query[queryName] !== undefined) {
         const value = finiteNumber(req.query[queryName]);
         if (value === null || value < 0) {
-          return res.status(400).json({
-            success: false,
-            message: `${queryName} must be a valid positive number`,
-          });
+          return res
+            .status(400)
+            .json({
+              success: false,
+              message: `${queryName} must be a valid positive number`,
+            });
         }
         where.push(`${column} ${direction} ?`);
         params.push(value);
@@ -391,10 +388,12 @@ router.put(
         }
       }
       if (!fields.length) {
-        return res.status(400).json({
-          success: false,
-          message: "Provide at least one listing field to update",
-        });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Provide at least one listing field to update",
+          });
       }
       await pool.query(
         `UPDATE listings SET ${fields.join(", ")} WHERE id = ?`,
@@ -410,6 +409,9 @@ router.put(
   },
 );
 
+// Status transitions. Sold is reversible back to active so a seller can
+// relist an animal if the sale fell through; deactivated stays terminal
+// since the seller explicitly asked for it to be hidden for good.
 router.patch(
   "/:id/status",
   isAuthenticated,
@@ -421,17 +423,19 @@ router.patch(
       const allowed = {
         active: ["paused", "deactivated", "sold"],
         paused: ["active", "deactivated", "sold"],
+        sold: ["active"],
         deactivated: [],
-        sold: [],
       };
       if (
         !allowed[req.listing.status] ||
         !allowed[req.listing.status].includes(status)
       ) {
-        return res.status(400).json({
-          success: false,
-          message: "That status change is not available for this listing",
-        });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "That status change is not available for this listing",
+          });
       }
       await pool.query("UPDATE listings SET status = ? WHERE id = ?", [
         status,
@@ -472,9 +476,6 @@ router.delete(
   },
 );
 
-// Media upload: photos and short videos. multer handles the multipart body;
-// this handler reads req.files, tags each file image vs video by MIME type,
-// and inserts one row per file into listing_media.
 router.post(
   "/:id/media",
   isAuthenticated,

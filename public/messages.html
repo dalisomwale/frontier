@@ -35,15 +35,6 @@
               </div>
             </a>
           </div>
-
-          <div class="flex items-center gap-4">
-            <button
-              id="logout-btn"
-              class="lg:hidden bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium"
-            >
-              Logout
-            </button>
-          </div>
         </div>
       </div>
     </nav>
@@ -118,6 +109,44 @@
               </div>
             </div>
 
+            <!-- Inquiry context: shown only when the open conversation is tied
+               to an inquiry. Seller sees action buttons (mark responded /
+               close); buyer sees the same context read-only. -->
+            <div
+              id="inquiry-banner"
+              class="hidden border-b border-yellow-200 bg-yellow-50 px-4 py-3"
+            >
+              <div class="flex items-start gap-3">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap mb-1">
+                    <span
+                      class="text-[10px] font-bold text-yellow-800 uppercase tracking-wider"
+                      >Inquiry</span
+                    >
+                    <span
+                      id="inquiry-status-badge"
+                      class="text-[10px] font-semibold rounded-full px-2 py-0.5 capitalize"
+                    ></span>
+                  </div>
+                  <a
+                    id="inquiry-listing-link"
+                    href="#"
+                    class="text-sm font-semibold text-gray-900 hover:text-blue-600 truncate block mb-1"
+                  ></a>
+                  <p
+                    id="inquiry-message"
+                    class="text-sm text-gray-700 italic leading-snug"
+                  ></p>
+                </div>
+                <div
+                  id="inquiry-actions"
+                  class="flex flex-col gap-1 flex-shrink-0"
+                >
+                  <!-- Buttons injected here based on user role + inquiry status -->
+                </div>
+              </div>
+            </div>
+
             <div
               id="messages-container"
               class="flex-1 overflow-y-auto p-4 bg-gray-50"
@@ -165,10 +194,22 @@
       let socket = null;
       let currentUserId = null;
       let selectedConversationUser = null;
+      // Tracks which inquiry the currently open conversation is anchored to
+      // (set when opening from the Inquiries subtab, or inferred when there's
+      // exactly one active inquiry between the two users). Null when the
+      // conversation has no inquiry context.
+      let selectedInquiryId = null;
       let conversationMessages = [];
       let conversationsData = [];
       let inquiriesData = [];
       let activeSubtab = "chats";
+
+      // Colors for the inquiry status pill in the banner and list.
+      const INQUIRY_STATUS_STYLES = {
+        pending: "bg-yellow-100 text-yellow-800",
+        responded: "bg-blue-100 text-blue-800",
+        closed: "bg-gray-200 text-gray-600",
+      };
 
       document.addEventListener("DOMContentLoaded", async () => {
         if (!requireAuth("chat")) return;
@@ -187,11 +228,6 @@
         document
           .getElementById("close-chat")
           .addEventListener("click", closeConversation);
-        document
-          .getElementById("logout-btn")
-          .addEventListener("click", async () => {
-            await logout();
-          });
         document
           .getElementById("chats-subtab-btn")
           .addEventListener("click", () => setActiveSubtab("chats"));
@@ -225,6 +261,13 @@
           if (data.userId === selectedConversationUser)
             updateUserStatus("Offline");
         });
+        // Another tab (or the other party) changed an inquiry we're involved
+        // in. Refresh our list so the banner and badges stay consistent.
+        socket.on("inquiry_updated", () => {
+          loadInquiries().then(() => {
+            if (selectedInquiryId) renderInquiryBanner();
+          });
+        });
         socket.on("disconnect", () => {
           console.log("Disconnected from messaging server");
         });
@@ -255,6 +298,7 @@
             document.getElementById("chats-count-badge").textContent =
               conversationsData.length;
             if (activeSubtab === "chats") renderConversations();
+            if (typeof refreshUnreadBadge === "function") refreshUnreadBadge();
           }
         } catch (error) {
           console.error("Load conversations error:", error);
@@ -328,33 +372,36 @@
           return;
         }
 
-        const statusStyles = {
-          pending: "bg-yellow-100 text-yellow-800",
-          responded: "bg-blue-100 text-blue-800",
-          closed: "bg-gray-200 text-gray-600",
-        };
-
+        // The inquiry list now passes the inquiry id through to
+        // selectConversation, so the banner knows exactly which inquiry the
+        // chat is anchored to even when the same buyer has inquired about
+        // more than one listing.
         conversationsList.innerHTML = inquiriesData
           .map((inquiry) => {
             const otherUserId =
               inquiry.buyer_id === currentUserId
                 ? inquiry.seller_id
                 : inquiry.buyer_id;
+            const isMineAsSeller = inquiry.seller_id === currentUserId;
+            const counterpartName = isMineAsSeller
+              ? escapeHtml(inquiry.sender_name || "Buyer")
+              : "You";
             return `
-            <div class="flex items-center gap-3 px-4 py-3 border-b hover:bg-gray-50 cursor-pointer transition"
-              onclick="selectConversation(${otherUserId})">
-              <div class="w-12 h-12 rounded-full bg-green-100 text-green-700 flex items-center justify-center flex-shrink-0">
+            <div class="flex items-start gap-3 px-4 py-3 border-b hover:bg-gray-50 cursor-pointer transition ${selectedInquiryId === inquiry.id ? "bg-blue-50" : ""}"
+              onclick="selectConversation(${otherUserId}, ${inquiry.id})">
+              <div class="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center flex-shrink-0">
                 ${uiIcon("messages")}
               </div>
               <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between gap-2">
-                  <h4 class="font-semibold text-gray-900 truncate">${escapeHtml(inquiry.listing_title)}</h4>
-                  <span class="text-xs text-gray-500 flex-shrink-0">${formatDateShort(inquiry.created_at)}</span>
+                <div class="flex items-center justify-between gap-2 mb-0.5">
+                  <h4 class="font-semibold text-gray-900 truncate text-sm">${escapeHtml(inquiry.listing_title)}</h4>
+                  <span class="text-[10px] text-gray-500 flex-shrink-0">${formatDateShort(inquiry.created_at)}</span>
                 </div>
-                <div class="flex items-center justify-between gap-2 mt-0.5">
-                  <p class="text-sm text-gray-600 truncate">${escapeHtml(inquiry.message)}</p>
-                  <span class="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 capitalize ${statusStyles[inquiry.status] || "bg-gray-100 text-gray-600"}">${inquiry.status}</span>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-[10px] text-gray-500">From: ${counterpartName}</span>
+                  <span class="text-[10px] font-semibold rounded-full px-2 py-0.5 capitalize ${INQUIRY_STATUS_STYLES[inquiry.status] || "bg-gray-100 text-gray-600"}">${inquiry.status}</span>
                 </div>
+                <p class="text-xs text-gray-600 line-clamp-2">${escapeHtml(inquiry.message)}</p>
               </div>
             </div>
           `;
@@ -362,8 +409,9 @@
           .join("");
       }
 
-      async function selectConversation(userId) {
+      async function selectConversation(userId, inquiryId = null) {
         selectedConversationUser = userId;
+        selectedInquiryId = inquiryId;
         conversationMessages = [];
 
         document.getElementById("message-area").classList.remove("hidden");
@@ -372,7 +420,157 @@
 
         await loadConversations();
         await loadMessages(userId);
+
+        // If we came in without an explicit inquiry id (from the Chats tab),
+        // try to infer the active one between these two users so the banner
+        // still shows. Prefer pending > responded > closed, newest first.
+        if (!selectedInquiryId) {
+          selectedInquiryId = inferActiveInquiryId(userId);
+        }
+
+        renderInquiryBanner();
         document.getElementById("message-input").focus();
+
+        // Mark any pending inquiry from this buyer as responded since the
+        // seller opened the thread - matches the mental model of "opened
+        // means handling it". The server-side PATCH emits inquiry_updated
+        // which refreshes badges and the list.
+        const pendingInquiry = inquiriesData.find(
+          (inq) =>
+            inq.status === "pending" &&
+            inq.seller_id === currentUserId &&
+            Number(inq.buyer_id) === Number(userId),
+        );
+        if (pendingInquiry) {
+          try {
+            await apiRequest(`/api/inquiries/${pendingInquiry.id}`, {
+              method: "PATCH",
+              body: JSON.stringify({ status: "responded" }),
+            });
+            await loadInquiries();
+            renderInquiryBanner();
+          } catch {
+            // Silent - inquiry remains pending, user can still respond.
+          }
+        }
+      }
+
+      function inferActiveInquiryId(otherUserId) {
+        const candidates = inquiriesData.filter(
+          (inq) =>
+            (Number(inq.buyer_id) === Number(currentUserId) &&
+              Number(inq.seller_id) === Number(otherUserId)) ||
+            (Number(inq.seller_id) === Number(currentUserId) &&
+              Number(inq.buyer_id) === Number(otherUserId)),
+        );
+        if (!candidates.length) return null;
+        // Sort priority: pending (0) < responded (1) < closed (2), then newest.
+        const order = { pending: 0, responded: 1, closed: 2 };
+        candidates.sort((a, b) => {
+          const oa = order[a.status] ?? 3;
+          const ob = order[b.status] ?? 3;
+          if (oa !== ob) return oa - ob;
+          return new Date(b.created_at) - new Date(a.created_at);
+        });
+        return candidates[0].id;
+      }
+
+      // Renders the inquiry banner above the messages. Called from
+      // selectConversation and from the socket inquiry_updated handler.
+      function renderInquiryBanner() {
+        const banner = document.getElementById("inquiry-banner");
+        const actions = document.getElementById("inquiry-actions");
+        if (!banner || !actions) return;
+
+        if (!selectedInquiryId) {
+          banner.classList.add("hidden");
+          return;
+        }
+        const inquiry = inquiriesData.find(
+          (inq) => inq.id === selectedInquiryId,
+        );
+        if (!inquiry) {
+          banner.classList.add("hidden");
+          return;
+        }
+
+        banner.classList.remove("hidden");
+
+        const statusBadge = document.getElementById("inquiry-status-badge");
+        statusBadge.textContent = inquiry.status;
+        statusBadge.className = `text-[10px] font-semibold rounded-full px-2 py-0.5 capitalize ${INQUIRY_STATUS_STYLES[inquiry.status] || "bg-gray-100 text-gray-600"}`;
+
+        const listingLink = document.getElementById("inquiry-listing-link");
+        listingLink.textContent =
+          inquiry.listing_title || `Listing #${inquiry.listing_id}`;
+        listingLink.href = `listing.html?id=${inquiry.listing_id}`;
+
+        document.getElementById("inquiry-message").textContent =
+          `"${inquiry.message}"`;
+
+        // Only the seller can transition status; the buyer sees the same
+        // banner but no buttons. Matches the permission check on the server.
+        const isSeller = inquiry.seller_id === currentUserId;
+        if (!isSeller) {
+          actions.innerHTML = "";
+          return;
+        }
+
+        const buttons = [];
+        if (inquiry.status === "pending") {
+          buttons.push({
+            label: "Mark responded",
+            class:
+              "text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md",
+            action: "responded",
+          });
+        }
+        if (inquiry.status !== "closed") {
+          buttons.push({
+            label: "Close inquiry",
+            class:
+              "text-xs font-medium bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1 rounded-md",
+            action: "closed",
+          });
+        }
+
+        actions.innerHTML = buttons
+          .map(
+            (b) => `
+          <button type="button" data-inquiry-action="${b.action}" class="${b.class}">${b.label}</button>
+        `,
+          )
+          .join("");
+
+        actions.querySelectorAll("[data-inquiry-action]").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            updateInquiryStatus(inquiry.id, btn.dataset.inquiryAction),
+          );
+        });
+      }
+
+      async function updateInquiryStatus(inquiryId, status) {
+        try {
+          const response = await apiRequest(`/api/inquiries/${inquiryId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ status }),
+          });
+          if (response.success) {
+            showNotification(`Inquiry marked ${status}`, "success");
+            await loadInquiries();
+            renderInquiryBanner();
+          } else {
+            showNotification(
+              response.message || "Unable to update inquiry",
+              "error",
+            );
+          }
+        } catch (error) {
+          showNotification(
+            error.message || "Unable to update inquiry",
+            "error",
+          );
+        }
       }
 
       async function loadMessages(userId) {
@@ -394,6 +592,7 @@
             }
             renderMessages();
             scrollToBottom();
+            if (typeof refreshUnreadBadge === "function") refreshUnreadBadge();
           }
         } catch (error) {
           console.error("Load messages error:", error);
@@ -438,12 +637,20 @@
         const message = messageInput.value.trim();
         if (!message) return;
 
+        // The inquiry banner needs to know which listing the message is
+        // about so it appears in the thread context. Prefer the open
+        // inquiry's listing, else omit and the message is a general chat.
+        const activeInquiry = selectedInquiryId
+          ? inquiriesData.find((inq) => inq.id === selectedInquiryId)
+          : null;
+
         try {
           const response = await apiRequest("/api/messages", {
             method: "POST",
             body: JSON.stringify({
               recipient_id: selectedConversationUser,
               message,
+              listing_id: activeInquiry ? activeInquiry.listing_id : undefined,
             }),
           });
 
@@ -452,12 +659,33 @@
             conversationMessages.push({
               sender_id: currentUserId,
               recipient_id: selectedConversationUser,
+              listing_id: activeInquiry ? activeInquiry.listing_id : null,
               message,
               created_at: new Date().toISOString(),
               is_read: false,
             });
             renderMessages();
             scrollToBottom();
+
+            // Auto-transition: the first seller reply on a pending inquiry
+            // moves it to "responded". Subsequent replies don't re-patch.
+            if (
+              activeInquiry &&
+              activeInquiry.status === "pending" &&
+              activeInquiry.seller_id === currentUserId
+            ) {
+              try {
+                await apiRequest(`/api/inquiries/${activeInquiry.id}`, {
+                  method: "PATCH",
+                  body: JSON.stringify({ status: "responded" }),
+                });
+                await loadInquiries();
+                renderInquiryBanner();
+              } catch {
+                // Non-fatal: the message went through, only the auto-
+                // transition failed. The user can still mark it manually.
+              }
+            }
           } else {
             showNotification(
               response.message || "Failed to send message",
@@ -472,12 +700,14 @@
 
       function closeConversation() {
         selectedConversationUser = null;
+        selectedInquiryId = null;
         conversationMessages = [];
         document.getElementById("message-area").classList.add("hidden");
         document.getElementById("empty-state").classList.remove("hidden");
         document
           .getElementById("conversations-panel")
           .classList.remove("hidden");
+        document.getElementById("inquiry-banner").classList.add("hidden");
         loadConversations();
         loadInquiries();
       }

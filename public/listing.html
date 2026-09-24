@@ -176,38 +176,30 @@
                 </button>
               </div>
 
+              <!-- Seller: bare clickable row (avatar + name + chevron). No
+                   bordered card, no background, no padding box - the whole
+                   row still routes to the seller's profile page. -->
               <div class="border-t border-gray-200 pt-5">
-                <h3 class="text-base font-semibold text-gray-900 mb-4">
-                  Seller Information
+                <h3 class="text-base font-semibold text-gray-900 mb-3">
+                  Seller
                 </h3>
-                <div class="space-y-3">
-                  <div>
-                    <p class="text-sm font-medium text-gray-500 mb-1">Name</p>
-                    <p
-                      id="seller-name"
-                      class="text-base font-semibold text-gray-900"
-                    >
-                      -
-                    </p>
-                  </div>
-                  <div>
-                    <p class="text-sm font-medium text-gray-500 mb-1">
-                      Location
-                    </p>
-                    <p
-                      id="seller-location"
-                      class="text-base font-semibold text-gray-900"
-                    >
-                      -
-                    </p>
-                  </div>
-                </div>
                 <button
-                  id="view-seller-profile-btn"
+                  id="seller-profile-link"
                   type="button"
-                  class="w-full mt-5 text-sm font-medium text-blue-600 hover:text-blue-700"
+                  class="w-full flex items-center gap-3 text-left group"
                 >
-                  View Seller Profile
+                  <div
+                    id="seller-avatar"
+                    class="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0"
+                  ></div>
+                  <p
+                    id="seller-name"
+                    class="text-base font-semibold text-gray-900 truncate min-w-0 flex-1 group-hover:text-blue-600 transition"
+                  ></p>
+                  <span
+                    id="seller-profile-chevron"
+                    class="text-gray-400 flex-shrink-0"
+                  ></span>
                 </button>
               </div>
             </div>
@@ -314,9 +306,9 @@
 
       const STATUS_CHANGE_PROMPTS = {
         active: {
-          title: "Reactivate this listing?",
-          message: "It will appear in the marketplace again for buyers to see.",
-          confirmText: "Reactivate",
+          title: "Make this listing available?",
+          message: "It will appear in the marketplace for buyers to see.",
+          confirmText: "Make available",
           variant: "primary",
         },
         paused: {
@@ -335,7 +327,8 @@
         },
         sold: {
           title: "Mark as sold?",
-          message: "The listing will be closed and cannot be reactivated.",
+          message:
+            "The listing will be closed. You can make it available again later if the sale falls through.",
           confirmText: "Mark as sold",
           variant: "danger",
         },
@@ -351,6 +344,8 @@
         document.getElementById("gallery-prev").innerHTML =
           uiIcon("chevronLeft");
         document.getElementById("gallery-next").innerHTML =
+          uiIcon("chevronRight");
+        document.getElementById("seller-profile-chevron").innerHTML =
           uiIcon("chevronRight");
         document
           .getElementById("gallery-prev")
@@ -413,7 +408,7 @@
         });
 
         document
-          .getElementById("view-seller-profile-btn")
+          .getElementById("seller-profile-link")
           .addEventListener("click", () => {
             if (!getCurrentUser()) {
               goToLogin("seller-profile", {
@@ -708,15 +703,20 @@
           return;
         }
         container.innerHTML = listings
-          .map(
-            (listing) => `
+          .map((listing) => {
+            const canMarkSold =
+              listing.status === "active" || listing.status === "paused";
+            const canMakeAvailable = listing.status === "sold";
+            return `
           <div class="relative bg-white rounded-lg shadow-md overflow-hidden">
             <div class="relative bg-gray-200 aspect-square sm:aspect-[4/3] flex items-center justify-center">
               ${listing.main_image ? `<img src="${listing.main_image}" alt="${escapeHtml(listing.title)}" class="h-full w-full object-cover">` : speciesFallbackMedia(listing.species)}
               <span class="absolute top-2 left-2 px-2 py-0.5 text-[10px] font-semibold rounded-full capitalize ${LISTING_STATUS_BADGES[listing.status] || "bg-gray-600 text-white"}">${escapeHtml(listing.status)}</span>
               <button type="button" class="listing-menu-toggle absolute top-2 right-2 w-8 h-8 flex items-center justify-center text-white drop-shadow" data-id="${listing.id}" aria-haspopup="true" aria-expanded="false" aria-label="Listing actions">${uiIcon("dots")}</button>
-              <div class="listing-menu hidden absolute top-12 right-2 w-36 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10" data-id="${listing.id}">
+              <div class="listing-menu hidden absolute top-12 right-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10" data-id="${listing.id}">
                 <a href="listing.html?edit=${listing.id}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Edit</a>
+                ${canMarkSold ? `<button type="button" class="listing-sold-btn block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" data-id="${listing.id}">Mark as sold</button>` : ""}
+                ${canMakeAvailable ? `<button type="button" class="listing-available-btn block w-full text-left px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50" data-id="${listing.id}">Make available</button>` : ""}
                 <button type="button" class="listing-delete-btn block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" data-id="${listing.id}">Delete</button>
               </div>
             </div>
@@ -726,8 +726,8 @@
               ${listing.status === "paused" ? `<div class="flex flex-wrap gap-2 mt-2"><button onclick="changeListingStatus(${listing.id}, 'active')" class="rounded border px-2 py-0.5 text-xs">Reactivate</button></div>` : ""}
             </div>
           </div>
-        `,
-          )
+        `;
+          })
           .join("");
       }
 
@@ -759,6 +759,22 @@
               menu.classList.remove("hidden");
               toggle.setAttribute("aria-expanded", "true");
             }
+            return;
+          }
+
+          const soldBtn = event.target.closest(".listing-sold-btn");
+          if (soldBtn) {
+            const id = soldBtn.dataset.id;
+            closeAllListingMenus(container);
+            await changeListingStatus(id, "sold");
+            return;
+          }
+
+          const availableBtn = event.target.closest(".listing-available-btn");
+          if (availableBtn) {
+            const id = availableBtn.dataset.id;
+            closeAllListingMenus(container);
+            await changeListingStatus(id, "active");
             return;
           }
 
@@ -1010,10 +1026,13 @@
         document.getElementById("listing-price").textContent = formatCurrency(
           listing.price,
         );
-        document.getElementById("seller-name").textContent =
-          listing.seller_name || "-";
-        document.getElementById("seller-location").textContent =
-          listing.seller_location || "-";
+
+        const sellerName = listing.seller_name || "Unknown seller";
+        document.getElementById("seller-name").textContent = sellerName;
+        document.getElementById("seller-avatar").textContent = sellerName
+          .trim()
+          .charAt(0)
+          .toUpperCase();
 
         setAttrRow("attr-species-row", "attr-species", listing.species || null);
         setAttrRow("attr-breed-row", "attr-breed", listing.breed || null);
@@ -1046,11 +1065,6 @@
         galleryIndex = 0;
         renderGalleryFrame();
 
-        // Buy button: visible to signed-out visitors so the primary CTA is
-        // always discoverable - clicking it redirects them to login with a
-        // "buy" reason (and a next= back to this listing). It's hidden only
-        // for signed-in users who can't transact (admin, service_provider)
-        // or who are viewing their own listing.
         const currentUser = getCurrentUser();
         const isSignedIn = Boolean(currentUser);
         const isOwnListing = currentUser?.id === listing.seller_id;
@@ -1060,9 +1074,6 @@
           document.getElementById("inquiry-btn").classList.add("hidden");
         }
 
-        // Favourite requires an account to persist the save, so it's hidden
-        // for signed-out visitors as well as for admin/service_provider and
-        // the seller's own listing.
         if (!roleCanBuy || isOwnListing) {
           document
             .getElementById("gallery-favorite-btn")
