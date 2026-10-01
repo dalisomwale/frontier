@@ -1,218 +1,148 @@
+// Public inquiry submission. Visitors need no account: the inquiry is tied to
+// the listing they were viewing, saved to the database, and then emailed to
+// the marketplace team.
 const express = require("express");
 const pool = require("../db");
-const { isAuthenticated, isMember } = require("../middleware/auth");
+const { sendInquiryNotification } = require("../services/mailer");
+const {
+  positiveInt,
+  text,
+  isEmail,
+  isPhone,
+  badRequest,
+  notFound,
+} = require("../lib/validate");
 
 const router = express.Router();
 
-// GET /api/inquiries - Get inquiries for authenticated user
-router.get("/", isAuthenticated, async (req, res) => {
+const LIMITS = {
+  name: { min: 2, max: 120 },
+  message: { min: 10, max: 2000 },
+};
+
+function validate(body) {
+  const errors = {};
+  const fullName = text(body.full_name, LIMITS.name.max);
+  const phone = text(body.phone, 30);
+  const email = text(body.email, 255);
+  const message = text(body.message, LIMITS.message.max);
+
+  if (fullName === null) errors.full_name = "Full name is required.";
+  else if (fullName === undefined || fullName.length < LIMITS.name.min)
+    errors.full_name = `Please enter your full name (${LIMITS.name.min}-${LIMITS.name.max} characters).`;
+
+  if (phone === null) errors.phone = "Phone number is required.";
+  else if (phone === undefined || !isPhone(phone))
+    errors.phone = "Please enter a valid phone number, e.g. 0977 123 456 or +260 977 123 456.";
+
+  if (email === null) errors.email = "Email is required.";
+  else if (email === undefined || !isEmail(email))
+    errors.email = "Please enter a valid email address.";
+
+  if (message === null) errors.message = "Message is required.";
+  else if (message === undefined)
+    errors.message = `Message must be ${LIMITS.message.max} characters or fewer.`;
+  else if (message.length < LIMITS.message.min)
+    errors.message = `Message must be at least ${LIMITS.message.min} characters.`;
+
+  return {
+    errors,
+    values: {
+      full_name: fullName,
+      phone,
+      email: email ? email.toLowerCase() : email,
+      message,
+    },
+  };
+}
+
+function adminUrl(req, id) {
+  const base = (process.env.APP_URL || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
+  return `${base}/admin/inquiries.html?id=${id}`;
+}
+
+router.post("/", async (req, res, next) => {
   try {
-    const userId = req.session.userId;
+    // Honeypot: real visitors never see or fill this field.
+    if (req.body.website) {
+      return res.json({ success: true, message: "Your inquiry has been sent successfully." });
+    }
 
-    // A member can both send inquiries (as the buyer) and receive them (as
-    // the seller of the listing) from the same account, so show both sides
-    // rather than branching on role.
-    let query = `SELECT i.*, l.title as listing_title, u.name as sender_name
-                 FROM inquiries i
-                 JOIN listings l ON i.listing_id = l.id
-                 LEFT JOIN users u ON i.buyer_id = u.id
-                 WHERE (i.buyer_id = ? OR i.seller_id = ?)`;
-    const params = [userId, userId];
+    const livestockId = positiveInt(req.body.livestock_id);
+    if (!livestockId) throw badRequest("Please choose a livestock listing to inquire about.");
 
-    query += " ORDER BY i.created_at DESC";
+    const { errors, values } = validate(req.body);
+    if (Object.keys(errors).length) {
+      return res.status(422).json({
+        success: false,
+        message: "Please correct the highlighted fields.",
+        errors,
+      });
+    }
 
-    const [inquiries] = await pool.query(query, params);
-
-    return res.json({
-      success: true,
-      data: inquiries,
-    });
-  } catch (error) {
-    console.error("Get inquiries error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to retrieve inquiries",
-    });
-  }
-});
-
-// GET /api/inquiries/:id - Get single inquiry
-router.get("/:id", isAuthenticated, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.session.userId;
-
-    const [inquiries] = await pool.query(
-      `SELECT i.*, l.title as listing_title, b.name as buyer_name, s.name as seller_name
-       FROM inquiries i
-       JOIN listings l ON i.listing_id = l.id
-       JOIN users b ON i.buyer_id = b.id
-       JOIN users s ON i.seller_id = s.id
-       WHERE i.id = ? AND (i.buyer_id = ? OR i.seller_id = ?)`,
-      [id, userId, userId],
+    const [listing] = await pool.query(
+      `SELECT l.id, l.title, c.name AS category_name, b.name AS breed_name
+       FROM livestock l
+       JOIN categories c ON c.id = l.category_id
+       LEFT JOIN breeds b ON b.id = l.breed_id
+       WHERE l.id = ? AND l.status = 'published' AND c.status = 'active'`,
+      [livestockId],
     );
-
-    if (inquiries.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Inquiry not found",
-      });
-    }
-
-    return res.json({
-      success: true,
-      data: inquiries[0],
-    });
-  } catch (error) {
-    console.error("Get inquiry error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to retrieve inquiry",
-    });
-  }
-});
-
-// POST /api/inquiries - Create inquiry
-router.post("/", isAuthenticated, isMember, async (req, res) => {
-  try {
-    const { listing_id, message } = req.body;
-    const buyer_id = req.session.userId;
-
-    if (
-      !listing_id ||
-      typeof message !== "string" ||
-      !message.trim() ||
-      message.trim().length > 5000
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "A listing and a message of up to 5,000 characters are required",
-      });
-    }
-
-    // Get listing and seller info
-    const [listings] = await pool.query(
-      "SELECT seller_id FROM listings WHERE id = ? AND status = 'active'",
-      [listing_id],
-    );
-
-    if (listings.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Listing not found",
-      });
-    }
-
-    const seller_id = listings[0].seller_id;
-    if (seller_id === buyer_id) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "You cannot inquire about your own listing",
-        });
-    }
+    if (!listing.length) throw notFound("This listing is no longer available.");
+    const item = listing[0];
 
     const [result] = await pool.query(
-      'INSERT INTO inquiries (listing_id, buyer_id, seller_id, message, status) VALUES (?, ?, ?, ?, "pending")',
-      [listing_id, buyer_id, seller_id, message.trim()],
+      `INSERT INTO inquiries
+         (livestock_id, livestock_title, category_name, breed_name,
+          full_name, phone, email, message, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        item.id,
+        item.title,
+        item.category_name,
+        item.breed_name,
+        values.full_name,
+        values.phone,
+        values.email,
+        values.message,
+        req.ip,
+      ],
     );
+    const inquiryId = result.insertId;
 
-    // Notify the seller's open sockets so their unread badge updates without
-    // waiting for a poll. Fired after the insert so the eventual refetch
-    // sees the new row.
-    const io = req.app.get("io");
-    if (io) {
-      const [buyers] = await pool.query("SELECT name FROM users WHERE id = ?", [
-        buyer_id,
-      ]);
-      io.to("user:" + seller_id).emit("new_inquiry", {
-        id: result.insertId,
-        listing_id,
-        buyer_id,
-        buyer_name: buyers[0]?.name || "Someone",
-        created_at: new Date().toISOString(),
+    // The inquiry is already safely stored. If email delivery fails the team
+    // still sees it in the dashboard (flagged), so the visitor is not asked
+    // to resubmit.
+    try {
+      await sendInquiryNotification({
+        ...values,
+        livestock_title: item.title,
+        category_name: item.category_name,
+        breed_name: item.breed_name,
+        created_at: new Date(),
+        admin_url: adminUrl(req, inquiryId),
       });
+      await pool.query(
+        "UPDATE inquiries SET email_status = 'sent', email_error = NULL WHERE id = ?",
+        [inquiryId],
+      );
+    } catch (mailError) {
+      console.error(`Inquiry #${inquiryId} email failed:`, mailError.message);
+      await pool.query(
+        "UPDATE inquiries SET email_status = 'failed', email_error = ? WHERE id = ?",
+        [String(mailError.message).slice(0, 500), inquiryId],
+      );
     }
 
     return res.status(201).json({
       success: true,
-      message: "Inquiry sent successfully",
-      data: {
-        id: result.insertId,
-      },
+      message: "Your inquiry has been sent successfully.",
+      data: { id: inquiryId },
     });
   } catch (error) {
-    console.error("Create inquiry error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to create inquiry",
-    });
-  }
-});
-
-// PATCH /api/inquiries/:id - Update inquiry status
-router.patch("/:id", isAuthenticated, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    const userId = req.session.userId;
-
-    const validStatuses = ["pending", "responded", "closed"];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid status",
-      });
-    }
-
-    // Verify ownership (seller can update)
-    const [inquiries] = await pool.query(
-      "SELECT seller_id, buyer_id FROM inquiries WHERE id = ?",
-      [id],
-    );
-
-    if (inquiries.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Inquiry not found",
-      });
-    }
-
-    if (inquiries[0].seller_id !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: "You do not have permission to update this inquiry",
-      });
-    }
-
-    await pool.query("UPDATE inquiries SET status = ? WHERE id = ?", [
-      status,
-      id,
-    ]);
-
-    // Tell both parties so their badge counts refresh. The seller's badge
-    // was pinned on this inquiry until the status moved off pending; the
-    // buyer's UI also shows the current status.
-    const io = req.app.get("io");
-    if (io) {
-      const payload = { id: Number(id), status };
-      io.to("user:" + inquiries[0].seller_id).emit("inquiry_updated", payload);
-      io.to("user:" + inquiries[0].buyer_id).emit("inquiry_updated", payload);
-    }
-
-    return res.json({
-      success: true,
-      message: `Inquiry status updated to ${status}`,
-    });
-  } catch (error) {
-    console.error("Update inquiry error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to update inquiry",
-    });
+    return next(error);
   }
 });
 
 module.exports = router;
+module.exports.validateInquiry = validate;

@@ -3,484 +3,482 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Frontier Marketplace - Livestock Trading Platform</title>
-    <link rel="icon" href="images/logo-icon.jpg" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="css/style.css" />
+    <title>Frontier Marketplace - Find the Right Livestock</title>
+    <meta
+      name="description"
+      content="Browse dairy, beef and dual-purpose cattle listings from Frontier Farms & Consult, explore breeds, and send an inquiry directly to the marketplace team."
+    />
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
     <script src="/js/main.js"></script>
-    <script src="/js/auth.js"></script>
-    <script src="/js/species.js"></script>
+    <script src="/js/icons.js"></script>
     <script src="/js/app-shell.js"></script>
+    <script src="/js/livestock.js"></script>
+    <script src="/js/inquiry.js"></script>
   </head>
   <body class="bg-gray-50">
     <nav id="page-topnav" class="bg-white shadow-md sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
-          <div class="flex items-center gap-3">
+          <a href="/" class="flex items-center gap-3" aria-label="Frontier Marketplace home">
             <div class="brand-mark-full">
-              <img
-                src="images/logo-full.jpg"
-                alt="Frontier Farms &amp; Consult"
-              />
+              <img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
             </div>
-          </div>
-
-          <!-- Single account affordance in the header: an icon whose
-               dropdown contents swap based on auth state. Signed out shows
-               Login/Register; signed in shows Dashboard/Messages/Profile/Logout.
-               The four-link strip that used to sit next to this was redundant
-               with the mobile bottom nav and has been removed. -->
-          <div id="nav-auth" class="relative hidden md:block">
-            <button
-              id="nav-auth-toggle"
-              type="button"
-              class="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              aria-haspopup="true"
-              aria-expanded="false"
-              aria-label="Account"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                width="20"
-                height="20"
-              >
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
-              </svg>
-            </button>
-            <div
-              id="nav-auth-menu"
-              class="hidden absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
-            >
-              <a
-                href="login.html"
-                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >Login</a
-              >
-              <a
-                href="register.html"
-                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >Register</a
-              >
-            </div>
+            <span class="hidden sm:block font-bold text-gray-900">Frontier Marketplace</span>
+          </a>
+          <div class="hidden md:flex items-center gap-6">
+            <a href="#listings" class="top-link">Browse Livestock</a>
+            <a href="#categories" class="top-link">Categories</a>
+            <a href="#how-it-works" class="top-link">How It Works</a>
           </div>
         </div>
       </div>
     </nav>
 
-    <div id="tab-self-content">
-      <section class="hero-photo text-white py-10 md:py-14">
-        <div id="hero-slides" class="hero-slides"></div>
+    <main>
+      <!-- Hero: real photography slideshow + discovery filter -->
+      <section class="hero-photo text-white pt-14 pb-10 md:pt-24 md:pb-14" aria-labelledby="hero-heading">
+        <div id="hero-slides" class="hero-slides" aria-hidden="true"></div>
+
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="text-center mb-6">
-            <h2 class="text-4xl md:text-5xl font-bold mb-3">
-              Buy and Sell Livestock
-            </h2>
-            <p class="text-xl text-blue-100 mb-4">
-              Connect with buyers and sellers across Zambia.
+          <div class="max-w-2xl mb-8 md:mb-12">
+            <p class="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold uppercase tracking-wider text-blue-200 mb-3">
+              <span class="w-5 h-5">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="6"/><path d="M9 6.5c-.6-1.6.4-2.8 1.6-1.8M15 6.5c.6-1.6-.4-2.8-1.6-1.8"/><ellipse cx="6.4" cy="9.4" rx="1.9" ry="1.3" transform="rotate(-25 6.4 9.4)"/><ellipse cx="17.6" cy="9.4" rx="1.9" ry="1.3" transform="rotate(25 17.6 9.4)"/></svg>
+              </span>
+              Frontier Farms &amp; Consult
             </p>
+            <h1 id="hero-heading" class="text-4xl md:text-6xl font-bold leading-tight mb-4">
+              Find the Right Livestock for Your Needs
+            </h1>
+            <p class="text-lg md:text-xl text-blue-100 mb-7">
+              Browse livestock listings, explore breeds and categories, and send an inquiry directly to the marketplace team.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-3">
+              <a href="#listings" class="inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold shadow-lg transition">
+                <span class="w-5 h-5" data-icon="search"></span> Browse Livestock
+              </a>
+              <a href="#categories" class="inline-flex justify-center items-center gap-2 bg-white/10 backdrop-blur border border-white/40 text-white px-6 py-3 rounded-lg hover:bg-white/20 font-semibold transition">
+                <span class="w-5 h-5" data-icon="layers"></span> Explore Categories
+              </a>
+            </div>
           </div>
 
-          <div class="bg-white rounded-lg shadow-lg p-6 max-w-5xl mx-auto">
-            <div
-              class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4"
-            >
+          <!-- Filter: Category -> Breed -> Type -> Location, all dropdowns -->
+          <form id="filter-form" class="bg-white rounded-lg shadow-lg p-5 sm:p-6 max-w-5xl mx-auto text-gray-900" role="search" aria-label="Filter livestock">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
-                  >Species</label
-                >
-                <select
-                  id="filter-species"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                >
-                  <option value="">All Species</option>
-                  <option value="Cattle">Cattle</option>
-                  <option value="Goats">Goats</option>
-                  <option value="Sheep">Sheep</option>
-                  <option value="Pigs">Pigs</option>
-                  <option value="Poultry">Poultry</option>
+                <label for="filter-category" class="block text-sm font-medium text-gray-700 mb-2"><span class="filter-step">1</span>Category</label>
+                <select id="filter-category" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
+                  <option value="">All Categories</option>
                 </select>
               </div>
-
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
-                  >Breed</label
-                >
-                <input
-                  type="text"
-                  id="filter-breed"
-                  placeholder="e.g., Boran"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                />
+                <label for="filter-breed" class="block text-sm font-medium text-gray-700 mb-2"><span class="filter-step">2</span>Breed</label>
+                <select id="filter-breed" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white" disabled>
+                  <option value="">Select a category first</option>
+                </select>
               </div>
-
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
-                  >Location</label
-                >
-                <input
-                  type="text"
-                  id="filter-location"
-                  placeholder="e.g., Lusaka"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                />
+                <label for="filter-type" class="block text-sm font-medium text-gray-700 mb-2"><span class="filter-step">3</span>Type</label>
+                <select id="filter-type" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
+                  <option value="">Any Type</option>
+                </select>
               </div>
-
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
-                  >Health</label
-                >
-                <select
-                  id="filter-health"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                >
-                  <option value="">Any</option>
-                  <option value="healthy">Healthy</option>
-                  <option value="treated">Treated (recovered)</option>
-                  <option value="under_treatment">Under treatment</option>
+                <label for="filter-location" class="block text-sm font-medium text-gray-700 mb-2"><span class="filter-step">4</span>Location</label>
+                <select id="filter-location" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
+                  <option value="">Any Location</option>
                 </select>
               </div>
             </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
-                  >Min price (ZMW)</label
-                >
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  id="filter-min-price"
-                  placeholder="0"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
-                  >Max price (ZMW)</label
-                >
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  id="filter-max-price"
-                  placeholder="Any"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2"
-                  >Min weight (kg)</label
-                >
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  id="filter-min-weight"
-                  placeholder="Any"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                />
-              </div>
-              <div class="flex items-end">
-                <button
-                  id="search-btn"
-                  class="w-full bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
-
-            <div class="mt-3 text-right">
-              <button
-                type="button"
-                id="clear-filters-btn"
-                class="text-sm font-medium text-gray-500 hover:text-gray-700"
-              >
+            <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
+              <button type="button" id="clear-filters-btn" class="text-sm font-medium text-gray-500 hover:text-gray-700 self-center sm:self-auto">
                 Clear all filters
               </button>
+              <button type="submit" id="search-btn" class="w-full sm:w-auto inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-8 py-2.5 rounded-lg hover:bg-blue-700 font-medium">
+                <span class="w-4 h-4" data-icon="search"></span>
+                <span id="search-btn-label">Show Livestock</span>
+              </button>
+            </div>
+          </form>
+
+          <div class="mt-6 flex items-center justify-center gap-4">
+            <div id="hero-dots" class="hero-dots" role="tablist" aria-label="Hero photos"></div>
+          </div>
+        </div>
+        <p id="hero-credit" class="hero-credit"></p>
+      </section>
+
+      <!-- Categories -->
+      <section id="categories" class="py-12 bg-white" style="scroll-margin-top: 72px" aria-labelledby="categories-heading">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex items-end justify-between gap-4 mb-6">
+            <div>
+              <h2 id="categories-heading" class="text-3xl font-bold text-gray-900">Explore Categories</h2>
+              <p class="text-gray-600 mt-1">Start with the purpose you're buying for, then narrow down by breed.</p>
             </div>
           </div>
+          <div id="category-tiles" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div>
         </div>
       </section>
 
-      <section
-        id="listings-section"
-        class="bg-gray-50 py-8 border-t border-gray-100"
-        style="scroll-margin-top: 80px"
-      >
+      <!-- Listings -->
+      <section id="listings" class="bg-gray-50 py-10 border-t border-gray-100" style="scroll-margin-top: 72px" aria-labelledby="listings-heading">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="mb-4">
-            <h2 class="text-3xl font-bold text-gray-900">Livestock Listings</h2>
+          <div class="flex flex-wrap items-end justify-between gap-2 mb-4">
+            <div>
+              <h2 id="listings-heading" class="text-3xl font-bold text-gray-900">Livestock Listings</h2>
+              <p id="results-summary" class="text-sm text-gray-500 mt-1" aria-live="polite"></p>
+            </div>
           </div>
 
-          <div id="species-picker" class="flex flex-wrap gap-2 mb-4"></div>
+          <div id="category-chips" class="flex flex-wrap gap-2 mb-5"></div>
 
-          <div
-            id="listings-container"
-            class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-6"
-          ></div>
-
+          <div id="listings-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-6"></div>
           <div id="pagination-container"></div>
         </div>
       </section>
 
-      <footer class="bg-white border-t border-gray-200 mt-10">
-        <div
-          class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-gray-500"
-        >
-          <p>
-            © <span id="footer-year"></span> Frontier Farms &amp; Consult. All
-            rights reserved.
-          </p>
-          <nav class="flex flex-wrap gap-x-5 gap-y-2">
-            <a href="terms.html" class="hover:text-gray-700"
-              >Terms of Service</a
-            >
-            <a href="privacy.html" class="hover:text-gray-700"
-              >Privacy Policy</a
-            >
-          </nav>
+      <!-- How it works -->
+      <section id="how-it-works" class="py-12 bg-white border-t border-gray-100" style="scroll-margin-top: 72px">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">How It Works</h2>
+          <ol class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <li class="stat-tile">
+              <span class="stat-tile-icon bg-blue-100 text-blue-600" data-icon="search"></span>
+              <div><p class="font-semibold text-gray-900">1. Browse &amp; filter</p><p class="text-sm text-gray-600">Choose a category, breed and location to find matching livestock.</p></div>
+            </li>
+            <li class="stat-tile">
+              <span class="stat-tile-icon bg-green-100 text-green-600" data-icon="inquire"></span>
+              <div><p class="font-semibold text-gray-900">2. Send an inquiry</p><p class="text-sm text-gray-600">Tap Inquire on any listing - no account needed.</p></div>
+            </li>
+            <li class="stat-tile">
+              <span class="stat-tile-icon bg-amber-100 text-amber-600" data-icon="phone"></span>
+              <div><p class="font-semibold text-gray-900">3. We contact you</p><p class="text-sm text-gray-600">The Frontier team follows up by phone or email with details.</p></div>
+            </li>
+          </ol>
         </div>
-      </footer>
-      <script>
-        document.getElementById("footer-year").textContent =
-          new Date().getFullYear();
-      </script>
-    </div>
-    <div id="tab-frame-host" class="tab-frame-host hidden"></div>
+      </section>
+    </main>
+
+    <footer class="bg-white border-t border-gray-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-gray-500">
+        <p>© <span id="footer-year"></span> Frontier Farms &amp; Consult. All rights reserved.</p>
+        <nav class="flex flex-wrap gap-x-5 gap-y-2">
+          <a href="/terms.html" class="hover:text-gray-700">Terms of Service</a>
+          <a href="/privacy.html" class="hover:text-gray-700">Privacy Policy</a>
+          <a href="/photo-credits.html" class="hover:text-gray-700">Photo Credits</a>
+        </nav>
+      </div>
+    </footer>
 
     <div id="app-bottom-nav"></div>
     <script>
       renderBottomNav("public");
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
     </script>
 
     <script>
-      const SPECIES_OPTIONS = [
-        "",
-        "Cattle",
-        "Goats",
-        "Sheep",
-        "Pigs",
-        "Poultry",
-      ];
-      const HERO_SLIDE_SPECIES = [
-        "Cattle",
-        "Goats",
-        "Sheep",
-        "Pigs",
-        "Poultry",
-      ];
-      const HERO_SLIDE_INTERVAL_MS = 4500;
-
+      const HERO_INTERVAL_MS = 6000;
+      const PAGE_SIZE = 12;
+      const els = {
+        category: document.getElementById("filter-category"),
+        breed: document.getElementById("filter-breed"),
+        type: document.getElementById("filter-type"),
+        location: document.getElementById("filter-location"),
+      };
+      let categories = [];
       let currentPage = 1;
+      let optionsRequest = 0;
 
-      function renderHeroSlides() {
-        document.getElementById("hero-slides").innerHTML =
-          HERO_SLIDE_SPECIES.map(
-            (species, index) =>
-              `<div class="hero-slide ${index === 0 ? "active" : ""}" style="background-image: url('${speciesImage(species)}')"></div>`,
-          ).join("");
-      }
-
-      function startHeroSlideshow() {
-        const slides = document.querySelectorAll("#hero-slides .hero-slide");
-        if (slides.length < 2) return;
+      // ---------------------------------------------------------------
+      // Hero slideshow. Only the first photo loads up front; each next
+      // photo is fetched just before it is shown.
+      // ---------------------------------------------------------------
+      function initHero() {
+        const host = document.getElementById("hero-slides");
+        const dots = document.getElementById("hero-dots");
+        const credit = document.getElementById("hero-credit");
+        const width = viewportImageWidth();
         let index = 0;
-        setInterval(() => {
-          slides[index].classList.remove("active");
-          index = (index + 1) % slides.length;
-          slides[index].classList.add("active");
-        }, HERO_SLIDE_INTERVAL_MS);
-      }
+        let timer;
 
-      function renderSpeciesPicker() {
-        const picker = document.getElementById("species-picker");
-        const select = document.getElementById("filter-species");
+        host.innerHTML = HERO_PHOTOS.map((p) => `<div class="hero-slide" role="img" aria-label="${escapeHtml(p.alt)}"></div>`).join("");
+        dots.innerHTML = HERO_PHOTOS.map((p, i) => `<button type="button" aria-label="Show photo ${i + 1}: ${escapeHtml(p.place)}"></button>`).join("");
+        const slides = host.querySelectorAll(".hero-slide");
+        const dotBtns = dots.querySelectorAll("button");
 
-        function paint() {
-          picker.querySelectorAll("button").forEach((btn) => {
-            btn.classList.toggle("active", btn.dataset.value === select.value);
-          });
+        function load(i) {
+          if (slides[i].dataset.loaded) return;
+          const url = unsplashUrl(HERO_PHOTOS[i].id, width);
+          const img = new Image();
+          img.onload = () => {
+            slides[i].style.backgroundImage = `url("${url}")`;
+            slides[i].dataset.loaded = "1";
+            if (i === index) setCredit(i);
+          };
+          img.src = url;
         }
-
-        picker.innerHTML = SPECIES_OPTIONS.map((value) => {
-          const label = value || "All";
-          return `<button type="button" data-value="${value}" class="species-chip justify-center px-3"><span>${label}</span></button>`;
-        }).join("");
-
-        picker.querySelectorAll("button").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            select.value = btn.dataset.value;
-            paint();
-            currentPage = 1;
-            loadListings(1);
-          });
-        });
-
-        window.paintSpeciesPicker = paint;
-        paint();
-      }
-
-      function applyFiltersAndScroll() {
-        currentPage = 1;
-        loadListings(1);
-        document
-          .getElementById("listings-section")
-          .scrollIntoView({ behavior: "smooth" });
-      }
-
-      function clearFilters() {
-        [
-          "filter-species",
-          "filter-breed",
-          "filter-location",
-          "filter-health",
-          "filter-min-price",
-          "filter-max-price",
-          "filter-min-weight",
-        ].forEach((id) => {
-          const el = document.getElementById(id);
-          if (el) el.value = "";
-        });
-        paintSpeciesPicker();
-        currentPage = 1;
-        loadListings(1);
-      }
-
-      document.addEventListener("DOMContentLoaded", async () => {
-        renderHeroSlides();
-        startHeroSlideshow();
-        renderSpeciesPicker();
-        await checkAuthentication();
-        renderBottomNav("public");
-
-        const query = getQueryParams();
-        ["species", "breed", "location", "health"].forEach((key) => {
-          const fieldId = key === "health" ? "filter-health" : `filter-${key}`;
-          const field = document.getElementById(fieldId);
-          if (field && query[key]) field.value = query[key];
-        });
-        paintSpeciesPicker();
-
-        await loadListings(1);
-        if (Object.keys(query).length > 0) {
-          document
-            .getElementById("listings-section")
-            .scrollIntoView({ behavior: "smooth" });
+        // Credit only a photo that is actually on screen (if the CDN is
+        // unreachable, the local fallback photo shows and no credit appears).
+        function setCredit(i) {
+          const p = HERO_PHOTOS[i];
+          credit.innerHTML = slides[i].dataset.loaded
+            ? `Photo: ${escapeHtml(p.place)} · <a href="${p.page}" target="_blank" rel="noopener">${escapeHtml(p.author)} / Unsplash</a>`
+            : "";
         }
+        function show(i) {
+          index = i;
+          load(i);
+          load((i + 1) % slides.length);
+          slides.forEach((s, n) => s.classList.toggle("active", n === i));
+          dotBtns.forEach((d, n) => d.classList.toggle("active", n === i));
+          setCredit(i);
+        }
+        function start() {
+          clearInterval(timer);
+          if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+          timer = setInterval(() => show((index + 1) % slides.length), HERO_INTERVAL_MS);
+        }
+        dotBtns.forEach((d, n) => d.addEventListener("click", () => { show(n); start(); }));
+        show(0);
+        start();
+      }
 
-        document
-          .getElementById("search-btn")
-          .addEventListener("click", applyFiltersAndScroll);
-        document
-          .getElementById("clear-filters-btn")
-          .addEventListener("click", clearFilters);
-      });
-
-      async function loadListings(page = 1) {
-        showLoading();
+      // ---------------------------------------------------------------
+      // Categories: tiles, chips and the first filter dropdown
+      // ---------------------------------------------------------------
+      async function loadCategories() {
+        const tiles = document.getElementById("category-tiles");
         try {
-          const value = (id) => document.getElementById(id)?.value.trim() || "";
-          const params = new URLSearchParams();
-          const species = value("filter-species");
-          const breed = value("filter-breed");
-          const location = value("filter-location");
-          const health = value("filter-health");
-          const minPrice = value("filter-min-price");
-          const maxPrice = value("filter-max-price");
-          const minWeight = value("filter-min-weight");
-
-          if (species) params.append("species", species);
-          if (breed) params.append("breed", breed);
-          if (location) params.append("location", location);
-          if (health) params.append("health_status", health);
-          if (minPrice) params.append("minPrice", minPrice);
-          if (maxPrice) params.append("maxPrice", maxPrice);
-          if (minWeight) params.append("minWeight", minWeight);
-          params.append("sort", "newest");
-          params.append("page", page);
-          params.append("limit", 12);
-
-          const response = await apiRequest(
-            `/api/listings?${params.toString()}`,
-          );
-
-          if (response.success) {
-            renderListings(response.data);
-            renderPagination(response.pagination);
-          } else {
-            showNotification("Failed to load listings", "error");
-          }
+          const res = await apiRequest("/api/categories");
+          categories = res.data;
         } catch (error) {
-          console.error("Load listings error:", error);
-          showNotification("Failed to load listings", "error");
-        } finally {
-          hideLoading();
-        }
-      }
-
-      function renderListings(listings) {
-        const container = document.getElementById("listings-container");
-
-        if (listings.length === 0) {
-          renderEmptyState(
-            container,
-            "No livestock listings match your filters.",
-          );
+          renderEmptyState(tiles, { title: "Categories unavailable", message: error.message, icon: "layers" });
           return;
         }
 
-        container.innerHTML = listings
-          .map(
-            (listing) => `
-        <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition cursor-pointer"
-             onclick="window.location.href = 'listing.html?id=${listing.id}'">
-          <div class="bg-gray-200 aspect-square sm:aspect-[4/3] flex items-center justify-center">
-            ${listing.main_image ? `<img src="${listing.main_image}" alt="${escapeHtml(listing.title)}" class="h-full w-full object-cover">` : speciesFallbackMedia(listing.species)}
-          </div>
-          <div class="p-2.5 sm:p-3">
-            <h3 class="text-xs sm:text-sm font-semibold text-gray-900 line-clamp-2 mb-1.5">${escapeHtml(listing.title)}</h3>
-            <div class="flex items-baseline justify-between gap-2 min-w-0">
-              <span class="text-sm sm:text-base font-bold text-emerald-600 leading-none">K${parseFloat(listing.price).toLocaleString()}</span>
-              ${listing.location ? `<span class="text-[10px] sm:text-xs text-gray-500 flex items-center gap-1 min-w-0"><span class="meta-icon">${uiIcon("location")}</span><span class="truncate">${escapeHtml(listing.location)}</span></span>` : ""}
-            </div>
-          </div>
-        </div>
-      `,
-          )
+        els.category.innerHTML =
+          `<option value="">All Categories</option>` +
+          categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+
+        if (!categories.length) {
+          renderEmptyState(tiles, { title: "No categories yet", message: "Categories will appear here once they are set up.", icon: "layers" });
+        } else {
+          const tileWidth = Math.min(1200, viewportImageWidth(1200) / (window.innerWidth >= 1024 ? 2 : 1));
+          tiles.innerHTML = categories
+            .map((c) => {
+              const photo = categoryPhoto(c);
+              const src = c.cover_image || unsplashUrl(photo.id, Math.round(tileWidth), Math.round(tileWidth * 0.75));
+              const alt = c.cover_image ? `${c.name} livestock` : photo.alt;
+              const count = Number(c.livestock_count);
+              return `
+                <a href="#listings" class="cat-tile group" data-category="${c.id}">
+                  <img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async"
+                    onerror="this.onerror=null;this.src='/images/livestock/cattle-fallback.webp'">
+                  <div class="absolute inset-x-0 bottom-0 p-5">
+                    <h3 class="text-2xl font-bold">${escapeHtml(c.name)}</h3>
+                    ${c.description ? `<p class="text-sm text-blue-100 mt-1 line-clamp-2">${escapeHtml(c.description)}</p>` : ""}
+                    <div class="mt-3 flex items-center justify-between text-sm">
+                      <span class="text-blue-100">${c.breed_count} breed${c.breed_count == 1 ? "" : "s"} · ${count} listing${count === 1 ? "" : "s"}</span>
+                      <span class="inline-flex items-center gap-1 font-semibold group-hover:translate-x-1 transition">Browse <span class="w-4 h-4">${uiIcon("chevronRight")}</span></span>
+                    </div>
+                  </div>
+                </a>`;
+            })
+            .join("");
+          tiles.querySelectorAll("[data-category]").forEach((tile) =>
+            tile.addEventListener("click", (event) => {
+              event.preventDefault();
+              selectCategory(tile.dataset.category, { scroll: true });
+            }),
+          );
+        }
+        renderCategoryChips();
+      }
+
+      function renderCategoryChips() {
+        const chips = document.getElementById("category-chips");
+        chips.innerHTML = [{ id: "", name: "All" }, ...categories]
+          .map((c) => `<button type="button" data-value="${c.id}" class="species-chip justify-center px-3"><span>${escapeHtml(c.name)}</span></button>`)
           .join("");
+        chips.querySelectorAll("button").forEach((btn) =>
+          btn.addEventListener("click", () => selectCategory(btn.dataset.value)),
+        );
+        paintChips();
+      }
+
+      function paintChips() {
+        document.querySelectorAll("#category-chips button").forEach((btn) => {
+          const on = btn.dataset.value === els.category.value;
+          btn.classList.toggle("active", on);
+          btn.setAttribute("aria-pressed", String(on));
+        });
+      }
+
+      async function selectCategory(id, { scroll = false } = {}) {
+        els.category.value = id;
+        els.breed.value = "";
+        els.type.value = "";
+        els.location.value = "";
+        await refreshOptions();
+        applyFilters({ scroll });
+      }
+
+      // ---------------------------------------------------------------
+      // Cascading dropdowns. Each one's options come from the database and
+      // depend only on the selections before it.
+      // ---------------------------------------------------------------
+      function fillSelect(select, placeholder, options, keep) {
+        select.innerHTML =
+          `<option value="">${placeholder}</option>` +
+          options.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join("");
+        select.value = options.some((o) => String(o.value) === String(keep)) ? keep : "";
+      }
+
+      async function refreshOptions() {
+        const request = ++optionsRequest;
+        const params = new URLSearchParams();
+        if (els.category.value) params.set("category_id", els.category.value);
+        if (els.breed.value) params.set("breed_id", els.breed.value);
+        if (els.type.value) params.set("type", els.type.value);
+
+        let data;
+        try {
+          data = (await apiRequest(`/api/livestock/filters?${params}`)).data;
+        } catch {
+          return;
+        }
+        if (request !== optionsRequest) return; // a newer change superseded this one
+
+        if (!els.category.value) {
+          els.breed.disabled = true;
+          fillSelect(els.breed, "Select a category first", [], "");
+        } else {
+          els.breed.disabled = false;
+          fillSelect(
+            els.breed,
+            data.breeds.length ? "All Breeds" : "No breeds in this category",
+            data.breeds.map((b) => ({ value: b.id, label: `${b.name}${b.count ? ` (${b.count})` : ""}` })),
+            els.breed.value,
+          );
+        }
+        fillSelect(els.type, "Any Type", data.types.map((t) => ({ value: t.value, label: `${t.value} (${t.count})` })), els.type.value);
+        fillSelect(els.location, "Any Location", data.locations.map((l) => ({ value: l.value, label: `${l.value} (${l.count})` })), els.location.value);
+        paintChips();
+      }
+
+      els.category.addEventListener("change", () => {
+        els.breed.value = "";
+        refreshOptions();
+      });
+      els.breed.addEventListener("change", refreshOptions);
+      els.type.addEventListener("change", refreshOptions);
+
+      // ---------------------------------------------------------------
+      // Results
+      // ---------------------------------------------------------------
+      function currentFilters() {
+        const params = new URLSearchParams();
+        if (els.category.value) params.set("category_id", els.category.value);
+        if (els.breed.value) params.set("breed_id", els.breed.value);
+        if (els.type.value) params.set("type", els.type.value);
+        if (els.location.value) params.set("location", els.location.value);
+        return params;
+      }
+
+      function applyFilters({ scroll = true } = {}) {
+        currentPage = 1;
+        const params = currentFilters();
+        const url = `${location.pathname}${params.toString() ? `?${params}` : ""}${scroll ? "#listings" : location.hash}`;
+        history.replaceState(null, "", url);
+        renderBottomNav("public");
+        loadListings(1);
+        paintChips();
+        if (scroll) document.getElementById("listings").scrollIntoView({ behavior: "smooth" });
+      }
+
+      async function loadListings(page = 1) {
+        const container = document.getElementById("listings-container");
+        const summary = document.getElementById("results-summary");
+        renderSkeletonCards(container, 4);
+        const params = currentFilters();
+        params.set("page", page);
+        params.set("limit", PAGE_SIZE);
+
+        try {
+          const res = await apiRequest(`/api/livestock?${params}`);
+          const total = res.pagination.totalItems;
+          summary.textContent = total
+            ? `${total} listing${total === 1 ? "" : "s"}${describeFilters()}`
+            : "";
+          if (!res.data.length) {
+            const filtered = [...currentFilters().keys()].length > 0;
+            renderEmptyState(container, filtered
+              ? { title: "No livestock matches these filters", message: "Try another breed or location, or clear the filters to see everything available.", icon: "search",
+                  action: `<button type="button" onclick="document.getElementById('clear-filters-btn').click()" class="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-700">Clear all filters</button>` }
+              : { title: "No livestock listed yet", message: "New listings from the Frontier team will appear here. Please check back soon.", icon: "cattle" });
+          } else {
+            container.innerHTML = res.data.map(renderLivestockCard).join("");
+            bindInquireButtons(container, res.data);
+          }
+          renderPagination(res.pagination);
+        } catch (error) {
+          summary.textContent = "";
+          renderEmptyState(container, { title: "Listings could not be loaded", message: error.message, icon: "alert" });
+          document.getElementById("pagination-container").innerHTML = "";
+        }
+      }
+
+      function describeFilters() {
+        const parts = [els.category, els.breed, els.type, els.location]
+          .filter((s) => s.value)
+          .map((s) => s.options[s.selectedIndex].text.replace(/\s\(\d+\)$/, ""));
+        return parts.length ? ` · ${parts.join(" · ")}` : "";
       }
 
       function renderPagination(pagination) {
         const container = document.getElementById("pagination-container");
-
-        if (pagination.total <= 1) {
-          container.innerHTML = "";
-          return;
-        }
-
-        const paginationHtml = createPagination(
-          pagination.current,
-          pagination.total,
-          (page) => {
-            currentPage = page;
-            document
-              .getElementById("listings-section")
-              .scrollIntoView({ behavior: "smooth" });
-            loadListings(page);
-          },
-        );
-
         container.innerHTML = "";
-        container.appendChild(paginationHtml);
+        if (pagination.total <= 1) return;
+        container.appendChild(
+          createPagination(pagination.current, pagination.total, (page) => {
+            currentPage = page;
+            document.getElementById("listings").scrollIntoView({ behavior: "smooth" });
+            loadListings(page);
+          }),
+        );
       }
+
+      document.getElementById("filter-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        applyFilters();
+      });
+      document.getElementById("clear-filters-btn").addEventListener("click", async () => {
+        Object.values(els).forEach((s) => (s.value = ""));
+        await refreshOptions();
+        applyFilters({ scroll: false });
+      });
+
+      // ---------------------------------------------------------------
+      document.addEventListener("DOMContentLoaded", async () => {
+        initHero();
+        await loadCategories();
+
+        // Restore filters from a shared/bookmarked URL, in cascade order.
+        const q = getQueryParams();
+        if (q.category_id) els.category.value = q.category_id;
+        await refreshOptions();
+        if (q.breed_id) { els.breed.value = q.breed_id; await refreshOptions(); }
+        if (q.type) { els.type.value = q.type; await refreshOptions(); }
+        if (q.location) els.location.value = q.location;
+        paintChips();
+        await loadListings(1);
+        if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
+      });
     </script>
   </body>
 </html>

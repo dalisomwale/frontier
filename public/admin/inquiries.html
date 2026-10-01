@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Inquiries - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/admin.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">Inquiries</h1>
+        <p class="text-gray-500 mt-1">Every inquiry sent from the website. Contact the customer, then update the status as you go.</p>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div class="flex flex-col lg:flex-row lg:items-center gap-3 p-4 border-b border-gray-100">
+          <div class="seg" id="tabs"></div>
+          <div class="relative lg:ml-auto lg:w-72">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+            <input id="search" type="search" placeholder="Search name, phone, email, listing" class="field-input !py-2 !pl-9 !text-sm" />
+          </div>
+        </div>
+        <div id="list" class="overflow-x-auto"></div>
+        <div id="pagination" class="pb-4"></div>
+      </div>
+    </main>
+
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+
+      const STATUSES = [
+        { value: "new", label: "New" },
+        { value: "contacted", label: "Contacted" },
+        { value: "in_progress", label: "In Progress" },
+        { value: "resolved", label: "Resolved" },
+      ];
+      const TABS = [{ value: "", label: "All" }, ...STATUSES, { value: "archived", label: "Archived" }];
+      const state = { tab: "", q: "", page: 1 };
+      const statusLabel = (s) => STATUSES.find((x) => x.value === s)?.label || s;
+
+      function renderTabs(summary = {}) {
+        const total = STATUSES.reduce((n, s) => n + (summary[s.value] || 0), 0);
+        document.getElementById("tabs").innerHTML = TABS.map((t) => {
+          const count = t.value === "" ? total : summary[t.value];
+          return `<button type="button" data-tab="${t.value}" class="${t.value === state.tab ? "active" : ""}">${t.label}${count !== undefined ? `<span class="count">${count}</span>` : ""}</button>`;
+        }).join("");
+        document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.tab; loadList(1); }));
+      }
+
+      async function loadList(page = state.page) {
+        state.page = page;
+        const list = document.getElementById("list");
+        const params = new URLSearchParams({ page, limit: 20 });
+        if (state.tab === "archived") params.set("archived", "1");
+        else if (state.tab) params.set("status", state.tab);
+        if (state.q) params.set("q", state.q);
+
+        let res;
+        try {
+          res = await adminApi(`/api/admin/inquiries?${params}`);
+        } catch (error) {
+          return renderEmptyState(list, { title: "Could not load inquiries", message: error.message, icon: "alert" });
+        }
+        renderTabs(res.summary);
+        setNewInquiryBadge(res.summary.new);
+
+        if (!res.data.length) {
+          renderEmptyState(list, state.q || state.tab
+            ? { title: "No inquiries here", message: state.q ? "No inquiries match your search." : "No inquiries with this status.", icon: "inbox" }
+            : { title: "No inquiries yet", message: "When visitors click Inquire on a listing, their details will appear here and be emailed to the team.", icon: "inbox" });
+        } else {
+          list.innerHTML = `
+            <table class="admin-table">
+              <thead><tr>
+                <th>Customer</th><th class="hidden md:table-cell">Livestock</th><th class="hidden xl:table-cell">Message</th>
+                <th class="hidden sm:table-cell">Date</th><th>Status</th>
+              </tr></thead>
+              <tbody>${res.data.map((i) => `
+                <tr class="cursor-pointer ${i.status === "new" && !i.is_archived ? "font-semibold" : ""}" data-open="${i.id}">
+                  <td>
+                    <div class="min-w-[160px]">
+                      <p class="text-gray-900">${escapeHtml(i.full_name)}</p>
+                      <p class="text-xs text-gray-500 font-normal">${escapeHtml(i.phone)} · ${escapeHtml(i.email)}</p>
+                      <p class="text-xs text-gray-500 font-normal md:hidden mt-0.5">${escapeHtml(i.livestock_title)}</p>
+                    </div>
+                  </td>
+                  <td class="hidden md:table-cell font-normal">
+                    <p class="text-gray-900 line-clamp-1">${escapeHtml(i.livestock_title)}</p>
+                    <p class="text-xs text-gray-500">${escapeHtml([i.category_name, i.breed_name].filter(Boolean).join(" · "))}</p>
+                  </td>
+                  <td class="hidden xl:table-cell font-normal text-gray-600 max-w-xs"><p class="line-clamp-2 text-sm">${escapeHtml(i.message)}</p></td>
+                  <td class="hidden sm:table-cell font-normal text-gray-500 text-sm whitespace-nowrap" title="${escapeHtml(formatDate(i.created_at))}">${timeAgo(i.created_at)}</td>
+                  <td class="whitespace-nowrap">
+                    ${statusPill(i.status, statusLabel(i.status))}
+                    ${i.email_status === "failed" ? `<span class="status-pill st-failed ml-1" title="Notification email failed">Email failed</span>` : ""}
+                  </td>
+                </tr>`).join("")}</tbody>
+            </table>`;
+          list.querySelectorAll("[data-open]").forEach((row) => row.addEventListener("click", () => openInquiry(row.dataset.open)));
+        }
+        const pag = document.getElementById("pagination");
+        pag.innerHTML = "";
+        if (res.pagination.total > 1) pag.appendChild(createPagination(res.pagination.current, res.pagination.total, loadList));
+      }
+
+      function whatsappNumber(phone) {
+        let d = phone.replace(/\D/g, "");
+        if (phone.trim().startsWith("+")) return d;
+        if (d.startsWith("0")) d = "260" + d.slice(1); // Zambian local number
+        return d;
+      }
+
+      async function openInquiry(id) {
+        let i;
+        try {
+          i = (await adminApi(`/api/admin/inquiries/${id}`)).data;
+        } catch (error) {
+          return showNotification(error.message, "error");
+        }
+
+        const backdrop = document.createElement("div");
+        backdrop.className = "modal-backdrop";
+        const mailSubject = encodeURIComponent(`Your inquiry about ${i.livestock_title} - Frontier Marketplace`);
+        const listingLink = i.livestock_id && i.livestock_status === "published"
+          ? `<a href="/listing.html?id=${i.livestock_id}" target="_blank" rel="noopener" class="text-blue-600 hover:underline">${escapeHtml(i.livestock_title)}</a>`
+          : `${escapeHtml(i.livestock_title)} ${i.livestock_id ? '<span class="text-xs text-gray-400">(unpublished)</span>' : '<span class="text-xs text-gray-400">(listing deleted)</span>'}`;
+
+        backdrop.innerHTML = `
+          <div class="modal-panel modal-wide" role="dialog" aria-modal="true" aria-labelledby="inq-title">
+            <div class="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-blue-600">Inquiry #${i.id}</p>
+                <h2 id="inq-title" class="text-xl font-bold text-gray-900">${escapeHtml(i.full_name)}</h2>
+                <p class="text-sm text-gray-500">${escapeHtml(formatDate(i.created_at))}</p>
+              </div>
+              <button type="button" data-close class="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100" aria-label="Close"><span class="w-5 h-5">${uiIcon("close")}</span></button>
+            </div>
+            <div class="p-5 space-y-5">
+              ${i.email_status === "failed" ? `
+                <div class="alert alert-warning text-sm mb-0 flex flex-wrap items-center justify-between gap-2">
+                  <span>The notification email for this inquiry failed${i.email_error ? `: ${escapeHtml(i.email_error)}` : "."}</span>
+                  <button type="button" data-resend class="font-semibold underline">Resend email</button>
+                </div>` : ""}
+
+              <div class="grid grid-cols-3 gap-2">
+                <a href="tel:${escapeHtml(i.phone.replace(/[^\d+]/g, ""))}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-blue-600">${uiIcon("phone")}</span>Call</a>
+                <a href="https://wa.me/${whatsappNumber(i.phone)}" target="_blank" rel="noopener" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-green-500 hover:bg-green-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-green-600">${uiIcon("inquire")}</span>WhatsApp</a>
+                <a href="mailto:${escapeHtml(i.email)}?subject=${mailSubject}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-blue-600">${uiIcon("mail")}</span>Email</a>
+              </div>
+
+              <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div><dt class="text-gray-500">Phone</dt><dd class="font-semibold text-gray-900">${escapeHtml(i.phone)}</dd></div>
+                <div><dt class="text-gray-500">Email</dt><dd class="font-semibold text-gray-900 break-all">${escapeHtml(i.email)}</dd></div>
+                <div><dt class="text-gray-500">Livestock</dt><dd class="font-semibold text-gray-900">${listingLink}</dd></div>
+                <div><dt class="text-gray-500">Category / Breed</dt><dd class="font-semibold text-gray-900">${escapeHtml([i.category_name, i.breed_name].filter(Boolean).join(" · ") || "-")}</dd></div>
+              </dl>
+
+              <div>
+                <p class="text-sm text-gray-500 mb-1">Message</p>
+                <div class="bg-gray-50 border border-gray-100 rounded-lg p-4 text-gray-800 whitespace-pre-line">${escapeHtml(i.message)}</div>
+              </div>
+
+              <div>
+                <p class="field-label">Status</p>
+                <div class="seg" id="status-seg">
+                  ${STATUSES.map((s) => `<button type="button" data-status="${s.value}" class="${s.value === i.status ? "active" : ""}">${s.label}</button>`).join("")}
+                </div>
+              </div>
+            </div>
+            <div class="flex flex-wrap justify-between gap-3 px-5 py-4 border-t border-gray-100">
+              <button type="button" data-delete class="inline-flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-700"><span class="w-4 h-4">${uiIcon("trash")}</span>Delete</button>
+              <button type="button" data-archive class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium text-sm"><span class="w-4 h-4">${uiIcon("archive")}</span>${i.is_archived ? "Restore from archive" : "Archive"}</button>
+            </div>
+          </div>`;
+        document.body.appendChild(backdrop);
+        document.body.classList.add("modal-open");
+
+        let changed = false;
+        const close = () => {
+          document.removeEventListener("keydown", onKey);
+          backdrop.remove();
+          document.body.classList.remove("modal-open");
+          if (getQueryParams().id) history.replaceState(null, "", location.pathname);
+          if (changed) loadList();
+        };
+        const onKey = (e) => { if (e.key === "Escape" && !document.querySelector("[aria-labelledby=confirm-action-title]")) close(); };
+        document.addEventListener("keydown", onKey);
+        backdrop.querySelector("[data-close]").addEventListener("click", close);
+        backdrop.addEventListener("mousedown", (e) => { if (e.target === backdrop) close(); });
+
+        backdrop.querySelectorAll("#status-seg button").forEach((b) =>
+          b.addEventListener("click", async () => {
+            try {
+              await adminApi(`/api/admin/inquiries/${i.id}`, { method: "PATCH", body: { status: b.dataset.status } });
+              backdrop.querySelectorAll("#status-seg button").forEach((x) => x.classList.toggle("active", x === b));
+              i.status = b.dataset.status;
+              changed = true;
+              showNotification(`Marked as ${statusLabel(b.dataset.status)}.`, "success");
+            } catch (error) {
+              showNotification(error.message, "error");
+            }
+          }),
+        );
+        backdrop.querySelector("[data-archive]").addEventListener("click", async () => {
+          try {
+            await adminApi(`/api/admin/inquiries/${i.id}`, { method: "PATCH", body: { is_archived: !i.is_archived } });
+            showNotification(i.is_archived ? "Inquiry restored." : "Inquiry archived.", "success");
+            changed = true;
+            close();
+          } catch (error) {
+            showNotification(error.message, "error");
+          }
+        });
+        backdrop.querySelector("[data-delete]").addEventListener("click", async () => {
+          if (!(await confirmAction({ title: "Delete this inquiry?", message: "This permanently removes it. Archive it instead if you may need it later.", confirmText: "Delete", variant: "danger" }))) return;
+          try {
+            await adminApi(`/api/admin/inquiries/${i.id}`, { method: "DELETE" });
+            showNotification("Inquiry deleted.", "success");
+            changed = true;
+            close();
+          } catch (error) {
+            showNotification(error.message, "error");
+          }
+        });
+        backdrop.querySelector("[data-resend]")?.addEventListener("click", async (e) => {
+          e.target.disabled = true;
+          e.target.textContent = "Sending…";
+          try {
+            await adminApi(`/api/admin/inquiries/${i.id}/resend-email`, { method: "POST" });
+            showNotification("Notification email sent.", "success");
+            e.target.closest(".alert").remove();
+            changed = true;
+          } catch (error) {
+            showNotification(error.message, "error");
+            e.target.disabled = false;
+            e.target.textContent = "Resend email";
+          }
+        });
+      }
+
+      let searchTimer;
+      document.getElementById("search").addEventListener("input", (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => { state.q = e.target.value.trim(); loadList(1); }, 300);
+      });
+
+      (async () => {
+        await initAdminPage("inquiries");
+        const q = getQueryParams();
+        if (q.status) state.tab = q.status;
+        if (q.q) { state.q = q.q; document.getElementById("search").value = q.q; }
+        renderTabs();
+        await loadList(1);
+        if (q.id) openInquiry(q.id); // deep link from the notification email
+      })();
+    </script>
+  </body>
+</html>

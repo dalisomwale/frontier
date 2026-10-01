@@ -1,76 +1,71 @@
-const multer = require("multer");
-const path = require("path");
+// Livestock photo uploads (admin only).
+//
+// Files are received into memory, validated by actually decoding them with
+// sharp (not just trusting the extension/MIME), then written as:
+//   - a large WebP, max 1600px wide  -> details page / gallery
+//   - a WebP thumbnail, 640px wide   -> listing cards
+// so a 6 MB phone photo becomes roughly 150-300 KB and the homepage stays fast.
 const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const multer = require("multer");
+const sharp = require("sharp");
+const { badRequest } = require("../lib/validate");
 
-const mediaDir = "public/uploads/livestock";
-const documentDir = "public/uploads/documents";
+const UPLOAD_DIR = path.join(__dirname, "..", "..", "public", "uploads", "livestock");
+const PUBLIC_PREFIX = "/uploads/livestock";
+const MAX_FILES = 10;
+const MAX_BYTES = 12 * 1024 * 1024;
+const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp"];
 
-for (const dir of [mediaDir, documentDir]) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const uploadImages = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BYTES, files: MAX_FILES },
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_MIMES.includes(file.mimetype)) return cb(null, true);
+    return cb(badRequest("Photos must be JPEG, PNG or WebP images."));
+  },
+}).array("images", MAX_FILES);
+
+async function saveImage(buffer) {
+  const id = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}`;
+  const largeName = `lv-${id}.webp`;
+  const thumbName = `lv-${id}-thumb.webp`;
+
+  let image;
+  try {
+    image = sharp(buffer, { failOn: "error" }).rotate(); // honour EXIF orientation
+    await image.metadata();
+  } catch {
+    throw badRequest("One of the files is not a valid image.");
+  }
+
+  await image
+    .clone()
+    .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 78 })
+    .toFile(path.join(UPLOAD_DIR, largeName));
+  await image
+    .clone()
+    .resize({ width: 640, height: 480, fit: "cover", position: "attention" })
+    .webp({ quality: 72 })
+    .toFile(path.join(UPLOAD_DIR, thumbName));
+
+  return {
+    image_path: `${PUBLIC_PREFIX}/${largeName}`,
+    thumb_path: `${PUBLIC_PREFIX}/${thumbName}`,
+  };
 }
 
-const IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
-const VIDEO_MIMES = ["video/mp4", "video/webm", "video/quicktime"];
-const VIDEO_EXTS = [".mp4", ".webm", ".mov"];
-
-const mediaStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, mediaDir),
-  filename: (req, file, cb) => {
-    const isVideo = file.mimetype.startsWith("video/");
-    const prefix = isVideo ? "vid" : "img";
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${prefix}-${uniqueSuffix}${ext}`);
-  },
-});
-
-const mediaFilter = (req, file, cb) => {
-  const ext = path.extname(file.originalname).toLowerCase();
-  const isImage =
-    IMAGE_MIMES.includes(file.mimetype) && IMAGE_EXTS.includes(ext);
-  const isVideo =
-    VIDEO_MIMES.includes(file.mimetype) && VIDEO_EXTS.includes(ext);
-  if (isImage || isVideo) return cb(null, true);
-  cb(
-    new Error(
-      "Only JPEG, PNG, WebP, GIF images and MP4, WebM, MOV videos are allowed.",
-    ),
-  );
-};
-
-// Videos are capped at 50MB (vs 10MB for images) since uncompressed phone
-// video easily exceeds 10MB for a few seconds of footage. If you later add
-// server-side transcoding (batch 3+), this is where the ffmpeg call hooks in.
-const uploadMedia = multer({
-  storage: mediaStorage,
-  fileFilter: mediaFilter,
-  limits: { fileSize: 50 * 1024 * 1024, files: 10 },
-});
-
-const documentStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, documentDir),
-  filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `doc-${uniqueSuffix}.pdf`);
-  },
-});
-
-const documentFilter = (req, file, cb) => {
-  const ext = path.extname(file.originalname).toLowerCase();
-  if (file.mimetype === "application/pdf" && ext === ".pdf") {
-    return cb(null, true);
+// Only ever deletes files inside the upload directory.
+function deleteImageFiles(...publicPaths) {
+  for (const publicPath of publicPaths) {
+    if (!publicPath || !publicPath.startsWith(`${PUBLIC_PREFIX}/`)) continue;
+    const filename = path.basename(publicPath);
+    fs.unlink(path.join(UPLOAD_DIR, filename), () => {});
   }
-  cb(new Error("Only PDF documents are allowed."));
-};
+}
 
-const uploadDocument = multer({
-  storage: documentStorage,
-  fileFilter: documentFilter,
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
-});
-
-module.exports = {
-  uploadMedia,
-  uploadDocument,
-};
+module.exports = { uploadImages, saveImage, deleteImageFiles, MAX_FILES };

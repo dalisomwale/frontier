@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Secrets - only .env.example is committed
+.env
+.env.*
+!.env.example
+
+# Uploaded listing photos (live data, not source code)
+public/uploads/*
+!public/uploads/livestock/
+public/uploads/livestock/*
+!public/uploads/livestock/.gitkeep
+
+# Logs, OS and editor files
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

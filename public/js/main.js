@@ -1,302 +1,133 @@
-// Main Utility Functions
+// Shared utilities for every page (public and admin).
 
 /**
- * Make API request
+ * JSON API request. Throws an Error carrying `status` and, for validation
+ * failures, `errors` ({ field: message }) so forms can highlight fields.
  */
 async function apiRequest(url, options = {}) {
+  const headers = { ...options.headers };
+  let body = options.body;
+  if (body !== undefined && !(body instanceof FormData) && typeof body !== "string") {
+    body = JSON.stringify(body);
+  }
+  if (body !== undefined && !(body instanceof FormData) && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  let response;
   try {
-    const headers = { ...options.headers };
-    if (
-      !(options.body instanceof FormData) &&
-      options.body !== undefined &&
-      !headers["Content-Type"]
-    ) {
-      headers["Content-Type"] = "application/json";
-    }
-    const response = await fetch(url, {
-      ...options,
-      credentials: "same-origin",
-      headers,
-    });
-
-    const contentType = response.headers.get("content-type") || "";
-    const data = contentType.includes("application/json")
-      ? await response.json()
-      : {
-          success: false,
-          message: "The server returned an unexpected response.",
-        };
-
-    if (!response.ok) {
-      throw new Error(data.message || "API request failed");
-    }
-
-    return data;
-  } catch (error) {
-    console.error("API request error:", error);
+    response = await fetch(url, { ...options, body, headers, credentials: "same-origin" });
+  } catch {
+    const error = new Error("Can't reach the server. Please check your connection and try again.");
+    error.status = 0;
     throw error;
   }
+
+  const contentType = response.headers.get("content-type") || "";
+  const data = contentType.includes("application/json")
+    ? await response.json()
+    : { success: false, message: "The server returned an unexpected response." };
+
+  if (!response.ok || data.success === false) {
+    const error = new Error(data.message || "Request failed");
+    error.status = response.status;
+    error.errors = data.errors || null;
+    throw error;
+  }
+  return data;
 }
 
-/**
- * Show notification
- */
 function showNotification(message, type = "info") {
-  const notification = document.createElement("div");
-  notification.className = `fixed top-4 right-4 p-4 rounded-lg text-white shadow-lg z-50 notification-${type}`;
-
-  if (type === "success") {
-    notification.classList.add("bg-green-500");
-  } else if (type === "error") {
-    notification.classList.add("bg-red-500");
-  } else if (type === "warning") {
-    notification.classList.add("bg-yellow-500");
-  } else {
-    notification.classList.add("bg-blue-500");
-  }
-
-  notification.textContent = message;
-
-  document.body.appendChild(notification);
-
-  setTimeout(() => {
-    notification.remove();
-  }, 3000);
-}
-
-/**
- * Show loading spinner
- */
-function showLoading() {
-  let loader = document.getElementById("loader");
-  if (!loader) {
-    loader = document.createElement("div");
-    loader.id = "loader";
-    loader.innerHTML = `
-      <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-8">
-          <div class="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(loader);
-  }
-}
-
-/**
- * Hide loading spinner
- */
-function hideLoading() {
-  const loader = document.getElementById("loader");
-  if (loader) {
-    loader.remove();
-  }
-}
-
-/**
- * Format currency
- */
-function formatCurrency(amount) {
-  return new Intl.NumberFormat("en-ZM", {
-    style: "currency",
-    currency: "ZMW",
-    maximumFractionDigits: 2,
-  }).format(amount);
+  const colors = {
+    success: "bg-green-600",
+    error: "bg-red-600",
+    warning: "bg-yellow-500",
+    info: "bg-blue-600",
+  };
+  const note = document.createElement("div");
+  note.setAttribute("role", type === "error" ? "alert" : "status");
+  note.className = `fixed top-4 right-4 left-4 sm:left-auto sm:max-w-sm p-4 rounded-lg text-white shadow-lg z-[200] animate-fade-in ${colors[type] || colors.info}`;
+  note.textContent = message;
+  document.body.appendChild(note);
+  setTimeout(() => note.remove(), type === "error" ? 5000 : 3200);
 }
 
 function escapeHtml(value) {
   return String(value ?? "").replace(
     /[&<>"']/g,
-    (character) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#039;",
-      })[character],
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c],
   );
 }
 
-/**
- * Format date
- */
-function formatDate(dateString) {
-  const options = {
-    year: "numeric",
-    month: "short",
+function formatDate(value) {
+  return new Date(value).toLocaleString("en-GB", {
     day: "numeric",
+    month: "short",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  };
-  return new Date(dateString).toLocaleDateString("en-US", options);
+  });
 }
 
-/**
- * Format date (short)
- */
-function formatDateShort(dateString) {
-  const options = {
-    year: "numeric",
-    month: "short",
+function formatDateShort(value) {
+  return new Date(value).toLocaleDateString("en-GB", {
     day: "numeric",
-  };
-  return new Date(dateString).toLocaleDateString("en-US", options);
+    month: "short",
+    year: "numeric",
+  });
 }
 
-/**
- * Get URL query parameters
- */
+function timeAgo(value) {
+  const seconds = Math.round((Date.now() - new Date(value).getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const units = [
+    ["year", 31536000],
+    ["month", 2592000],
+    ["week", 604800],
+    ["day", 86400],
+    ["hour", 3600],
+    ["minute", 60],
+  ];
+  for (const [unit, size] of units) {
+    const n = Math.floor(seconds / size);
+    if (n >= 1) return `${n} ${unit}${n > 1 ? "s" : ""} ago`;
+  }
+  return "just now";
+}
+
 function getQueryParams() {
-  const params = {};
-  const queryString = window.location.search.substring(1);
-  const pairs = queryString.split("&");
-
-  pairs.forEach((pair) => {
-    const [key, value] = pair.split("=");
-    if (key) {
-      params[decodeURIComponent(key)] = decodeURIComponent(value || "");
-    }
-  });
-
-  return params;
+  return Object.fromEntries(new URLSearchParams(window.location.search));
 }
 
-/**
- * Create pagination HTML
- */
 function createPagination(currentPage, totalPages, onPageChange) {
-  const pagination = document.createElement("div");
-  pagination.className = "flex justify-center items-center gap-2 mt-8";
+  const nav = document.createElement("nav");
+  nav.className = "flex justify-center items-center gap-2 mt-8 flex-wrap";
+  nav.setAttribute("aria-label", "Pagination");
 
-  const prevBtn = document.createElement("button");
-  prevBtn.className =
-    "px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50";
-  prevBtn.textContent = "← Previous";
-  prevBtn.disabled = currentPage === 1;
-  prevBtn.addEventListener("click", () => onPageChange(currentPage - 1));
-  pagination.appendChild(prevBtn);
+  const button = (label, page, { disabled = false, active = false } = {}) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = label;
+    btn.disabled = disabled;
+    btn.className = `px-4 py-2 border rounded-lg disabled:opacity-50 ${
+      active ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 bg-white hover:bg-gray-50"
+    }`;
+    if (active) btn.setAttribute("aria-current", "page");
+    btn.addEventListener("click", () => onPageChange(page));
+    nav.appendChild(btn);
+  };
 
-  for (
-    let i = Math.max(1, currentPage - 2);
-    i <= Math.min(totalPages, currentPage + 2);
-    i++
-  ) {
-    const pageBtn = document.createElement("button");
-    pageBtn.className = `px-4 py-2 border rounded-lg ${i === currentPage ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 hover:bg-gray-50"}`;
-    pageBtn.textContent = i;
-    pageBtn.addEventListener("click", () => onPageChange(i));
-    pagination.appendChild(pageBtn);
+  button("← Previous", currentPage - 1, { disabled: currentPage <= 1 });
+  for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+    button(String(i), i, { active: i === currentPage });
   }
-
-  const nextBtn = document.createElement("button");
-  nextBtn.className =
-    "px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50";
-  nextBtn.textContent = "Next →";
-  nextBtn.disabled = currentPage === totalPages;
-  nextBtn.addEventListener("click", () => onPageChange(currentPage + 1));
-  pagination.appendChild(nextBtn);
-
-  return pagination;
+  button("Next →", currentPage + 1, { disabled: currentPage >= totalPages });
+  return nav;
 }
 
 /**
- * Validate email
- */
-function validateEmail(email) {
-  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return regex.test(email);
-}
-
-/**
- * Validate form field
- */
-function validateField(fieldName, value) {
-  switch (fieldName) {
-    case "email":
-      return validateEmail(value);
-    case "password":
-      return value && value.length >= 8;
-    case "name":
-      return value && value.length >= 2;
-    case "phone":
-      return value && value.length >= 7;
-    case "price":
-      return value && !isNaN(value) && parseFloat(value) > 0;
-    default:
-      return value && value.toString().trim().length > 0;
-  }
-}
-
-/**
- * Show modal
- */
-function showModal(title, content, buttons = []) {
-  const modal = document.createElement("div");
-  modal.className =
-    "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
-  modal.id = "modal-overlay";
-
-  let buttonHTML = "";
-  buttons.forEach((btn) => {
-    buttonHTML += `
-      <button class="px-4 py-2 rounded-lg font-medium ${btn.class || "bg-gray-300 text-gray-900"}" 
-              id="btn-${btn.id}">
-        ${btn.text}
-      </button>
-    `;
-  });
-
-  modal.innerHTML = `
-    <div class="bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
-      <div class="p-6">
-        <h3 class="text-xl font-bold text-gray-900 mb-4">${title}</h3>
-        <div class="mb-6">
-          ${content}
-        </div>
-        <div class="flex justify-end gap-2">
-          ${buttonHTML}
-          <button class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium" 
-                  id="btn-cancel">
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  function closeModal() {
-    modal.remove();
-  }
-
-  document.getElementById("btn-cancel").addEventListener("click", closeModal);
-
-  buttons.forEach((btn) => {
-    const btnElement = document.getElementById(`btn-${btn.id}`);
-    if (btnElement) {
-      btnElement.addEventListener("click", () => {
-        if (btn.action) {
-          btn.action();
-        }
-        closeModal();
-      });
-    }
-  });
-
-  return closeModal;
-}
-
-/**
- * Promise-based confirmation dialog. Replaces window.confirm() so
- * destructive and irreversible actions get a styled prompt that matches the
- * rest of the UI and is keyboard-accessible.
- *
- * Resolves true when the user confirms, false when they cancel, press
- * Escape, click the backdrop, or press Enter on the cancel path.
- *
- *   if (!(await confirmAction({ title: "Delete?", message: "Cannot be undone.", variant: "danger", confirmText: "Delete" }))) return;
+ * Promise-based confirmation dialog (styled replacement for window.confirm).
+ *   if (!(await confirmAction({ title, message, variant: "danger", confirmText: "Delete" }))) return;
  */
 function confirmAction({
   title = "Are you sure?",
@@ -307,13 +138,9 @@ function confirmAction({
 } = {}) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
-    overlay.className =
-      "fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 p-4";
-
+    overlay.className = "fixed inset-0 z-[150] flex items-center justify-center bg-black bg-opacity-50 p-4";
     const confirmClass =
-      variant === "danger"
-        ? "bg-red-600 hover:bg-red-700 text-white"
-        : "bg-blue-600 hover:bg-blue-700 text-white";
+      variant === "danger" ? "bg-red-600 hover:bg-red-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white";
 
     overlay.innerHTML = `
       <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6" role="dialog" aria-modal="true" aria-labelledby="confirm-action-title">
@@ -323,86 +150,58 @@ function confirmAction({
           <button type="button" data-confirm-cancel class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium">${escapeHtml(cancelText)}</button>
           <button type="button" data-confirm-ok class="px-4 py-2 rounded-lg font-medium ${confirmClass}">${escapeHtml(confirmText)}</button>
         </div>
-      </div>
-    `;
-
+      </div>`;
     document.body.appendChild(overlay);
 
-    const okBtn = overlay.querySelector("[data-confirm-ok]");
-    const cancelBtn = overlay.querySelector("[data-confirm-cancel]");
-
     const onKey = (event) => {
-      if (event.key === "Escape") {
-        finish(false);
-      } else if (event.key === "Enter") {
-        event.preventDefault();
-        finish(true);
-      }
+      if (event.key === "Escape") finish(false);
     };
-
     function finish(result) {
       document.removeEventListener("keydown", onKey);
       overlay.remove();
       resolve(result);
     }
-
-    okBtn.addEventListener("click", () => finish(true));
-    cancelBtn.addEventListener("click", () => finish(false));
+    overlay.querySelector("[data-confirm-ok]").addEventListener("click", () => finish(true));
+    overlay.querySelector("[data-confirm-cancel]").addEventListener("click", () => finish(false));
     overlay.addEventListener("click", (event) => {
       if (event.target === overlay) finish(false);
     });
-
     document.addEventListener("keydown", onKey);
-    okBtn.focus();
+    overlay.querySelector("[data-confirm-ok]").focus();
   });
 }
 
 /**
- * Close all modals
+ * Friendly empty state. `icon` is a uiIcon() name from icons.js.
  */
-function closeAllModals() {
-  const modals = document.querySelectorAll('[id$="overlay"]');
-  modals.forEach((modal) => modal.remove());
-}
-
-/**
- * Render empty state
- */
-function renderEmptyState(container, message) {
+function renderEmptyState(container, { title = "Nothing here yet", message = "", icon = "listings", action = "" } = {}) {
   container.innerHTML = `
-    <div class="text-center py-12">
-      <h3 class="text-lg font-semibold text-gray-900 mb-2">No Data</h3>
-      <p class="text-gray-600">${message}</p>
-    </div>
-  `;
+    <div class="empty-state col-span-full">
+      <div class="empty-icon">${typeof uiIcon === "function" ? uiIcon(icon) : ""}</div>
+      <h3 class="text-base font-semibold text-gray-900 mb-1">${escapeHtml(title)}</h3>
+      ${message ? `<p class="text-sm text-gray-500 max-w-md mx-auto">${escapeHtml(message)}</p>` : ""}
+      ${action}
+    </div>`;
 }
 
-/**
- * Render loading skeleton
- */
-function renderSkeleton(container, count = 3) {
-  let html = "";
-  for (let i = 0; i < count; i++) {
-    html += `
-      <div class="animate-pulse">
-        <div class="bg-gray-300 h-48 rounded-lg mb-4"></div>
-        <div class="bg-gray-300 h-4 rounded mb-2"></div>
-        <div class="bg-gray-300 h-4 rounded w-3/4"></div>
-      </div>
-    `;
-  }
-  container.innerHTML = html;
+function renderSkeletonCards(container, count = 8) {
+  container.innerHTML = Array.from({ length: count })
+    .map(
+      () => `
+      <div class="bg-white rounded-lg shadow-md overflow-hidden animate-pulse">
+        <div class="bg-gray-200 aspect-[4/3]"></div>
+        <div class="p-3 space-y-2">
+          <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+          <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+          <div class="h-9 bg-gray-100 rounded mt-3"></div>
+        </div>
+      </div>`,
+    )
+    .join("");
 }
 
-/**
- * Create image preview
- */
-function createImagePreview(file) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      resolve(e.target.result);
-    };
-    reader.readAsDataURL(file);
-  });
+function footerYear() {
+  const el = document.getElementById("footer-year");
+  if (el) el.textContent = new Date().getFullYear();
 }
+document.addEventListener("DOMContentLoaded", footerYear);

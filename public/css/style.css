@@ -452,15 +452,15 @@ body {
   background: white;
 }
 
-/* Selectable species picker (marketplace filters): neutral until chosen */
-#species-picker .species-chip {
+/* Selectable category chips above the listings: neutral until chosen */
+#category-chips .species-chip {
   background: #f3f4f6;
   color: #374151;
   border: 1.5px solid transparent;
   cursor: pointer;
 }
 
-#species-picker .species-chip.active {
+#category-chips .species-chip.active {
   background: #eff6ff;
   color: #1e40af;
   border-color: var(--primary-color);
@@ -561,60 +561,13 @@ body {
   width: 18px;
 }
 
-.gallery-favorite {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 38px;
-  height: 38px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.9);
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-  color: #374151;
-}
-
-.gallery-favorite svg {
-  width: 20px;
-  height: 20px;
-}
-
-.gallery-favorite.active {
-  color: #ef4444;
-}
-
-.gallery-favorite.active svg {
-  fill: #ef4444;
-}
-
-/* ==========================================================================
-   Seller "My Listings" cards: a top-right kebab menu with Edit/Delete
-   ========================================================================== */
-.listing-menu-toggle svg {
-  width: 18px;
-  height: 18px;
-}
-
-/* Chat conversation header: back-to-list arrow on phone screens */
-#close-chat svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* Profile page: pencil icon that reveals the edit form */
-#edit-profile-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-/* Hero banner: auto-transitioning photo slideshow behind a fixed gradient */
+/* Hero banner: auto-transitioning photo slideshow behind a gradient that is
+   lighter on the right so the photography reads clearly. A local photo sits
+   underneath as a fallback while (or if) the CDN photos load. */
 .hero-photo {
   position: relative;
-  background-color: #0b2a5e;
+  background: #0b2a5e url("/images/livestock/hero-fallback.webp") center / cover
+    no-repeat;
   isolation: isolate;
 }
 
@@ -631,24 +584,79 @@ body {
   background-size: cover;
   background-position: center;
   opacity: 0;
-  transition: opacity 1.5s ease-in-out;
+  transform: scale(1.06);
+  transition:
+    opacity 1.5s ease-in-out,
+    transform 9s ease-out;
 }
 
 .hero-slide.active {
   opacity: 1;
+  transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide {
+    transition: opacity 0.6s;
+    transform: none;
+  }
 }
 
 .hero-photo::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    115deg,
-    rgba(11, 42, 94, 0.92) 0%,
-    rgba(30, 64, 152, 0.82) 45%,
-    rgba(30, 64, 152, 0.55) 100%
-  );
+  background:
+    linear-gradient(
+      105deg,
+      rgba(11, 42, 94, 0.9) 0%,
+      rgba(11, 42, 94, 0.72) 38%,
+      rgba(11, 42, 94, 0.25) 75%,
+      rgba(11, 42, 94, 0.1) 100%
+    ),
+    linear-gradient(0deg, rgba(11, 42, 94, 0.75) 0%, rgba(11, 42, 94, 0) 45%);
   z-index: 0;
+}
+
+.hero-photo > * {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-credit {
+  position: absolute !important;
+  right: 12px;
+  bottom: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.hero-credit a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.hero-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.hero-dots button {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.45);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: width 0.3s;
+}
+
+.hero-dots button.active {
+  background: #fff;
+  width: 22px;
 }
 
 .hero-photo > * {
@@ -768,10 +776,6 @@ body {
     margin-left: 250px !important;
   }
 
-  body:has(.app-sidebar) .tab-frame-host {
-    margin-left: 250px !important;
-  }
-
   /* The sidebar already carries the brand mark and (in its footer) a
      logout control, so the top bar - otherwise just a duplicate logo
      plus a mobile-only logout button - is redundant chrome on desktop.
@@ -781,55 +785,6 @@ body {
   body:has(.app-sidebar) #page-topnav {
     display: none;
   }
-
-  body:has(.app-sidebar) .tab-frame {
-    height: 100vh;
-  }
-}
-
-/* ==========================================================================
-   Seamless bottom-tab switching: each tab a page loads into is kept alive
-   in its own hidden same-origin iframe (see setupTabRouter() in
-   app-shell.js) instead of a real navigation, so the header/bottom-nav
-   never unmount and switching tabs is instant on repeat visits. The page
-   you land on directly is shown as #tab-self-content; every other tab you
-   visit gets its own iframe here.
-   ========================================================================== */
-.tab-frame-host {
-  position: relative;
-}
-
-.tab-frame {
-  display: none;
-  width: 100%;
-  height: calc(100vh - 64px);
-  border: 0;
-}
-
-.tab-frame.active {
-  display: block;
-}
-
-@media (max-width: 1023px) {
-  .tab-frame {
-    height: calc(100vh - 64px - 74px);
-  }
-}
-
-/* A page loaded inside another page's tab-frame iframe suppresses its own
-   header/bottom-nav/sidebar so only the outer shell's chrome shows. */
-html.embedded-tab #page-topnav,
-html.embedded-tab #app-bottom-nav,
-html.embedded-tab #app-sidebar {
-  display: none !important;
-}
-
-html.embedded-tab .app-content-shifted {
-  margin-left: 0 !important;
-}
-
-html.embedded-tab body {
-  padding-bottom: 0 !important;
 }
 
 .app-sidebar-brand {
@@ -950,4 +905,580 @@ html.embedded-tab body {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* ==========================================================================
+   v2: discovery & inquiry platform
+   ========================================================================== */
+
+/* Header text links (public pages) */
+.top-link {
+  font-size: 0.925rem;
+  font-weight: 500;
+  color: #4b5563;
+  padding: 8px 4px;
+}
+
+.top-link:hover {
+  color: var(--primary-color);
+}
+
+/* Filter selects: a disabled dropdown reads clearly as "pick the one before
+   first" rather than looking broken. */
+.filter-select:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.filter-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #eff6ff;
+  color: var(--primary-color);
+  font-size: 11px;
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+/* Category & breed pills on cards and the details page */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.tag-category {
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.tag-breed {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.tag-muted {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+/* Listing card: whole card links to the details page; the Inquire button
+   sits on top of it and opens the inquiry form instead. */
+.lv-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.lv-card:hover {
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+.lv-card-media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.lv-card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.lv-card:hover .lv-card-media img {
+  transform: scale(1.04);
+}
+
+.lv-card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.lv-card .inquire-btn {
+  position: relative;
+  z-index: 2;
+}
+
+/* Category tiles ("Explore Categories") */
+.cat-tile {
+  position: relative;
+  display: block;
+  border-radius: 14px;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background: #0b2a5e;
+  color: #fff;
+  isolation: isolate;
+}
+
+.cat-tile img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+  transition: transform 0.5s ease;
+}
+
+.cat-tile:hover img {
+  transform: scale(1.05);
+}
+
+.cat-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    0deg,
+    rgba(11, 42, 94, 0.92) 0%,
+    rgba(11, 42, 94, 0.35) 55%,
+    rgba(11, 42, 94, 0.05) 100%
+  );
+}
+
+@media (max-width: 639px) {
+  .cat-tile {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+/* Details-page thumbnail strip under the main gallery frame */
+.gallery-thumbs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 10px 0 2px;
+  scrollbar-width: thin;
+}
+
+.gallery-thumbs button {
+  flex: 0 0 auto;
+  width: 84px;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  padding: 0;
+  background: #e5e7eb;
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.gallery-thumbs button.active {
+  border-color: var(--primary-color);
+  opacity: 1;
+}
+
+.gallery-thumbs img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ==========================================================================
+   Inquiry modal: centred dialog on desktop, bottom sheet on phones
+   ========================================================================== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.55);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.modal-panel {
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+}
+
+.modal-panel.modal-wide {
+  max-width: 760px;
+}
+
+@media (max-width: 639px) {
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-panel {
+    max-width: none;
+    max-height: 92vh;
+    border-radius: 18px 18px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: sheetUp 0.22s ease-out;
+  }
+}
+
+@keyframes sheetUp {
+  from {
+    transform: translateY(40px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.field-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 16px; /* 16px stops iOS zooming into the field */
+  color: #111827;
+  background: #fff;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.field-input.has-error {
+  border-color: var(--error-color);
+}
+
+.field-input.has-error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.field-error {
+  font-size: 0.8rem;
+  color: #dc2626;
+  margin-top: 4px;
+}
+
+.honeypot {
+  position: absolute !important;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.btn-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 9999px;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ==========================================================================
+   Admin
+   ========================================================================== */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.admin-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  padding: 10px 14px;
+  background: #f9fafb;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+
+.admin-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.st-published,
+.st-active,
+.st-resolved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.st-unpublished,
+.st-disabled,
+.st-archived {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.st-new {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.st-contacted {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.st-in_progress {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.st-failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.seg button {
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #4b5563;
+  background: #fff;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+}
+
+.seg button.active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
+}
+
+.seg .count {
+  margin-left: 4px;
+  opacity: 0.7;
+  font-size: 0.78rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 16px;
+  color: #6b7280;
+}
+
+.empty-state .empty-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 12px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  color: var(--primary-color);
+}
+
+.empty-state .empty-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+/* Photo manager inside the livestock editor */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px;
+}
+
+.photo-item {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #e5e7eb;
+  border: 2px solid transparent;
+}
+
+.photo-item.is-cover {
+  border-color: var(--primary-color);
+}
+
+.photo-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-item .photo-actions {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 4px;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.6), transparent);
+}
+
+.photo-item .photo-actions button {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+  border: none;
+  border-radius: 6px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.photo-item .cover-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primary-color);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+
+.photo-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  aspect-ratio: 4 / 3;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: #f8fafc;
+}
+
+.photo-drop:hover,
+.photo-drop.dragover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: #eff6ff;
+}
+
+.photo-drop svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Admin bottom nav has 5 tabs; keep labels from wrapping */
+.app-bottom-nav[data-variant="admin"] a span {
+  white-space: nowrap;
+  font-size: 10.5px;
+}
+
+.nav-badge {
+  margin-left: auto;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Icons dropped into a Tailwind-sized span (e.g. <span class="w-5 h-5">)
+   fill that span. Species/stat tiles keep their own sizing above. */
+span[class*="w-"]:not(.species-icon):not(.stat-tile-icon):has(> svg) {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+span[class*="w-"]:not(.species-icon):not(.stat-tile-icon) > svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Admin pages stay blank until the session check passes (no flash of the
+   dashboard for signed-out visitors). */
+body.admin-pending main {
+  visibility: hidden;
+}
+
+.nav-badge.hidden {
+  display: none;
 }

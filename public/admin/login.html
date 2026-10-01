@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Admin Login - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/admin.js"></script>
+  </head>
+  <body class="min-h-screen flex items-center justify-center p-4" style="background: var(--sidebar-bg)">
+    <main class="w-full max-w-sm">
+      <div class="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
+        <div class="flex flex-col items-center text-center mb-6">
+          <div class="brand-mark-full mb-3" style="width: 64px; height: 64px">
+            <img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
+          </div>
+          <h1 class="text-xl font-bold text-gray-900">Frontier Marketplace</h1>
+          <p class="text-sm text-gray-500">Administrator sign in</p>
+        </div>
+
+        <form id="login-form" class="space-y-4" novalidate>
+          <div id="login-alert" class="hidden alert alert-error text-sm mb-0" role="alert"></div>
+          <div>
+            <label for="email" class="field-label">Email</label>
+            <input id="email" name="email" type="email" class="field-input" autocomplete="username" required />
+          </div>
+          <div>
+            <label for="password" class="field-label">Password</label>
+            <div class="relative">
+              <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="current-password" required />
+              <button type="button" id="toggle-password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password">
+                <span class="w-5 h-5" data-icon="eye"></span>
+              </button>
+            </div>
+          </div>
+          <button id="login-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">
+            Sign in
+          </button>
+        </form>
+      </div>
+      <p class="text-center text-sm mt-6">
+        <a href="/" class="text-blue-200 hover:text-white">← Back to Frontier Marketplace</a>
+      </p>
+    </main>
+
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      const form = document.getElementById("login-form");
+      const alertBox = document.getElementById("login-alert");
+      const btn = document.getElementById("login-btn");
+
+      function nextUrl() {
+        const next = getQueryParams().next || "";
+        // Only allow redirects within the admin area.
+        return next.startsWith("/admin/") && !next.startsWith("//") ? next : "/admin/index.html";
+      }
+
+      // Already signed in? Go straight to the dashboard.
+      apiRequest("/api/admin/auth/me", { headers: ADMIN_HEADER })
+        .then(() => (window.location.href = nextUrl()))
+        .catch(() => document.getElementById("email").focus());
+
+      document.getElementById("toggle-password").addEventListener("click", (e) => {
+        const input = document.getElementById("password");
+        const show = input.type === "password";
+        input.type = show ? "text" : "password";
+        e.currentTarget.innerHTML = `<span class="w-5 h-5">${uiIcon(show ? "eyeOff" : "eye")}</span>`;
+        e.currentTarget.setAttribute("aria-label", show ? "Hide password" : "Show password");
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        alertBox.classList.add("hidden");
+        const email = form.email.value.trim();
+        const password = form.password.value;
+        if (!email || !password) {
+          alertBox.textContent = "Please enter your email and password.";
+          alertBox.classList.remove("hidden");
+          return;
+        }
+        btn.disabled = true;
+        btn.innerHTML = `<span class="btn-spinner"></span> Signing in…`;
+        try {
+          await apiRequest("/api/admin/auth/login", { method: "POST", headers: ADMIN_HEADER, body: { email, password } });
+          window.location.href = nextUrl();
+        } catch (error) {
+          alertBox.textContent = error.message;
+          alertBox.classList.remove("hidden");
+          form.password.value = "";
+          form.password.focus();
+          btn.disabled = false;
+          btn.textContent = "Sign in";
+        }
+      });
+    </script>
+  </body>
+</html>

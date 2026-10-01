@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Breeds - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/admin.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Breeds</h1>
+          <p class="text-gray-500 mt-1">Each breed belongs to one category. The website's Breed dropdown only shows the breeds of the chosen category.</p>
+        </div>
+        <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
+          <span class="w-5 h-5" data-icon="plus"></span> Add Breed
+        </button>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div class="p-4 border-b border-gray-100"><div class="seg" id="tabs"></div></div>
+        <div id="list" class="overflow-x-auto"></div>
+      </div>
+    </main>
+
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      let categories = [];
+      let rows = [];
+      let current = getQueryParams().category_id || "";
+
+      function renderTabs() {
+        const counts = {};
+        rows.forEach((b) => (counts[b.category_id] = (counts[b.category_id] || 0) + 1));
+        document.getElementById("tabs").innerHTML = [{ id: "", name: "All" }, ...categories]
+          .map((c) => `<button type="button" data-cat="${c.id}" class="${String(c.id) === String(current) ? "active" : ""}">${escapeHtml(c.name)}<span class="count">${c.id ? counts[c.id] || 0 : rows.length}</span></button>`)
+          .join("");
+        document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => { current = b.dataset.cat; renderTabs(); renderList(); }));
+      }
+
+      function renderList() {
+        const list = document.getElementById("list");
+        const shown = rows.filter((b) => !current || String(b.category_id) === String(current));
+        if (!shown.length) {
+          return renderEmptyState(list, { title: "No breeds yet", message: "Add a breed and assign it to a category.", icon: "tag" });
+        }
+        list.innerHTML = `
+          <table class="admin-table">
+            <thead><tr><th>Breed</th><th>Category</th><th class="text-center hidden sm:table-cell">Livestock</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
+            <tbody>${shown.map((b) => `
+              <tr>
+                <td><p class="font-semibold text-gray-900">${escapeHtml(b.name)}</p>${b.description ? `<p class="text-xs text-gray-500 line-clamp-1">${escapeHtml(b.description)}</p>` : ""}</td>
+                <td><span class="tag tag-category">${escapeHtml(b.category_name)}</span></td>
+                <td class="text-center hidden sm:table-cell">${b.livestock_count}</td>
+                <td>${statusPill(b.status)}</td>
+                <td class="text-right whitespace-nowrap">
+                  <button type="button" data-toggle="${b.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${b.status === "active" ? "Disable" : "Enable"}</button>
+                  <button type="button" data-edit="${b.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="Edit"><span class="w-4 h-4">${uiIcon("edit")}</span></button>
+                  <button type="button" data-delete="${b.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-red-600" title="Delete"><span class="w-4 h-4">${uiIcon("trash")}</span></button>
+                </td>
+              </tr>`).join("")}</tbody>
+          </table>`;
+
+        const find = (id) => rows.find((b) => String(b.id) === id);
+        list.querySelectorAll("[data-edit]").forEach((btn) => btn.addEventListener("click", () => openEditor(find(btn.dataset.edit))));
+        list.querySelectorAll("[data-toggle]").forEach((btn) => btn.addEventListener("click", async () => {
+          const b = find(btn.dataset.toggle);
+          const next = b.status === "active" ? "disabled" : "active";
+          if (next === "disabled" && b.livestock_count > 0 && !(await confirmAction({ title: `Disable ${b.name}?`, message: `Its ${b.livestock_count} listing(s) will be hidden from the website until you enable it again.`, confirmText: "Disable" }))) return;
+          try {
+            await adminApi(`/api/admin/breeds/${b.id}`, { method: "PUT", body: { status: next } });
+            showNotification(`${b.name} ${next === "active" ? "enabled" : "disabled"}.`, "success");
+            load();
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+        list.querySelectorAll("[data-delete]").forEach((btn) => btn.addEventListener("click", async () => {
+          const b = find(btn.dataset.delete);
+          if (!(await confirmAction({ title: `Delete ${b.name}?`, message: "Breeds used by livestock listings can't be deleted - disable them instead.", confirmText: "Delete", variant: "danger" }))) return;
+          try {
+            await adminApi(`/api/admin/breeds/${b.id}`, { method: "DELETE" });
+            showNotification("Breed deleted.", "success");
+            load();
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+      }
+
+      function openEditor(b = {}) {
+        openFormModal({
+          title: b.id ? "Edit Breed" : "Add Breed",
+          submitText: b.id ? "Save Changes" : "Add Breed",
+          body: `
+            ${field({ name: "name", label: "Breed name", value: b.name, required: true, placeholder: "e.g. Boran", attrs: 'maxlength="120"' })}
+            ${field({ name: "category_id", label: "Category", value: b.category_id ?? current, required: true,
+                options: [{ value: "", label: "Select category" }, ...categories.map((c) => ({ value: c.id, label: c.name }))],
+                help: b.livestock_count ? "This breed is used by listings, so its category can't be changed." : "" ,
+                attrs: b.livestock_count ? "disabled" : "" })}
+            ${field({ name: "description", label: "Description", type: "textarea", value: b.description, placeholder: "Optional notes about this breed", attrs: 'maxlength="2000"' })}
+            ${field({ name: "status", label: "Status", value: b.status || "active", options: [{ value: "active", label: "Active" }, { value: "disabled", label: "Disabled" }] })}`,
+          async onSubmit(form) {
+            const v = formValues(form);
+            if (b.livestock_count) delete v.category_id;
+            const errors = {};
+            if (!v.name.trim()) errors.name = "Breed name is required.";
+            if (!b.livestock_count && !v.category_id) errors.category_id = "Please choose a category.";
+            if (Object.keys(errors).length) { const e = new Error("Please correct the highlighted fields."); e.errors = errors; throw e; }
+            await adminApi(b.id ? `/api/admin/breeds/${b.id}` : "/api/admin/breeds", { method: b.id ? "PUT" : "POST", body: v });
+            showNotification(b.id ? "Breed updated." : "Breed added.", "success");
+            load();
+          },
+        });
+      }
+
+      async function load() {
+        try {
+          [categories, rows] = await Promise.all([
+            adminApi("/api/admin/categories").then((r) => r.data),
+            adminApi("/api/admin/breeds").then((r) => r.data),
+          ]);
+        } catch (error) {
+          return renderEmptyState(document.getElementById("list"), { title: "Could not load breeds", message: error.message, icon: "alert" });
+        }
+        renderTabs();
+        renderList();
+      }
+
+      document.getElementById("add-btn").addEventListener("click", () => openEditor());
+      (async () => { await initAdminPage("breeds"); load(); })();
+    </script>
+  </body>
+</html>

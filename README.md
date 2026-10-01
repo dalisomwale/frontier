@@ -1,428 +1,222 @@
-# Frontier Marketplace - Phase 1
+# Frontier Marketplace v2
 
-A professional, production-ready livestock trading platform connecting buyers, sellers, and service providers through a centralized digital marketplace.
+An admin-managed livestock discovery and inquiry platform for **Frontier Farms & Consult Ltd**.
 
-## 🚀 Project Overview
-
-Frontier Marketplace is an online platform for Frontier Farms & Consult Ltd that enables:
-
-- **Buyers** to browse and purchase livestock from verified sellers
-- **Sellers** to create and manage livestock listings
-- **Service Providers** to offer ancillary services
-- **Administrators** to moderate the platform
-
-## 🛠 Technology Stack
-
-### Frontend
-
-- HTML5
-- Tailwind CSS
-- Vanilla JavaScript (ES6+)
-
-### Backend
-
-- Node.js
-- Express.js
-- MySQL
-
-### Real-time Communication
-
-- Socket.IO
-
-### Supporting Packages
-
-- bcrypt (password hashing)
-- express-session (session management)
-- multer (file uploads)
-- dotenv (environment configuration)
-- helmet (security)
-- cors (cross-origin requests)
-- express-rate-limit (rate limiting)
-- mysql2 (database driver)
-
-## ✨ Phase 1 Features
-
-### Authentication
-
-- User registration (buyer, seller, service provider)
-- Secure login/logout
-- Password hashing with bcrypt
-- Session-based authentication
-
-### Marketplace
-
-- Browse livestock listings
-- Server-side search and filtering
-- Category browsing (Cattle, Goats, Sheep, Pigs, Poultry, Other)
-- Listing details page
-
-### Seller Features
-
-- Create livestock listings with descriptions - listings go live immediately, no admin approval required
-- Upload multiple images and videos
-- Upload supporting documents (PDF)
-- Manage listings (edit, pause, deactivate, delete)
-- View listing inquiries
-- Track active listings
-
-### Buyer Features
-
-- Browse listings and message sellers directly - no separate buyer dashboard
-- Search and filter listings
-- View listing details with media
-- Send inquiries to sellers
-- Favorite listings
-- Real-time messaging with sellers
-
-### Admin Features
-
-- Dashboard with marketplace statistics
-- User management (suspend, activate)
-- Listing moderation (activate, deactivate)
-- Report management
-
-### Real-time Messaging
-
-- Socket.IO for live chat
-- Message history
-- Message read status
-- Conversation management
-
-## 📋 Requirements
-
-- Node.js 14.0 or higher
-- MySQL 5.7 or higher
-- npm 6.0 or higher
-
-## 🔧 Installation
-
-### 1. Clone/Copy Project Files
-
-```bash
-cd frontier
-npm install
-```
-
-### 2. Setup MySQL Database
-
-```bash
-# Login to MySQL
-mysql -u root -p
-
-# Create database
-CREATE DATABASE frontier_marketplace;
-
-# Use database
-USE frontier_marketplace;
-
-# Import schema
-source database/schema.sql;
-
-# Exit
-exit
-```
-
-### 3. Configure Environment Variables
-
-```bash
-# Copy example to actual .env file
-cp .env.example .env
-
-# Edit .env with your configuration
-nano .env
-```
-
-Example `.env`:
-
-```
-PORT=5000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=frontier_marketplace
-DB_PORT=3306
-SESSION_SECRET=your_session_secret_key
-NODE_ENV=development
-CORS_ORIGIN=http://localhost:5000
-```
-
-### 4. Start the Server
-
-#### Development Mode (with auto-reload)
-
-```bash
-npm run dev
-```
-
-#### Production Mode
-
-```bash
-npm start
-```
-
-Server will start on `http://localhost:5000` (or your configured PORT)
-
-## 📁 Project Structure
-
-```
-frontier-marketplace/
-├── public/                          # Frontend files
-│   ├── index.html                   # Homepage
-│   ├── login.html                   # Login page
-│   ├── register.html                # Registration page
-│   ├── marketplace.html             # Listings marketplace
-│   ├── listing.html                 # Single listing details
-│   ├── dashboard.html               # User dashboard
-│   ├── profile.html                 # User profile
-│   ├── messages.html                # Messaging interface
-│   ├── admin/                       # Admin pages
-│   │   ├── index.html               # Admin dashboard
-│   │   ├── users.html               # User management
-│   │   ├── listings.html            # Listing moderation (activate/deactivate)
-│   │   └── reports.html             # Report management
-│   ├── css/
-│   │   └── style.css                # Custom styles
-│   ├── js/
-│   │   ├── main.js                  # Utility functions
-│   │   ├── auth.js                  # Authentication logic
-│   │   ├── marketplace.js           # Marketplace logic
-│   │   ├── listing.js               # Listing management
-│   │   ├── dashboard.js             # Dashboard logic
-│   │   ├── messages.js              # Messaging logic
-│   │   └── admin.js                 # Admin logic
-│   └── uploads/                     # File uploads
-│       ├── livestock/               # Product images
-│       ├── videos/                  # Product videos
-│       └── documents/               # PDF documents
-│
-├── server/                          # Backend server
-│   ├── server.js                    # Main server file
-│   ├── db.js                        # Database connection
-│   ├── routes/
-│   │   ├── auth.js                  # Authentication routes
-│   │   ├── users.js                 # User routes
-│   │   ├── listings.js              # Listing routes
-│   │   ├── messages.js              # Message routes
-│   │   └── admin.js                 # Admin routes
-│   └── middleware/
-│       ├── auth.js                  # Authentication middleware
-│       └── upload.js                # File upload middleware
-│
-├── database/
-│   └── schema.sql                   # Database schema
-│
-├── .env.example                     # Environment template
-├── .gitignore                       # Git ignore rules
-├── package.json                     # Node dependencies
-└── README.md                        # This file
-```
-
-## 📡 API Endpoints
-
-### Authentication
-
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login user
-- `POST /api/auth/logout` - Logout user
-- `POST /api/auth/forgot-password` - Forgot password
-- `GET /api/auth/check` - Check authentication status
-
-### Users
-
-- `GET /api/users/profile` - Get current user profile
-- `PUT /api/users/profile` - Update user profile
-- `GET /api/users/:id` - Get public user info
-
-### Listings
-
-- `GET /api/listings` - Get public listings
-- `GET /api/listings/:id` - Get listing details
-- `POST /api/listings` - Create listing (sellers)
-- `PUT /api/listings/:id` - Update listing (sellers)
-- `PATCH /api/listings/:id/status` - Update listing status
-- `DELETE /api/listings/:id` - Delete listing
-- `POST /api/listings/:id/media` - Upload media
-
-### Messages
-
-- `GET /api/messages` - Get conversations
-- `GET /api/messages/:userId` - Get message history
-- `POST /api/messages` - Send message
-
-### Admin
-
-- `GET /api/admin/stats` - Dashboard statistics
-- `GET /api/admin/users` - Get users
-- `PATCH /api/admin/users/:id/status` - Suspend/activate user
-- `GET /api/admin/listings` - Get all listings
-- `PATCH /api/admin/listings/:id/status` - Activate/deactivate listing
-- `GET /api/admin/reports` - Get reports
-- `PATCH /api/admin/reports/:id` - Update report status
-
-## 🔐 Security Features
-
-- **Password Hashing**: bcrypt with salt rounds
-- **Session Management**: Express-session with secure cookies
-- **CORS Protection**: Configured for trusted origins only
-- **Security Headers**: Helmet middleware
-- **Rate Limiting**: Prevents brute-force attacks
-- **SQL Injection Protection**: Parameterized queries
-- **File Upload Validation**: MIME type and extension checks
-- **Secure File Naming**: Randomized upload filenames
-
-## 🚨 Important Notes
-
-### No Demo Data
-
-- The application starts with an **empty database**
-- No pre-populated users, listings, or test data
-- All data must be created through the actual application interface
-
-### Empty States
-
-When the database is empty, pages display appropriate messages:
-
-- "No livestock listings available yet."
-- "You haven't saved any livestock listings yet."
-- "You don't have any conversations yet."
-
-### Production Deployment
-
-Before deploying to production:
-
-1. **Change Session Secret**
-
-   ```
-   SESSION_SECRET=your_very_secure_random_string_here
-   ```
-
-2. **Set Secure Cookies**
-
-   ```
-   NODE_ENV=production
-   ```
-
-3. **Use HTTPS**
-
-   ```
-   Ensure CORS_ORIGIN uses https://
-   ```
-
-4. **Database Backup**
-
-   ```bash
-   mysqldump -u root -p frontier_marketplace > backup.sql
-   ```
-
-5. **Environment Variables**
-   - Never commit `.env` to version control
-   - Use secure configuration management for production
-
-## 🧪 Testing Checklist
-
-### Authentication
-
-- [ ] User registration with valid data
-- [ ] User registration with duplicate email
-- [ ] User login with correct credentials
-- [ ] User login with incorrect credentials
-- [ ] Logout functionality
-- [ ] Session persistence
-
-### Listings
-
-- [ ] Seller creates listing
-- [ ] Listing appears publicly immediately, with no approval step
-- [ ] Seller can edit own listing
-- [ ] Seller cannot edit other listings
-- [ ] Buyer can view listings
-
-### Search & Filter
-
-- [ ] Filter by species
-- [ ] Filter by location
-- [ ] Filter by price range
-- [ ] Sort by price
-- [ ] Sort by date
-- [ ] Pagination works correctly
-
-### Media Uploads
-
-- [ ] Image upload validation
-- [ ] Video upload validation
-- [ ] Document upload validation
-- [ ] Invalid file rejection
-
-### Messaging
-
-- [ ] Send message between users
-- [ ] Real-time message delivery
-- [ ] Message read status
-- [ ] Conversation history
-
-### Admin Features
-
-- [ ] View dashboard statistics
-- [ ] Activate/deactivate listings
-- [ ] Suspend users
-- [ ] View reports
-
-### Security
-
-- [ ] Cannot access other user's data
-- [ ] Cannot modify other user's listings
-- [ ] Unauthenticated users cannot access protected endpoints
-- [ ] SQL injection attempts are blocked
-- [ ] Invalid files cannot be uploaded
-
-## 📞 Support
-
-For issues or questions:
-
-- Check the console for error messages
-- Review database connection in `.env`
-- Ensure all required dependencies are installed
-- Check MySQL is running
-- Verify database schema was imported correctly
-
-## 📝 License
-
-All rights reserved. Frontier Farms & Consult Ltd.
-
-## ✅ Phase 1 Completion Criteria
-
-- [x] User authentication and role-based access control
-- [x] Marketplace with search and filtering
-- [x] Listing creation and management
-- [x] Media uploads (images, videos, documents)
-- [x] Real-time messaging with Socket.IO
-- [x] Direct listing publishing with admin moderation tools for reported content
-- [x] Responsive design with Tailwind CSS
-- [x] Production-ready security
-- [x] Empty database at startup
-- [x] No demo or seed data
-
-## 🚀 Phase 2 Preview (Not Included)
-
-The following features belong to Phase 2 and are NOT implemented in Phase 1:
-
-- Livestock certification verification workflow
-- Veterinarian dashboard
-- Admin certification approval process
-- Transporter marketplace
-- Advanced analytics
-
-## 🏦 Phase 3 Preview (Not Included)
-
-Payment processing belongs to Phase 3:
-
-- Mobile Money integration (Airtel Money)
-- Bank transfers
-- Payment gateway integration
-- Escrow system
-- Commission engine
-- Automated invoicing
+Visitors **browse → filter → view livestock → inquire**, with no account needed. Every inquiry is saved to the database and emailed to the marketplace team. Administrators manage livestock, photos, categories, breeds and inquiries from a secure dashboard.
 
 ---
 
-**Frontier Marketplace Phase 1** - A real, working livestock trading platform.
+## What changed from v1
+
+| v1 | v2 |
+|---|---|
+| Public registration, login, profiles, seller & user dashboards | **Removed.** Only administrators have accounts. |
+| Anyone could create listings ("Sell") | **Only admins** create, edit, publish and delete listings |
+| Buy and Message buttons, real-time chat (Socket.IO) | **One "Inquire" button** → inquiry form → database + email |
+| Species filter (Cattle, Goats, Sheep…) with free-text breed/location and price/weight/health filters | **Cascading dropdowns:** Category → Breed → Type → Location, all from the database. Price, weight and health filters removed. |
+| Hero: generic pasture slideshow | Photographic hero of **real African cattle photography** (Zambia, Kenya, Nigeria, Senegal, Mauritania), credited |
+| Tailwind compiled in the browser from the Play CDN | **Prebuilt Tailwind file**: same classes and look, faster, no third-party script |
+
+The visual design (blue/navy brand, header, photo hero with the white filter card, card grid, gallery, navy admin sidebar, mobile bottom tabs) is kept.
+
+---
+
+## Tech stack
+
+- **Frontend:** HTML, Tailwind CSS v3 (prebuilt), vanilla JavaScript
+- **Backend:** Node.js 18+, Express 4
+- **Database:** MySQL 8+ (MariaDB 10.5+ also works)
+- **Packages:** bcrypt (password hashing), express-session + express-mysql-session (admin sessions stored in MySQL), helmet (security headers), express-rate-limit, multer + sharp (photo upload & WebP optimisation), nodemailer (inquiry emails), mysql2, dotenv
+
+---
+
+## Quick start (local)
+
+```bash
+npm install
+cp .env.example .env          # then edit .env (database, SMTP, SESSION_SECRET)
+npm run db:setup              # creates tables + seeds categories & breeds
+npm run create-admin          # create your administrator login
+npm run test-email            # optional: confirms SMTP works
+npm run dev                   # http://localhost:3000
+```
+
+- Public site: `http://localhost:3000`
+- Admin: `http://localhost:3000/admin/` (redirects to the login page)
+
+There is **no demo data**. The database starts with the category/breed reference list only. Add livestock from the admin dashboard; until then the site shows empty states.
+
+---
+
+## Upgrading the live VPS from v1
+
+The current production setup (InterServer VPS, PM2 process `Frontier`, Nginx, domain `marketplace.frontierfc.co.zm`) keeps working the same way.
+
+1. **Back up the database first:**
+   ```bash
+   mysqldump -u frontier_user -p frontier_marketplace > ~/frontier-v1-backup-$(date +%F).sql
+   ```
+2. **Replace the code.** Extract this project over the old one (or `git pull` once it's committed). Keep the existing `.env` and `public/uploads/` folder.
+3. **Install dependencies:**
+   ```bash
+   npm ci --omit=dev
+   ```
+4. **Add the new settings to `.env`.** Compare with `.env.example`. The new keys are `APP_URL`, `TRUST_PROXY`, `APP_TIMEZONE`, the `SMTP_*` settings, `MAIL_FROM` and `INQUIRY_NOTIFY_EMAILS`. In production `SESSION_SECRET` must be at least 32 characters, or the app refuses to start.
+5. **Migrate the database:**
+   ```bash
+   npm run db:setup
+   ```
+   This **renames** the v1 tables (`users`, `listings`, `listing_media`, `listing_documents`, `messages`, `inquiries`, `favorites`, `reports`) to `legacy_v1_*`, so nothing is dropped. It then creates the v2 tables and seeds the 3 categories and 32 breeds. Existing **admin** accounts are copied into `admins` with their current passwords. Safe to run again on later deploys.
+6. **Create an admin** if you don't already have one, or to reset a password:
+   ```bash
+   npm run create-admin
+   ```
+7. **Allow photo uploads through Nginx.** Nginx rejects request bodies over 1 MB by default, which blocks multi-photo uploads. In the site's `server { }` block:
+   ```nginx
+   client_max_body_size 60M;
+
+   location / {
+       proxy_pass http://127.0.0.1:3000;
+       proxy_set_header Host $host;
+       proxy_set_header X-Real-IP $remote_addr;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-Proto $scheme;
+   }
+   ```
+   `X-Forwarded-Proto` is needed for the secure admin cookie to work behind HTTPS. Then run `sudo nginx -t && sudo systemctl reload nginx`.
+8. **Check email, then restart:**
+   ```bash
+   npm run test-email
+   pm2 restart Frontier
+   ```
+9. Visit the site, sign in at `/admin/`, add a listing, publish it, and send a test inquiry from the public page.
+
+Once you're happy with v2, you can drop the `legacy_v1_*` tables. v1 listing photos remain in `public/uploads/livestock/` and are not used by v2.
+
+---
+
+## Email notifications
+
+Every inquiry is saved to the database **first**, then emailed to everyone in `INQUIRY_NOTIFY_EMAILS` (default: `mpimpa.miyoba@gmail.com, dalisomwale003@gmail.com`).
+
+The email contains the livestock title, category, breed, the customer's name, phone, email and message, the date, and a button linking straight to the inquiry in the dashboard. *Reply-To* is set to the customer, so replying goes to them.
+
+**Gmail:** turn on 2-Step Verification on the sending account, create an **App Password** (Google Account → Security → App passwords), and use it as `SMTP_PASS`. Any other SMTP provider works too; set `SMTP_HOST`, `SMTP_PORT` and `SMTP_SECURE` accordingly.
+
+**If sending fails** (wrong password, provider down), the visitor still gets a success message, because the inquiry is safely stored. The dashboard then shows a warning, the inquiry is marked *Email failed*, and **Resend email** on the inquiry retries once SMTP is fixed.
+
+SMTP credentials are only read on the server from `.env`. Nothing about email reaches the browser.
+
+---
+
+## Admin dashboard
+
+| Page | What it does |
+|---|---|
+| **Dashboard** | Live counts from the database: total, published and unpublished livestock, categories, breeds, total and new inquiries. Also recent inquiries, recent livestock, and a failed-email warning. |
+| **Livestock** | Add/edit/delete listings, publish or unpublish, and upload up to 10 photos (remove, set cover). Filter by status/category and search. |
+| **Inquiries** | Tabs for New, Contacted, In Progress, Resolved and Archived, plus search. Each inquiry has one-tap Call / WhatsApp / Email, a status changer, archive/restore, delete, and resend email. Links in notification emails open the inquiry directly. |
+| **Categories** | Add, edit, enable/disable, delete and order categories. Disabling hides the category and its listings from the website. |
+| **Breeds** | Add, edit, enable/disable and delete breeds, and assign each to a category. A breed in use can't be deleted or moved to another category, so the public filter stays accurate. |
+
+Photos are resized in the browser before upload (good on mobile data). The server then stores an optimised WebP (max 1600px) plus a 640px card thumbnail, typically 100–300 KB instead of several MB.
+
+---
+
+## Public filtering
+
+The homepage filter cascades, and every option comes from the database:
+
+**Category → Breed → Type → Location**
+
+- Breed stays disabled until a category is chosen, then lists only that category's breeds (e.g. Dairy → the 11 dairy breeds), with listing counts.
+- Type and Location only offer values that exist among published listings matching the earlier choices.
+- Filtering runs in MySQL with indexed queries and pagination. The browser never downloads the whole table.
+- Filter selections are kept in the URL, so filtered results can be shared or bookmarked.
+
+---
+
+## Project structure
+
+```
+database/
+  schema.sql            v2 tables (admins, categories, breeds, livestock, livestock_images, inquiries)
+  seed-categories.sql   Dairy / Beef / Dual-Purpose + 32 breeds (reference data only)
+  setup.js              npm run db:setup - create, migrate from v1, seed
+scripts/
+  create-admin.js       npm run create-admin
+  test-email.js         npm run test-email
+server/
+  server.js             Express app, security headers, sessions, rate limits, v1 URL redirects
+  db.js                 MySQL pool
+  lib/validate.js       input validation helpers
+  middleware/auth.js    admin-only auth + CSRF header check
+  middleware/upload.js  photo upload, validation and WebP conversion (sharp)
+  services/mailer.js    inquiry notification email (nodemailer)
+  routes/public.js      public livestock, categories and cascading filter API
+  routes/inquiries.js   public inquiry submission
+  routes/admin/         auth, dashboard, livestock, taxonomy (categories + breeds), inquiries
+public/
+  index.html            homepage: hero, filters, categories, listings
+  listing.html          livestock details + gallery + Inquire
+  admin/                login, dashboard, livestock, inquiries, categories, breeds
+  js/                   main, icons, app-shell, livestock, inquiry, admin
+  css/style.css         brand styles (from v1, extended)
+  css/tailwind.css      prebuilt Tailwind (generated - see below)
+  uploads/livestock/    listing photos (created at runtime)
+src/tailwind.css        Tailwind entry file
+```
+
+**After changing Tailwind classes** in any HTML/JS file, rebuild the stylesheet (needs dev dependencies, so run `npm install` without `--omit=dev`):
+
+```bash
+npm run build:css
+```
+
+---
+
+## API
+
+**Public**
+
+| Method | Endpoint | |
+|---|---|---|
+| GET | `/api/categories` | Active categories with breed/listing counts |
+| GET | `/api/livestock/filters?category_id=&breed_id=&type=` | Options for the dependent dropdowns |
+| GET | `/api/livestock?category_id=&breed_id=&type=&location=&page=&limit=` | Published listings |
+| GET | `/api/livestock/:id` | Listing details + photos |
+| POST | `/api/inquiries` | `{ livestock_id, full_name, phone, email, message }` |
+| GET | `/api/health` | Health check (app + database) |
+
+**Admin** (session cookie + header `X-Frontier-Admin: 1` on every request)
+
+| Method | Endpoint |
+|---|---|
+| POST | `/api/admin/auth/login`, `/api/admin/auth/logout` |
+| GET | `/api/admin/auth/me` · PATCH `/api/admin/auth/me/password` |
+| GET | `/api/admin/dashboard` |
+| GET / POST | `/api/admin/livestock` (POST is multipart with `images[]`) |
+| GET / PUT / DELETE | `/api/admin/livestock/:id` · PATCH `/api/admin/livestock/:id/status` |
+| GET / POST / PUT / DELETE | `/api/admin/categories[/:id]`, `/api/admin/breeds[/:id]` |
+| GET / PATCH / DELETE | `/api/admin/inquiries[/:id]` · POST `/api/admin/inquiries/:id/resend-email` |
+
+---
+
+## Security
+
+- Admin passwords hashed with bcrypt (cost 12). Login timing doesn't reveal whether an email exists.
+- Server-side sessions in MySQL: 8-hour idle timeout, regenerated on login, cookie `HttpOnly`, `SameSite=Strict`, scoped to `/api/admin` and `Secure` in production. Sessions survive PM2 restarts.
+- Admin API requires a custom header, which blocks cross-site request forgery.
+- Every query is parameterised. Inputs are validated server-side, and the same rules run in the browser for instant feedback.
+- Uploads are re-encoded with sharp, so only real images are stored and EXIF metadata (including GPS) is stripped.
+- Helmet security headers including a Content Security Policy. HSTS in production.
+- Rate limits in production: login 10 / 15 min, inquiries 8 / hour per IP, plus a honeypot field against bots.
+- Credentials only in `.env` (git-ignored). The app refuses to start in production without a strong `SESSION_SECRET`.
+
+---
+
+## Notes
+
+- **No demo data.** Only the category/breed reference list is seeded. Dashboard numbers are live counts.
+- **Hero photos** are real photographs from Unsplash (free licence). See `PHOTO-CREDITS.md` and `/photo-credits.html`.
+- **Terms of Service and Privacy Policy** were rewritten for the inquiry-only model. Have them reviewed before relying on them legally.

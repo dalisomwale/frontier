@@ -5,7 +5,7 @@ const pool = mysql.createPool({
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
   database: process.env.DB_NAME || "frontier_marketplace",
-  port: process.env.DB_PORT || 3306,
+  port: Number(process.env.DB_PORT) || 3306,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -24,7 +24,7 @@ pool
     console.error("Please ensure:");
     console.error("  1. MySQL is running");
     console.error("  2. Database credentials in .env are correct");
-    console.error('  3. Database "frontier_marketplace" exists');
+    console.error("  3. The database exists - run: npm run db:setup");
     process.exit(1);
   });
 

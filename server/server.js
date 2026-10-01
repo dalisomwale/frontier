@@ -1,219 +1,209 @@
 require("dotenv").config();
 
+const path = require("path");
 const express = require("express");
 const session = require("express-session");
+const MySQLStore = require("express-mysql-session")(session);
 const helmet = require("helmet");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
-const http = require("http");
-const socketIO = require("socket.io");
 
-const authRoutes = require("./routes/auth");
-const userRoutes = require("./routes/users");
-const listingRoutes = require("./routes/listings");
-const messageRoutes = require("./routes/messages");
-const inquiriesRoutes = require("./routes/inquiries");
-const favoritesRoutes = require("./routes/favorites");
+const pool = require("./db");
+const publicRoutes = require("./routes/public");
+const inquiryRoutes = require("./routes/inquiries");
 const adminRoutes = require("./routes/admin");
-const reportsRoutes = require("./routes/reports");
-const documentsRoutes = require("./routes/documents");
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIO(server, {
-  cors: {
-    origin:
-      process.env.CORS_ORIGIN || `http://localhost:${process.env.PORT || 5000}`,
-    methods: ["GET", "POST"],
-  },
-});
+const PORT = Number(process.env.PORT) || 3000;
+const isProduction = process.env.NODE_ENV === "production";
+const PUBLIC_DIR = path.join(__dirname, "..", "public");
 
-const PORT = process.env.PORT || 5000;
-const corsOrigin = process.env.CORS_ORIGIN || `http://localhost:${PORT}`;
-
-if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
-  throw new Error("SESSION_SECRET must be set in production");
+if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) {
+  throw new Error("SESSION_SECRET must be set to a random string of 32+ characters in production");
 }
 
-// Security middleware. The frontend uses Tailwind's browser build and Socket.IO
-// from their CDNs, plus small inline page scripts and event handlers. Helmet's
-// default CSP blocks them, leaving the pages looking like unstyled HTML.
+// Behind Nginx in production: trust the first proxy so secure cookies,
+// req.ip (rate limiting / inquiry logs) and req.protocol are correct.
+app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 1));
+app.disable("x-powered-by");
+
+// ---------------------------------------------------------------------------
+// Security headers. Styles are a prebuilt Tailwind file (public/css/
+// tailwind.css) plus small inline page scripts; hero photography is served
+// from Unsplash's image CDN.
+// ---------------------------------------------------------------------------
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
-        "script-src": [
-          "'self'",
-          "'unsafe-inline'",
-          "https://cdn.tailwindcss.com",
-          "https://cdn.socket.io",
-        ],
+        "script-src": ["'self'", "'unsafe-inline'"],
         "script-src-attr": ["'unsafe-inline'"],
         "style-src": ["'self'", "'unsafe-inline'"],
-        "connect-src": ["'self'", "wss:"],
+        "img-src": ["'self'", "data:", "blob:", "https://images.unsplash.com"],
+        "connect-src": ["'self'"],
+        "upgrade-insecure-requests": isProduction ? [] : null,
       },
+    },
+    crossOriginEmbedderPolicy: false,
+  }),
+);
+app.use(cors({ origin: process.env.CORS_ORIGIN || false, credentials: true }));
+
+// ---------------------------------------------------------------------------
+// Rate limits (production only, so local testing isn't throttled). All return
+// JSON so the frontend can show the message.
+// ---------------------------------------------------------------------------
+const limitHandler = (req, res) =>
+  res.status(429).json({
+    success: false,
+    message: "Too many requests. Please wait a few minutes and try again.",
+  });
+const limiter = (max, windowMinutes = 15) =>
+  rateLimit({
+    windowMs: windowMinutes * 60 * 1000,
+    max,
+    handler: limitHandler,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: () => !isProduction,
+  });
+
+app.use("/api", limiter(300));
+app.use("/api/admin/auth/login", limiter(10));
+app.post("/api/inquiries", limiter(8, 60));
+
+app.use(express.json({ limit: "100kb" }));
+app.use(express.urlencoded({ limit: "100kb", extended: false }));
+
+// ---------------------------------------------------------------------------
+// Admin sessions, stored in MySQL so they survive PM2 restarts.
+// ---------------------------------------------------------------------------
+const SESSION_COOKIE = "frontier.admin";
+app.set("sessionCookieName", SESSION_COOKIE);
+const sessionStore = new MySQLStore(
+  {
+    createDatabaseTable: true,
+    clearExpired: true,
+    checkExpirationInterval: 15 * 60 * 1000,
+    schema: { tableName: "admin_sessions" },
+  },
+  pool,
+);
+app.use(
+  "/api/admin",
+  session({
+    name: SESSION_COOKIE,
+    secret: process.env.SESSION_SECRET || "development-only-change-this-secret",
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,
+    cookie: {
+      path: "/api/admin",
+      secure: isProduction,
+      httpOnly: true,
+      sameSite: "strict",
+      maxAge: 8 * 60 * 60 * 1000, // 8 hours of inactivity
     },
   }),
 );
-app.use(
-  cors({
-    origin: corsOrigin,
-    credentials: true,
-  }),
-);
 
-// Rate limiting
-// Both limiters return JSON explicitly. express-rate-limit's default
-// response is plain text, which breaks any frontend code that calls
-// response.json() on it - the request silently "fails" with a generic
-// parse error instead of a real "too many attempts" message.
-const jsonRateLimitHandler = (req, res) => {
-  res.status(429).json({
-    success: false,
-    message: "Too many attempts. Please wait a few minutes and try again.",
-  });
+// ---------------------------------------------------------------------------
+// v1 pages that no longer exist (public accounts, selling, messaging) send
+// visitors somewhere sensible instead of a 404.
+// ---------------------------------------------------------------------------
+const RETIRED_PAGES = {
+  "/marketplace.html": "/#listings",
+  "/login.html": "/",
+  "/register.html": "/",
+  "/dashboard.html": "/",
+  "/messages.html": "/",
+  "/profile.html": "/",
+  "/seller.html": "/",
+  "/admin/users.html": "/admin/",
+  "/admin/reports.html": "/admin/",
+  "/admin/listings.html": "/admin/livestock.html",
 };
+app.get(Object.keys(RETIRED_PAGES), (req, res) => res.redirect(301, RETIRED_PAGES[req.path]));
 
-// Rate limiting exists to slow down real attackers hitting a live,
-// internet-facing server - not to throttle local development, where a
-// developer (or automated testing) reusing the same machine's IP address
-// can otherwise burn through the whole budget in minutes and lock
-// themselves out for the rest of the window. Skip both limiters outside
-// production so that only matters for the deployed app.
-const isProduction = process.env.NODE_ENV === "production";
+// ---------------------------------------------------------------------------
+// Static files. Uploaded photos have unique names, so they can be cached
+// for a long time; pages/scripts revalidate.
+// ---------------------------------------------------------------------------
+app.use(
+  "/uploads",
+  express.static(path.join(PUBLIC_DIR, "uploads"), { maxAge: "30d", immutable: true, fallthrough: false }),
+);
+app.use("/images", express.static(path.join(PUBLIC_DIR, "images"), { maxAge: "7d" }));
+app.use(express.static(PUBLIC_DIR, { extensions: ["html"] }));
 
-// Scoped to /api only, so loading pages, scripts, and stylesheets during
-// normal browsing doesn't eat into the same budget as API calls.
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  handler: jsonRateLimitHandler,
-  skip: () => !isProduction,
+// ---------------------------------------------------------------------------
+// API
+// ---------------------------------------------------------------------------
+app.get("/api/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ success: true, status: "ok" });
+  } catch {
+    res.status(503).json({ success: false, status: "database unavailable" });
+  }
 });
-
-// Applied only to /api/auth/login and /api/auth/register (see below),
-// not the whole /api/auth router. /api/auth/check fires on nearly every
-// page load via checkAuthentication(), so sharing one 5-request budget
-// across it and actual login/register attempts meant a normal browsing
-// session could exhaust the limit before the user ever submitted the
-// registration form.
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  handler: jsonRateLimitHandler,
-  skip: () => !isProduction,
-});
-
-app.use("/api", limiter);
-
-// Body parsing middleware
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
-
-// Session middleware
-const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET || "development-only-change-this-secret",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === "production",
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 24 * 60 * 60 * 1000,
-  },
-});
-app.use(sessionMiddleware);
-
-// Static files
-app.use(express.static("public"));
-
-// API Routes
-// authLimiter is scoped to only the login/register endpoints, not the whole
-// router - see the comment above where it's defined.
-app.use("/api/auth/login", authLimiter);
-app.use("/api/auth/register", authLimiter);
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/listings", listingRoutes);
-app.use("/api/messages", messageRoutes);
-app.use("/api/inquiries", inquiriesRoutes);
-app.use("/api/favorites", favoritesRoutes);
+app.use("/api", publicRoutes);
+app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/reports", reportsRoutes);
-app.use("/api/documents", documentsRoutes);
 
-// Socket.IO shares the HTTP session, so clients cannot impersonate another
-// account by supplying a user id in a socket event.
-io.use((socket, next) => sessionMiddleware(socket.request, {}, next));
-io.use((socket, next) => {
-  if (!socket.request.session?.userId)
-    return next(new Error("Authentication required"));
-  socket.data.userId = socket.request.session.userId;
-  return next();
+// ---------------------------------------------------------------------------
+// 404 + errors
+// ---------------------------------------------------------------------------
+app.use("/api", (req, res) => {
+  res.status(404).json({ success: false, message: "API endpoint not found" });
 });
-io.on("connection", (socket) => {
-  const room = "user:" + socket.data.userId;
-  socket.join(room);
-  socket.broadcast.emit("user_online", { userId: socket.data.userId });
-  socket.on("user_join", () =>
-    socket.emit("joined", { userId: socket.data.userId }),
-  );
-  socket.on("disconnect", () =>
-    socket.broadcast.emit("user_offline", { userId: socket.data.userId }),
-  );
-});
-app.set("io", io);
-
-// 404 handler
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "API endpoint not found",
-  });
+  res.status(404).sendFile(path.join(PUBLIC_DIR, "404.html"));
 });
 
-// Error handler
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  console.error("Server error:", err);
-
-  // Multer file upload errors
   if (err.name === "MulterError") {
-    return res.status(400).json({
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? "Each photo must be 12 MB or smaller."
+        : err.code === "LIMIT_FILE_COUNT" || err.code === "LIMIT_UNEXPECTED_FILE"
+          ? "Too many photos - a listing can have at most 10."
+          : err.message;
+    return res.status(400).json({ success: false, message });
+  }
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ success: false, message: "Invalid request body." });
+  }
+  if (err.expose && err.status && err.status < 500) {
+    return res.status(err.status).json({
       success: false,
       message: err.message,
+      ...(err.errors ? { errors: err.errors } : {}),
     });
   }
-
-  // Expected validation/upload errors are safe to show. Unexpected errors are
-  // deliberately not returned to clients.
-  if (err.message && (err.name === "Error" || err.status === 400)) {
-    return res.status(400).json({
-      success: false,
-      message: err.message,
-    });
+  if (err.status === 404 || err.statusCode === 404) {
+    return res.status(404).json({ success: false, message: "Not found" });
   }
+  console.error("Server error:", err);
+  return res.status(500).json({ success: false, message: "Something went wrong. Please try again." });
+});
 
-  res.status(500).json({
-    success: false,
-    message: "Internal server error",
+if (require.main === module) {
+  const server = app.listen(PORT, () => {
+    console.log("\nFrontier Marketplace");
+    console.log(`Running on http://localhost:${PORT}  (${process.env.NODE_ENV || "development"})\n`);
   });
-});
-
-// Start server
-server.listen(PORT, () => {
-  console.log(`\nFrontier Marketplace Server`);
-  console.log(`Running on http://localhost:${PORT}`);
-  console.log(`Port: ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || "development"}\n`);
-});
-
-// Graceful shutdown
-process.on("SIGINT", async () => {
-  console.log("\nShutting down server...");
-  server.close(() => {
-    console.log("Server closed");
-    process.exit(0);
-  });
-});
+  const shutdown = () => {
+    console.log("\nShutting down...");
+    server.close(() => {
+      sessionStore.close().catch(() => {});
+      pool.end().finally(() => process.exit(0));
+    });
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+}
 
 module.exports = app;

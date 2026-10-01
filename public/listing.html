@@ -3,1260 +3,283 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Listing Details - Frontier Marketplace</title>
-    <link rel="icon" href="images/logo-icon.jpg" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="css/style.css" />
+    <title>Livestock Details - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
     <script src="/js/main.js"></script>
-    <script src="/js/auth.js"></script>
-    <script src="/js/species.js"></script>
+    <script src="/js/icons.js"></script>
     <script src="/js/app-shell.js"></script>
+    <script src="/js/livestock.js"></script>
+    <script src="/js/inquiry.js"></script>
   </head>
   <body class="bg-gray-50">
-    <div id="app-sidebar"></div>
-
     <nav id="page-topnav" class="bg-white shadow-md sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
-          <div class="flex items-center gap-3">
-            <a href="/" class="flex items-center gap-3">
-              <div class="brand-mark-full">
-                <img
-                  src="images/logo-full.jpg"
-                  alt="Frontier Farms &amp; Consult"
-                />
-              </div>
-            </a>
+          <a href="/" class="flex items-center gap-3" aria-label="Frontier Marketplace home">
+            <div class="brand-mark-full">
+              <img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
+            </div>
+            <span class="hidden sm:block font-bold text-gray-900">Frontier Marketplace</span>
+          </a>
+          <div class="hidden md:flex items-center gap-6">
+            <a href="/#listings" class="top-link">Browse Livestock</a>
+            <a href="/#categories" class="top-link">Categories</a>
           </div>
         </div>
       </div>
     </nav>
 
-    <div id="tab-self-content">
-      <div
-        id="public-listing-view"
-        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
-      >
-        <a
-          href="index.html"
-          class="inline-block text-sm font-medium text-blue-600 hover:text-blue-700 mb-6"
-          >← Back to Home</a
-        >
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <nav class="text-sm mb-5 flex flex-wrap items-center gap-1 text-gray-500" aria-label="Breadcrumb">
+        <a href="/#listings" class="font-medium text-blue-600 hover:text-blue-700">← All livestock</a>
+        <span id="crumb-category" class="hidden"></span>
+      </nav>
 
-        <div
-          id="listing-container"
-          class="grid grid-cols-1 lg:grid-cols-3 gap-8"
-        >
-          <div class="lg:col-span-2">
-            <div class="gallery-frame">
-              <div
-                id="main-image"
-                class="w-full h-full flex items-center justify-center"
-              >
-                <span class="text-base text-gray-500">Loading photo…</span>
-              </div>
-              <button
-                type="button"
-                id="gallery-favorite-btn"
-                class="gallery-favorite"
-                aria-label="Add to favorites"
-              ></button>
-              <button
-                type="button"
-                id="gallery-prev"
-                class="gallery-nav gallery-nav-prev hidden"
-                aria-label="Previous media"
-              ></button>
-              <button
-                type="button"
-                id="gallery-next"
-                class="gallery-nav gallery-nav-next hidden"
-                aria-label="Next media"
-              ></button>
-              <div id="gallery-dots" class="gallery-dots"></div>
+      <div id="listing-error" class="hidden"></div>
+
+      <div id="listing-container" class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+        <div class="lg:col-span-2">
+          <div class="gallery-frame rounded-lg">
+            <div id="main-image" class="w-full h-full flex items-center justify-center bg-gray-200 animate-pulse"></div>
+            <button type="button" id="gallery-prev" class="gallery-nav gallery-nav-prev hidden" aria-label="Previous photo"></button>
+            <button type="button" id="gallery-next" class="gallery-nav gallery-nav-next hidden" aria-label="Next photo"></button>
+            <div id="gallery-dots" class="gallery-dots"></div>
+          </div>
+          <div id="gallery-thumbs" class="gallery-thumbs" aria-label="Photo gallery"></div>
+
+          <section id="description-section" class="hidden bg-white rounded-lg shadow-sm border border-gray-100 p-5 mt-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-2">Description</h2>
+            <div id="listing-description" class="text-gray-700 leading-relaxed whitespace-pre-line"></div>
+          </section>
+        </div>
+
+        <div class="lg:col-span-1">
+          <div class="lg:sticky lg:top-20 bg-white lg:bg-transparent rounded-lg lg:rounded-none p-5 lg:p-0 shadow-sm lg:shadow-none">
+            <div class="mb-5 pb-5 border-b border-gray-200">
+              <div id="listing-tags" class="flex flex-wrap gap-1.5 mb-2"></div>
+              <h1 id="listing-title" class="text-2xl sm:text-3xl font-bold text-gray-900">
+                <span class="inline-block h-8 w-64 bg-gray-200 rounded animate-pulse"></span>
+              </h1>
+              <p id="listing-location" class="mt-2 flex items-center gap-1.5 text-gray-600"></p>
             </div>
-          </div>
 
-          <div class="lg:col-span-1">
-            <div class="lg:sticky lg:top-20">
-              <div class="mb-6 pb-6 border-b border-gray-200">
-                <h1
-                  id="listing-title"
-                  class="text-2xl sm:text-3xl font-bold text-gray-900"
-                ></h1>
-              </div>
-
-              <div class="mb-6">
-                <p class="text-sm font-medium text-gray-500 mb-1">Price</p>
-                <div
-                  class="text-3xl sm:text-4xl font-extrabold text-emerald-600"
-                  id="listing-price"
-                >
-                  K0
-                </div>
-              </div>
-
-              <div id="listing-attributes" class="mb-6 hidden">
-                <h3 class="text-base font-semibold text-gray-900 mb-3">
-                  Details
-                </h3>
-                <div class="space-y-2">
-                  <div
-                    id="attr-species-row"
-                    class="hidden flex justify-between gap-3"
-                  >
-                    <span class="text-sm text-gray-500">Species</span>
-                    <span
-                      id="attr-species"
-                      class="text-sm font-semibold text-gray-900 text-right"
-                    ></span>
-                  </div>
-                  <div
-                    id="attr-breed-row"
-                    class="hidden flex justify-between gap-3"
-                  >
-                    <span class="text-sm text-gray-500">Breed</span>
-                    <span
-                      id="attr-breed"
-                      class="text-sm font-semibold text-gray-900 text-right"
-                    ></span>
-                  </div>
-                  <div
-                    id="attr-age-row"
-                    class="hidden flex justify-between gap-3"
-                  >
-                    <span class="text-sm text-gray-500">Age</span>
-                    <span
-                      id="attr-age"
-                      class="text-sm font-semibold text-gray-900 text-right"
-                    ></span>
-                  </div>
-                  <div
-                    id="attr-weight-row"
-                    class="hidden flex justify-between gap-3"
-                  >
-                    <span class="text-sm text-gray-500">Weight</span>
-                    <span
-                      id="attr-weight"
-                      class="text-sm font-semibold text-gray-900 text-right"
-                    ></span>
-                  </div>
-                  <div
-                    id="attr-health-row"
-                    class="hidden flex justify-between gap-3"
-                  >
-                    <span class="text-sm text-gray-500">Health</span>
-                    <span
-                      id="attr-health"
-                      class="text-sm font-semibold text-gray-900 text-right"
-                    ></span>
-                  </div>
-                </div>
-              </div>
-
-              <div id="public-documents-section" class="mb-6 hidden">
-                <h3 class="text-base font-semibold text-gray-900 mb-3">
-                  Verified documents
-                </h3>
-                <ul id="public-documents-list" class="space-y-2"></ul>
-              </div>
-
-              <div class="grid grid-cols-2 gap-3 mb-6">
-                <button
-                  id="inquiry-btn"
-                  class="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 font-semibold transition"
-                >
-                  Buy
-                </button>
-                <button
-                  id="contact-btn"
-                  class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold transition"
-                >
-                  Message
-                </button>
-              </div>
-
-              <!-- Seller: bare clickable row (avatar + name + chevron). No
-                   bordered card, no background, no padding box - the whole
-                   row still routes to the seller's profile page. -->
-              <div class="border-t border-gray-200 pt-5">
-                <h3 class="text-base font-semibold text-gray-900 mb-3">
-                  Seller
-                </h3>
-                <button
-                  id="seller-profile-link"
-                  type="button"
-                  class="w-full flex items-center gap-3 text-left group"
-                >
-                  <div
-                    id="seller-avatar"
-                    class="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0"
-                  ></div>
-                  <p
-                    id="seller-name"
-                    class="text-base font-semibold text-gray-900 truncate min-w-0 flex-1 group-hover:text-blue-600 transition"
-                  ></p>
-                  <span
-                    id="seller-profile-chevron"
-                    class="text-gray-400 flex-shrink-0"
-                  ></span>
-                </button>
-              </div>
+            <div id="listing-attributes" class="mb-6 hidden">
+              <h3 class="text-base font-semibold text-gray-900 mb-3">Details</h3>
+              <dl id="attribute-list" class="space-y-2"></dl>
             </div>
-          </div>
-        </div>
 
-        <div
-          id="seller-listings-section"
-          class="hidden mt-10 pt-8 border-t border-gray-200"
-        >
-          <h2
-            id="seller-listings-heading"
-            class="text-xl sm:text-2xl font-bold text-gray-900 mb-4"
-          >
-            More from this seller
-          </h2>
-          <div
-            id="seller-listings-container"
-            class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6"
-          ></div>
-        </div>
-      </div>
-
-      <div
-        id="seller-workspace"
-        class="hidden app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
-      >
-        <div id="seller-workspace-content"></div>
-      </div>
-
-      <div
-        id="inquiry-modal"
-        class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50"
-      >
-        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-          <h2 class="text-xl font-bold text-gray-900 mb-4">
-            Interested in Buying?
-          </h2>
-          <textarea
-            id="inquiry-message"
-            placeholder="Tell the seller about your interest..."
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4"
-            rows="4"
-          ></textarea>
-          <div class="flex gap-3">
-            <button
-              id="inquiry-submit"
-              class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
-            >
-              Send
+            <button id="inquire-btn" type="button" disabled
+              class="w-full inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3.5 rounded-lg hover:bg-blue-700 font-semibold text-lg transition shadow-sm disabled:opacity-60">
+              <span class="w-5 h-5" data-icon="inquire"></span> Inquire
             </button>
-            <button
-              id="inquiry-cancel"
-              class="flex-1 bg-gray-300 text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-400 font-medium"
-            >
-              Cancel
-            </button>
+            <p class="text-xs text-gray-500 mt-3 flex items-start gap-2">
+              <span class="w-4 h-4 mt-0.5 text-blue-500" data-icon="shield"></span>
+              No account needed. Your inquiry goes straight to the Frontier Marketplace team, who will contact you with availability and next steps.
+            </p>
           </div>
         </div>
       </div>
+
+      <section id="related-section" class="hidden mt-12 pt-8 border-t border-gray-200">
+        <h2 id="related-heading" class="text-xl sm:text-2xl font-bold text-gray-900 mb-4">More like this</h2>
+        <div id="related-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6"></div>
+      </section>
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 mt-10">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-gray-500">
+        <p>© <span id="footer-year"></span> Frontier Farms &amp; Consult. All rights reserved.</p>
+        <nav class="flex flex-wrap gap-x-5 gap-y-2">
+          <a href="/terms.html" class="hover:text-gray-700">Terms of Service</a>
+          <a href="/privacy.html" class="hover:text-gray-700">Privacy Policy</a>
+        </nav>
+      </div>
+    </footer>
+
+    <!-- Mobile: keep the Inquire action within thumb reach -->
+    <div id="mobile-inquire" class="hidden fixed inset-x-0 z-40 px-4 pb-2 lg:hidden" style="bottom: 74px">
+      <button type="button" class="w-full inline-flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-lg font-semibold shadow-lg">
+        <span class="w-5 h-5" data-icon="inquire"></span> Inquire
+      </button>
     </div>
-    <div id="tab-frame-host" class="tab-frame-host hidden"></div>
 
     <div id="app-bottom-nav"></div>
     <script>
-      (function () {
-        const params = new URLSearchParams(window.location.search);
-        const wantsWorkspace =
-          params.has("create") || params.has("mine") || params.has("edit");
-        const user = getCurrentUser();
-        const sellerMode = wantsWorkspace && user?.role === "member";
-        if (sellerMode) renderSidebar("listings");
-        renderBottomNav(sellerMode ? "app" : "public");
-      })();
+      renderBottomNav("public");
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
     </script>
 
     <script>
-      const LISTING_STATUS_BADGES = {
-        active: "bg-green-600 text-white",
-        paused: "bg-yellow-500 text-white",
-        sold: "bg-blue-600 text-white",
-        deactivated: "bg-gray-600 text-white",
-      };
-
-      const HEALTH_LABELS = {
-        healthy: "Healthy",
-        treated: "Treated (recovered)",
-        under_treatment: "Under treatment",
-        unknown: "Not specified",
-      };
-
-      const DOCUMENT_TYPE_LABELS = {
-        permit: "Permit",
-        certificate: "Certificate",
-        health_record: "Health record",
-        other: "Other",
-      };
-
-      const DOCUMENT_STATUS_BADGES = {
-        pending: "bg-yellow-100 text-yellow-800",
-        approved: "bg-green-100 text-green-800",
-        rejected: "bg-red-100 text-red-800",
-      };
-
-      const STATUS_CHANGE_PROMPTS = {
-        active: {
-          title: "Make this listing available?",
-          message: "It will appear in the marketplace for buyers to see.",
-          confirmText: "Make available",
-          variant: "primary",
-        },
-        paused: {
-          title: "Pause this listing?",
-          message:
-            "It will be hidden from the marketplace until you reactivate it.",
-          confirmText: "Pause",
-          variant: "danger",
-        },
-        deactivated: {
-          title: "Deactivate this listing?",
-          message:
-            "It will be hidden from the marketplace permanently. This cannot be undone.",
-          confirmText: "Deactivate",
-          variant: "danger",
-        },
-        sold: {
-          title: "Mark as sold?",
-          message:
-            "The listing will be closed. You can make it available again later if the sale falls through.",
-          confirmText: "Mark as sold",
-          variant: "danger",
-        },
-      };
-
-      let currentListing = null;
-      let galleryMedia = [];
+      let listing = null;
       let galleryIndex = 0;
 
-      document.addEventListener("DOMContentLoaded", async () => {
-        document.getElementById("gallery-favorite-btn").innerHTML =
-          uiIcon("heart");
-        document.getElementById("gallery-prev").innerHTML =
-          uiIcon("chevronLeft");
-        document.getElementById("gallery-next").innerHTML =
-          uiIcon("chevronRight");
-        document.getElementById("seller-profile-chevron").innerHTML =
-          uiIcon("chevronRight");
-        document
-          .getElementById("gallery-prev")
-          .addEventListener("click", () => {
-            if (galleryIndex > 0) {
-              galleryIndex--;
-              renderGalleryFrame();
-            }
-          });
-        document
-          .getElementById("gallery-next")
-          .addEventListener("click", () => {
-            if (galleryIndex < galleryMedia.length - 1) {
-              galleryIndex++;
-              renderGalleryFrame();
-            }
-          });
-        document
-          .getElementById("gallery-favorite-btn")
-          .addEventListener("click", toggleFavorite);
-
-        await checkAuthentication();
-
-        const params = getQueryParams();
-        const listingId = params.id;
-        const wantsSellerWorkspace = !!(
-          params.create ||
-          params.mine ||
-          params.edit
-        );
-
-        if (wantsSellerWorkspace && !requireAuth("sell")) return;
-
-        const user = getCurrentUser();
-
-        if (wantsSellerWorkspace && user?.role === "member") {
-          document
-            .getElementById("public-listing-view")
-            .classList.add("hidden");
-          await showSellerWorkspace(params);
-          return;
-        }
-
-        if (!listingId) {
-          showNotification("Choose a listing from the homepage", "error");
-          setTimeout(() => (window.location.href = "index.html"), 2000);
-          return;
-        }
-
-        await loadListing(listingId);
-
-        document.getElementById("contact-btn").addEventListener("click", () => {
-          if (!getCurrentUser()) {
-            goToLogin("message", {
-              next: `/listing.html?id=${currentListing.id}`,
-            });
-            return;
-          }
-          window.location.href = `messages.html?seller=${currentListing.seller_id}`;
-        });
-
-        document
-          .getElementById("seller-profile-link")
-          .addEventListener("click", () => {
-            if (!getCurrentUser()) {
-              goToLogin("seller-profile", {
-                next: `/seller.html?id=${currentListing.seller_id}`,
-              });
-              return;
-            }
-            window.location.href = `seller.html?id=${currentListing.seller_id}`;
-          });
-
-        document
-          .getElementById("inquiry-btn")
-          .addEventListener("click", showInquiryModal);
-        document
-          .getElementById("inquiry-cancel")
-          .addEventListener("click", hideInquiryModal);
-        document
-          .getElementById("inquiry-submit")
-          .addEventListener("click", sendInquiry);
-      });
-
-      async function loadListing(id) {
-        showLoading();
-        try {
-          const response = await apiRequest(`/api/listings/${id}`);
-          if (response.success) {
-            currentListing = response.data;
-            renderListing(currentListing);
-            loadSellerListings(currentListing);
-            loadPublicDocuments(id);
-
-            const user = getCurrentUser();
-            if (user) {
-              const favResponse = await apiRequest(
-                `/api/favorites/check/${id}`,
-              );
-              if (favResponse.success && favResponse.isFavorited) {
-                const favBtn = document.getElementById("gallery-favorite-btn");
-                favBtn.classList.add("active");
-                favBtn.setAttribute("aria-label", "Remove from favorites");
-              }
-            }
-          } else {
-            showNotification("Listing not found", "error");
-            setTimeout(() => (window.location.href = "index.html"), 2000);
-          }
-        } catch (error) {
-          console.error("Load listing error:", error);
-          showNotification("Failed to load listing", "error");
-        } finally {
-          hideLoading();
-        }
-      }
-
-      const MAX_LISTING_PHOTOS = 5;
-      const MAX_LISTING_VIDEOS = 2;
-
-      function mediaUploadField() {
-        return `
-          <div class="mt-1">
-            <input id="listing-photos-input" multiple type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
-              class="block w-full text-sm text-gray-700">
-            <p class="text-xs text-gray-500 mt-1">Up to ${MAX_LISTING_PHOTOS} photos or ${MAX_LISTING_VIDEOS} videos (50 MB max per video).</p>
-            <ul id="listing-photos-list" class="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2"></ul>
-          </div>`;
-      }
-
-      function listingForm(listing = {}) {
-        const isEditing = Boolean(listing.id);
-        const values = {
-          title: listing.title || "",
-          species: listing.species || "",
-          breed: listing.breed || "",
-          location: listing.location || "",
-          price: listing.price || "",
-          age_months: listing.age_months || "",
-          weight_kg: listing.weight_kg || "",
-          health_status: listing.health_status || "unknown",
-        };
-        const speciesOptions = ["Cattle", "Goats", "Sheep", "Pigs", "Poultry"]
-          .map(
-            (species) =>
-              `<option value="${species}" ${values.species === species ? "selected" : ""}>${species}</option>`,
-          )
+      function setAttributes(item) {
+        const rows = [
+          ["Category", item.category_name],
+          ["Breed", item.breed_name],
+          ["Type", item.livestock_type],
+          ["Quantity", item.quantity ? `${item.quantity} head` : null],
+          ["Age", item.age_months !== null && item.age_months !== undefined ? formatAge(item.age_months) : null],
+          ["Location", item.location],
+          ["Listed", formatDateShort(item.created_at)],
+        ].filter(([, value]) => value);
+        document.getElementById("attribute-list").innerHTML = rows
+          .map(([label, value]) => `
+            <div class="flex justify-between gap-3">
+              <dt class="text-sm text-gray-500">${label}</dt>
+              <dd class="text-sm font-semibold text-gray-900 text-right">${escapeHtml(value)}</dd>
+            </div>`)
           .join("");
-        const healthOptions = Object.entries(HEALTH_LABELS)
-          .map(
-            ([value, label]) =>
-              `<option value="${value}" ${values.health_status === value ? "selected" : ""}>${label}</option>`,
-          )
-          .join("");
-        return `
-          <div class="bg-white rounded-lg shadow-md p-4 sm:p-6">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div><h1 class="text-2xl font-bold text-gray-900">${isEditing ? "Edit listing" : "Create livestock listing"}</h1>
-              <p class="text-sm text-gray-600 mt-1">Your listing goes live on the marketplace as soon as you create it.</p></div>
-            </div>
-            <form id="seller-listing-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label class="block text-sm font-medium text-gray-700">Title<input name="title" required maxlength="255" value="${escapeHtml(values.title)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
-              <label class="block text-sm font-medium text-gray-700">Species<select name="species" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"><option value="">Choose a category</option>${speciesOptions}</select></label>
-              <label class="block text-sm font-medium text-gray-700">Breed <span class="font-normal text-gray-500">(optional)</span><input name="breed" maxlength="100" value="${escapeHtml(values.breed)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" placeholder="e.g., Boran, Boer, Dorper"></label>
-              <label class="block text-sm font-medium text-gray-700">Location<input name="location" required maxlength="255" value="${escapeHtml(values.location)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
-              <label class="block text-sm font-medium text-gray-700">Age <span class="font-normal text-gray-500">(months, optional)</span><input name="age_months" min="1" max="600" step="1" type="number" value="${escapeHtml(values.age_months)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" placeholder="e.g., 18"></label>
-              <label class="block text-sm font-medium text-gray-700">Weight <span class="font-normal text-gray-500">(kg, optional)</span><input name="weight_kg" min="0.01" step="0.01" type="number" value="${escapeHtml(values.weight_kg)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2" placeholder="e.g., 320"></label>
-              <label class="block text-sm font-medium text-gray-700">Health status<select name="health_status" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">${healthOptions}</select></label>
-              <label class="block text-sm font-medium text-gray-700">Price (ZMW)<input name="price" required min="0.01" step="0.01" type="number" value="${escapeHtml(values.price)}" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"></label>
-            </form>
-            <div class="mt-4">
-              <div class="block text-sm font-medium text-gray-700">Photos &amp; videos
-                ${mediaUploadField()}
-              </div>
-            </div>
-            <div class="flex justify-end gap-3 mt-6">
-              <a href="listing.html?mine=1" class="rounded-lg border border-gray-300 px-4 py-2">Cancel</a>
-              <button form="seller-listing-form" class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">${isEditing ? "Save changes" : "Create listing"}</button>
-            </div>
-          </div>`;
+        document.getElementById("listing-attributes").classList.toggle("hidden", !rows.length);
       }
 
-      function documentsPanel(listingId) {
-        return `
-          <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mt-6" id="documents-panel">
-            <h2 class="text-lg font-bold text-gray-900 mb-1">Verification documents</h2>
-            <p class="text-sm text-gray-600 mb-4">Upload permits, health certificates, or other PDFs. An administrator reviews each one before it appears on your public listing.</p>
-
-            <form id="document-upload-form" class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end mb-6">
-              <label class="block text-sm font-medium text-gray-700 sm:col-span-2">Title
-                <input name="title" required maxlength="255" placeholder="e.g., Veterinary health certificate 2026" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
-              </label>
-              <label class="block text-sm font-medium text-gray-700">Type
-                <select name="document_type" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2">
-                  <option value="certificate">Certificate</option>
-                  <option value="permit">Permit</option>
-                  <option value="health_record">Health record</option>
-                  <option value="other">Other</option>
-                </select>
-              </label>
-              <label class="block text-sm font-medium text-gray-700 sm:col-span-2">PDF file
-                <input name="document" type="file" accept="application/pdf" required class="mt-1 w-full text-sm text-gray-700">
-              </label>
-              <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">Upload document</button>
-            </form>
-
-            <div id="seller-documents-list" class="space-y-2"></div>
-          </div>`;
+      function formatAge(months) {
+        months = Number(months);
+        if (months < 24) return `${months} month${months === 1 ? "" : "s"}`;
+        const years = Math.floor(months / 12);
+        const rest = months % 12;
+        return `${years} yr${rest ? ` ${rest} mo` : "s"}`;
       }
 
-      function setInputFiles(input, files) {
-        const dataTransfer = new DataTransfer();
-        files.forEach((file) => dataTransfer.items.add(file));
-        input.files = dataTransfer.files;
-      }
+      function renderListing(item) {
+        document.title = `${item.title} - Frontier Marketplace`;
+        document.getElementById("listing-title").textContent = item.title;
+        document.getElementById("listing-tags").innerHTML = [
+          item.category_name && `<span class="tag tag-category">${escapeHtml(item.category_name)}</span>`,
+          item.breed_name && `<span class="tag tag-breed">${escapeHtml(item.breed_name)}</span>`,
+          item.livestock_type && `<span class="tag tag-muted">${escapeHtml(item.livestock_type)}</span>`,
+        ].filter(Boolean).join("");
+        document.getElementById("listing-location").innerHTML =
+          `<span class="w-4 h-4 text-gray-400">${uiIcon("location")}</span>${escapeHtml(item.location)}`;
 
-      function bindPhotoStaging() {
-        const input = document.getElementById("listing-photos-input");
-        if (!input || input.dataset.bound) return;
-        input.dataset.bound = "true";
-        input.addEventListener("change", async () => {
-          let files = Array.from(input.files || []);
-          const videos = files.filter((f) => f.type.startsWith("video/"));
-          const images = files.filter((f) => f.type.startsWith("image/"));
+        const crumb = document.getElementById("crumb-category");
+        crumb.innerHTML = `<span class="mx-1">/</span><a class="hover:text-gray-700" href="/?category_id=${item.category_id}#listings">${escapeHtml(item.category_name)}</a>`;
+        crumb.classList.remove("hidden");
 
-          if (videos.length > MAX_LISTING_VIDEOS) {
-            showNotification(
-              `You can attach up to ${MAX_LISTING_VIDEOS} videos`,
-              "warning",
-            );
-            files = [...images, ...videos.slice(0, MAX_LISTING_VIDEOS)];
-            setInputFiles(input, files);
-          } else if (images.length > MAX_LISTING_PHOTOS) {
-            showNotification(
-              `You can attach up to ${MAX_LISTING_PHOTOS} photos`,
-              "warning",
-            );
-            files = [...images.slice(0, MAX_LISTING_PHOTOS), ...videos];
-            setInputFiles(input, files);
-          }
-          await renderMediaList(input);
-        });
-      }
-
-      async function renderMediaList(input) {
-        const list = document.getElementById("listing-photos-list");
-        if (!list) return;
-        const files = Array.from(input.files || []);
-        const previews = await Promise.all(
-          files.map((file) => createImagePreview(file)),
-        );
-        list.innerHTML = files
-          .map((file, index) => {
-            const isVideo = file.type.startsWith("video/");
-            const inner = isVideo
-              ? `<video src="${previews[index]}" class="w-full aspect-square object-cover rounded-lg border border-gray-200" muted></video>
-               <span class="absolute bottom-1 left-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">VIDEO</span>`
-              : `<img src="${previews[index]}" alt="${escapeHtml(file.name)}" class="w-full aspect-square object-cover rounded-lg border border-gray-200">`;
-            return `
-          <li class="relative">
-            ${inner}
-            <button type="button" class="photo-remove-btn absolute -top-2 -right-2 w-6 h-6 flex items-center justify-center rounded-full bg-gray-900 text-white text-xs leading-none" data-index="${index}" aria-label="Remove">&times;</button>
-          </li>`;
-          })
-          .join("");
-        list.querySelectorAll(".photo-remove-btn").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            const index = parseInt(btn.dataset.index, 10);
-            const remaining = Array.from(input.files || []).filter(
-              (_, i) => i !== index,
-            );
-            setInputFiles(input, remaining);
-            renderMediaList(input);
-          });
-        });
-      }
-
-      async function uploadStagedMedia(listingId) {
-        const input = document.getElementById("listing-photos-input");
-        const files = Array.from(input?.files || []);
-        if (!files.length) return;
-        const formData = new FormData();
-        files.forEach((file) => formData.append("files", file));
-        await apiRequest(`/api/listings/${listingId}/media`, {
-          method: "POST",
-          body: formData,
-        });
-      }
-
-      async function showSellerWorkspace(params) {
-        const workspace = document.getElementById("seller-workspace-content");
-        document.getElementById("seller-workspace").classList.remove("hidden");
-
-        if (params.edit) {
-          try {
-            const response = await apiRequest(
-              `/api/listings/mine/${params.edit}`,
-            );
-            workspace.innerHTML =
-              listingForm(response.data) + documentsPanel(response.data.id);
-            bindListingForm(response.data.id);
-            bindPhotoStaging();
-            bindDocumentsPanel(response.data.id);
-          } catch (error) {
-            workspace.innerHTML =
-              '<div class="rounded-lg bg-red-50 p-6 text-red-700">The listing could not be loaded.</div>';
-          }
-          return;
+        if (item.description) {
+          document.getElementById("listing-description").textContent = item.description;
+          document.getElementById("description-section").classList.remove("hidden");
         }
+        setAttributes(item);
+        renderGallery();
 
-        if (params.mine) {
-          workspace.innerHTML = `
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div><h1 class="text-3xl font-bold text-gray-900">My Listings</h1><p class="text-gray-600 mt-1">Manage your own listings.</p></div>
-              <a href="listing.html?create=1" class="rounded-lg bg-blue-600 px-4 py-2 text-white text-center">Add livestock</a>
-            </div>
-            <div id="my-listings-container" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4"></div>
-          `;
-          bindMyListingsMenu();
-          await refreshMyListings();
-          return;
-        }
+        const inquire = () => openInquiryModal(item);
+        const btn = document.getElementById("inquire-btn");
+        btn.disabled = false;
+        btn.addEventListener("click", inquire);
+        const mobile = document.getElementById("mobile-inquire");
+        mobile.classList.remove("hidden");
+        mobile.querySelector("button").addEventListener("click", inquire);
 
-        workspace.innerHTML = `
-          <h1 class="text-3xl font-bold text-gray-900 mb-8">My Listings</h1>
-          <div class="mb-8">${listingForm()}</div>
-          <div id="my-listings-container" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4"></div>
-        `;
-        bindListingForm();
-        bindPhotoStaging();
-        bindMyListingsMenu();
-        await refreshMyListings();
+        // Hide the floating mobile button while the main one is on screen.
+        new IntersectionObserver(([entry]) => {
+          mobile.style.visibility = entry.isIntersecting ? "hidden" : "visible";
+        }).observe(btn);
       }
 
-      async function refreshMyListings() {
-        const container = document.getElementById("my-listings-container");
-        if (!container) return;
-        try {
-          const response = await apiRequest("/api/listings/mine?limit=50");
-          renderMyListingsCards(response.data || []);
-        } catch (error) {
-          renderEmptyState(container, "Your listings could not be loaded.");
-        }
-      }
-
-      function renderMyListingsCards(listings) {
-        const container = document.getElementById("my-listings-container");
-        if (!container) return;
-        if (!listings.length) {
-          renderEmptyState(
-            container,
-            "You haven't created any livestock listings yet.",
-          );
-          return;
-        }
-        container.innerHTML = listings
-          .map((listing) => {
-            const canMarkSold =
-              listing.status === "active" || listing.status === "paused";
-            const canMakeAvailable = listing.status === "sold";
-            return `
-          <div class="relative bg-white rounded-lg shadow-md overflow-hidden">
-            <div class="relative bg-gray-200 aspect-square sm:aspect-[4/3] flex items-center justify-center">
-              ${listing.main_image ? `<img src="${listing.main_image}" alt="${escapeHtml(listing.title)}" class="h-full w-full object-cover">` : speciesFallbackMedia(listing.species)}
-              <span class="absolute top-2 left-2 px-2 py-0.5 text-[10px] font-semibold rounded-full capitalize ${LISTING_STATUS_BADGES[listing.status] || "bg-gray-600 text-white"}">${escapeHtml(listing.status)}</span>
-              <button type="button" class="listing-menu-toggle absolute top-2 right-2 w-8 h-8 flex items-center justify-center text-white drop-shadow" data-id="${listing.id}" aria-haspopup="true" aria-expanded="false" aria-label="Listing actions">${uiIcon("dots")}</button>
-              <div class="listing-menu hidden absolute top-12 right-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10" data-id="${listing.id}">
-                <a href="listing.html?edit=${listing.id}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Edit</a>
-                ${canMarkSold ? `<button type="button" class="listing-sold-btn block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50" data-id="${listing.id}">Mark as sold</button>` : ""}
-                ${canMakeAvailable ? `<button type="button" class="listing-available-btn block w-full text-left px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50" data-id="${listing.id}">Make available</button>` : ""}
-                <button type="button" class="listing-delete-btn block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" data-id="${listing.id}">Delete</button>
-              </div>
-            </div>
-            <div class="p-2.5 sm:p-3">
-              <h3 class="text-xs sm:text-sm font-semibold text-gray-900 line-clamp-2 mb-1.5">${escapeHtml(listing.title)}</h3>
-              <div class="text-sm sm:text-base font-bold text-emerald-600 leading-none">K${parseFloat(listing.price).toLocaleString()}</div>
-              ${listing.status === "paused" ? `<div class="flex flex-wrap gap-2 mt-2"><button onclick="changeListingStatus(${listing.id}, 'active')" class="rounded border px-2 py-0.5 text-xs">Reactivate</button></div>` : ""}
-            </div>
-          </div>
-        `;
-          })
-          .join("");
-      }
-
-      function closeAllListingMenus(container) {
-        container
-          .querySelectorAll(".listing-menu")
-          .forEach((menu) => menu.classList.add("hidden"));
-        container
-          .querySelectorAll(".listing-menu-toggle")
-          .forEach((btn) => btn.setAttribute("aria-expanded", "false"));
-      }
-
-      function bindMyListingsMenu() {
-        const container = document.getElementById("my-listings-container");
-        if (!container || container.dataset.bound) return;
-        container.dataset.bound = "true";
-
-        container.addEventListener("click", async (event) => {
-          const toggle = event.target.closest(".listing-menu-toggle");
-          if (toggle) {
-            event.stopPropagation();
-            const id = toggle.dataset.id;
-            const menu = container.querySelector(
-              `.listing-menu[data-id="${id}"]`,
-            );
-            const isOpen = !menu.classList.contains("hidden");
-            closeAllListingMenus(container);
-            if (!isOpen) {
-              menu.classList.remove("hidden");
-              toggle.setAttribute("aria-expanded", "true");
-            }
-            return;
-          }
-
-          const soldBtn = event.target.closest(".listing-sold-btn");
-          if (soldBtn) {
-            const id = soldBtn.dataset.id;
-            closeAllListingMenus(container);
-            await changeListingStatus(id, "sold");
-            return;
-          }
-
-          const availableBtn = event.target.closest(".listing-available-btn");
-          if (availableBtn) {
-            const id = availableBtn.dataset.id;
-            closeAllListingMenus(container);
-            await changeListingStatus(id, "active");
-            return;
-          }
-
-          const deleteBtn = event.target.closest(".listing-delete-btn");
-          if (deleteBtn) {
-            const id = deleteBtn.dataset.id;
-            const confirmed = await confirmAction({
-              title: "Delete this listing?",
-              message:
-                "This cannot be undone. All photos, videos, and documents will also be removed.",
-              confirmText: "Delete",
-              variant: "danger",
-            });
-            if (!confirmed) return;
-
-            try {
-              const response = await apiRequest(`/api/listings/${id}`, {
-                method: "DELETE",
-              });
-              showNotification(response.message, "success");
-              await refreshMyListings();
-            } catch (error) {
-              showNotification(
-                error.message || "Unable to delete listing",
-                "error",
-              );
-            }
-          }
-        });
-
-        document.addEventListener("click", (event) => {
-          if (!container.contains(event.target))
-            closeAllListingMenus(container);
-        });
-      }
-
-      function bindListingForm(id) {
-        document
-          .getElementById("seller-listing-form")
-          .addEventListener("submit", async (event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
-            const payload = Object.fromEntries(form.entries());
-            const isEditing = Boolean(id);
-
-            const confirmed = await confirmAction({
-              title: isEditing
-                ? "Save changes to this listing?"
-                : "Publish this listing?",
-              message: isEditing
-                ? "Your updated details go live on the marketplace immediately."
-                : "Your listing goes live on the marketplace as soon as you confirm.",
-              confirmText: isEditing ? "Save changes" : "Publish listing",
-            });
-            if (!confirmed) return;
-
-            try {
-              const response = await apiRequest(
-                id ? `/api/listings/${id}` : "/api/listings",
-                {
-                  method: id ? "PUT" : "POST",
-                  body: JSON.stringify(payload),
-                },
-              );
-              const listingId = id || response.data.id;
-              try {
-                await uploadStagedMedia(listingId);
-              } catch (mediaError) {
-                showNotification(
-                  mediaError.message ||
-                    "Listing saved, but media could not be uploaded",
-                  "warning",
-                );
-              }
-              showNotification(response.message, "success");
-              window.location.href = "listing.html?mine=1";
-            } catch (error) {
-              showNotification(
-                error.message || "Unable to save listing",
-                "error",
-              );
-            }
-          });
-      }
-
-      async function bindDocumentsPanel(listingId) {
-        const form = document.getElementById("document-upload-form");
-        const list = document.getElementById("seller-documents-list");
-        if (!form || !list) return;
-
-        form.addEventListener("submit", async (event) => {
-          event.preventDefault();
-          const data = new FormData(form);
-          if (
-            !(data.get("document") instanceof File) ||
-            !data.get("document").size
-          ) {
-            showNotification("Choose a PDF to upload", "warning");
-            return;
-          }
-          try {
-            const response = await apiRequest(
-              `/api/documents/listing/${listingId}`,
-              {
-                method: "POST",
-                body: data,
-              },
-            );
-            showNotification(response.message, "success");
-            form.reset();
-            await refreshDocumentsPanel(listingId);
-          } catch (error) {
-            showNotification(
-              error.message || "Unable to upload document",
-              "error",
-            );
-          }
-        });
-
-        await refreshDocumentsPanel(listingId);
-      }
-
-      async function refreshDocumentsPanel(listingId) {
-        const list = document.getElementById("seller-documents-list");
-        if (!list) return;
-        try {
-          const response = await apiRequest(
-            `/api/documents/listing/${listingId}`,
-          );
-          const docs = response.data || [];
-          if (!docs.length) {
-            list.innerHTML =
-              '<p class="text-sm text-gray-500">No documents uploaded yet.</p>';
-            return;
-          }
-          list.innerHTML = docs
-            .map(
-              (doc) => `
-            <div class="flex items-start gap-3 border border-gray-200 rounded-lg p-3">
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <h3 class="font-semibold text-gray-900 text-sm truncate">${escapeHtml(doc.title)}</h3>
-                  <span class="text-[10px] font-semibold rounded-full px-2 py-0.5 ${DOCUMENT_STATUS_BADGES[doc.status] || "bg-gray-100 text-gray-700"} capitalize">${doc.status}</span>
-                  <span class="text-[10px] text-gray-500 uppercase tracking-wide">${escapeHtml(DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type)}</span>
-                </div>
-                ${doc.review_notes ? `<p class="text-xs text-gray-600 mt-1">Review note: ${escapeHtml(doc.review_notes)}</p>` : ""}
-              </div>
-              <a href="${doc.file_path}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:text-blue-700 font-medium flex-shrink-0">View</a>
-              ${doc.status !== "approved" ? `<button type="button" class="document-delete-btn text-sm text-red-600 hover:text-red-700 font-medium flex-shrink-0" data-id="${doc.id}">Delete</button>` : ""}
-            </div>
-          `,
-            )
-            .join("");
-
-          list.querySelectorAll(".document-delete-btn").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-              const id = btn.dataset.id;
-              const confirmed = await confirmAction({
-                title: "Remove this document?",
-                message: "It will be deleted and cannot be recovered.",
-                confirmText: "Remove",
-                variant: "danger",
-              });
-              if (!confirmed) return;
-              try {
-                const response = await apiRequest(`/api/documents/${id}`, {
-                  method: "DELETE",
-                });
-                showNotification(response.message, "success");
-                await refreshDocumentsPanel(listingId);
-              } catch (error) {
-                showNotification(
-                  error.message || "Unable to remove document",
-                  "error",
-                );
-              }
-            });
-          });
-        } catch (error) {
-          list.innerHTML =
-            '<p class="text-sm text-red-600">Documents could not be loaded.</p>';
-        }
-      }
-
-      async function loadPublicDocuments(listingId) {
-        try {
-          const response = await apiRequest(
-            `/api/documents/listing/${listingId}/public`,
-          );
-          const docs = response.data || [];
-          if (!docs.length) return;
-          const section = document.getElementById("public-documents-section");
-          const list = document.getElementById("public-documents-list");
-          list.innerHTML = docs
-            .map(
-              (doc) => `
-            <li class="flex items-center justify-between gap-3 border border-gray-200 rounded-lg px-3 py-2">
-              <div class="min-w-0">
-                <p class="text-sm font-semibold text-gray-900 truncate">${escapeHtml(doc.title)}</p>
-                <p class="text-xs text-gray-500">${escapeHtml(DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type)}</p>
-              </div>
-              <a href="${doc.file_path}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:text-blue-700 font-medium flex-shrink-0">View</a>
-            </li>
-          `,
-            )
-            .join("");
-          section.classList.remove("hidden");
-        } catch (error) {
-          console.error("Load public documents error:", error);
-        }
-      }
-
-      async function changeListingStatus(id, status) {
-        const prompt = STATUS_CHANGE_PROMPTS[status] || {
-          title: "Update this listing?",
-          message: "",
-          confirmText: "Update",
-        };
-        const confirmed = await confirmAction(prompt);
-        if (!confirmed) return;
-
-        try {
-          const response = await apiRequest(`/api/listings/${id}/status`, {
-            method: "PATCH",
-            body: JSON.stringify({ status }),
-          });
-          showNotification(response.message, "success");
-          await refreshMyListings();
-        } catch (error) {
-          showNotification(error.message || "Unable to update status", "error");
-        }
-      }
-
-      function setAttrRow(rowId, valueId, value) {
-        const row = document.getElementById(rowId);
-        const target = document.getElementById(valueId);
-        if (!row || !target) return;
-        if (value === null || value === undefined || value === "") {
-          row.classList.add("hidden");
-          return;
-        }
-        target.textContent = value;
-        row.classList.remove("hidden");
-      }
-
-      function renderListing(listing) {
-        document.getElementById("listing-title").textContent = listing.title;
-
-        document.getElementById("listing-price").textContent = formatCurrency(
-          listing.price,
-        );
-
-        const sellerName = listing.seller_name || "Unknown seller";
-        document.getElementById("seller-name").textContent = sellerName;
-        document.getElementById("seller-avatar").textContent = sellerName
-          .trim()
-          .charAt(0)
-          .toUpperCase();
-
-        setAttrRow("attr-species-row", "attr-species", listing.species || null);
-        setAttrRow("attr-breed-row", "attr-breed", listing.breed || null);
-        setAttrRow(
-          "attr-age-row",
-          "attr-age",
-          listing.age_months ? `${listing.age_months} months` : null,
-        );
-        setAttrRow(
-          "attr-weight-row",
-          "attr-weight",
-          listing.weight_kg
-            ? `${Number(listing.weight_kg).toLocaleString()} kg`
-            : null,
-        );
-        setAttrRow(
-          "attr-health-row",
-          "attr-health",
-          listing.health_status && listing.health_status !== "unknown"
-            ? HEALTH_LABELS[listing.health_status] || listing.health_status
-            : null,
-        );
-
-        const attributes = document.getElementById("listing-attributes");
-        const anyVisible =
-          attributes.querySelectorAll('[id$="-row"]:not(.hidden)').length > 0;
-        attributes.classList.toggle("hidden", !anyVisible);
-
-        galleryMedia = listing.media || [];
-        galleryIndex = 0;
-        renderGalleryFrame();
-
-        const currentUser = getCurrentUser();
-        const isSignedIn = Boolean(currentUser);
-        const isOwnListing = currentUser?.id === listing.seller_id;
-        const roleCanBuy = currentUser?.role === "member";
-
-        if (isSignedIn && (!roleCanBuy || isOwnListing)) {
-          document.getElementById("inquiry-btn").classList.add("hidden");
-        }
-
-        if (!roleCanBuy || isOwnListing) {
-          document
-            .getElementById("gallery-favorite-btn")
-            .classList.add("hidden");
-        }
-
-        if (isOwnListing) {
-          document.getElementById("contact-btn").classList.add("hidden");
-        }
-      }
-
-      async function loadSellerListings(listing) {
-        const section = document.getElementById("seller-listings-section");
-        const container = document.getElementById("seller-listings-container");
-        document.getElementById("seller-listings-heading").textContent =
-          listing.seller_name
-            ? `More from ${listing.seller_name}`
-            : "More from this seller";
-        section.classList.remove("hidden");
-
-        try {
-          const response = await apiRequest(
-            `/api/listings?sellerId=${listing.seller_id}&limit=9&sort=newest`,
-          );
-          const others = response.success
-            ? response.data.filter((item) => item.id !== listing.id)
-            : [];
-          if (others.length === 0) {
-            renderEmptyState(
-              container,
-              "This seller doesn't have any other listings yet.",
-            );
-          } else {
-            renderSellerListingCards(others);
-          }
-        } catch (error) {
-          console.error("Load seller listings error:", error);
-          renderEmptyState(
-            container,
-            "This seller doesn't have any other listings yet.",
-          );
-        }
-      }
-
-      function renderSellerListingCards(listings) {
-        const container = document.getElementById("seller-listings-container");
-        container.innerHTML = listings
-          .map(
-            (listing) => `
-        <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition cursor-pointer"
-             onclick="window.location.href = 'listing.html?id=${listing.id}'">
-          <div class="bg-gray-200 aspect-square sm:aspect-[4/3] flex items-center justify-center">
-            ${listing.main_image ? `<img src="${listing.main_image}" alt="${escapeHtml(listing.title)}" class="h-full w-full object-cover">` : speciesFallbackMedia(listing.species)}
-          </div>
-          <div class="p-2.5 sm:p-3">
-            <h3 class="text-xs sm:text-sm font-semibold text-gray-900 line-clamp-2 mb-1.5">${escapeHtml(listing.title)}</h3>
-            <div class="flex items-baseline justify-between gap-2 min-w-0">
-              <span class="text-sm sm:text-base font-bold text-emerald-600 leading-none">K${parseFloat(listing.price).toLocaleString()}</span>
-              ${listing.location ? `<span class="text-[10px] sm:text-xs text-gray-500 flex items-center gap-1 min-w-0"><span class="meta-icon">${uiIcon("location")}</span><span class="truncate">${escapeHtml(listing.location)}</span></span>` : ""}
-            </div>
-          </div>
-        </div>
-      `,
-          )
-          .join("");
-      }
-
-      function renderGalleryFrame() {
-        const mainImage = document.getElementById("main-image");
-        const prevBtn = document.getElementById("gallery-prev");
-        const nextBtn = document.getElementById("gallery-next");
+      function renderGallery() {
+        const images = listing.images || [];
+        const main = document.getElementById("main-image");
+        const prev = document.getElementById("gallery-prev");
+        const next = document.getElementById("gallery-next");
         const dots = document.getElementById("gallery-dots");
+        const thumbs = document.getElementById("gallery-thumbs");
+        main.classList.remove("animate-pulse");
 
-        if (galleryMedia.length === 0) {
-          mainImage.innerHTML = speciesFallbackMedia(currentListing.species);
-          prevBtn.classList.add("hidden");
-          nextBtn.classList.add("hidden");
-          dots.innerHTML = "";
+        if (!images.length) {
+          main.innerHTML = livestockFallbackMedia("w-24 h-24");
+          [prev, next].forEach((b) => b.classList.add("hidden"));
+          dots.innerHTML = thumbs.innerHTML = "";
           return;
         }
 
-        const media = galleryMedia[galleryIndex];
-        const isVideo = media.media_type === "video";
-        mainImage.innerHTML = isVideo
-          ? `<video src="${media.file_path}" controls playsinline preload="metadata" class="w-full h-full object-cover bg-black"></video>`
-          : `<img src="${media.file_path}" alt="Listing photo ${galleryIndex + 1} of ${galleryMedia.length}" class="w-full h-full object-cover">`;
+        const img = images[galleryIndex];
+        main.innerHTML = `<img src="${escapeHtml(img.image_path)}" alt="${escapeHtml(listing.title)} - photo ${galleryIndex + 1} of ${images.length}" class="w-full h-full object-cover" decoding="async">`;
 
-        const hasMultiple = galleryMedia.length > 1;
-        prevBtn.classList.toggle("hidden", !hasMultiple);
-        nextBtn.classList.toggle("hidden", !hasMultiple);
-        prevBtn.disabled = galleryIndex === 0;
-        nextBtn.disabled = galleryIndex === galleryMedia.length - 1;
+        const multiple = images.length > 1;
+        prev.innerHTML = uiIcon("chevronLeft");
+        next.innerHTML = uiIcon("chevronRight");
+        prev.classList.toggle("hidden", !multiple);
+        next.classList.toggle("hidden", !multiple);
+        prev.disabled = galleryIndex === 0;
+        next.disabled = galleryIndex === images.length - 1;
 
-        dots.innerHTML = hasMultiple
-          ? galleryMedia
-              .map((m, i) => {
-                const kind = m.media_type === "video" ? "video" : "photo";
-                return `<button type="button" class="gallery-dot ${i === galleryIndex ? "active" : ""}" data-index="${i}" aria-label="${kind} ${i + 1}"></button>`;
-              })
-              .join("")
+        dots.innerHTML = multiple
+          ? images.map((_, i) => `<button type="button" class="gallery-dot ${i === galleryIndex ? "active" : ""}" data-index="${i}" aria-label="Photo ${i + 1}"></button>`).join("")
           : "";
-        dots.querySelectorAll("button").forEach((dot) => {
-          dot.addEventListener("click", () => {
-            galleryIndex = parseInt(dot.dataset.index, 10);
-            renderGalleryFrame();
-          });
+        thumbs.innerHTML = multiple
+          ? images.map((im, i) => `<button type="button" class="${i === galleryIndex ? "active" : ""}" data-index="${i}" aria-label="Show photo ${i + 1}"><img src="${escapeHtml(im.thumb_path || im.image_path)}" alt="" loading="lazy"></button>`).join("")
+          : "";
+        [...dots.querySelectorAll("button"), ...thumbs.querySelectorAll("button")].forEach((b) =>
+          b.addEventListener("click", () => { galleryIndex = Number(b.dataset.index); renderGallery(); }),
+        );
+        // Warm the next photo so swiping feels instant.
+        if (images[galleryIndex + 1]) new Image().src = images[galleryIndex + 1].image_path;
+      }
+
+      function step(delta) {
+        const count = listing?.images?.length || 0;
+        const nextIndex = galleryIndex + delta;
+        if (nextIndex < 0 || nextIndex >= count) return;
+        galleryIndex = nextIndex;
+        renderGallery();
+      }
+      document.getElementById("gallery-prev").addEventListener("click", () => step(-1));
+      document.getElementById("gallery-next").addEventListener("click", () => step(1));
+
+      // Swipe on touch screens
+      (() => {
+        const frame = document.querySelector(".gallery-frame");
+        let startX = null;
+        frame.addEventListener("touchstart", (e) => (startX = e.touches[0].clientX), { passive: true });
+        frame.addEventListener("touchend", (e) => {
+          if (startX === null) return;
+          const dx = e.changedTouches[0].clientX - startX;
+          if (Math.abs(dx) > 40) step(dx < 0 ? 1 : -1);
+          startX = null;
+        });
+      })();
+
+      async function loadRelated() {
+        try {
+          const res = await apiRequest(`/api/livestock?category_id=${listing.category_id}&exclude=${listing.id}&limit=4`);
+          if (!res.data.length) return;
+          document.getElementById("related-heading").textContent = `More ${listing.category_name} livestock`;
+          const container = document.getElementById("related-container");
+          container.innerHTML = res.data.map(renderLivestockCard).join("");
+          bindInquireButtons(container, res.data);
+          document.getElementById("related-section").classList.remove("hidden");
+        } catch {
+          /* related listings are optional */
+        }
+      }
+
+      function showNotFound(message) {
+        document.getElementById("listing-container").classList.add("hidden");
+        const box = document.getElementById("listing-error");
+        box.classList.remove("hidden");
+        renderEmptyState(box, {
+          title: "Listing not available",
+          message: message || "This listing may have been removed or is no longer available.",
+          icon: "cattle",
+          action: `<a href="/#listings" class="inline-block mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 font-medium">Browse all livestock</a>`,
         });
       }
 
-      async function toggleFavorite() {
-        const user = getCurrentUser();
-        if (!user) {
-          goToLogin("favorite", {
-            next: `/listing.html?id=${currentListing.id}`,
-          });
-          return;
-        }
-
+      document.addEventListener("DOMContentLoaded", async () => {
+        const id = getQueryParams().id;
+        if (!id) return showNotFound();
         try {
-          const btn = document.getElementById("gallery-favorite-btn");
-          const isFavorited = btn.classList.contains("active");
-
-          if (isFavorited) {
-            await apiRequest(`/api/favorites/${currentListing.id}`, {
-              method: "DELETE",
-            });
-            btn.classList.remove("active");
-            btn.setAttribute("aria-label", "Add to favorites");
-            showNotification("Removed from favorites", "success");
-          } else {
-            await apiRequest(`/api/favorites/${currentListing.id}`, {
-              method: "POST",
-            });
-            btn.classList.add("active");
-            btn.setAttribute("aria-label", "Remove from favorites");
-            showNotification("Added to favorites", "success");
-          }
+          listing = (await apiRequest(`/api/livestock/${encodeURIComponent(id)}`)).data;
         } catch (error) {
-          console.error("Toggle favorite error:", error);
-          showNotification("Failed to update favorites", "error");
+          return showNotFound(error.status === 404 ? null : error.message);
         }
-      }
-
-      function showInquiryModal() {
-        const user = getCurrentUser();
-        if (!user) {
-          goToLogin("buy", { next: `/listing.html?id=${currentListing.id}` });
-          return;
-        }
-        document.getElementById("inquiry-modal").classList.remove("hidden");
-      }
-
-      function hideInquiryModal() {
-        document.getElementById("inquiry-modal").classList.add("hidden");
-        document.getElementById("inquiry-message").value = "";
-      }
-
-      async function sendInquiry() {
-        const message = document.getElementById("inquiry-message").value.trim();
-        if (!message) {
-          showNotification("Please enter a message", "warning");
-          return;
-        }
-
-        try {
-          const response = await apiRequest("/api/inquiries", {
-            method: "POST",
-            body: JSON.stringify({ listing_id: currentListing.id, message }),
-          });
-          if (response.success) {
-            showNotification("Inquiry sent successfully!", "success");
-            hideInquiryModal();
-          } else {
-            showNotification(
-              response.message || "Failed to send inquiry",
-              "error",
-            );
-          }
-        } catch (error) {
-          console.error("Send inquiry error:", error);
-          showNotification("Failed to send inquiry", "error");
-        }
-      }
+        renderListing(listing);
+        if (getQueryParams().inquire === "1") openInquiryModal(listing);
+        loadRelated();
+      });
     </script>
   </body>
 </html>

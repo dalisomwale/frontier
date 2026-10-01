@@ -3,239 +3,144 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Dashboard - Frontier Marketplace</title>
-    <link rel="icon" href="../images/logo-icon.jpg" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="../css/style.css" />
-    <!-- Loaded blocking, in <head>, so the bottom nav below can be painted
-         on first render instead of popping in after the page has already
-         shown without it. -->
-    <script src="../js/main.js"></script>
-    <script src="../js/auth.js"></script>
-    <script src="../js/species.js"></script>
-    <script src="../js/app-shell.js"></script>
+    <meta name="robots" content="noindex" />
+    <title>Dashboard - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/admin.js"></script>
   </head>
-  <body class="bg-gray-50">
-    <!-- Desktop sidebar: rendered synchronously right here (not on
-         DOMContentLoaded) so it exists before the browser's first paint. -->
+  <body class="bg-gray-50 admin-pending">
     <div id="app-sidebar"></div>
-    <script>
-      renderSidebar("admin-dashboard");
-    </script>
+    <div id="admin-topbar"></div>
 
-    <!-- Compact top bar: brand always visible, logout shown on mobile only
-         since the sidebar (desktop) and bottom nav (mobile) carry the rest
-         of the navigation. -->
-    <nav id="page-topnav" class="bg-white border-b border-gray-100 sticky top-0 z-50">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center h-16">
-          <div class="flex items-center gap-3">
-            <a href="/" class="flex items-center gap-3">
-              <div class="brand-mark-full">
-                <img src="../images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
-              </div>
-            </a>
-          </div>
-
-          <div class="flex items-center gap-4">
-            <a
-              href="../dashboard.html"
-              class="hidden sm:inline lg:hidden text-gray-600 hover:text-gray-900 font-medium"
-              >User Dashboard</a
-            >
-            <button
-              id="logout-btn"
-              class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium"
-            >
-              Logout
-            </button>
-          </div>
+    <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
+          <p id="greeting" class="text-gray-500 mt-1"></p>
         </div>
+        <a href="/admin/livestock.html?new=1" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
+          <span class="w-5 h-5" data-icon="plus"></span> Add Livestock
+        </a>
       </div>
-    </nav>
 
-    <div class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-6">
-          Dashboard Overview
-        </h1>
+      <div id="email-alert" class="hidden alert alert-warning flex items-start gap-3"></div>
 
-        <!-- Stats Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <!-- Total Users -->
-          <div class="stat-tile">
-            <span class="stat-tile-icon bg-blue-100 text-blue-600">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.3 14.1c2.5.4 4.2 2.1 4.2 4.9"/></svg>
-            </span>
-            <div>
-              <p class="text-gray-600 text-sm font-medium">Total Users</p>
-              <p id="stat-total-users" class="text-3xl font-bold text-gray-900">0</p>
-            </div>
+      <!-- Stats (all live from the database) -->
+      <div id="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8"></div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section class="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h2 class="text-lg font-bold text-gray-900">Recent Inquiries</h2>
+            <a href="/admin/inquiries.html" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all →</a>
           </div>
+          <div id="recent-inquiries"></div>
+        </section>
 
-          <!-- Active Listings -->
-          <div class="stat-tile">
-            <span class="stat-tile-icon bg-green-100 text-green-600">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M8 11h8M8 14.5h8M8 18h5"/></svg>
-            </span>
-            <div>
-              <p class="text-gray-600 text-sm font-medium">Active Listings</p>
-              <p id="stat-active-listings" class="text-3xl font-bold text-gray-900">0</p>
-            </div>
+        <section class="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h2 class="text-lg font-bold text-gray-900">Recent Livestock</h2>
+            <a href="/admin/livestock.html" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all →</a>
           </div>
+          <div id="recent-livestock"></div>
+        </section>
+      </div>
+    </main>
 
-          <!-- Pending Reports -->
-          <div class="stat-tile">
-            <span class="stat-tile-icon bg-red-100 text-red-600">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18"/><path d="M5 4h13l-3 4 3 4H5"/></svg>
-            </span>
-            <div>
-              <p class="text-gray-600 text-sm font-medium">Pending Reports</p>
-              <p id="stat-pending-reports" class="text-3xl font-bold text-red-600">0</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- User Breakdown -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <!-- Members (can both buy and sell) -->
-          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Members</h3>
-            <p id="stat-members" class="text-4xl font-bold text-blue-600">0</p>
-            <a
-              href="users.html?role=member"
-              class="text-blue-600 hover:text-blue-700 text-sm font-medium mt-3 inline-block"
-            >
-              View All →
-            </a>
-          </div>
-
-          <!-- Service Providers -->
-          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">
-              Service Providers
-            </h3>
-            <p id="stat-providers" class="text-4xl font-bold text-purple-600">
-              0
-            </p>
-            <a
-              href="users.html?role=service_provider"
-              class="text-blue-600 hover:text-blue-700 text-sm font-medium mt-3 inline-block"
-            >
-              View All →
-            </a>
-          </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-          <h2 class="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <a
-              href="users.html?status=suspended"
-              class="bg-red-50 border border-red-200 hover:border-red-400 rounded-lg p-4 text-center transition"
-            >
-              <p class="font-semibold text-gray-900">Suspended Users</p>
-              <p class="text-sm text-gray-600">View and manage suspensions</p>
-            </a>
-
-            <a
-              href="reports.html?status=pending"
-              class="bg-red-50 border border-red-200 hover:border-red-400 rounded-lg p-4 text-center transition"
-            >
-              <p class="font-semibold text-gray-900">Review Reports</p>
-              <p class="text-sm text-gray-600">
-                Handle reported content and users
-              </p>
-            </a>
-
-            <a
-              href="listings.html"
-              class="bg-blue-50 border border-blue-200 hover:border-blue-400 rounded-lg p-4 text-center transition"
-            >
-              <p class="font-semibold text-gray-900">All Listings</p>
-              <p class="text-sm text-gray-600">
-                Browse and moderate all listings
-              </p>
-            </a>
-          </div>
-        </div>
-
-        <!-- Legal Notice -->
-        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-8">
-          <h3 class="font-semibold text-yellow-900 mb-2">
-            Admin Responsibilities
-          </h3>
-          <p class="text-sm text-yellow-800">
-            As an administrator, you have access to user data and platform
-            content. Please ensure all moderation decisions are fair,
-            documented, and comply with platform policies. Misuse of admin
-            powers may result in account termination.
-          </p>
-        </div>
-    </div>
-
-    <!-- Mobile app-style bottom navigation: rendered synchronously, right
-         here, instead of waiting for DOMContentLoaded. -->
     <div id="app-bottom-nav"></div>
-    <script>
-      renderBottomNav("admin");
-    </script>
 
     <script>
-      document.addEventListener("DOMContentLoaded", async () => {
-        requireAuth();
-        await checkAuthentication();
-        // Re-run after the server round-trip resolves, in case the
-        // optimistic localStorage snapshot used for the instant render
-        // above was missing or stale.
-        renderBottomNav("admin");
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
 
-        const user = getCurrentUser();
-        if (user?.role !== "admin") {
-          showNotification("You do not have admin access", "error");
-          setTimeout(() => (window.location.href = "../dashboard.html"), 2000);
-          return;
-        }
+      const STAT_TILES = [
+        { key: "total_livestock", label: "Total Livestock", icon: "listings", tint: "bg-blue-100 text-blue-600", href: "/admin/livestock.html" },
+        { key: "published_livestock", label: "Published", icon: "eye", tint: "bg-green-100 text-green-600", href: "/admin/livestock.html?status=published" },
+        { key: "unpublished_livestock", label: "Unpublished", icon: "eyeOff", tint: "bg-gray-100 text-gray-600", href: "/admin/livestock.html?status=unpublished" },
+        { key: "new_inquiries", label: "New Inquiries", icon: "inbox", tint: "bg-red-100 text-red-600", href: "/admin/inquiries.html?status=new" },
+        { key: "total_inquiries", label: "Total Inquiries", icon: "inquire", tint: "bg-purple-100 text-purple-600", href: "/admin/inquiries.html" },
+        { key: "categories", label: "Categories", icon: "layers", tint: "bg-amber-100 text-amber-600", href: "/admin/categories.html" },
+        { key: "breeds", label: "Breeds", icon: "tag", tint: "bg-emerald-100 text-emerald-600", href: "/admin/breeds.html" },
+      ];
 
-        await loadStats();
+      function renderStats(stats) {
+        document.getElementById("stats").innerHTML = STAT_TILES.map((t) => `
+          <a href="${t.href}" class="stat-tile hover:shadow-md transition !p-4">
+            <span class="stat-tile-icon ${t.tint}">${uiIcon(t.icon)}</span>
+            <div class="min-w-0">
+              <p class="text-gray-600 text-xs sm:text-sm font-medium leading-tight">${t.label}</p>
+              <p class="text-2xl sm:text-3xl font-bold ${t.key === "new_inquiries" && stats[t.key] ? "text-red-600" : "text-gray-900"}">${stats[t.key].toLocaleString()}</p>
+            </div>
+          </a>`).join("");
 
-        document
-          .getElementById("logout-btn")
-          .addEventListener("click", async () => {
-            await logout();
-          });
-      });
-
-      /**
-       * Load admin statistics
-       */
-      async function loadStats() {
-        try {
-          const response = await apiRequest("/api/admin/stats");
-
-          if (response.success) {
-            const stats = response.data;
-
-            document.getElementById("stat-total-users").textContent =
-              stats.users || 0;
-            document.getElementById("stat-active-listings").textContent =
-              stats.active_listings || 0;
-            document.getElementById("stat-pending-reports").textContent =
-              stats.pending_reports || 0;
-
-            // User breakdown
-            document.getElementById("stat-members").textContent =
-              stats.members || 0;
-            document.getElementById("stat-providers").textContent =
-              stats.service_providers || 0;
-          } else {
-            showNotification("Failed to load statistics", "error");
-          }
-        } catch (error) {
-          console.error("Load stats error:", error);
-          showNotification("Failed to load statistics", "error");
+        const alert = document.getElementById("email-alert");
+        if (stats.failed_emails) {
+          alert.innerHTML = `<span class="w-5 h-5 flex-shrink-0">${uiIcon("alert")}</span>
+            <div><strong>${stats.failed_emails} inquiry notification email${stats.failed_emails > 1 ? "s" : ""} could not be sent.</strong>
+            The inquiries are saved below - check the SMTP settings in .env, then use "Resend email" on each inquiry.
+            <a class="underline font-medium" href="/admin/inquiries.html">Open inquiries</a></div>`;
+          alert.classList.remove("hidden");
         }
       }
+
+      function renderRecentInquiries(items) {
+        const box = document.getElementById("recent-inquiries");
+        if (!items.length) {
+          return renderEmptyState(box, { title: "No inquiries yet", message: "When visitors click Inquire on a listing, their inquiries will appear here.", icon: "inbox" });
+        }
+        box.innerHTML = `<ul class="divide-y divide-gray-100">${items.map((i) => `
+          <li><a href="/admin/inquiries.html?id=${i.id}" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50">
+            <span class="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0">${escapeHtml(i.full_name.charAt(0).toUpperCase())}</span>
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-gray-900 truncate">${escapeHtml(i.full_name)}</p>
+              <p class="text-sm text-gray-500 truncate">${escapeHtml(i.livestock_title)}</p>
+            </div>
+            <div class="text-right flex-shrink-0">
+              ${statusPill(i.status)}
+              <p class="text-xs text-gray-400 mt-1">${timeAgo(i.created_at)}</p>
+            </div>
+          </a></li>`).join("")}</ul>`;
+      }
+
+      function renderRecentLivestock(items) {
+        const box = document.getElementById("recent-livestock");
+        if (!items.length) {
+          return renderEmptyState(box, {
+            title: "No livestock yet",
+            message: "Add your first listing - it stays unpublished until you choose to publish it.",
+            icon: "cattle",
+            action: `<a href="/admin/livestock.html?new=1" class="inline-block mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold">Add Livestock</a>`,
+          });
+        }
+        box.innerHTML = `<ul class="divide-y divide-gray-100">${items.map((l) => `
+          <li><a href="/admin/livestock.html?edit=${l.id}" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50">
+            <span class="w-14 h-11 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover">` : livestockFallbackMedia("w-7 h-7")}</span>
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-gray-900 truncate">${escapeHtml(l.title)}</p>
+              <p class="text-sm text-gray-500 truncate">${escapeHtml([l.category_name, l.breed_name, l.location].filter(Boolean).join(" · "))}</p>
+            </div>
+            ${statusPill(l.status)}
+          </a></li>`).join("")}</ul>`;
+      }
+
+      (async () => {
+        const admin = await initAdminPage("dashboard");
+        const hour = new Date().getHours();
+        document.getElementById("greeting").textContent =
+          `Good ${hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"}, ${admin.name.split(" ")[0]}.`;
+        try {
+          const { data } = await adminApi("/api/admin/dashboard");
+          renderStats(data.stats);
+          renderRecentInquiries(data.recentInquiries);
+          renderRecentLivestock(data.recentLivestock);
+        } catch (error) {
+          showNotification(error.message, "error");
+        }
+      })();
     </script>
   </body>
 </html>

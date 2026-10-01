@@ -1,76 +1,44 @@
-// Authentication and authorization middleware. Roles and account status are
-// refreshed from the database so a suspended account cannot keep using an old
-// browser session.
+// Admin-only authentication. There are no public accounts on the platform.
+//
+// Sessions are server-side (stored in MySQL) and the admin row is re-checked
+// on every request, so deleting an admin locks them out immediately.
 const pool = require("../db");
 
-// Check if user is authenticated
-const isAuthenticated = async (req, res, next) => {
-  if (!req.session || !req.session.userId) {
+async function requireAdmin(req, res, next) {
+  const adminId = req.session?.adminId;
+  if (!adminId) {
     return res
       .status(401)
-      .json({ success: false, message: "Authentication required" });
+      .json({ success: false, message: "Please sign in to continue." });
   }
-
   try {
-    const [users] = await pool.query(
-      "SELECT id, role, status, name FROM users WHERE id = ?",
-      [req.session.userId],
+    const [rows] = await pool.query(
+      "SELECT id, name, email FROM admins WHERE id = ?",
+      [adminId],
     );
-    const user = users[0];
-    if (!user) {
+    if (!rows.length) {
       req.session.destroy(() => {});
       return res
         .status(401)
-        .json({ success: false, message: "Authentication required" });
+        .json({ success: false, message: "Please sign in to continue." });
     }
-    if (user.status !== "active") {
-      return res
-        .status(403)
-        .json({ success: false, message: "This account has been suspended" });
-    }
-    req.session.userRole = user.role;
-    req.session.userName = user.name;
+    req.admin = rows[0];
     return next();
   } catch (error) {
     return next(error);
   }
-};
+}
 
-// Check if user has specific role
-const hasRole = (...roles) => {
-  return (req, res, next) => {
-    if (!roles.includes(req.session.userRole)) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied - insufficient permissions",
-      });
-    }
+// CSRF defence for the admin API. Browsers will not let another site attach
+// a custom header to a cross-origin request without a CORS preflight (which
+// our CORS policy refuses), so requiring it on every state-changing request
+// blocks forged form posts that would otherwise ride the session cookie.
+function requireAdminHeader(req, res, next) {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  if (req.get("X-Frontier-Admin") === "1") return next();
+  return res
+    .status(403)
+    .json({ success: false, message: "Request blocked (missing admin header)." });
+}
 
-    return next();
-  };
-};
-
-// Check if user is admin
-const isAdmin = (req, res, next) => {
-  return hasRole("admin")(req, res, next);
-};
-
-// Check if user is a member - the single marketplace-participant role that
-// can both buy and sell from the same account (there is no separate
-// buyer/seller distinction).
-const isMember = (req, res, next) => {
-  return hasRole("member")(req, res, next);
-};
-
-// Check if user is service provider
-const isServiceProvider = (req, res, next) => {
-  return hasRole("service_provider")(req, res, next);
-};
-
-module.exports = {
-  isAuthenticated,
-  hasRole,
-  isAdmin,
-  isMember,
-  isServiceProvider,
-};
+module.exports = { requireAdmin, requireAdminHeader };

@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Livestock - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/admin.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Livestock</h1>
+          <p class="text-gray-500 mt-1">Create, edit and publish listings. Only published listings are visible on the website.</p>
+        </div>
+        <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
+          <span class="w-5 h-5" data-icon="plus"></span> Add Livestock
+        </button>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center gap-3 p-4 border-b border-gray-100">
+          <div class="seg" id="status-tabs">
+            <button type="button" data-status="" class="active">All</button>
+            <button type="button" data-status="published">Published</button>
+            <button type="button" data-status="unpublished">Unpublished</button>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-3 md:ml-auto">
+            <select id="category-filter" class="field-input !py-2 !text-sm sm:!w-44"><option value="">All categories</option></select>
+            <div class="relative sm:flex-1 md:flex-none md:w-64">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+              <input id="search" type="search" placeholder="Search title, breed, location" class="field-input !py-2 !pl-9 !text-sm" />
+            </div>
+          </div>
+        </div>
+        <div id="list" class="overflow-x-auto"></div>
+        <div id="pagination" class="pb-4"></div>
+      </div>
+    </main>
+
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+
+      const TYPES = ["Bull", "Cow", "Heifer", "Steer", "Calf", "Mixed"];
+      const MAX_PHOTOS = 10;
+      const state = { status: "", category: "", q: "", page: 1 };
+      let categories = [];
+      let breeds = [];
+
+      // -----------------------------------------------------------------
+      // List
+      // -----------------------------------------------------------------
+      async function loadList(page = state.page) {
+        state.page = page;
+        const list = document.getElementById("list");
+        const params = new URLSearchParams({ page, limit: 20 });
+        if (state.status) params.set("status", state.status);
+        if (state.category) params.set("category_id", state.category);
+        if (state.q) params.set("q", state.q);
+
+        let res;
+        try {
+          res = await adminApi(`/api/admin/livestock?${params}`);
+        } catch (error) {
+          return renderEmptyState(list, { title: "Could not load livestock", message: error.message, icon: "alert" });
+        }
+
+        if (!res.data.length) {
+          const filtered = state.status || state.category || state.q;
+          renderEmptyState(list, filtered
+            ? { title: "No matching livestock", message: "Try a different filter or search.", icon: "search" }
+            : { title: "No livestock yet", message: "Add your first listing. It stays unpublished until you publish it.", icon: "cattle",
+                action: `<button type="button" onclick="openEditor()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold">Add Livestock</button>` });
+        } else {
+          list.innerHTML = `
+            <table class="admin-table">
+              <thead><tr>
+                <th>Listing</th><th class="hidden md:table-cell">Category / Breed</th><th class="hidden lg:table-cell">Location</th>
+                <th>Status</th><th class="hidden sm:table-cell text-center">Inquiries</th><th class="text-right hidden sm:table-cell">Actions</th>
+              </tr></thead>
+              <tbody>${res.data.map(rowHtml).join("")}</tbody>
+            </table>`;
+          bindRowActions(list);
+        }
+
+        const pag = document.getElementById("pagination");
+        pag.innerHTML = "";
+        if (res.pagination.total > 1) pag.appendChild(createPagination(res.pagination.current, res.pagination.total, loadList));
+      }
+
+      function actionsHtml(l) {
+        const published = l.status === "published";
+        return `
+              <button type="button" data-toggle="${l.id}" data-to="${published ? "unpublished" : "published"}" class="text-sm font-medium ${published ? "text-gray-600 hover:text-gray-900" : "text-green-700 hover:text-green-800"} px-2 py-1" title="${published ? "Unpublish" : "Publish"}">${published ? "Unpublish" : "Publish"}</button>
+              ${published ? `<a href="/listing.html?id=${l.id}" target="_blank" rel="noopener" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="View on website"><span class="w-4 h-4">${uiIcon("external")}</span></a>` : ""}
+              <button type="button" data-edit="${l.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="Edit"><span class="w-4 h-4">${uiIcon("edit")}</span></button>
+              <button type="button" data-delete="${l.id}" data-title="${escapeHtml(l.title)}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-red-600" title="Delete"><span class="w-4 h-4">${uiIcon("trash")}</span></button>
+            `;
+      }
+
+      function rowHtml(l) {
+        return `
+          <tr>
+            <td>
+              <div class="flex items-center gap-3 min-w-[200px]">
+                <span class="w-16 h-12 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : livestockFallbackMedia("w-7 h-7")}</span>
+                <div class="min-w-0">
+                  <button type="button" data-edit="${l.id}" class="font-semibold text-gray-900 hover:text-blue-600 text-left line-clamp-2">${escapeHtml(l.title)}</button>
+                  <p class="text-xs text-gray-500">${[l.livestock_type, l.quantity > 1 ? `${l.quantity} head` : "", `${l.image_count} photo${l.image_count == 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
+                  <p class="text-xs text-gray-500 md:hidden">${escapeHtml([l.category_name, l.breed_name].filter(Boolean).join(" · "))}</p>
+                  <div class="sm:hidden -ml-2 mt-1">${actionsHtml(l)}</div>
+                </div>
+              </div>
+            </td>
+            <td class="hidden md:table-cell"><span class="tag tag-category">${escapeHtml(l.category_name)}</span> ${l.breed_name ? `<span class="tag tag-breed">${escapeHtml(l.breed_name)}</span>` : ""}</td>
+            <td class="hidden lg:table-cell text-gray-600">${escapeHtml(l.location)}</td>
+            <td>${statusPill(l.status)}</td>
+            <td class="hidden sm:table-cell text-center">${l.inquiry_count ? `<a class="text-blue-600 font-semibold hover:underline" href="/admin/inquiries.html?q=${encodeURIComponent(l.title)}">${l.inquiry_count}</a>` : `<span class="text-gray-400">0</span>`}</td>
+            <td class="text-right whitespace-nowrap hidden sm:table-cell">${actionsHtml(l)}</td>
+          </tr>`;
+      }
+
+      function bindRowActions(root) {
+        root.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openEditor(b.dataset.edit)));
+        root.querySelectorAll("[data-toggle]").forEach((b) =>
+          b.addEventListener("click", async () => {
+            b.disabled = true;
+            try {
+              await adminApi(`/api/admin/livestock/${b.dataset.toggle}/status`, { method: "PATCH", body: { status: b.dataset.to } });
+              showNotification(b.dataset.to === "published" ? "Listing published - it's now live on the website." : "Listing unpublished - it's hidden from the website.", "success");
+              loadList();
+            } catch (error) {
+              showNotification(error.message, "error");
+              b.disabled = false;
+            }
+          }),
+        );
+        root.querySelectorAll("[data-delete]").forEach((b) =>
+          b.addEventListener("click", async () => {
+            const ok = await confirmAction({
+              title: "Delete this listing?",
+              message: `"${b.dataset.title}" and its photos will be permanently deleted. Inquiries about it are kept.`,
+              confirmText: "Delete",
+              variant: "danger",
+            });
+            if (!ok) return;
+            try {
+              await adminApi(`/api/admin/livestock/${b.dataset.delete}`, { method: "DELETE" });
+              showNotification("Listing deleted.", "success");
+              loadList();
+            } catch (error) {
+              showNotification(error.message, "error");
+            }
+          }),
+        );
+      }
+
+      // -----------------------------------------------------------------
+      // Editor
+      // -----------------------------------------------------------------
+      function breedOptions(categoryId, selected) {
+        const list = breeds.filter((b) => String(b.category_id) === String(categoryId) && (b.status === "active" || String(b.id) === String(selected)));
+        return [{ value: "", label: categoryId ? (list.length ? "Select breed" : "No breeds in this category") : "Select a category first" }]
+          .concat(list.map((b) => ({ value: b.id, label: b.name + (b.status === "disabled" ? " (disabled)" : "") })));
+      }
+
+      // Large phone photos are scaled down in the browser before upload, so
+      // listings can be added over a mobile connection. The server then makes
+      // the final optimised WebP versions.
+      async function shrinkImage(file) {
+        if (file.size < 1.5 * 1024 * 1024 || !window.createImageBitmap) return file;
+        try {
+          const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+          const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(bitmap.width * scale);
+          canvas.height = Math.round(bitmap.height * scale);
+          canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+          const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.85));
+          return blob ? new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : file;
+        } catch {
+          return file;
+        }
+      }
+
+      async function openEditor(id) {
+        let item = {};
+        if (id) {
+          try {
+            item = (await adminApi(`/api/admin/livestock/${id}`)).data;
+          } catch (error) {
+            return showNotification(error.message, "error");
+          }
+        }
+        // photos: { id?, src, file?, url? } - existing photos have an id.
+        const photos = (item.images || []).map((im) => ({ id: im.id, src: im.thumb_path || im.image_path }));
+        const removed = [];
+
+        const catOptions = [{ value: "", label: "Select category" }].concat(
+          categories.filter((c) => c.status === "active" || c.id === item.category_id).map((c) => ({ value: c.id, label: c.name + (c.status === "disabled" ? " (disabled)" : "") })),
+        );
+
+        const body = `
+          ${field({ name: "title", label: "Title", value: item.title, required: true, placeholder: "e.g. Boran Heifers - 10 head", attrs: 'maxlength="200"' })}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            ${field({ name: "category_id", label: "Category", value: item.category_id, required: true, options: catOptions })}
+            ${field({ name: "breed_id", label: "Breed", value: item.breed_id, options: breedOptions(item.category_id, item.breed_id) })}
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            ${field({ name: "livestock_type", label: "Type", value: item.livestock_type, options: [{ value: "", label: "Not specified" }, ...TYPES.map((t) => ({ value: t, label: t }))] })}
+            ${field({ name: "quantity", label: "Quantity (head)", type: "number", value: item.quantity ?? 1, attrs: 'min="1" step="1" inputmode="numeric"' })}
+            ${field({ name: "age_months", label: "Age (months)", type: "number", value: item.age_months, attrs: 'min="0" max="600" step="1" inputmode="numeric"', placeholder: "Optional" })}
+          </div>
+          ${field({ name: "location", label: "Location", value: item.location, required: true, placeholder: "e.g. Choma, Southern Province", attrs: 'list="location-list" maxlength="150"' })}
+          <datalist id="location-list"></datalist>
+          ${field({ name: "description", label: "Description", type: "textarea", value: item.description, rows: 5, placeholder: "Condition, feeding, vaccinations, any other details buyers should know…", attrs: 'maxlength="5000"' })}
+
+          <div>
+            <div class="flex items-baseline justify-between mb-2">
+              <span class="field-label !mb-0">Photos</span>
+              <span id="photo-count" class="text-xs text-gray-500"></span>
+            </div>
+            <div id="photo-grid" class="photo-grid"></div>
+            <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple class="hidden">
+            <p class="text-xs text-gray-500 mt-2">JPEG, PNG or WebP, up to ${MAX_PHOTOS} photos. The first photo is the cover shown on listing cards.</p>
+          </div>
+
+          <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50 cursor-pointer">
+            <input type="checkbox" name="publish" class="mt-1 w-4 h-4 accent-blue-600" ${item.status === "published" ? "checked" : ""}>
+            <span><span class="font-semibold text-gray-900">Publish on the website</span>
+            <span class="block text-sm text-gray-500">Unpublished listings are saved but hidden from visitors.</span></span>
+          </label>`;
+
+        openFormModal({
+          title: id ? "Edit Livestock" : "Add Livestock",
+          submitText: id ? "Save Changes" : "Create Listing",
+          wide: true,
+          body,
+          onOpen(form) {
+            const catSelect = form.elements.category_id;
+            const breedSelect = form.elements.breed_id;
+            catSelect.addEventListener("change", () => {
+              breedSelect.innerHTML = breedOptions(catSelect.value).map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join("");
+            });
+            apiRequest("/api/livestock/filters").then((r) => {
+              form.querySelector("#location-list").innerHTML = r.data.locations.map((l) => `<option value="${escapeHtml(l.value)}">`).join("");
+            }).catch(() => {});
+
+            const grid = form.querySelector("#photo-grid");
+            const input = form.querySelector("#photo-input");
+            const renderPhotos = () => {
+              form.querySelector("#photo-count").textContent = `${photos.length} / ${MAX_PHOTOS}`;
+              grid.innerHTML = photos.map((p, i) => `
+                <div class="photo-item ${i === 0 ? "is-cover" : ""}">
+                  <img src="${escapeHtml(p.src)}" alt="Photo ${i + 1}">
+                  ${i === 0 ? '<span class="cover-badge">Cover</span>' : ""}
+                  <div class="photo-actions">
+                    ${i === 0 ? "<span></span>" : `<button type="button" data-cover="${i}">Make cover</button>`}
+                    <button type="button" data-remove="${i}" aria-label="Remove photo">Remove</button>
+                  </div>
+                </div>`).join("") +
+                (photos.length < MAX_PHOTOS
+                  ? `<label class="photo-drop" for="photo-input" tabindex="0">${uiIcon("camera")}<span>Add photos</span></label>`
+                  : "");
+              grid.querySelectorAll("[data-cover]").forEach((b) => b.addEventListener("click", () => {
+                photos.unshift(photos.splice(Number(b.dataset.cover), 1)[0]);
+                form.dispatchEvent(new Event("input"));
+                renderPhotos();
+              }));
+              grid.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => {
+                const [p] = photos.splice(Number(b.dataset.remove), 1);
+                if (p.id) removed.push(p.id);
+                if (p.url) URL.revokeObjectURL(p.url);
+                form.dispatchEvent(new Event("input"));
+                renderPhotos();
+              }));
+              const drop = grid.querySelector(".photo-drop");
+              if (drop) {
+                drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+                ["dragover", "dragenter"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("dragover"); }));
+                ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, () => drop.classList.remove("dragover")));
+                drop.addEventListener("drop", (e) => { e.preventDefault(); addFiles(e.dataTransfer.files); });
+              }
+            };
+            const addFiles = async (fileList) => {
+              const files = [...fileList].filter((f) => /^image\/(jpeg|png|webp)$/.test(f.type));
+              if (files.length < fileList.length) showNotification("Only JPEG, PNG and WebP photos can be added.", "warning");
+              const room = MAX_PHOTOS - photos.length;
+              if (files.length > room) showNotification(`Only ${room} more photo${room === 1 ? "" : "s"} can be added.`, "warning");
+              for (const f of files.slice(0, room)) {
+                const file = await shrinkImage(f);
+                const url = URL.createObjectURL(file);
+                photos.push({ file, src: url, url });
+              }
+              form.dispatchEvent(new Event("input"));
+              renderPhotos();
+            };
+            input.addEventListener("change", () => { addFiles(input.files); input.value = ""; });
+            renderPhotos();
+          },
+          async onSubmit(form) {
+            const v = formValues(form);
+            const errors = {};
+            if (!v.title.trim()) errors.title = "Title is required.";
+            if (!v.category_id) errors.category_id = "Please choose a category.";
+            if (!v.location.trim()) errors.location = "Location is required.";
+            if (Object.keys(errors).length) {
+              const e = new Error("Please correct the highlighted fields.");
+              e.errors = errors;
+              throw e;
+            }
+
+            const fd = new FormData();
+            for (const key of ["title", "category_id", "breed_id", "livestock_type", "quantity", "age_months", "location", "description"]) fd.append(key, v[key] ?? "");
+            fd.append("status", form.elements.publish.checked ? "published" : "unpublished");
+            fd.append("remove_image_ids", JSON.stringify(removed));
+            fd.append("image_order", JSON.stringify(photos.filter((p) => p.id).map((p) => p.id)));
+            const newPhotos = photos.filter((p) => p.file);
+            newPhotos.forEach((p) => fd.append("images", p.file, p.file.name));
+
+            const res = await adminApi(id ? `/api/admin/livestock/${id}` : "/api/admin/livestock", { method: id ? "PUT" : "POST", body: fd });
+
+            // A new photo chosen as cover: existing photos keep their order on
+            // the server, so move the new upload to the front afterwards.
+            if (photos[0]?.file && res.data.images.length > 1) {
+              const firstNewIndex = res.data.images.length - newPhotos.length;
+              const coverId = res.data.images[firstNewIndex].id;
+              const order = [coverId, ...res.data.images.filter((im) => im.id !== coverId).map((im) => im.id)];
+              const fd2 = new FormData();
+              for (const key of ["title", "category_id", "breed_id", "livestock_type", "quantity", "age_months", "location", "description", "status"]) fd2.append(key, res.data[key] ?? "");
+              fd2.append("image_order", JSON.stringify(order));
+              await adminApi(`/api/admin/livestock/${res.data.id}`, { method: "PUT", body: fd2 });
+            }
+            photos.forEach((p) => p.url && URL.revokeObjectURL(p.url));
+            showNotification(id ? "Listing updated." : (res.data.status === "published" ? "Listing created and published." : "Listing saved as unpublished."), "success");
+            loadList(id ? state.page : 1);
+          },
+        });
+      }
+
+      // -----------------------------------------------------------------
+      document.querySelectorAll("#status-tabs button").forEach((b) =>
+        b.addEventListener("click", () => {
+          document.querySelectorAll("#status-tabs button").forEach((x) => x.classList.toggle("active", x === b));
+          state.status = b.dataset.status;
+          loadList(1);
+        }),
+      );
+      document.getElementById("category-filter").addEventListener("change", (e) => { state.category = e.target.value; loadList(1); });
+      let searchTimer;
+      document.getElementById("search").addEventListener("input", (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => { state.q = e.target.value.trim(); loadList(1); }, 300);
+      });
+      document.getElementById("add-btn").addEventListener("click", () => openEditor());
+
+      (async () => {
+        await initAdminPage("livestock");
+        [categories, breeds] = await Promise.all([
+          adminApi("/api/admin/categories").then((r) => r.data),
+          adminApi("/api/admin/breeds").then((r) => r.data),
+        ]);
+        document.getElementById("category-filter").innerHTML += categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+
+        const q = getQueryParams();
+        if (q.status) document.querySelector(`#status-tabs [data-status="${q.status}"]`)?.click();
+        else await loadList(1);
+        if (q.new) openEditor();
+        if (q.edit) openEditor(q.edit);
+      })();
+    </script>
+  </body>
+</html>

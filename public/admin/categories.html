@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Categories - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/admin.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Categories</h1>
+          <p class="text-gray-500 mt-1">The first step of the website filter. Disabled categories, and their listings, are hidden from visitors.</p>
+        </div>
+        <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
+          <span class="w-5 h-5" data-icon="plus"></span> Add Category
+        </button>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div id="list" class="overflow-x-auto"></div>
+      </div>
+    </main>
+
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      let rows = [];
+
+      async function loadList() {
+        const list = document.getElementById("list");
+        try {
+          rows = (await adminApi("/api/admin/categories")).data;
+        } catch (error) {
+          return renderEmptyState(list, { title: "Could not load categories", message: error.message, icon: "alert" });
+        }
+        if (!rows.length) {
+          return renderEmptyState(list, { title: "No categories yet", message: "Add a category such as Dairy, Beef or Dual-Purpose.", icon: "layers" });
+        }
+        list.innerHTML = `
+          <table class="admin-table">
+            <thead><tr><th>Category</th><th class="text-center">Breeds</th><th class="text-center hidden sm:table-cell">Livestock</th><th class="hidden sm:table-cell text-center">Order</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
+            <tbody>${rows.map((c) => `
+              <tr>
+                <td><p class="font-semibold text-gray-900">${escapeHtml(c.name)}</p>${c.description ? `<p class="text-xs text-gray-500 line-clamp-1">${escapeHtml(c.description)}</p>` : ""}</td>
+                <td class="text-center"><a href="/admin/breeds.html?category_id=${c.id}" class="text-blue-600 font-semibold hover:underline">${c.breed_count}</a></td>
+                <td class="text-center hidden sm:table-cell">${c.livestock_count}</td>
+                <td class="text-center hidden sm:table-cell text-gray-500">${c.sort_order}</td>
+                <td>${statusPill(c.status)}</td>
+                <td class="text-right whitespace-nowrap">
+                  <button type="button" data-toggle="${c.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${c.status === "active" ? "Disable" : "Enable"}</button>
+                  <button type="button" data-edit="${c.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="Edit"><span class="w-4 h-4">${uiIcon("edit")}</span></button>
+                  <button type="button" data-delete="${c.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-red-600" title="Delete"><span class="w-4 h-4">${uiIcon("trash")}</span></button>
+                </td>
+              </tr>`).join("")}</tbody>
+          </table>`;
+
+        const find = (id) => rows.find((c) => String(c.id) === id);
+        list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openEditor(find(b.dataset.edit))));
+        list.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", async () => {
+          const c = find(b.dataset.toggle);
+          const next = c.status === "active" ? "disabled" : "active";
+          if (next === "disabled" && c.livestock_count > 0 && !(await confirmAction({ title: `Disable ${c.name}?`, message: `Its ${c.livestock_count} listing(s) will be hidden from the website until you enable it again.`, confirmText: "Disable" }))) return;
+          try {
+            await adminApi(`/api/admin/categories/${c.id}`, { method: "PUT", body: { status: next } });
+            showNotification(`${c.name} ${next === "active" ? "enabled" : "disabled"}.`, "success");
+            loadList();
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+        list.querySelectorAll("[data-delete]").forEach((b) => b.addEventListener("click", async () => {
+          const c = find(b.dataset.delete);
+          if (!(await confirmAction({ title: `Delete ${c.name}?`, message: "Categories that still have breeds or livestock can't be deleted - disable them instead.", confirmText: "Delete", variant: "danger" }))) return;
+          try {
+            await adminApi(`/api/admin/categories/${c.id}`, { method: "DELETE" });
+            showNotification("Category deleted.", "success");
+            loadList();
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+      }
+
+      function openEditor(c = {}) {
+        openFormModal({
+          title: c.id ? "Edit Category" : "Add Category",
+          submitText: c.id ? "Save Changes" : "Add Category",
+          body: `
+            ${field({ name: "name", label: "Name", value: c.name, required: true, placeholder: "e.g. Dairy", attrs: 'maxlength="100"' })}
+            ${field({ name: "description", label: "Description", type: "textarea", value: c.description, placeholder: "Shown on the category tile on the homepage", attrs: 'maxlength="2000"' })}
+            <div class="grid grid-cols-2 gap-4">
+              ${field({ name: "sort_order", label: "Display order", type: "number", value: c.sort_order ?? (rows.length + 1), help: "Lower numbers show first", attrs: 'step="1"' })}
+              ${field({ name: "status", label: "Status", value: c.status || "active", options: [{ value: "active", label: "Active" }, { value: "disabled", label: "Disabled" }] })}
+            </div>`,
+          async onSubmit(form) {
+            const v = formValues(form);
+            if (!v.name.trim()) { const e = new Error("Please enter a name."); e.errors = { name: "Name is required." }; throw e; }
+            await adminApi(c.id ? `/api/admin/categories/${c.id}` : "/api/admin/categories", { method: c.id ? "PUT" : "POST", body: v });
+            showNotification(c.id ? "Category updated." : "Category added.", "success");
+            loadList();
+          },
+        });
+      }
+
+      document.getElementById("add-btn").addEventListener("click", () => openEditor());
+      (async () => { await initAdminPage("categories"); loadList(); })();
+    </script>
+  </body>
+</html>
