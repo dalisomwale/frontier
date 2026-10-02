@@ -1,7 +1,13 @@
 const express = require("express");
 const pool = require("../../db");
 const { positiveInt, text, oneOf, badRequest, notFound } = require("../../lib/validate");
-const { uploadSingleImage, saveTaxonomyImage, deleteTaxonomyImage } = require("../../middleware/upload");
+const {
+  uploadSingleImage,
+  uploadPurposeImages,
+  saveTaxonomyImage,
+  deleteTaxonomyImage,
+  MAX_PURPOSE_PHOTOS,
+} = require("../../middleware/upload");
 
 const STATUSES = ["active", "disabled"];
 
@@ -163,7 +169,11 @@ categories.get("/", async (req, res, next) => {
       ORDER BY an.sort_order ASC, an.name ASC, c.sort_order ASC, c.name ASC`,
       animalId ? [animalId] : [],
     );
-    res.json({ success: true, data: rows });
+    const photos = await purposePhotos(rows.map((row) => row.id));
+    res.json({
+      success: true,
+      data: rows.map(({ image_path, ...row }) => ({ ...row, photos: photos.get(row.id) || [] })),
+    });
   } catch (error) {
     next(error);
   }
@@ -241,10 +251,10 @@ categories.put("/:id", async (req, res, next) => {
 categories.delete("/:id", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
-    const [[row]] = await pool.query("SELECT image_path FROM categories WHERE id = ?", [id]);
+    const [files] = await pool.query("SELECT image_path FROM category_images WHERE category_id = ?", [id]);
     const [result] = await pool.query("DELETE FROM categories WHERE id = ?", [id]);
     if (!result.affectedRows) throw notFound("Production purpose not found.");
-    deleteTaxonomyImage(row?.image_path);
+    files.forEach((file) => deleteTaxonomyImage(file.image_path));
     res.json({ success: true });
   } catch (error) {
     if (isInUse(error)) {
@@ -256,7 +266,91 @@ categories.delete("/:id", async (req, res, next) => {
   }
 });
 
-photoRoutes(categories, "categories", "purpose", "Production purpose");
+// --- Production purpose slideshow photos ------------------------------------
+//   POST   /:id/photos            multipart "images" (adds, up to 8 in total)
+//   DELETE /:id/photos/:photoId   removes one
+//   PUT    /:id/photos/order      { order: [photoId, ...] } - first shows first
+async function purposePhotos(ids) {
+  const map = new Map();
+  if (!ids.length) return map;
+  const [rows] = await pool.query(
+    `SELECT id, category_id, image_path FROM category_images
+     WHERE category_id IN (?) ORDER BY sort_order ASC, id ASC`,
+    [ids],
+  );
+  for (const row of rows) {
+    if (!map.has(row.category_id)) map.set(row.category_id, []);
+    map.get(row.category_id).push({ id: row.id, image_path: row.image_path });
+  }
+  return map;
+}
+
+async function requirePurpose(id) {
+  const [rows] = await pool.query("SELECT id FROM categories WHERE id = ?", [id]);
+  if (!rows.length) throw notFound("Production purpose not found.");
+}
+
+categories.post("/:id/photos", uploadPurposeImages, async (req, res, next) => {
+  const saved = [];
+  try {
+    const id = positiveInt(req.params.id);
+    await requirePurpose(id);
+    if (!req.files || !req.files.length) throw badRequest("Please choose at least one photo.");
+    const [[{ count, last }]] = await pool.query(
+      "SELECT COUNT(*) AS count, COALESCE(MAX(sort_order), -1) AS last FROM category_images WHERE category_id = ?",
+      [id],
+    );
+    if (Number(count) + req.files.length > MAX_PURPOSE_PHOTOS) {
+      throw badRequest(`A production purpose can have at most ${MAX_PURPOSE_PHOTOS} photos.`);
+    }
+    for (const file of req.files) saved.push(await saveTaxonomyImage(file.buffer, "purpose"));
+    let order = Number(last) + 1;
+    for (const imagePath of saved) {
+      await pool.query(
+        "INSERT INTO category_images (category_id, image_path, sort_order) VALUES (?, ?, ?)",
+        [id, imagePath, order++],
+      );
+    }
+    res.json({ success: true, data: (await purposePhotos([id])).get(id) || [] });
+  } catch (error) {
+    saved.forEach(deleteTaxonomyImage);
+    next(error);
+  }
+});
+
+categories.delete("/:id/photos/:photoId", async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id);
+    const photoId = positiveInt(req.params.photoId);
+    const [[row]] = await pool.query(
+      "SELECT image_path FROM category_images WHERE id = ? AND category_id = ?",
+      [photoId, id],
+    );
+    if (!row) throw notFound("Photo not found.");
+    await pool.query("DELETE FROM category_images WHERE id = ?", [photoId]);
+    deleteTaxonomyImage(row.image_path);
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+categories.put("/:id/photos/order", async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id);
+    const order = Array.isArray(req.body.order) ? req.body.order.map((v) => positiveInt(v)).filter(Boolean) : null;
+    if (!order) throw badRequest("Order must be a list of photo ids.");
+    for (const [index, photoId] of order.entries()) {
+      await pool.query(
+        "UPDATE category_images SET sort_order = ? WHERE id = ? AND category_id = ?",
+        [index, photoId, id],
+      );
+    }
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Breeds

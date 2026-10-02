@@ -74,6 +74,19 @@ CREATE TABLE IF NOT EXISTS breeds (
   INDEX idx_breeds_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- category_images: photos for a production purpose. The website slides
+-- through them on the purpose's tile (first = shown first). -----------------
+CREATE TABLE IF NOT EXISTS category_images (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  category_id  INT UNSIGNED NOT NULL,
+  image_path   VARCHAR(500) NOT NULL,
+  sort_order   INT NOT NULL DEFAULT 0,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_category_images_category FOREIGN KEY (category_id)
+    REFERENCES categories(id) ON DELETE CASCADE,
+  INDEX idx_category_images (category_id, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- livestock: listings, created by administrators only. category_id is the
 -- production purpose (which implies the animal); livestock_type is the
 -- animal-specific type (Bull, Doe, Ewe, Sow, Hen...) shown on the listing.

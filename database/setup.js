@@ -176,6 +176,20 @@ async function main() {
     }
   }
 
+  // Production purposes now have several photos (category_images) that the
+  // website slides through. Carry each single photo across as the first one.
+  if (await columnExists(conn, "categories", "image_path")) {
+    const [moved] = await conn.query(
+      `INSERT INTO category_images (category_id, image_path, sort_order)
+       SELECT c.id, c.image_path, 0 FROM categories c
+       WHERE c.image_path IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM category_images ci
+                         WHERE ci.category_id = c.id AND ci.image_path = c.image_path)`,
+    );
+    await conn.query("UPDATE categories SET image_path = NULL WHERE image_path IS NOT NULL");
+    if (moved.affectedRows) console.log(`  moved ${moved.affectedRows} purpose photo(s) into the slideshow table`);
+  }
+
   // --- 5. Reference data ----------------------------------------------------
   if (seedTaxonomy) {
     await conn.query(readSql("seed-taxonomy.sql"));

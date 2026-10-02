@@ -43,6 +43,17 @@ const uploadSingleImage = multer({
   },
 }).single("image");
 
+// Several photos for a production purpose's slideshow. Field name: "images".
+const MAX_PURPOSE_PHOTOS = 8;
+const uploadPurposeImages = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BYTES, files: MAX_PURPOSE_PHOTOS },
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_MIMES.includes(file.mimetype)) return cb(null, true);
+    return cb(badRequest("Photos must be JPEG, PNG or WebP images."));
+  },
+}).array("images", MAX_PURPOSE_PHOTOS);
+
 async function saveTaxonomyImage(buffer, prefix) {
   let image;
   try {
@@ -111,4 +122,6 @@ module.exports = {
   uploadSingleImage,
   saveTaxonomyImage,
   deleteTaxonomyImage,
+  uploadPurposeImages,
+  MAX_PURPOSE_PHOTOS,
 };

@@ -85,25 +85,56 @@ router.get("/animals", async (req, res, next) => {
 });
 
 // Production purposes (optionally for one animal) - the homepage shows them
-// as photo tiles once an animal is chosen.
+// as photo tiles once an animal is chosen, each sliding through `photos`
+// (uploaded in the admin). `listing_photos` are recent photos from that
+// purpose's listings, used when no photos have been uploaded yet.
+const LISTING_PHOTOS_PER_PURPOSE = 4;
+
 router.get("/categories", async (req, res, next) => {
   try {
     const animalId = positiveInt(req.query.animal_id);
     const [rows] = await pool.query(
-      `SELECT cat.id, cat.name, cat.description, cat.image_path, cat.animal_id,
+      `SELECT cat.id, cat.name, cat.description, cat.animal_id,
          an.name AS animal_name, an.image_path AS animal_image_path,
          (SELECT COUNT(*) FROM breeds bb WHERE bb.category_id = cat.id AND bb.status = 'active') AS breed_count,
-         (SELECT COUNT(*) ${FROM} WHERE ${VISIBLE} AND l.category_id = cat.id) AS livestock_count,
-         (SELECT li.thumb_path ${FROM}
-            JOIN livestock_images li ON li.livestock_id = l.id
-            WHERE ${VISIBLE} AND l.category_id = cat.id
-            ORDER BY l.created_at DESC, li.sort_order ASC, li.id ASC LIMIT 1) AS cover_image
+         (SELECT COUNT(*) ${FROM} WHERE ${VISIBLE} AND l.category_id = cat.id) AS livestock_count
        FROM categories cat JOIN animals an ON an.id = cat.animal_id
        WHERE cat.status = 'active' AND an.status = 'active' ${animalId ? "AND cat.animal_id = ?" : ""}
        ORDER BY an.sort_order ASC, cat.sort_order ASC, cat.name ASC`,
       animalId ? [animalId] : [],
     );
-    res.json({ success: true, data: rows });
+
+    const ids = rows.map((row) => row.id);
+    const photos = new Map(ids.map((id) => [id, []]));
+    const listingPhotos = new Map(ids.map((id) => [id, []]));
+    if (ids.length) {
+      const [uploaded] = await pool.query(
+        `SELECT category_id, image_path FROM category_images
+         WHERE category_id IN (?) ORDER BY sort_order ASC, id ASC`,
+        [ids],
+      );
+      uploaded.forEach((row) => photos.get(row.category_id).push(row.image_path));
+
+      // The cover photo of each published listing, newest first.
+      const [fromListings] = await pool.query(
+        `SELECT l.category_id, li.thumb_path ${FROM}
+         JOIN livestock_images li ON li.id = (
+           SELECT li2.id FROM livestock_images li2 WHERE li2.livestock_id = l.id
+           ORDER BY li2.sort_order ASC, li2.id ASC LIMIT 1)
+         WHERE ${VISIBLE} AND l.category_id IN (?)
+         ORDER BY l.created_at DESC, l.id DESC`,
+        [ids],
+      );
+      fromListings.forEach((row) => {
+        const list = listingPhotos.get(row.category_id);
+        if (list.length < LISTING_PHOTOS_PER_PURPOSE) list.push(row.thumb_path);
+      });
+    }
+
+    res.json({
+      success: true,
+      data: rows.map((row) => ({ ...row, photos: photos.get(row.id), listing_photos: listingPhotos.get(row.id) })),
+    });
   } catch (error) {
     next(error);
   }

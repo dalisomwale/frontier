@@ -219,10 +219,10 @@
                 attrs: p.livestock_count ? "disabled" : "" })}
             ${field({ name: "name", label: "Purpose name", value: p.name, required: true, placeholder: "e.g. Meat, Dairy, Layers", attrs: 'maxlength="100"' })}
             ${field({ name: "description", label: "Description", type: "textarea", value: p.description, placeholder: "Shown on the purpose tile on the website (optional)", attrs: 'maxlength="2000"' })}
-            ${photoField({ current: p.image_path, help: "Shown on this purpose's tile on the website when visitors choose the animal. JPEG, PNG or WebP; cropped to a 4:3 tile." })}
+            ${photosField({ help: `Shown as a slideshow on this purpose's tile on the website when visitors choose the animal. Up to ${MAX_PURPOSE_PHOTOS} photos; the first shows first. JPEG, PNG or WebP, cropped to 4:3.` })}
             ${field({ name: "status", label: "Status", value: p.status || "active", options: statusOptions })}`,
           onOpen(form) {
-            photo = bindPhotoField(form, p.image_path);
+            photo = bindPhotosField(form, p.photos || []);
           },
           async onSubmit(form) {
             const v = formValues(form);
@@ -237,7 +237,7 @@
             } catch (error) {
               // The details are saved; only the photo failed. Say so rather than
               // keeping the form open (saving again would create a duplicate).
-              showNotification(`Production purpose saved, but the photo wasn't: ${error.message} Open it again to retry.`, "warning");
+              showNotification(`Production purpose saved, but some photos weren't: ${error.message} Open it again to retry.`, "warning");
               load();
               return;
             }

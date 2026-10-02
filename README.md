@@ -116,7 +116,7 @@ SMTP credentials are only read on the server from `.env`. Nothing about email re
 | **Dashboard** | Live counts from the database: total, published and unpublished livestock, animals, purposes, breeds, total and new inquiries. Also recent inquiries, recent livestock, and a failed-email warning. |
 | **Livestock** | Add/edit/delete listings, publish or unpublish, and upload up to 10 photos (remove, set cover). Animal → Purpose → Breed dropdowns, and a Type list that fits the animal (Bull/Cow…, Buck/Doe…, Hen/Pullet…). Filter by status/animal and search. |
 | **Inquiries** | Tabs for New, Contacted, In Progress, Resolved and Archived, plus search. Each inquiry has one-tap Call / WhatsApp / Email, a status changer, archive/restore, delete, and resend email. Links in notification emails open the inquiry directly. |
-| **Animals & Purposes** | Add, edit, enable/disable and delete animal categories (Cattle, Goats, Sheep, Pigs, Poultry…) and each animal's production purposes, each with a **photo** (upload / replace / remove in the Add and Edit forms) that is shown on its tile on the website. New items are added at the end. Disabling hides it and its listings from the website. |
+| **Animals & Purposes** | Add, edit, enable/disable and delete animal categories (Cattle, Goats, Sheep, Pigs, Poultry…) and each animal's production purposes, with photos set in the Add and Edit forms: one **photo** per animal (upload / replace / remove) and up to **8 photos** per production purpose (add, remove, make first), shown on their tiles on the website. New items are added at the end. Disabling hides it and its listings from the website. |
 | **Breeds** | Add, edit, enable/disable and delete breeds / strains, each assigned to one animal's production purpose. A breed in use can't be deleted or moved, so the public filter stays accurate. |
 
 Photos are resized in the browser before upload (good on mobile data). The server then stores an optimised WebP (max 1600px) plus a 640px card thumbnail, typically 100–300 KB instead of several MB.
@@ -140,7 +140,7 @@ The homepage filter cascades, and every option comes from the database:
 | Pigs | Meat, Commercial |
 | Poultry | Layers, Broilers, Dual-Purpose, Breeding |
 
-**Photo tiles:** the homepage shows animal tiles; choosing an animal (tile or dropdown) switches them to that animal's production-purpose tiles, and clicking one filters the listings. Each tile uses the photo uploaded in the admin, else a recent listing photo, else a stock photo.
+**Photo tiles:** the homepage shows animal tiles; choosing an animal (tile or dropdown) switches them to that animal's production-purpose tiles, and clicking one filters the listings. Animal tiles show one photo (uploaded, else a recent listing photo, else a stock photo). **Purpose tiles slide through their photos** inside the card (about every 4 seconds, staggered; the text stays still; paused for visitors who prefer reduced motion), using the uploaded photos, else recent listing photos, else the animal's photo.
 
 Cattle breeds come from the client's cattle breed reference document. The other animals' breeds are common Zambian / Southern African breeds and strains; review them in Admin → Breeds.
 - Province always lists all 10 Zambian provinces (Central, Copperbelt, Eastern, Luapula, Lusaka, Muchinga, Northern, North-Western, Southern, Western), with listing counts for the earlier choices. Admins pick a listing's province from the same list.
@@ -153,7 +153,7 @@ Cattle breeds come from the client's cattle breed reference document. The other 
 
 ```
 database/
-  schema.sql            v2 tables (admins, animals, categories = production purposes, breeds, livestock, livestock_images, inquiries)
+  schema.sql            v2 tables (admins, animals, categories = production purposes, category_images, breeds, livestock, livestock_images, inquiries)
   seed-taxonomy.sql     5 animals, 15 production purposes, 65 breeds (reference data only)
   setup.js              npm run db:setup - create, migrate from v1, seed
 scripts/
@@ -213,7 +213,8 @@ npm run build:css
 | GET / POST | `/api/admin/livestock` (POST is multipart with `images[]`) |
 | GET / PUT / DELETE | `/api/admin/livestock/:id` · PATCH `/api/admin/livestock/:id/status` |
 | GET / POST / PUT / DELETE | `/api/admin/animals[/:id]`, `/api/admin/categories[/:id]`, `/api/admin/breeds[/:id]` |
-| POST / DELETE | `/api/admin/animals/:id/photo`, `/api/admin/categories/:id/photo` (multipart field `image`) |
+| POST / DELETE | `/api/admin/animals/:id/photo` (multipart field `image`) |
+| POST · DELETE · PUT | `/api/admin/categories/:id/photos` (multipart `images`, up to 8) · `/:id/photos/:photoId` · `/:id/photos/order` `{ order: [ids] }` |
 | GET / PATCH / DELETE | `/api/admin/inquiries[/:id]` · POST `/api/admin/inquiries/:id/resend-email` |
 
 ---

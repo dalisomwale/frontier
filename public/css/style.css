@@ -1531,3 +1531,51 @@ body.admin-pending main {
   height: 100%;
   object-fit: cover;
 }
+
+/* Production-purpose tiles: photos cross-fade inside the tile; the text
+   overlay stays still. */
+.cat-tile .tile-slides {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+
+.cat-tile .tile-slides img {
+  opacity: 0;
+  transition:
+    opacity 1.2s ease-in-out,
+    transform 0.5s ease;
+}
+
+.cat-tile .tile-slides img.active {
+  opacity: 1;
+}
+
+.tile-dots {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 5px;
+}
+
+.tile-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.5);
+  transition:
+    width 0.3s,
+    background 0.3s;
+}
+
+.tile-dots span.active {
+  width: 16px;
+  background: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cat-tile .tile-slides img {
+    transition: none;
+  }
+}

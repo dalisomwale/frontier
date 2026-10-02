@@ -290,3 +290,112 @@ function bindPhotoField(form, current) {
     },
   };
 }
+
+/**
+ * Multi-photo field for a production purpose's slideshow (up to `max`).
+ *   body:   photosField({ count: item.photos.length })
+ *   onOpen: const photos = bindPhotosField(form, item.photos)
+ *   save:   await photos.apply(`/api/admin/categories/${id}`)
+ * Nothing is sent until the form is saved; then removed photos are
+ * deleted, new ones uploaded, and the order saved (first shows first).
+ */
+const MAX_PURPOSE_PHOTOS = 8;
+
+function photosField({ label = "Photos", help = "" } = {}) {
+  return `
+    <div data-photos-field>
+      <div class="flex items-baseline justify-between mb-2">
+        <span class="field-label !mb-0">${escapeHtml(label)}</span>
+        <span class="text-xs text-gray-500" data-photos-count></span>
+      </div>
+      <div class="photo-grid" data-photos-grid></div>
+      <input type="file" accept="image/jpeg,image/png,image/webp" multiple class="sr-only" data-photos-input>
+      <p class="text-xs text-gray-500 mt-2">${escapeHtml(help || `Up to ${MAX_PURPOSE_PHOTOS} photos. JPEG, PNG or WebP; each is cropped to a 4:3 tile.`)}</p>
+    </div>`;
+}
+
+function bindPhotosField(form, existing = []) {
+  const box = form.querySelector("[data-photos-field]");
+  const grid = box.querySelector("[data-photos-grid]");
+  const input = box.querySelector("[data-photos-input]");
+  const count = box.querySelector("[data-photos-count]");
+  // items: { id?, src, file?, url? } - existing photos have an id
+  const items = existing.map((p) => ({ id: p.id, src: p.image_path }));
+  const removed = [];
+  const changed = () => form.dispatchEvent(new Event("input"));
+
+  function render() {
+    count.textContent = `${items.length} / ${MAX_PURPOSE_PHOTOS}`;
+    grid.innerHTML =
+      items.map((p, i) => `
+        <div class="photo-item ${i === 0 ? "is-cover" : ""}">
+          <img src="${escapeHtml(p.src)}" alt="Photo ${i + 1}">
+          ${i === 0 ? '<span class="cover-badge">First</span>' : ""}
+          <div class="photo-actions">
+            ${i === 0 ? "<span></span>" : `<button type="button" data-first="${i}">Make first</button>`}
+            <button type="button" data-remove="${i}" aria-label="Remove photo">Remove</button>
+          </div>
+        </div>`).join("") +
+      (items.length < MAX_PURPOSE_PHOTOS
+        ? `<button type="button" class="photo-drop" data-add>${uiIcon("camera")}<span>Add photos</span></button>`
+        : "");
+    grid.querySelectorAll("[data-first]").forEach((b) => b.addEventListener("click", () => {
+      items.unshift(items.splice(Number(b.dataset.first), 1)[0]);
+      changed();
+      render();
+    }));
+    grid.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => {
+      const [p] = items.splice(Number(b.dataset.remove), 1);
+      if (p.id) removed.push(p.id);
+      if (p.url) URL.revokeObjectURL(p.url);
+      changed();
+      render();
+    }));
+    const add = grid.querySelector("[data-add]");
+    if (add) {
+      add.addEventListener("click", () => input.click());
+      ["dragover", "dragenter"].forEach((t) => add.addEventListener(t, (e) => { e.preventDefault(); add.classList.add("dragover"); }));
+      ["dragleave", "drop"].forEach((t) => add.addEventListener(t, () => add.classList.remove("dragover")));
+      add.addEventListener("drop", (e) => { e.preventDefault(); addFiles(e.dataTransfer.files); });
+    }
+  }
+
+  async function addFiles(fileList) {
+    const files = [...fileList].filter((f) => /^image\/(jpeg|png|webp)$/.test(f.type));
+    if (files.length < fileList.length) showNotification("Only JPEG, PNG and WebP photos can be added.", "warning");
+    const room = MAX_PURPOSE_PHOTOS - items.length;
+    if (files.length > room) showNotification(`Only ${room} more photo${room === 1 ? "" : "s"} can be added.`, "warning");
+    for (const f of files.slice(0, room)) {
+      const file = await shrinkImage(f);
+      const url = URL.createObjectURL(file);
+      items.push({ file, src: url, url });
+    }
+    changed();
+    render();
+  }
+
+  input.addEventListener("change", () => { addFiles(input.files); input.value = ""; });
+  render();
+
+  return {
+    async apply(baseUrl) {
+      for (const id of removed) {
+        await adminApi(`${baseUrl}/photos/${id}`, { method: "DELETE" });
+      }
+      const fresh = items.filter((p) => p.file);
+      let newIds = [];
+      if (fresh.length) {
+        const fd = new FormData();
+        fresh.forEach((p) => fd.append("images", p.file, p.file.name || "photo.jpg"));
+        const res = await adminApi(`${baseUrl}/photos`, { method: "POST", body: fd });
+        newIds = res.data.slice(-fresh.length).map((p) => p.id);
+      }
+      let n = 0;
+      const order = items.map((p) => (p.file ? newIds[n++] : p.id)).filter(Boolean);
+      if (order.length > 1) {
+        await adminApi(`${baseUrl}/photos/order`, { method: "PUT", body: { order } });
+      }
+      items.forEach((p) => p.url && URL.revokeObjectURL(p.url));
+    },
+  };
+}
