@@ -201,7 +201,7 @@
         renderAnimalChips();
       }
 
-      function tileHtml({ id, attr, name, src, slides = null, alt, active = false }) {
+      function tileHtml({ id, attr, name, subtitle = "", src, slides = null, alt, active = false }) {
         const fallback = "this.onerror=null;this.src='/images/livestock/cattle-fallback.webp'";
         const media = slides && slides.length > 1
           ? `<div class="tile-slides" aria-hidden="true">${slides.map((url, i) => `
@@ -214,6 +214,7 @@
             ${media}
             <div class="absolute inset-x-0 bottom-0 p-5">
               <h3 class="text-2xl font-bold">${escapeHtml(name)}</h3>
+              ${subtitle ? `<p class="text-sm text-blue-100 mt-1 line-clamp-2">${escapeHtml(subtitle)}</p>` : ""}
             </div>
           </a>`;
       }
@@ -301,7 +302,7 @@
         }
         const fallback = animal ? animal.image_path || animalPhoto(animal).src() : "/images/livestock/cattle-fallback.webp";
         tiles.innerHTML = purposes.map((p) => tileHtml({
-          id: p.id, attr: "data-purpose", name: p.name,
+          id: p.id, attr: "data-purpose", name: p.name, subtitle: p.description,
           slides: p.photos.length ? p.photos : p.listing_photos.length ? p.listing_photos : [fallback],
           alt: `${p.animal_name} - ${p.name}`,
         })).join("");
