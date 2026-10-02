@@ -60,12 +60,13 @@ function buildWhere(filters, upTo = "location") {
 }
 
 // Animal categories for the homepage tiles, chips and first dropdown, with
-// live counts and a cover photo taken from a real listing when one exists.
+// live counts. Tiles use the photo uploaded in the admin (image_path), else
+// a cover photo taken from a real listing (cover_image).
 // The outer table is aliased `an` because FROM/VISIBLE already use `a`.
 router.get("/animals", async (req, res, next) => {
   try {
     const [rows] = await pool.query(
-      `SELECT an.id, an.name, an.description,
+      `SELECT an.id, an.name, an.description, an.image_path,
          (SELECT COUNT(*) FROM categories cc
             WHERE cc.animal_id = an.id AND cc.status = 'active') AS purpose_count,
          (SELECT COUNT(*) ${FROM} WHERE ${VISIBLE} AND c.animal_id = an.id) AS livestock_count,
@@ -83,14 +84,20 @@ router.get("/animals", async (req, res, next) => {
   }
 });
 
-// Production purposes (optionally for one animal).
+// Production purposes (optionally for one animal) - the homepage shows them
+// as photo tiles once an animal is chosen.
 router.get("/categories", async (req, res, next) => {
   try {
     const animalId = positiveInt(req.query.animal_id);
     const [rows] = await pool.query(
-      `SELECT cat.id, cat.name, cat.description, cat.animal_id, an.name AS animal_name,
+      `SELECT cat.id, cat.name, cat.description, cat.image_path, cat.animal_id,
+         an.name AS animal_name, an.image_path AS animal_image_path,
          (SELECT COUNT(*) FROM breeds bb WHERE bb.category_id = cat.id AND bb.status = 'active') AS breed_count,
-         (SELECT COUNT(*) ${FROM} WHERE ${VISIBLE} AND l.category_id = cat.id) AS livestock_count
+         (SELECT COUNT(*) ${FROM} WHERE ${VISIBLE} AND l.category_id = cat.id) AS livestock_count,
+         (SELECT li.thumb_path ${FROM}
+            JOIN livestock_images li ON li.livestock_id = l.id
+            WHERE ${VISIBLE} AND l.category_id = cat.id
+            ORDER BY l.created_at DESC, li.sort_order ASC, li.id ASC LIMIT 1) AS cover_image
        FROM categories cat JOIN animals an ON an.id = cat.animal_id
        WHERE cat.status = 'active' AND an.status = 'active' ${animalId ? "AND cat.animal_id = ?" : ""}
        ORDER BY an.sort_order ASC, cat.sort_order ASC, cat.name ASC`,

@@ -109,20 +109,31 @@
       }
 
       function openAnimalEditor(a = {}) {
+        let photo;
         openFormModal({
           title: a.id ? "Edit Animal" : "Add Animal",
           submitText: a.id ? "Save Changes" : "Add Animal",
           body: `
             ${field({ name: "name", label: "Animal name", value: a.name, required: true, placeholder: "e.g. Goats", attrs: 'maxlength="100"' })}
             ${field({ name: "description", label: "Description", type: "textarea", value: a.description, placeholder: "Shown on the animal tile on the homepage", attrs: 'maxlength="2000"' })}
-            <div class="grid grid-cols-2 gap-4">
-              ${field({ name: "sort_order", label: "Display order", type: "number", value: a.sort_order ?? animals.length + 1, help: "Lower numbers show first", attrs: 'step="1"' })}
-              ${field({ name: "status", label: "Status", value: a.status || "active", options: statusOptions })}
-            </div>`,
+            ${photoField({ current: a.image_path, help: "Shown on this animal's tile on the website. JPEG, PNG or WebP; cropped to a 4:3 tile." })}
+            ${field({ name: "status", label: "Status", value: a.status || "active", options: statusOptions })}`,
+          onOpen(form) {
+            photo = bindPhotoField(form, a.image_path);
+          },
           async onSubmit(form) {
             const v = formValues(form);
             if (!v.name.trim()) { const e = new Error("Please enter a name."); e.errors = { name: "Animal name is required." }; throw e; }
-            await adminApi(a.id ? `/api/admin/animals/${a.id}` : "/api/admin/animals", { method: a.id ? "PUT" : "POST", body: v });
+            const res = await adminApi(a.id ? `/api/admin/animals/${a.id}` : "/api/admin/animals", { method: a.id ? "PUT" : "POST", body: v });
+            try {
+              await photo.apply(`/api/admin/animals/${a.id || res.data.id}`);
+            } catch (error) {
+              // The details are saved; only the photo failed. Say so rather than
+              // keeping the form open (saving again would create a duplicate).
+              showNotification(`Animal saved, but the photo wasn't: ${error.message} Open it again to retry.`, "warning");
+              load();
+              return;
+            }
             showNotification(a.id ? "Animal updated." : "Animal added.", "success");
             load();
           },
@@ -157,14 +168,13 @@
         }
         box.innerHTML = `
           <table class="admin-table">
-            <thead><tr><th>Purpose</th><th>Animal</th><th class="text-center">Breeds</th><th class="text-center hidden sm:table-cell">Listings</th><th class="hidden sm:table-cell text-center">Order</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
+            <thead><tr><th>Purpose</th><th>Animal</th><th class="text-center">Breeds</th><th class="text-center hidden sm:table-cell">Listings</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
             <tbody>${shown.map((p) => `
               <tr>
                 <td><p class="font-semibold text-gray-900">${escapeHtml(p.name)}</p>${p.description ? `<p class="text-xs text-gray-500 line-clamp-1">${escapeHtml(p.description)}</p>` : ""}</td>
                 <td><span class="tag tag-category">${escapeHtml(p.animal_name)}</span></td>
                 <td class="text-center"><a href="/admin/breeds.html?animal_id=${p.animal_id}&category_id=${p.id}" class="text-blue-600 font-semibold hover:underline">${p.breed_count}</a></td>
                 <td class="text-center hidden sm:table-cell">${p.livestock_count}</td>
-                <td class="text-center hidden sm:table-cell text-gray-500">${p.sort_order}</td>
                 <td>${statusPill(p.status)}</td>
                 <td class="text-right whitespace-nowrap">
                   <button type="button" data-toggle="${p.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${p.status === "active" ? "Disable" : "Enable"}</button>
@@ -198,8 +208,8 @@
       }
 
       function openPurposeEditor(p = {}) {
+        let photo;
         const animalOptions = [{ value: "", label: "Select animal" }, ...animals.map((a) => ({ value: a.id, label: a.name }))];
-        const inSameAnimal = purposes.filter((x) => String(x.animal_id) === String(p.animal_id ?? current)).length;
         openFormModal({
           title: p.id ? "Edit Production Purpose" : "Add Production Purpose",
           submitText: p.id ? "Save Changes" : "Add Purpose",
@@ -208,11 +218,12 @@
                 help: p.livestock_count ? "This purpose is used by listings, so its animal can't be changed." : "",
                 attrs: p.livestock_count ? "disabled" : "" })}
             ${field({ name: "name", label: "Purpose name", value: p.name, required: true, placeholder: "e.g. Meat, Dairy, Layers", attrs: 'maxlength="100"' })}
-            ${field({ name: "description", label: "Description", type: "textarea", value: p.description, placeholder: "Optional", attrs: 'maxlength="2000"' })}
-            <div class="grid grid-cols-2 gap-4">
-              ${field({ name: "sort_order", label: "Display order", type: "number", value: p.sort_order ?? inSameAnimal + 1, help: "Lower numbers show first", attrs: 'step="1"' })}
-              ${field({ name: "status", label: "Status", value: p.status || "active", options: statusOptions })}
-            </div>`,
+            ${field({ name: "description", label: "Description", type: "textarea", value: p.description, placeholder: "Shown on the purpose tile on the website (optional)", attrs: 'maxlength="2000"' })}
+            ${photoField({ current: p.image_path, help: "Shown on this purpose's tile on the website when visitors choose the animal. JPEG, PNG or WebP; cropped to a 4:3 tile." })}
+            ${field({ name: "status", label: "Status", value: p.status || "active", options: statusOptions })}`,
+          onOpen(form) {
+            photo = bindPhotoField(form, p.image_path);
+          },
           async onSubmit(form) {
             const v = formValues(form);
             if (p.livestock_count) delete v.animal_id;
@@ -220,7 +231,16 @@
             if (!p.livestock_count && !v.animal_id) errors.animal_id = "Please choose an animal.";
             if (!v.name.trim()) errors.name = "Purpose name is required.";
             if (Object.keys(errors).length) { const e = new Error("Please correct the highlighted fields."); e.errors = errors; throw e; }
-            await adminApi(p.id ? `/api/admin/categories/${p.id}` : "/api/admin/categories", { method: p.id ? "PUT" : "POST", body: v });
+            const res = await adminApi(p.id ? `/api/admin/categories/${p.id}` : "/api/admin/categories", { method: p.id ? "PUT" : "POST", body: v });
+            try {
+              await photo.apply(`/api/admin/categories/${p.id || res.data.id}`);
+            } catch (error) {
+              // The details are saved; only the photo failed. Say so rather than
+              // keeping the form open (saving again would create a duplicate).
+              showNotification(`Production purpose saved, but the photo wasn't: ${error.message} Open it again to retry.`, "warning");
+              load();
+              return;
+            }
             showNotification(p.id ? "Production purpose updated." : "Production purpose added.", "success");
             load();
           },

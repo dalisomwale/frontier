@@ -183,3 +183,110 @@ function field({ name, label, type = "text", value = "", required = false, place
 function formValues(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
+
+// Large phone photos are scaled down in the browser before upload, so
+// listings can be added over a mobile connection. The server then makes
+// the final optimised WebP versions.
+async function shrinkImage(file) {
+  if (file.size < 1.5 * 1024 * 1024 || !window.createImageBitmap) return file;
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.85));
+    return blob ? new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : file;
+  } catch {
+    return file;
+  }
+}
+
+/**
+ * Single-photo field for animal categories and production purposes.
+ *   body:   photoField({ current: item.image_path })
+ *   onOpen: const photo = bindPhotoField(form, item.image_path)
+ *   save:   await photo.apply(`/api/admin/animals/${id}`)
+ * Shows the current photo, lets the admin upload / replace / remove it, and
+ * only talks to the server when the form is saved.
+ */
+function photoField({ label = "Photo", current = null, help = "" } = {}) {
+  return `
+    <div data-photo-field>
+      <span class="field-label">${escapeHtml(label)}</span>
+      <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+        <div class="photo-field-preview" data-photo-preview></div>
+        <div class="flex flex-col gap-2 min-w-0">
+          <div class="flex flex-wrap gap-2">
+            <label class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium text-sm cursor-pointer">
+              <span class="w-4 h-4">${uiIcon("camera")}</span><span data-photo-upload-label>${current ? "Replace photo" : "Upload photo"}</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" data-photo-input>
+            </label>
+            <button type="button" data-photo-remove class="${current ? "" : "hidden"} inline-flex items-center gap-2 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 font-medium text-sm">
+              <span class="w-4 h-4">${uiIcon("trash")}</span>Remove
+            </button>
+          </div>
+          <p class="text-xs text-gray-500">${escapeHtml(help || "Shown on the website. JPEG, PNG or WebP; it's cropped to a 4:3 tile.")}</p>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bindPhotoField(form, current) {
+  const box = form.querySelector("[data-photo-field]");
+  const preview = box.querySelector("[data-photo-preview]");
+  const input = box.querySelector("[data-photo-input]");
+  const removeBtn = box.querySelector("[data-photo-remove]");
+  const uploadLabel = box.querySelector("[data-photo-upload-label]");
+  const state = { file: null, remove: false, url: null };
+
+  function paint(src) {
+    preview.innerHTML = src
+      ? `<img src="${escapeHtml(src)}" alt="Photo preview">`
+      : `<span class="flex flex-col items-center gap-1"><span class="w-6 h-6">${uiIcon("camera")}</span><span>No photo</span></span>`;
+    removeBtn.classList.toggle("hidden", !src);
+    uploadLabel.textContent = src ? "Replace photo" : "Upload photo";
+  }
+
+  input.addEventListener("change", async () => {
+    const file = input.files[0];
+    input.value = "";
+    if (!file) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      showNotification("Photos must be JPEG, PNG or WebP images.", "warning");
+      return;
+    }
+    if (state.url) URL.revokeObjectURL(state.url);
+    state.file = await shrinkImage(file);
+    state.remove = false;
+    state.url = URL.createObjectURL(state.file);
+    paint(state.url);
+    form.dispatchEvent(new Event("input"));
+  });
+
+  removeBtn.addEventListener("click", () => {
+    if (state.url) URL.revokeObjectURL(state.url);
+    state.file = null;
+    state.url = null;
+    state.remove = Boolean(current);
+    paint(null);
+    form.dispatchEvent(new Event("input"));
+  });
+
+  paint(current);
+
+  return {
+    state,
+    async apply(baseUrl) {
+      if (state.file) {
+        const fd = new FormData();
+        fd.append("image", state.file, state.file.name || "photo.jpg");
+        await adminApi(`${baseUrl}/photo`, { method: "POST", body: fd });
+      } else if (state.remove) {
+        await adminApi(`${baseUrl}/photo`, { method: "DELETE" });
+      }
+      if (state.url) URL.revokeObjectURL(state.url);
+    },
+  };
+}

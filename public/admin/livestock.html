@@ -201,25 +201,6 @@
 
       const optionsHtml = (opts) => opts.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join("");
 
-      // Large phone photos are scaled down in the browser before upload, so
-      // listings can be added over a mobile connection. The server then makes
-      // the final optimised WebP versions.
-      async function shrinkImage(file) {
-        if (file.size < 1.5 * 1024 * 1024 || !window.createImageBitmap) return file;
-        try {
-          const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-          const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.round(bitmap.width * scale);
-          canvas.height = Math.round(bitmap.height * scale);
-          canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-          const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.85));
-          return blob ? new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : file;
-        } catch {
-          return file;
-        }
-      }
-
       async function openEditor(id) {
         let item = {};
         if (id) {

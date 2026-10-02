@@ -11,6 +11,9 @@ public/uploads/*
 !public/uploads/livestock/
 public/uploads/livestock/*
 !public/uploads/livestock/.gitkeep
+!public/uploads/taxonomy/
+public/uploads/taxonomy/*
+!public/uploads/taxonomy/.gitkeep
 
 # Logs, OS and editor files
 *.log

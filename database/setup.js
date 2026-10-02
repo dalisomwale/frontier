@@ -167,6 +167,15 @@ async function main() {
     console.log("  inquiries now record the animal");
   }
 
+  // Photos for animal categories and production purposes (shown as tiles on
+  // the website, uploaded in Admin > Animals & Purposes).
+  for (const table of ["animals", "categories"]) {
+    if (!(await columnExists(conn, table, "image_path"))) {
+      await conn.query(`ALTER TABLE ${table} ADD COLUMN image_path VARCHAR(500) NULL AFTER description`);
+      console.log(`  ${table} can now have a photo`);
+    }
+  }
+
   // --- 5. Reference data ----------------------------------------------------
   if (seedTaxonomy) {
     await conn.query(readSql("seed-taxonomy.sql"));

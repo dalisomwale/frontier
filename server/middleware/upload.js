@@ -14,11 +14,14 @@ const { badRequest } = require("../lib/validate");
 
 const UPLOAD_DIR = path.join(__dirname, "..", "..", "public", "uploads", "livestock");
 const PUBLIC_PREFIX = "/uploads/livestock";
+const TAXONOMY_DIR = path.join(__dirname, "..", "..", "public", "uploads", "taxonomy");
+const TAXONOMY_PREFIX = "/uploads/taxonomy";
 const MAX_FILES = 10;
 const MAX_BYTES = 12 * 1024 * 1024;
 const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp"];
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+fs.mkdirSync(TAXONOMY_DIR, { recursive: true });
 
 const uploadImages = multer({
   storage: multer.memoryStorage(),
@@ -28,6 +31,38 @@ const uploadImages = multer({
     return cb(badRequest("Photos must be JPEG, PNG or WebP images."));
   },
 }).array("images", MAX_FILES);
+
+// One photo for an animal category or production purpose, used as a 4:3
+// tile on the website. Field name: "image".
+const uploadSingleImage = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BYTES, files: 1 },
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_MIMES.includes(file.mimetype)) return cb(null, true);
+    return cb(badRequest("Photos must be JPEG, PNG or WebP images."));
+  },
+}).single("image");
+
+async function saveTaxonomyImage(buffer, prefix) {
+  let image;
+  try {
+    image = sharp(buffer, { failOn: "error" }).rotate();
+    await image.metadata();
+  } catch {
+    throw badRequest("That file is not a valid image.");
+  }
+  const name = `${prefix}-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.webp`;
+  await image
+    .resize({ width: 1200, height: 900, fit: "cover", position: "attention" })
+    .webp({ quality: 76 })
+    .toFile(path.join(TAXONOMY_DIR, name));
+  return `${TAXONOMY_PREFIX}/${name}`;
+}
+
+function deleteTaxonomyImage(publicPath) {
+  if (!publicPath || !publicPath.startsWith(`${TAXONOMY_PREFIX}/`)) return;
+  fs.unlink(path.join(TAXONOMY_DIR, path.basename(publicPath)), () => {});
+}
 
 async function saveImage(buffer) {
   const id = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}`;
@@ -68,4 +103,12 @@ function deleteImageFiles(...publicPaths) {
   }
 }
 
-module.exports = { uploadImages, saveImage, deleteImageFiles, MAX_FILES };
+module.exports = {
+  uploadImages,
+  saveImage,
+  deleteImageFiles,
+  MAX_FILES,
+  uploadSingleImage,
+  saveTaxonomyImage,
+  deleteTaxonomyImage,
+};

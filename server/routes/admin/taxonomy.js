@@ -1,6 +1,7 @@
 const express = require("express");
 const pool = require("../../db");
 const { positiveInt, text, oneOf, badRequest, notFound } = require("../../lib/validate");
+const { uploadSingleImage, saveTaxonomyImage, deleteTaxonomyImage } = require("../../middleware/upload");
 
 const STATUSES = ["active", "disabled"];
 
@@ -15,11 +16,47 @@ function isInUse(error) {
   return error && (error.code === "ER_ROW_IS_REFERENCED_2" || error.code === "ER_ROW_IS_REFERENCED");
 }
 
-function sortOrderOf(body) {
-  if (body.sort_order === undefined || body.sort_order === "") return undefined;
-  const value = Number.parseInt(body.sort_order, 10);
-  if (!Number.isSafeInteger(value)) throw badRequest("Sort order must be a whole number.");
-  return value;
+// Display order isn't edited in the admin; new items simply go last.
+async function nextSortOrder(table, where = "1 = 1", params = []) {
+  const [[{ next }]] = await pool.query(
+    `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM ${table} WHERE ${where}`,
+    params,
+  );
+  return Number(next);
+}
+
+// Photo routes shared by animals and production purposes:
+//   POST   /:id/photo   multipart field "image" - adds or replaces the photo
+//   DELETE /:id/photo   removes it
+// The website tile falls back to a listing photo or a stock photo when none.
+function photoRoutes(router, table, prefix, label) {
+  router.post("/:id/photo", uploadSingleImage, async (req, res, next) => {
+    try {
+      const id = positiveInt(req.params.id);
+      if (!req.file) throw badRequest("Please choose a photo to upload.");
+      const [[row]] = await pool.query(`SELECT image_path FROM ${table} WHERE id = ?`, [id]);
+      if (!row) throw notFound(`${label} not found.`);
+      const imagePath = await saveTaxonomyImage(req.file.buffer, prefix);
+      await pool.query(`UPDATE ${table} SET image_path = ? WHERE id = ?`, [imagePath, id]);
+      deleteTaxonomyImage(row.image_path);
+      res.json({ success: true, data: { image_path: imagePath } });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete("/:id/photo", async (req, res, next) => {
+    try {
+      const id = positiveInt(req.params.id);
+      const [[row]] = await pool.query(`SELECT image_path FROM ${table} WHERE id = ?`, [id]);
+      if (!row) throw notFound(`${label} not found.`);
+      await pool.query(`UPDATE ${table} SET image_path = NULL WHERE id = ?`, [id]);
+      deleteTaxonomyImage(row.image_path);
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -50,7 +87,7 @@ function animalPayload(body, partial) {
     throw badRequest("Animal name must be 1-100 characters.");
   if (description === undefined) throw badRequest("Description is too long.");
   if (status === null) throw badRequest("Invalid status.");
-  return { name, description, status, sort_order: sortOrderOf(body) };
+  return { name, description, status };
 }
 
 animals.post("/", async (req, res, next) => {
@@ -58,7 +95,7 @@ animals.post("/", async (req, res, next) => {
     const p = animalPayload(req.body, false);
     const [result] = await pool.query(
       "INSERT INTO animals (name, description, status, sort_order) VALUES (?, ?, ?, ?)",
-      [p.name, p.description, p.status || "active", p.sort_order ?? 0],
+      [p.name, p.description, p.status || "active", await nextSortOrder("animals")],
     );
     res.status(201).json({ success: true, data: { id: result.insertId } });
   } catch (error) {
@@ -73,7 +110,7 @@ animals.put("/:id", async (req, res, next) => {
     const p = animalPayload(req.body, true);
     const fields = [];
     const params = [];
-    for (const key of ["name", "description", "status", "sort_order"]) {
+    for (const key of ["name", "description", "status"]) {
       if (req.body[key] !== undefined) {
         fields.push(`${key} = ?`);
         params.push(p[key] ?? null);
@@ -91,8 +128,11 @@ animals.put("/:id", async (req, res, next) => {
 
 animals.delete("/:id", async (req, res, next) => {
   try {
-    const [result] = await pool.query("DELETE FROM animals WHERE id = ?", [positiveInt(req.params.id)]);
+    const id = positiveInt(req.params.id);
+    const [[row]] = await pool.query("SELECT image_path FROM animals WHERE id = ?", [id]);
+    const [result] = await pool.query("DELETE FROM animals WHERE id = ?", [id]);
     if (!result.affectedRows) throw notFound("Animal not found.");
+    deleteTaxonomyImage(row?.image_path);
     res.json({ success: true });
   } catch (error) {
     if (isInUse(error)) {
@@ -103,6 +143,8 @@ animals.delete("/:id", async (req, res, next) => {
     next(error);
   }
 });
+
+photoRoutes(animals, "animals", "animal", "Animal");
 
 // ---------------------------------------------------------------------------
 // Production purposes (table: categories)
@@ -142,7 +184,7 @@ async function categoryPayload(body, partial) {
     const [rows] = await pool.query("SELECT id FROM animals WHERE id = ?", [animalId]);
     if (!rows.length) throw badRequest("That animal does not exist.");
   }
-  return { name, description, status, animal_id: animalId, sort_order: sortOrderOf(body) };
+  return { name, description, status, animal_id: animalId };
 }
 
 categories.post("/", async (req, res, next) => {
@@ -150,7 +192,7 @@ categories.post("/", async (req, res, next) => {
     const p = await categoryPayload(req.body, false);
     const [result] = await pool.query(
       "INSERT INTO categories (animal_id, name, description, status, sort_order) VALUES (?, ?, ?, ?, ?)",
-      [p.animal_id, p.name, p.description, p.status || "active", p.sort_order ?? 0],
+      [p.animal_id, p.name, p.description, p.status || "active", await nextSortOrder("categories", "animal_id = ?", [p.animal_id])],
     );
     res.status(201).json({ success: true, data: { id: result.insertId } });
   } catch (error) {
@@ -180,7 +222,7 @@ categories.put("/:id", async (req, res, next) => {
 
     const fields = [];
     const params = [];
-    for (const key of ["animal_id", "name", "description", "status", "sort_order"]) {
+    for (const key of ["animal_id", "name", "description", "status"]) {
       if (req.body[key] !== undefined) {
         fields.push(`${key} = ?`);
         params.push(p[key] ?? null);
@@ -199,8 +241,10 @@ categories.put("/:id", async (req, res, next) => {
 categories.delete("/:id", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
+    const [[row]] = await pool.query("SELECT image_path FROM categories WHERE id = ?", [id]);
     const [result] = await pool.query("DELETE FROM categories WHERE id = ?", [id]);
     if (!result.affectedRows) throw notFound("Production purpose not found.");
+    deleteTaxonomyImage(row?.image_path);
     res.json({ success: true });
   } catch (error) {
     if (isInUse(error)) {
@@ -211,6 +255,8 @@ categories.delete("/:id", async (req, res, next) => {
     next(error);
   }
 });
+
+photoRoutes(categories, "categories", "purpose", "Production purpose");
 
 // ---------------------------------------------------------------------------
 // Breeds

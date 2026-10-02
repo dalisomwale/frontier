@@ -97,8 +97,9 @@
       <section id="categories" class="py-12 bg-white" style="scroll-margin-top: 72px" aria-labelledby="categories-heading">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="mb-6">
+            <button type="button" id="tiles-back" class="hidden mb-2 text-sm font-medium text-blue-600 hover:text-blue-700">← All animals</button>
             <h2 id="categories-heading" class="text-3xl font-bold text-gray-900">Browse by Animal</h2>
-            <p class="text-gray-600 mt-1">Choose an animal, then narrow down by production purpose and breed.</p>
+            <p id="categories-sub" class="text-gray-600 mt-1">Choose an animal, then narrow down by production purpose and breed.</p>
           </div>
           <div id="animal-tiles" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div>
         </div>
@@ -147,6 +148,7 @@
         location: document.getElementById("filter-location"),
       };
       let animals = [];
+      let tilesFor = null; // which animal's purposes the tile section shows ("" = animals)
       let currentPage = 1;
       let optionsRequest = 0;
 
@@ -210,40 +212,115 @@
           animals.map((a) => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
         els.animal.value = "";
 
-        if (!animals.length) {
-          renderEmptyState(tiles, { title: "No animal categories yet", message: "Animal categories will appear here once they are set up.", icon: "layers" });
-        } else {
-          tiles.innerHTML = animals
-            .map((a) => {
-              const photo = animalPhoto(a);
-              const src = a.cover_image || photo.src();
-              const alt = a.cover_image ? `${a.name} for sale` : photo.alt;
-              const count = Number(a.livestock_count);
-              const purposes = Number(a.purpose_count);
-              return `
-                <a href="#listings" class="cat-tile group" data-animal="${a.id}">
-                  <img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async"
-                    onerror="this.onerror=null;this.src='/images/livestock/cattle-fallback.webp'">
-                  <div class="absolute inset-x-0 bottom-0 p-5">
-                    <h3 class="text-2xl font-bold">${escapeHtml(a.name)}</h3>
-                    ${a.description ? `<p class="text-sm text-blue-100 mt-1 line-clamp-2">${escapeHtml(a.description)}</p>` : ""}
-                    <div class="mt-3 flex items-center justify-between text-sm">
-                      <span class="text-blue-100">${purposes} purpose${purposes === 1 ? "" : "s"} · ${count} listing${count === 1 ? "" : "s"}</span>
-                      <span class="inline-flex items-center gap-1 font-semibold group-hover:translate-x-1 transition">Browse <span class="w-4 h-4">${uiIcon("chevronRight")}</span></span>
-                    </div>
-                  </div>
-                </a>`;
-            })
-            .join("");
+        tilesFor = null;
+        syncTiles();
+        renderAnimalChips();
+      }
+
+      // One photo tile. Photo priority: the one uploaded in the admin, then a
+      // real listing photo, then the stock photo for the animal.
+      function tileHtml({ id, attr, name, description, meta, src, alt, active = false }) {
+        return `
+          <a href="#listings" class="cat-tile group ${active ? "ring-4 ring-blue-500 ring-offset-2" : ""}" ${attr}="${id}">
+            <img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async"
+              onerror="this.onerror=null;this.src='/images/livestock/cattle-fallback.webp'">
+            <div class="absolute inset-x-0 bottom-0 p-5">
+              <h3 class="text-2xl font-bold">${escapeHtml(name)}</h3>
+              ${description ? `<p class="text-sm text-blue-100 mt-1 line-clamp-2">${escapeHtml(description)}</p>` : ""}
+              <div class="mt-3 flex items-center justify-between text-sm">
+                <span class="text-blue-100">${meta}</span>
+                <span class="inline-flex items-center gap-1 font-semibold group-hover:translate-x-1 transition">Browse <span class="w-4 h-4">${uiIcon("chevronRight")}</span></span>
+              </div>
+            </div>
+          </a>`;
+      }
+
+      const plural = (n, word) => `${Number(n)} ${word}${Number(n) === 1 ? "" : "s"}`;
+
+      // The tile section follows the Animal dropdown: animal tiles when no
+      // animal is chosen, that animal's production purposes when one is.
+      async function syncTiles() {
+        const animalId = els.animal.value || "";
+        if (tilesFor === animalId) return paintPurposeTiles();
+        tilesFor = animalId;
+        const tiles = document.getElementById("animal-tiles");
+        const heading = document.getElementById("categories-heading");
+        const sub = document.getElementById("categories-sub");
+        const back = document.getElementById("tiles-back");
+
+        if (!animalId) {
+          heading.textContent = "Browse by Animal";
+          sub.textContent = "Choose an animal, then narrow down by production purpose and breed.";
+          back.classList.add("hidden");
+          if (!animals.length) {
+            renderEmptyState(tiles, { title: "No animal categories yet", message: "Animal categories will appear here once they are set up.", icon: "layers" });
+            return;
+          }
+          tiles.innerHTML = animals.map((a) => {
+            const photo = animalPhoto(a);
+            return tileHtml({
+              id: a.id, attr: "data-animal", name: a.name, description: a.description,
+              meta: `${plural(a.purpose_count, "purpose")} · ${plural(a.livestock_count, "listing")}`,
+              src: a.image_path || a.cover_image || photo.src(),
+              alt: a.image_path || a.cover_image ? `${a.name} for sale` : photo.alt,
+            });
+          }).join("");
           tiles.querySelectorAll("[data-animal]").forEach((tile) =>
             tile.addEventListener("click", (event) => {
               event.preventDefault();
-              selectAnimal(tile.dataset.animal, { scroll: true });
+              selectAnimal(tile.dataset.animal, { scroll: false });
+              document.getElementById("categories").scrollIntoView({ behavior: "smooth" });
             }),
           );
+          return;
         }
-        renderAnimalChips();
+
+        const animal = animals.find((a) => String(a.id) === String(animalId));
+        heading.textContent = animal ? animal.name : "Production purposes";
+        sub.textContent = "Choose a production purpose to see matching listings.";
+        back.classList.remove("hidden");
+        let purposes = [];
+        try {
+          purposes = (await apiRequest(`/api/categories?animal_id=${encodeURIComponent(animalId)}`)).data;
+        } catch (error) {
+          renderEmptyState(tiles, { title: "Purposes unavailable", message: error.message, icon: "layers" });
+          return;
+        }
+        if (tilesFor !== animalId) return; // the animal changed while loading
+        if (!purposes.length) {
+          renderEmptyState(tiles, { title: "No production purposes yet", message: `Purposes for ${animal?.name || "this animal"} will appear here once they are set up.`, icon: "layers" });
+          return;
+        }
+        const fallback = animal ? animal.image_path || animalPhoto(animal).src() : "/images/livestock/cattle-fallback.webp";
+        tiles.innerHTML = purposes.map((p) => tileHtml({
+          id: p.id, attr: "data-purpose", name: p.name, description: p.description,
+          meta: `${plural(p.breed_count, "breed")} · ${plural(p.livestock_count, "listing")}`,
+          src: p.image_path || p.cover_image || fallback,
+          alt: `${p.animal_name} - ${p.name}`,
+        })).join("");
+        tiles.querySelectorAll("[data-purpose]").forEach((tile) =>
+          tile.addEventListener("click", async (event) => {
+            event.preventDefault();
+            els.purpose.value = tile.dataset.purpose;
+            els.breed.value = "";
+            await refreshOptions();
+            applyFilters({ scroll: true });
+          }),
+        );
+        paintPurposeTiles();
       }
+
+      // Outline the purpose tile that matches the Purpose dropdown.
+      function paintPurposeTiles() {
+        document.querySelectorAll("#animal-tiles [data-purpose]").forEach((tile) => {
+          const on = tile.dataset.purpose === els.purpose.value;
+          tile.classList.toggle("ring-4", on);
+          tile.classList.toggle("ring-blue-500", on);
+          tile.classList.toggle("ring-offset-2", on);
+        });
+      }
+
+      document.getElementById("tiles-back").addEventListener("click", () => selectAnimal(""));
 
       function renderAnimalChips() {
         const chips = document.getElementById("category-chips");
@@ -337,6 +414,7 @@
 
         fillSelect(els.location, "Select province", data.locations.map((l) => ({ value: l.value, label: withCount(l.value, l.count) })), els.location.value);
         paintChips();
+        syncTiles();
       }
 
       els.animal.addEventListener("change", () => {
