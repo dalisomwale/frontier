@@ -66,7 +66,7 @@ The current production setup (InterServer VPS, PM2 process `Frontier`, Nginx, do
    ```bash
    npm run db:setup
    ```
-   This **renames** the v1 tables (`users`, `listings`, `listing_media`, `listing_documents`, `messages`, `inquiries`, `favorites`, `reports`) to `legacy_v1_*`, so nothing is dropped. It then creates the v2 tables and seeds the reference list (5 animals, 19 production purposes, 70 breeds). Existing **admin** accounts are copied into `admins` with their current passwords. Safe to run again on later deploys. Databases set up before animal categories existed are upgraded in place: the existing Dairy / Beef / Dual-Purpose become Cattle's purposes (listings, breeds and inquiries are kept) and the other animals are added.
+   This **renames** the v1 tables (`users`, `listings`, `listing_media`, `listing_documents`, `messages`, `inquiries`, `favorites`, `reports`) to `legacy_v1_*`, so nothing is dropped. It then creates the v2 tables and seeds the reference list (5 animals, 15 production purposes, 65 breeds). Existing **admin** accounts are copied into `admins` with their current passwords. Safe to run again on later deploys. Databases set up before animal categories existed are upgraded in place: the existing Dairy / Beef / Dual-Purpose become Cattle's purposes (listings, breeds and inquiries are kept) and the other animals are added.
 6. **Create an admin** if you don't already have one, or to reset a password:
    ```bash
    npm run create-admin
@@ -129,15 +129,16 @@ The homepage filter cascades, and every option comes from the database:
 
 **Animal Category → Production Purpose → Breed / Strain → Province**
 
+- No dropdown offers an "All …" option; each shows a prompt (e.g. *Select breed / strain*) until something is picked, and **Clear all filters** resets them.
 - Production Purpose stays locked until an animal is chosen, then lists only that animal's purposes. Breed / Strain stays locked until a purpose is chosen, then lists only that purpose's breeds (e.g. Goats → Meat → Boer, Kalahari Red, Savanna; Poultry → Layers → Lohmann Brown, ISA Brown, Hy-Line Brown). Visitors never see a breed that doesn't belong to their choices.
 
 | Animal | Production purposes |
 |---|---|
 | Cattle | Dairy, Beef, Dual-Purpose |
-| Goats | Meat, Dairy, Dual-Purpose, Indigenous/Local |
-| Sheep | Meat, Wool, Dual-Purpose, Indigenous/Local |
-| Pigs | Meat, Commercial, Indigenous/Local |
-| Poultry | Layers, Broilers, Dual-Purpose, Indigenous/Local, Breeding |
+| Goats | Meat, Dairy, Dual-Purpose |
+| Sheep | Meat, Wool, Dual-Purpose |
+| Pigs | Meat, Commercial |
+| Poultry | Layers, Broilers, Dual-Purpose, Breeding |
 
 Cattle breeds come from the client's cattle breed reference document. The other animals' breeds are common Zambian / Southern African breeds and strains; review them in Admin → Breeds.
 - Province always lists all 10 Zambian provinces (Central, Copperbelt, Eastern, Luapula, Lusaka, Muchinga, Northern, North-Western, Southern, Western), with listing counts for the earlier choices. Admins pick a listing's province from the same list.
@@ -151,7 +152,7 @@ Cattle breeds come from the client's cattle breed reference document. The other 
 ```
 database/
   schema.sql            v2 tables (admins, animals, categories = production purposes, breeds, livestock, livestock_images, inquiries)
-  seed-taxonomy.sql     5 animals, 19 production purposes, 70 breeds (reference data only)
+  seed-taxonomy.sql     5 animals, 15 production purposes, 65 breeds (reference data only)
   setup.js              npm run db:setup - create, migrate from v1, seed
 scripts/
   create-admin.js       npm run create-admin

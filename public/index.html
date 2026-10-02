@@ -54,25 +54,25 @@
               <div>
                 <label for="filter-animal" class="block text-sm font-medium text-white mb-2"><span class="filter-step">1</span>Animal Category</label>
                 <select id="filter-animal" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
-                  <option value="">All Animals</option>
+                  <option value="" disabled hidden selected>Select animal</option>
                 </select>
               </div>
               <div>
                 <label for="filter-purpose" class="block text-sm font-medium text-white mb-2"><span class="filter-step">2</span>Production Purpose</label>
                 <select id="filter-purpose" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white" disabled>
-                  <option value="">Select an animal first</option>
+                  <option value="" disabled hidden selected>Select an animal first</option>
                 </select>
               </div>
               <div>
                 <label for="filter-breed" class="block text-sm font-medium text-white mb-2"><span class="filter-step">3</span>Breed / Strain</label>
                 <select id="filter-breed" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white" disabled>
-                  <option value="">Select a purpose first</option>
+                  <option value="" disabled hidden selected>Select a purpose first</option>
                 </select>
               </div>
               <div>
                 <label for="filter-location" class="block text-sm font-medium text-white mb-2"><span class="filter-step">4</span>Province</label>
                 <select id="filter-location" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
-                  <option value="">All Provinces</option>
+                  <option value="" disabled hidden selected>Select province</option>
                 </select>
               </div>
             </div>
@@ -206,8 +206,9 @@
         }
 
         els.animal.innerHTML =
-          `<option value="">All Animals</option>` +
+          placeholderOption("Select animal") +
           animals.map((a) => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
+        els.animal.value = "";
 
         if (!animals.length) {
           renderEmptyState(tiles, { title: "No animal categories yet", message: "Animal categories will appear here once they are set up.", icon: "layers" });
@@ -277,9 +278,16 @@
       // the chosen animal, breeds for the chosen purpose, and all 10
       // provinces with counts for the choices so far.
       // ---------------------------------------------------------------
+      // The prompt ("Select breed / strain") shows in the closed dropdown but is
+      // hidden from the list, so there is never an "All ..." choice to pick.
+      // "Clear all filters" puts every dropdown back on its prompt.
+      function placeholderOption(text) {
+        return `<option value="" disabled hidden selected>${escapeHtml(text)}</option>`;
+      }
+
       function fillSelect(select, placeholder, options, keep) {
         select.innerHTML =
-          `<option value="">${placeholder}</option>` +
+          placeholderOption(placeholder) +
           options.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join("");
         select.value = options.some((o) => String(o.value) === String(keep)) ? keep : "";
       }
@@ -308,7 +316,7 @@
           els.purpose.disabled = false;
           fillSelect(
             els.purpose,
-            data.purposes.length ? "All Purposes" : "No purposes for this animal",
+            data.purposes.length ? "Select production purpose" : "No purposes for this animal",
             data.purposes.map((p) => ({ value: p.id, label: withCount(p.name, p.count) })),
             els.purpose.value,
           );
@@ -321,13 +329,13 @@
           els.breed.disabled = false;
           fillSelect(
             els.breed,
-            data.breeds.length ? "All Breeds / Strains" : "No breeds for this purpose",
+            data.breeds.length ? "Select breed / strain" : "No breeds for this purpose",
             data.breeds.map((b) => ({ value: b.id, label: withCount(b.name, b.count) })),
             els.breed.value,
           );
         }
 
-        fillSelect(els.location, "All Provinces", data.locations.map((l) => ({ value: l.value, label: withCount(l.value, l.count) })), els.location.value);
+        fillSelect(els.location, "Select province", data.locations.map((l) => ({ value: l.value, label: withCount(l.value, l.count) })), els.location.value);
         paintChips();
       }
 

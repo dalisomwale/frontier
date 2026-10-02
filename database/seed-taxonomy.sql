@@ -13,10 +13,10 @@
 
 INSERT IGNORE INTO animals (name, description, sort_order) VALUES
   ('Cattle', 'Dairy, beef and dual-purpose cattle.', 1),
-  ('Goats', 'Meat, dairy, dual-purpose and indigenous goats.', 2),
-  ('Sheep', 'Meat, wool, dual-purpose and indigenous sheep.', 3),
-  ('Pigs', 'Meat, commercial and indigenous pigs.', 4),
-  ('Poultry', 'Layers, broilers, dual-purpose, indigenous and breeding stock.', 5);
+  ('Goats', 'Meat, dairy and dual-purpose goats.', 2),
+  ('Sheep', 'Meat, wool and dual-purpose sheep.', 3),
+  ('Pigs', 'Meat and commercial pigs.', 4),
+  ('Poultry', 'Layers, broilers, dual-purpose and breeding stock.', 5);
 
 -- Cattle ----------------------------------------------------------------
 INSERT IGNORE INTO categories (animal_id, name, description, sort_order)
@@ -87,8 +87,7 @@ SELECT a.id, p.name, p.description, p.sort_order FROM animals a
 JOIN (
   SELECT 'Meat' AS name, 'Goats raised primarily for meat.' AS description, 1 AS sort_order UNION ALL
   SELECT 'Dairy', 'Goats kept primarily for milk.', 2 UNION ALL
-  SELECT 'Dual-Purpose', 'Goats suited to both milk and meat.', 3 UNION ALL
-  SELECT 'Indigenous/Local', 'Hardy local goats adapted to Zambian conditions.', 4
+  SELECT 'Dual-Purpose', 'Goats suited to both milk and meat.', 3
 ) p
 WHERE a.name = 'Goats';
 
@@ -121,23 +120,13 @@ JOIN (
 ) b
 WHERE a.name = 'Goats' AND c.name = 'Dual-Purpose';
 
-INSERT IGNORE INTO breeds (category_id, name)
-SELECT c.id, b.name FROM categories c
-JOIN animals a ON a.id = c.animal_id
-JOIN (
-  SELECT 'Gwembe' AS name UNION ALL
-  SELECT 'Zambian local goat'
-) b
-WHERE a.name = 'Goats' AND c.name = 'Indigenous/Local';
-
 -- Sheep -----------------------------------------------------------------
 INSERT IGNORE INTO categories (animal_id, name, description, sort_order)
 SELECT a.id, p.name, p.description, p.sort_order FROM animals a
 JOIN (
   SELECT 'Meat' AS name, 'Sheep raised primarily for meat.' AS description, 1 AS sort_order UNION ALL
   SELECT 'Wool', 'Sheep kept primarily for wool.', 2 UNION ALL
-  SELECT 'Dual-Purpose', 'Sheep suited to both meat and wool.', 3 UNION ALL
-  SELECT 'Indigenous/Local', 'Hardy local sheep adapted to Zambian conditions.', 4
+  SELECT 'Dual-Purpose', 'Sheep suited to both meat and wool.', 3
 ) p
 WHERE a.name = 'Sheep';
 
@@ -170,21 +159,12 @@ JOIN (
 ) b
 WHERE a.name = 'Sheep' AND c.name = 'Dual-Purpose';
 
-INSERT IGNORE INTO breeds (category_id, name)
-SELECT c.id, b.name FROM categories c
-JOIN animals a ON a.id = c.animal_id
-JOIN (
-  SELECT 'Zambian local sheep' AS name
-) b
-WHERE a.name = 'Sheep' AND c.name = 'Indigenous/Local';
-
 -- Pigs ------------------------------------------------------------------
 INSERT IGNORE INTO categories (animal_id, name, description, sort_order)
 SELECT a.id, p.name, p.description, p.sort_order FROM animals a
 JOIN (
   SELECT 'Meat' AS name, 'Pig breeds raised for pork.' AS description, 1 AS sort_order UNION ALL
-  SELECT 'Commercial', 'Crossbred lines for commercial pork production.', 2 UNION ALL
-  SELECT 'Indigenous/Local', 'Hardy local pigs adapted to Zambian conditions.', 3
+  SELECT 'Commercial', 'Crossbred lines for commercial pork production.', 2
 ) p
 WHERE a.name = 'Pigs';
 
@@ -208,14 +188,6 @@ JOIN (
 ) b
 WHERE a.name = 'Pigs' AND c.name = 'Commercial';
 
-INSERT IGNORE INTO breeds (category_id, name)
-SELECT c.id, b.name FROM categories c
-JOIN animals a ON a.id = c.animal_id
-JOIN (
-  SELECT 'Zambian local pig' AS name
-) b
-WHERE a.name = 'Pigs' AND c.name = 'Indigenous/Local';
-
 -- Poultry ---------------------------------------------------------------
 INSERT IGNORE INTO categories (animal_id, name, description, sort_order)
 SELECT a.id, p.name, p.description, p.sort_order FROM animals a
@@ -223,8 +195,7 @@ JOIN (
   SELECT 'Layers' AS name, 'Hens kept for egg production.' AS description, 1 AS sort_order UNION ALL
   SELECT 'Broilers', 'Fast-growing birds raised for meat.', 2 UNION ALL
   SELECT 'Dual-Purpose', 'Birds suited to both eggs and meat.', 3 UNION ALL
-  SELECT 'Indigenous/Local', 'Village chickens and other local poultry.', 4 UNION ALL
-  SELECT 'Breeding', 'Parent stock for hatcheries and breeders.', 5
+  SELECT 'Breeding', 'Parent stock for hatcheries and breeders.', 4
 ) p
 WHERE a.name = 'Poultry';
 
@@ -257,14 +228,6 @@ JOIN (
   SELECT 'Sasso'
 ) b
 WHERE a.name = 'Poultry' AND c.name = 'Dual-Purpose';
-
-INSERT IGNORE INTO breeds (category_id, name)
-SELECT c.id, b.name FROM categories c
-JOIN animals a ON a.id = c.animal_id
-JOIN (
-  SELECT 'Zambian village chicken' AS name
-) b
-WHERE a.name = 'Poultry' AND c.name = 'Indigenous/Local';
 
 INSERT IGNORE INTO breeds (category_id, name)
 SELECT c.id, b.name FROM categories c

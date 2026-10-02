@@ -182,6 +182,50 @@ async function main() {
     console.log("Animals already present - reference seed skipped.");
   }
 
+  // --- 6. Retired reference data ------------------------------------------
+  // "Indigenous/Local" production purposes were dropped from the taxonomy.
+  // Remove them (and their breeds) where nothing uses them; if a listing
+  // already uses one, disable it instead so that listing isn't broken.
+  const [retired] = await conn.query(
+    `SELECT c.id, a.name AS animal,
+       (SELECT COUNT(*) FROM livestock l WHERE l.category_id = c.id) AS used
+     FROM categories c JOIN animals a ON a.id = c.animal_id
+     WHERE c.name = 'Indigenous/Local'`,
+  );
+  for (const purpose of retired) {
+    if (Number(purpose.used) === 0) {
+      await conn.query("DELETE FROM breeds WHERE category_id = ?", [purpose.id]);
+      await conn.query("DELETE FROM categories WHERE id = ?", [purpose.id]);
+      console.log(`  removed ${purpose.animal} > Indigenous/Local`);
+      if (purpose.animal === "Poultry") {
+        // Close the gap it left in poultry's display order.
+        await conn.query(
+          `UPDATE categories c JOIN animals a ON a.id = c.animal_id
+           SET c.sort_order = 4
+           WHERE a.name = 'Poultry' AND c.name = 'Breeding' AND c.sort_order = 5`,
+        );
+      }
+    } else {
+      const [result] = await conn.query(
+        "UPDATE categories SET status = 'disabled' WHERE id = ? AND status <> 'disabled'",
+        [purpose.id],
+      );
+      if (result.affectedRows) {
+        console.log(`  disabled ${purpose.animal} > Indigenous/Local (used by ${purpose.used} listing(s) - edit them, then delete it in Admin)`);
+      }
+    }
+  }
+  // Seeded animal descriptions that mentioned "indigenous" (left alone if an
+  // admin has since rewritten them).
+  for (const [name, from, to] of [
+    ["Goats", "Meat, dairy, dual-purpose and indigenous goats.", "Meat, dairy and dual-purpose goats."],
+    ["Sheep", "Meat, wool, dual-purpose and indigenous sheep.", "Meat, wool and dual-purpose sheep."],
+    ["Pigs", "Meat, commercial and indigenous pigs.", "Meat and commercial pigs."],
+    ["Poultry", "Layers, broilers, dual-purpose, indigenous and breeding stock.", "Layers, broilers, dual-purpose and breeding stock."],
+  ]) {
+    await conn.query("UPDATE animals SET description = ? WHERE name = ? AND description = ?", [to, name, from]);
+  }
+
   const [[{ admins }]] = await conn.query(
     "SELECT COUNT(*) AS admins FROM admins",
   );
