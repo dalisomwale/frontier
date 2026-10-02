@@ -102,13 +102,12 @@
           <div class="flex flex-wrap items-end justify-between gap-2 mb-4">
             <div>
               <h2 id="listings-heading" class="text-3xl font-bold text-gray-900">Livestock Listings</h2>
-              <p id="results-summary" class="text-sm text-gray-500 mt-1" aria-live="polite"></p>
             </div>
           </div>
 
           <div id="category-chips" class="flex flex-wrap gap-2 mb-5"></div>
 
-          <div id="listings-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-6"></div>
+          <div id="listings-container" class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6 mb-6"></div>
           <div id="pagination-container"></div>
         </div>
       </section>
@@ -461,18 +460,13 @@
 
       async function loadListings(page = 1) {
         const container = document.getElementById("listings-container");
-        const summary = document.getElementById("results-summary");
-        renderSkeletonCards(container, 4);
+        renderSkeletonCards(container, 6);
         const params = currentFilters();
         params.set("page", page);
         params.set("limit", PAGE_SIZE);
 
         try {
           const res = await apiRequest(`/api/livestock?${params}`);
-          const total = res.pagination.totalItems;
-          summary.textContent = total
-            ? `${total} listing${total === 1 ? "" : "s"}`
-            : "";
           if (!res.data.length) {
             const filtered = [...currentFilters().keys()].length > 0;
             renderEmptyState(container, filtered
@@ -485,7 +479,6 @@
           }
           renderPagination(res.pagination);
         } catch (error) {
-          summary.textContent = "";
           renderEmptyState(container, { title: "Listings could not be loaded", message: error.message, icon: "alert" });
           document.getElementById("pagination-container").innerHTML = "";
         }

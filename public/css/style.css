@@ -999,7 +999,7 @@ body {
 
 @media (max-width: 639px) {
   .cat-tile {
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 1 / 1;
   }
 }
 
