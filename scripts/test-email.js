@@ -1,15 +1,36 @@
 #!/usr/bin/env node
-// Sends a sample inquiry notification using the SMTP settings in .env, so
-// you can confirm email delivery works before going live:
+// Checks the email settings in .env and sends a sample inquiry notification,
+// so you can confirm delivery works:
 //
 //   npm run test-email
-require("dotenv").config();
+require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
 
-const { sendInquiryNotification, recipients } = require("../server/services/mailer");
+const { sendInquiryNotification, emailConfig, verifyEmail } = require("../server/services/mailer");
 
 (async () => {
-  console.log(`Sending test notification to: ${recipients().join(", ")}`);
-  console.log(`Via SMTP ${process.env.SMTP_HOST}:${process.env.SMTP_PORT || 587}\n`);
+  const config = emailConfig();
+  console.log("Email settings from .env");
+  console.log(`  SMTP_HOST   ${config.host || "(missing)"}`);
+  console.log(`  SMTP_PORT   ${config.port} (${config.secure ? "SSL" : "STARTTLS"})`);
+  console.log(`  SMTP_USER   ${config.user || "(missing)"}`);
+  console.log(`  SMTP_PASS   ${config.pass ? `set (${config.pass.length} characters)` : "(missing)"}`);
+  console.log(`  Recipients  ${config.recipients.join(", ")}\n`);
+
+  if (!config.configured) {
+    console.error(`Not set up: ${config.problems.join("; ")}.`);
+    process.exit(1);
+  }
+
+  process.stdout.write("Connecting and signing in... ");
+  const check = await verifyEmail();
+  if (!check.ok) {
+    console.log("failed.\n");
+    console.error(check.message);
+    process.exit(1);
+  }
+  console.log("ok.");
+
+  process.stdout.write("Sending test notification... ");
   const info = await sendInquiryNotification({
     livestock_title: "TEST - Frontier email check",
     animal_name: "Cattle",
@@ -17,14 +38,15 @@ const { sendInquiryNotification, recipients } = require("../server/services/mail
     breed_name: "Boran",
     full_name: "Frontier Email Test",
     phone: "+260 000 000 000",
-    email: process.env.SMTP_USER || "test@example.com",
+    email: config.user,
     message:
       "This is a test message from `npm run test-email`. If you received it, inquiry notifications are working.",
     created_at: new Date(),
   });
-  console.log("Sent. Message id:", info.messageId);
-  console.log("Accepted by server for:", info.accepted.join(", "));
+  console.log("sent.");
+  console.log(`Accepted for: ${info.accepted.join(", ")}`);
+  console.log("Check both inboxes (and the spam folder the first time).");
 })().catch((error) => {
-  console.error("Email test failed:", error.message);
+  console.error(`\n${error.message}`);
   process.exit(1);
 });

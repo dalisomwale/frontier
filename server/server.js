@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
 
 const path = require("path");
 const express = require("express");
@@ -9,6 +9,7 @@ const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 
 const pool = require("./db");
+const { emailConfig } = require("./services/mailer");
 const publicRoutes = require("./routes/public");
 const inquiryRoutes = require("./routes/inquiries");
 const adminRoutes = require("./routes/admin");
@@ -194,7 +195,13 @@ app.use((err, req, res, next) => {
 if (require.main === module) {
   const server = app.listen(PORT, () => {
     console.log("\nFrontier Marketplace");
-    console.log(`Running on http://localhost:${PORT}  (${process.env.NODE_ENV || "development"})\n`);
+    console.log(`Running on http://localhost:${PORT}  (${process.env.NODE_ENV || "development"})`);
+    const email = emailConfig();
+    console.log(
+      email.configured
+        ? `Inquiry emails: ON - via ${email.host}:${email.port}${email.user ? ` as ${email.user}` : ""}, to ${email.recipients.join(", ")}\n`
+        : `Inquiry emails: OFF - ${email.problems.join("; ")}. Inquiries are still saved; fix .env and restart.\n`,
+    );
   });
   const shutdown = () => {
     console.log("\nShutting down...");

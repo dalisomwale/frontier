@@ -18,31 +18,111 @@ function recipients() {
   return configured.length ? configured : DEFAULT_RECIPIENTS;
 }
 
-let transporter = null;
+// Placeholder values from .env.example that mean "not filled in yet".
+const PLACEHOLDERS = [
+  "PASTE_APP_PASSWORD_HERE",
+  "your-16-character-app-password",
+  "sending-account@gmail.com",
+];
 
-function getTransporter() {
-  if (transporter) return transporter;
-  if (!process.env.SMTP_HOST) {
-    throw new Error("SMTP_HOST is not configured");
-  }
+/**
+ * What the app knows about its email settings, without the password.
+ * `problems` lists what's missing or still a placeholder in .env.
+ */
+function emailConfig() {
+  const host = (process.env.SMTP_HOST || "").trim();
   const port = Number(process.env.SMTP_PORT) || 587;
   const secure =
     process.env.SMTP_SECURE !== undefined && process.env.SMTP_SECURE !== ""
       ? process.env.SMTP_SECURE === "true"
       : port === 465;
+  const user = (process.env.SMTP_USER || "").trim();
+  let pass = process.env.SMTP_PASS || "";
+  // Google shows App Passwords in four groups ("abcd efgh ijkl mnop");
+  // the spaces aren't part of the password.
+  if (/gmail\.com$/i.test(host)) pass = pass.replace(/\s+/g, "");
 
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+  // A login is required for Gmail; some other servers (e.g. a local relay)
+  // accept mail without one, so there only a username without a password
+  // is flagged.
+  const isGmail = /gmail\.com$/i.test(host);
+  const problems = [];
+  if (!host) problems.push("SMTP_HOST is not set");
+  if (host && isGmail && !user) problems.push("SMTP_USER is not set");
+  if (host && user && !pass) problems.push("SMTP_PASS is not set");
+  if (PLACEHOLDERS.includes(user)) problems.push("SMTP_USER is still the example value");
+  if (PLACEHOLDERS.includes(pass)) problems.push("SMTP_PASS is still the placeholder - paste the Gmail App Password");
+  if (isGmail && pass && !PLACEHOLDERS.includes(pass) && pass.length !== 16) {
+    problems.push("SMTP_PASS should be the 16-letter Gmail App Password (not your normal Gmail password)");
+  }
+
+  return {
+    configured: problems.length === 0,
+    problems,
+    host,
     port,
     secure,
-    auth: process.env.SMTP_USER
-      ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-      : undefined,
+    user,
+    pass,
+    from: process.env.MAIL_FROM || `"Frontier Marketplace" <${user || "no-reply@localhost"}>`,
+    recipients: recipients(),
+  };
+}
+
+let transporter = null;
+let transporterKey = "";
+
+function getTransporter() {
+  const config = emailConfig();
+  if (!config.configured) {
+    throw new Error(`Email is not set up: ${config.problems.join("; ")}. Fix it in .env, then restart the app.`);
+  }
+  // Rebuild if the settings changed (e.g. after a restart with a new .env).
+  const key = [config.host, config.port, config.secure, config.user, config.pass].join("|");
+  if (transporter && key === transporterKey) return transporter;
+  transporterKey = key;
+  transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: config.user ? { user: config.user, pass: config.pass } : undefined,
     connectionTimeout: 15000,
     greetingTimeout: 10000,
     socketTimeout: 20000,
   });
   return transporter;
+}
+
+/**
+ * Turns SMTP errors into something an admin can act on.
+ */
+function friendlyEmailError(error) {
+  const message = String(error?.message || error || "Unknown error");
+  const config = emailConfig();
+  if (error?.code === "EAUTH" || /535|Username and Password not accepted|Invalid login/i.test(message)) {
+    return /gmail/i.test(config.host)
+      ? "Gmail rejected the login. Check SMTP_USER is the full Gmail address and SMTP_PASS is a 16-letter App Password for that same account (not the normal Gmail password)."
+      : `The email server rejected the login for ${config.user}. Check SMTP_USER and SMTP_PASS.`;
+  }
+  if (["ETIMEDOUT", "ESOCKET", "ECONNECTION", "ECONNREFUSED"].includes(error?.code) || /timeout|ECONNREFUSED/i.test(message)) {
+    return `Couldn't connect to ${config.host}:${config.port}. The server may be blocking outgoing email on that port - try SMTP_PORT=587 with SMTP_SECURE=false, or ask the hosting provider to allow it.`;
+  }
+  if (error?.code === "EDNS" || /ENOTFOUND|EAI_AGAIN/i.test(message)) {
+    return `The email server "${config.host}" couldn't be found. Check SMTP_HOST in .env.`;
+  }
+  return message;
+}
+
+/**
+ * Connects and logs in without sending anything.
+ */
+async function verifyEmail() {
+  try {
+    await getTransporter().verify();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: friendlyEmailError(error) };
+  }
 }
 
 function escapeHtml(value) {
@@ -123,10 +203,9 @@ function buildInquiryEmail(inquiry) {
 async function sendInquiryNotification(inquiry) {
   const { subject, text, html } = buildInquiryEmail(inquiry);
   const to = recipients();
-  const info = await getTransporter().sendMail({
-    from:
-      process.env.MAIL_FROM ||
-      `"Frontier Marketplace" <${process.env.SMTP_USER || "no-reply@localhost"}>`,
+  const mailer = getTransporter();
+  const info = await mailer.sendMail({
+    from: emailConfig().from,
     to: to.join(", "),
     replyTo: `"${inquiry.full_name.replace(/"/g, "")}" <${inquiry.email}>`,
     subject,
@@ -136,9 +215,20 @@ async function sendInquiryNotification(inquiry) {
   return { messageId: info.messageId, accepted: info.accepted, to };
 }
 
+// Wraps sending so callers always get the friendly message.
+async function sendInquiryNotificationSafe(inquiry) {
+  try {
+    return await sendInquiryNotification(inquiry);
+  } catch (error) {
+    throw new Error(friendlyEmailError(error));
+  }
+}
+
 module.exports = {
-  sendInquiryNotification,
+  sendInquiryNotification: sendInquiryNotificationSafe,
   buildInquiryEmail,
   recipients,
-  getTransporter,
+  emailConfig,
+  verifyEmail,
+  friendlyEmailError,
 };

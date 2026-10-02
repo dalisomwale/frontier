@@ -7,7 +7,7 @@
 //
 // If the email already exists, its name and password are updated - this is
 // also how you recover a forgotten admin password from the server.
-require("dotenv").config();
+require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
 
 const readline = require("readline");
 const bcrypt = require("bcrypt");

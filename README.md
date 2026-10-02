@@ -103,7 +103,12 @@ The email contains the livestock title, category (animal · purpose, e.g. *Goats
 
 **Gmail:** turn on 2-Step Verification on the sending account, create an **App Password** (Google Account → Security → App passwords), and use it as `SMTP_PASS`. Any other SMTP provider works too; set `SMTP_HOST`, `SMTP_PORT` and `SMTP_SECURE` accordingly.
 
-**If sending fails** (wrong password, provider down), the visitor still gets a success message, because the inquiry is safely stored. The dashboard then shows a warning, the inquiry is marked *Email failed*, and **Resend email** on the inquiry retries once SMTP is fixed.
+**Checking it works:**
+- When the app starts, its log says `Inquiry emails: ON - via smtp.gmail.com…` or `Inquiry emails: OFF - <what's missing>` (`pm2 logs Frontier --lines 20`).
+- `npm run test-email` prints the settings it found (never the password), signs in, and sends a test notification, with a plain-language explanation if anything fails.
+- The admin **Dashboard** shows whether inquiry emails are on, with **Send test email** and **Resend failed** buttons.
+
+**If sending fails** (missing settings, wrong password, blocked port), the visitor still gets a success message, because the inquiry is safely stored. The inquiry is marked *Email failed* with the reason, and once the settings are fixed, **Resend failed** on the dashboard (or **Resend email** on one inquiry) sends them.
 
 SMTP credentials are only read on the server from `.env`. Nothing about email reaches the browser.
 

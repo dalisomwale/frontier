@@ -14,7 +14,7 @@
 //      Production Purpose -> Breed): existing purposes become Cattle's;
 //   6. seeds the animal / purpose / breed reference list when the animals
 //      table is empty (new install, or the first upgrade to animals).
-require("dotenv").config();
+require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
 
 const fs = require("fs");
 const path = require("path");
