@@ -87,7 +87,7 @@
           list.innerHTML = `
             <table class="admin-table">
               <thead><tr>
-                <th>Listing</th><th class="hidden md:table-cell">Category / Breed</th><th class="hidden lg:table-cell">Location</th>
+                <th>Listing</th><th class="hidden md:table-cell">Category / Breed</th><th class="hidden lg:table-cell">Province</th>
                 <th>Status</th><th class="hidden sm:table-cell text-center">Inquiries</th><th class="text-right hidden sm:table-cell">Actions</th>
               </tr></thead>
               <tbody>${res.data.map(rowHtml).join("")}</tbody>
@@ -223,8 +223,9 @@
             ${field({ name: "quantity", label: "Quantity (head)", type: "number", value: item.quantity ?? 1, attrs: 'min="1" step="1" inputmode="numeric"' })}
             ${field({ name: "age_months", label: "Age (months)", type: "number", value: item.age_months, attrs: 'min="0" max="600" step="1" inputmode="numeric"', placeholder: "Optional" })}
           </div>
-          ${field({ name: "location", label: "Location", value: item.location, required: true, placeholder: "e.g. Choma, Southern Province", attrs: 'list="location-list" maxlength="150"' })}
-          <datalist id="location-list"></datalist>
+          ${field({ name: "location", label: "Province", value: ZAMBIA_PROVINCES.includes(item.location) ? item.location : "", required: true,
+              help: item.location && !ZAMBIA_PROVINCES.includes(item.location) ? `Previously "${item.location}" - choose its province.` : "",
+              options: [{ value: "", label: "Select province" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
           ${field({ name: "description", label: "Description", type: "textarea", value: item.description, rows: 5, placeholder: "Condition, feeding, vaccinations, any other details buyers should know…", attrs: 'maxlength="5000"' })}
 
           <div>
@@ -254,9 +255,6 @@
             catSelect.addEventListener("change", () => {
               breedSelect.innerHTML = breedOptions(catSelect.value).map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join("");
             });
-            apiRequest("/api/livestock/filters").then((r) => {
-              form.querySelector("#location-list").innerHTML = r.data.locations.map((l) => `<option value="${escapeHtml(l.value)}">`).join("");
-            }).catch(() => {});
 
             const grid = form.querySelector("#photo-grid");
             const input = form.querySelector("#photo-input");
@@ -315,7 +313,7 @@
             const errors = {};
             if (!v.title.trim()) errors.title = "Title is required.";
             if (!v.category_id) errors.category_id = "Please choose a category.";
-            if (!v.location.trim()) errors.location = "Location is required.";
+            if (!v.location) errors.location = "Please choose a province.";
             if (Object.keys(errors).length) {
               const e = new Error("Please correct the highlighted fields.");
               e.errors = errors;

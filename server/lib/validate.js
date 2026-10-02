@@ -1,5 +1,20 @@
 // Small input-normalisation helpers shared by the route handlers.
 
+// The 10 provinces of Zambia. Listing locations are stored as one of these,
+// and the public Location filter always offers all of them.
+const PROVINCES = [
+  "Central",
+  "Copperbelt",
+  "Eastern",
+  "Luapula",
+  "Lusaka",
+  "Muchinga",
+  "Northern",
+  "North-Western",
+  "Southern",
+  "Western",
+];
+
 function positiveInt(value, fallback = null) {
   const parsed = Number.parseInt(value, 10);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
@@ -46,6 +61,7 @@ const badRequest = (message) => new HttpError(400, message);
 const notFound = (message = "Not found") => new HttpError(404, message);
 
 module.exports = {
+  PROVINCES,
   positiveInt,
   text,
   isEmail,

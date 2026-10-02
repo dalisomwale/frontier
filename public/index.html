@@ -28,11 +28,6 @@
             </div>
             <span class="hidden sm:block font-bold text-gray-900">Frontier Marketplace</span>
           </a>
-          <div class="hidden md:flex items-center gap-6">
-            <a href="#listings" class="top-link">Browse Livestock</a>
-            <a href="#categories" class="top-link">Categories</a>
-            <a href="#how-it-works" class="top-link">How It Works</a>
-          </div>
         </div>
       </div>
     </nav>
@@ -44,58 +39,38 @@
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="max-w-2xl mb-8 md:mb-12">
-            <p class="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold uppercase tracking-wider text-blue-200 mb-3">
-              <span class="w-5 h-5">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="6"/><path d="M9 6.5c-.6-1.6.4-2.8 1.6-1.8M15 6.5c.6-1.6-.4-2.8-1.6-1.8"/><ellipse cx="6.4" cy="9.4" rx="1.9" ry="1.3" transform="rotate(-25 6.4 9.4)"/><ellipse cx="17.6" cy="9.4" rx="1.9" ry="1.3" transform="rotate(25 17.6 9.4)"/></svg>
-              </span>
-              Frontier Farms &amp; Consult
-            </p>
             <h1 id="hero-heading" class="text-4xl md:text-6xl font-bold leading-tight mb-4">
               Find the Right Livestock for Your Needs
             </h1>
-            <p class="text-lg md:text-xl text-blue-100 mb-7">
+            <p class="text-lg md:text-xl text-blue-100">
               Browse livestock listings, explore breeds and categories, and send an inquiry directly to the marketplace team.
             </p>
-            <div class="flex flex-col sm:flex-row gap-3">
-              <a href="#listings" class="inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold shadow-lg transition">
-                <span class="w-5 h-5" data-icon="search"></span> Browse Livestock
-              </a>
-              <a href="#categories" class="inline-flex justify-center items-center gap-2 bg-white/10 backdrop-blur border border-white/40 text-white px-6 py-3 rounded-lg hover:bg-white/20 font-semibold transition">
-                <span class="w-5 h-5" data-icon="layers"></span> Explore Categories
-              </a>
-            </div>
           </div>
 
-          <!-- Filter: Category -> Breed -> Type -> Location, all dropdowns -->
-          <form id="filter-form" class="bg-white rounded-lg shadow-lg p-5 sm:p-6 max-w-5xl mx-auto text-gray-900" role="search" aria-label="Filter livestock">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <!-- Filter: Category -> Breed -> Location (province), all dropdowns -->
+          <form id="filter-form" class="filter-glass rounded-xl p-5 sm:p-6 max-w-5xl mx-auto" role="search" aria-label="Filter livestock">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               <div>
-                <label for="filter-category" class="block text-sm font-medium text-gray-700 mb-2"><span class="filter-step">1</span>Category</label>
+                <label for="filter-category" class="block text-sm font-medium text-white mb-2"><span class="filter-step">1</span>Category</label>
                 <select id="filter-category" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
                   <option value="">All Categories</option>
                 </select>
               </div>
               <div>
-                <label for="filter-breed" class="block text-sm font-medium text-gray-700 mb-2"><span class="filter-step">2</span>Breed</label>
+                <label for="filter-breed" class="block text-sm font-medium text-white mb-2"><span class="filter-step">2</span>Breed</label>
                 <select id="filter-breed" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white" disabled>
                   <option value="">Select a category first</option>
                 </select>
               </div>
               <div>
-                <label for="filter-type" class="block text-sm font-medium text-gray-700 mb-2"><span class="filter-step">3</span>Type</label>
-                <select id="filter-type" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
-                  <option value="">Any Type</option>
-                </select>
-              </div>
-              <div>
-                <label for="filter-location" class="block text-sm font-medium text-gray-700 mb-2"><span class="filter-step">4</span>Location</label>
+                <label for="filter-location" class="block text-sm font-medium text-white mb-2"><span class="filter-step">3</span>Province</label>
                 <select id="filter-location" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
-                  <option value="">Any Location</option>
+                  <option value="">All Provinces</option>
                 </select>
               </div>
             </div>
             <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
-              <button type="button" id="clear-filters-btn" class="text-sm font-medium text-gray-500 hover:text-gray-700 self-center sm:self-auto">
+              <button type="button" id="clear-filters-btn" class="text-sm font-medium text-blue-100 hover:text-white self-center sm:self-auto">
                 Clear all filters
               </button>
               <button type="submit" id="search-btn" class="w-full sm:w-auto inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-8 py-2.5 rounded-lg hover:bg-blue-700 font-medium">
@@ -109,7 +84,6 @@
             <div id="hero-dots" class="hero-dots" role="tablist" aria-label="Hero photos"></div>
           </div>
         </div>
-        <p id="hero-credit" class="hero-credit"></p>
       </section>
 
       <!-- Categories -->
@@ -142,26 +116,6 @@
         </div>
       </section>
 
-      <!-- How it works -->
-      <section id="how-it-works" class="py-12 bg-white border-t border-gray-100" style="scroll-margin-top: 72px">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">How It Works</h2>
-          <ol class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <li class="stat-tile">
-              <span class="stat-tile-icon bg-blue-100 text-blue-600" data-icon="search"></span>
-              <div><p class="font-semibold text-gray-900">1. Browse &amp; filter</p><p class="text-sm text-gray-600">Choose a category, breed and location to find matching livestock.</p></div>
-            </li>
-            <li class="stat-tile">
-              <span class="stat-tile-icon bg-green-100 text-green-600" data-icon="inquire"></span>
-              <div><p class="font-semibold text-gray-900">2. Send an inquiry</p><p class="text-sm text-gray-600">Tap Inquire on any listing - no account needed.</p></div>
-            </li>
-            <li class="stat-tile">
-              <span class="stat-tile-icon bg-amber-100 text-amber-600" data-icon="phone"></span>
-              <div><p class="font-semibold text-gray-900">3. We contact you</p><p class="text-sm text-gray-600">The Frontier team follows up by phone or email with details.</p></div>
-            </li>
-          </ol>
-        </div>
-      </section>
     </main>
 
     <footer class="bg-white border-t border-gray-200">
@@ -170,14 +124,11 @@
         <nav class="flex flex-wrap gap-x-5 gap-y-2">
           <a href="/terms.html" class="hover:text-gray-700">Terms of Service</a>
           <a href="/privacy.html" class="hover:text-gray-700">Privacy Policy</a>
-          <a href="/photo-credits.html" class="hover:text-gray-700">Photo Credits</a>
         </nav>
       </div>
     </footer>
 
-    <div id="app-bottom-nav"></div>
     <script>
-      renderBottomNav("public");
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
     </script>
 
@@ -187,7 +138,6 @@
       const els = {
         category: document.getElementById("filter-category"),
         breed: document.getElementById("filter-breed"),
-        type: document.getElementById("filter-type"),
         location: document.getElementById("filter-location"),
       };
       let categories = [];
@@ -201,7 +151,6 @@
       function initHero() {
         const host = document.getElementById("hero-slides");
         const dots = document.getElementById("hero-dots");
-        const credit = document.getElementById("hero-credit");
         const width = viewportImageWidth();
         let index = 0;
         let timer;
@@ -218,17 +167,8 @@
           img.onload = () => {
             slides[i].style.backgroundImage = `url("${url}")`;
             slides[i].dataset.loaded = "1";
-            if (i === index) setCredit(i);
           };
           img.src = url;
-        }
-        // Credit only a photo that is actually on screen (if the CDN is
-        // unreachable, the local fallback photo shows and no credit appears).
-        function setCredit(i) {
-          const p = HERO_PHOTOS[i];
-          credit.innerHTML = slides[i].dataset.loaded
-            ? `Photo: ${escapeHtml(p.place)} · <a href="${p.page}" target="_blank" rel="noopener">${escapeHtml(p.author)} / Unsplash</a>`
-            : "";
         }
         function show(i) {
           index = i;
@@ -236,7 +176,6 @@
           load((i + 1) % slides.length);
           slides.forEach((s, n) => s.classList.toggle("active", n === i));
           dotBtns.forEach((d, n) => d.classList.toggle("active", n === i));
-          setCredit(i);
         }
         function start() {
           clearInterval(timer);
@@ -322,7 +261,6 @@
       async function selectCategory(id, { scroll = false } = {}) {
         els.category.value = id;
         els.breed.value = "";
-        els.type.value = "";
         els.location.value = "";
         await refreshOptions();
         applyFilters({ scroll });
@@ -344,7 +282,6 @@
         const params = new URLSearchParams();
         if (els.category.value) params.set("category_id", els.category.value);
         if (els.breed.value) params.set("breed_id", els.breed.value);
-        if (els.type.value) params.set("type", els.type.value);
 
         let data;
         try {
@@ -366,8 +303,7 @@
             els.breed.value,
           );
         }
-        fillSelect(els.type, "Any Type", data.types.map((t) => ({ value: t.value, label: `${t.value} (${t.count})` })), els.type.value);
-        fillSelect(els.location, "Any Location", data.locations.map((l) => ({ value: l.value, label: `${l.value} (${l.count})` })), els.location.value);
+        fillSelect(els.location, "All Provinces", data.locations.map((l) => ({ value: l.value, label: `${l.value}${l.count ? ` (${l.count})` : ""}` })), els.location.value);
         paintChips();
       }
 
@@ -376,7 +312,6 @@
         refreshOptions();
       });
       els.breed.addEventListener("change", refreshOptions);
-      els.type.addEventListener("change", refreshOptions);
 
       // ---------------------------------------------------------------
       // Results
@@ -385,7 +320,6 @@
         const params = new URLSearchParams();
         if (els.category.value) params.set("category_id", els.category.value);
         if (els.breed.value) params.set("breed_id", els.breed.value);
-        if (els.type.value) params.set("type", els.type.value);
         if (els.location.value) params.set("location", els.location.value);
         return params;
       }
@@ -395,7 +329,6 @@
         const params = currentFilters();
         const url = `${location.pathname}${params.toString() ? `?${params}` : ""}${scroll ? "#listings" : location.hash}`;
         history.replaceState(null, "", url);
-        renderBottomNav("public");
         loadListings(1);
         paintChips();
         if (scroll) document.getElementById("listings").scrollIntoView({ behavior: "smooth" });
@@ -434,7 +367,7 @@
       }
 
       function describeFilters() {
-        const parts = [els.category, els.breed, els.type, els.location]
+        const parts = [els.category, els.breed, els.location]
           .filter((s) => s.value)
           .map((s) => s.options[s.selectedIndex].text.replace(/\s\(\d+\)$/, ""));
         return parts.length ? ` · ${parts.join(" · ")}` : "";
@@ -473,7 +406,6 @@
         if (q.category_id) els.category.value = q.category_id;
         await refreshOptions();
         if (q.breed_id) { els.breed.value = q.breed_id; await refreshOptions(); }
-        if (q.type) { els.type.value = q.type; await refreshOptions(); }
         if (q.location) els.location.value = q.location;
         paintChips();
         await loadListings(1);

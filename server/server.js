@@ -123,6 +123,7 @@ const RETIRED_PAGES = {
   "/admin/users.html": "/admin/",
   "/admin/reports.html": "/admin/",
   "/admin/listings.html": "/admin/livestock.html",
+  "/photo-credits.html": "/",
 };
 app.get(Object.keys(RETIRED_PAGES), (req, res) => res.redirect(301, RETIRED_PAGES[req.path]));
 

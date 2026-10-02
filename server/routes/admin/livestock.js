@@ -1,7 +1,7 @@
 const express = require("express");
 const pool = require("../../db");
 const { uploadImages, saveImage, deleteImageFiles, MAX_FILES } = require("../../middleware/upload");
-const { positiveInt, text, oneOf, badRequest, notFound } = require("../../lib/validate");
+const { positiveInt, text, oneOf, badRequest, notFound, PROVINCES } = require("../../lib/validate");
 const { LIVESTOCK_TYPES } = require("../public");
 
 const router = express.Router();
@@ -27,7 +27,8 @@ async function payload(body) {
   if (!title) errors.title = title === undefined ? "Title must be 200 characters or fewer." : "Title is required.";
   if (!categoryId) errors.category_id = "Please choose a category.";
   if (body.breed_id && !breedId) errors.breed_id = "Please choose a valid breed.";
-  if (!location) errors.location = location === undefined ? "Location is too long." : "Location is required.";
+  if (!location) errors.location = "Please choose a province.";
+  else if (!PROVINCES.includes(location)) errors.location = "Please choose one of Zambia's 10 provinces.";
   if (description === undefined) errors.description = "Description must be 5000 characters or fewer.";
   if (body.livestock_type && !type) errors.livestock_type = "Please choose a valid type.";
   if (!status) errors.status = "Invalid status.";

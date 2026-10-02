@@ -3,7 +3,7 @@
 // MySQL (indexed columns), never by shipping the table to the browser.
 const express = require("express");
 const pool = require("../db");
-const { positiveInt, text, oneOf, notFound } = require("../lib/validate");
+const { positiveInt, text, oneOf, notFound, PROVINCES } = require("../lib/validate");
 
 const router = express.Router();
 
@@ -84,7 +84,8 @@ router.get("/categories", async (req, res, next) => {
 //  - breeds:    every active breed in the chosen category (all categories if
 //               none chosen), with how many published listings each has
 //  - types:     livestock types present among listings matching category+breed
-//  - locations: locations present among listings matching category+breed+type
+//  - locations: all 10 provinces, with counts for listings matching the
+//               category/breed chosen so far
 router.get("/livestock/filters", async (req, res, next) => {
   try {
     const filters = readFilters(req.query);
@@ -113,13 +114,17 @@ router.get("/livestock/filters", async (req, res, next) => {
       [...typeWhere.params, ...LIVESTOCK_TYPES],
     );
 
+    // Location step: always all 10 provinces, each with how many listings
+    // match the category/breed chosen so far.
     const locationWhere = buildWhere(filters, "type");
-    const [locations] = await pool.query(
+    const [locationCounts] = await pool.query(
       `SELECT l.location AS value, COUNT(*) AS count ${FROM}
        WHERE ${locationWhere.sql}
-       GROUP BY l.location ORDER BY l.location ASC`,
+       GROUP BY l.location`,
       locationWhere.params,
     );
+    const counts = new Map(locationCounts.map((row) => [row.value, Number(row.count)]));
+    const locations = PROVINCES.map((value) => ({ value, count: counts.get(value) || 0 }));
 
     res.json({ success: true, data: { breeds, types, locations } });
   } catch (error) {

@@ -13,8 +13,8 @@ Visitors **browse → filter → view livestock → inquire**, with no account n
 | Public registration, login, profiles, seller & user dashboards | **Removed.** Only administrators have accounts. |
 | Anyone could create listings ("Sell") | **Only admins** create, edit, publish and delete listings |
 | Buy and Message buttons, real-time chat (Socket.IO) | **One "Inquire" button** → inquiry form → database + email |
-| Species filter (Cattle, Goats, Sheep…) with free-text breed/location and price/weight/health filters | **Cascading dropdowns:** Category → Breed → Type → Location, all from the database. Price, weight and health filters removed. |
-| Hero: generic pasture slideshow | Photographic hero of **real African cattle photography** (Zambia, Kenya, Nigeria, Senegal, Mauritania), credited |
+| Species filter (Cattle, Goats, Sheep…) with free-text breed/location and price/weight/health filters | **Cascading dropdowns:** Category → Breed → Province (Zambia's 10 provinces), all dropdowns. Price, weight and health filters removed. |
+| Hero: generic pasture slideshow | Photographic hero of **real African cattle photography** (Zambia, Kenya, Nigeria, Senegal, Mauritania) |
 | Tailwind compiled in the browser from the Play CDN | **Prebuilt Tailwind file**: same classes and look, faster, no third-party script |
 
 The visual design (blue/navy brand, header, photo hero with the white filter card, card grid, gallery, navy admin sidebar, mobile bottom tabs) is kept.
@@ -127,10 +127,10 @@ Photos are resized in the browser before upload (good on mobile data). The serve
 
 The homepage filter cascades, and every option comes from the database:
 
-**Category → Breed → Type → Location**
+**Category → Breed → Province**
 
 - Breed stays disabled until a category is chosen, then lists only that category's breeds (e.g. Dairy → the 11 dairy breeds), with listing counts.
-- Type and Location only offer values that exist among published listings matching the earlier choices.
+- Province always lists all 10 Zambian provinces (Central, Copperbelt, Eastern, Luapula, Lusaka, Muchinga, Northern, North-Western, Southern, Western), with listing counts for the earlier choices. Admins pick a listing's province from the same list.
 - Filtering runs in MySQL with indexed queries and pagination. The browser never downloads the whole table.
 - Filter selections are kept in the URL, so filtered results can be shared or bookmarked.
 
@@ -218,5 +218,5 @@ npm run build:css
 ## Notes
 
 - **No demo data.** Only the category/breed reference list is seeded. Dashboard numbers are live counts.
-- **Hero photos** are real photographs from Unsplash (free licence). See `PHOTO-CREDITS.md` and `/photo-credits.html`.
+- **Hero photos** are real photographs from Unsplash (free licence). Credits are kept in `PHOTO-CREDITS.md` (not shown on the site).
 - **Terms of Service and Privacy Policy** were rewritten for the inquiry-only model. Have them reviewed before relying on them legally.

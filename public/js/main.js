@@ -1,5 +1,19 @@
 // Shared utilities for every page (public and admin).
 
+// Zambia's 10 provinces - must match PROVINCES in server/lib/validate.js.
+const ZAMBIA_PROVINCES = [
+  "Central",
+  "Copperbelt",
+  "Eastern",
+  "Luapula",
+  "Lusaka",
+  "Muchinga",
+  "Northern",
+  "North-Western",
+  "Southern",
+  "Western",
+];
+
 /**
  * JSON API request. Throws an Error carrying `status` and, for validation
  * failures, `errors` ({ field: message }) so forms can highlight fields.

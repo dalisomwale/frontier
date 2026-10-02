@@ -4,7 +4,7 @@ The homepage hero and category tiles use real photographs (no AI-generated
 images) from [Unsplash](https://unsplash.com), under the
 [Unsplash License](https://unsplash.com/license): free to use for commercial
 and non-commercial purposes, no permission needed. Attribution isn't required
-but is given anyway, in the hero caption and on `/photo-credits.html`.
+and the credits are not shown on the site; this file keeps the record.
 
 Each photo was checked on its Unsplash page for location, camera and licence
 before use. They load from Unsplash's image CDN (`images.unsplash.com`) at a
