@@ -16,7 +16,7 @@ const PROVINCES = [
 ];
 
 // A "Dual-Purpose" production purpose can be any breed of its animal, so
-// its Breed / Strain list shows all of that animal's breeds. Matched by name
+// its Breed list shows all of that animal's breeds. Matched by name
 // ("Dual-Purpose", "Dual purpose", "dual-purpose"...).
 function isAllBreedsPurpose(name) {
   return String(name || "").toLowerCase().replace(/[^a-z]/g, "") === "dualpurpose";

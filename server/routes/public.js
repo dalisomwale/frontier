@@ -4,7 +4,7 @@
 // table to the browser.
 //
 // Taxonomy: Animal Category (animals) -> Production Purpose (categories)
-//           -> Breed / Strain (breeds). A listing points at its purpose and
+//           -> Breed (breeds). A listing points at its purpose and
 //           breed; the animal comes from the purpose.
 const express = require("express");
 const pool = require("../db");

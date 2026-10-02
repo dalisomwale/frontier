@@ -58,7 +58,7 @@
                 </select>
               </div>
               <div>
-                <label for="filter-breed" class="block text-sm font-medium text-white mb-2">Breed / Strain</label>
+                <label for="filter-breed" class="block text-sm font-medium text-white mb-2">Breed</label>
                 <select id="filter-breed" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white" disabled>
                   <option value="" disabled hidden selected>Select a purpose first</option>
                 </select>
@@ -417,7 +417,7 @@
           els.breed.disabled = false;
           fillSelect(
             els.breed,
-            data.breeds.length ? "Select breed / strain" : "No breeds for this purpose",
+            data.breeds.length ? "Select breed" : "No breeds for this purpose",
             data.breeds.map((b) => ({ value: b.id, label: withCount(b.name, b.count), group: b.group_name })),
             els.breed.value,
           );

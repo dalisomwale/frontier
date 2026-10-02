@@ -20,7 +20,7 @@
     <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 class="text-3xl font-bold text-gray-900">Breeds / Strains</h1>
+          <h1 class="text-3xl font-bold text-gray-900">Breeds</h1>
         </div>
         <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
           <span class="w-5 h-5" data-icon="plus"></span> Add Breed
@@ -90,11 +90,11 @@
           (!currentAnimal || String(b.animal_id) === String(currentAnimal)) &&
           (!currentPurpose || String(b.category_id) === String(currentPurpose)));
         if (!shown.length) {
-          return renderEmptyState(list, { title: "No breeds here yet", message: "Add a breed or strain and assign it to an animal and production purpose.", icon: "tag" });
+          return renderEmptyState(list, { title: "No breeds here yet", message: "Add a breed and assign it to an animal and production purpose.", icon: "tag" });
         }
         list.innerHTML = `
           <table class="admin-table">
-            <thead><tr><th>Breed / Strain</th><th>Animal / Purpose</th><th class="text-center hidden sm:table-cell">Listings</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
+            <thead><tr><th>Breed</th><th>Animal / Purpose</th><th class="text-center hidden sm:table-cell">Listings</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
             <tbody>${shown.map((b) => `
               <tr>
                 <td><p class="font-semibold text-gray-900">${escapeHtml(b.name)}</p>${b.description ? `<p class="text-xs text-gray-500 line-clamp-1">${escapeHtml(b.description)}</p>` : ""}</td>
@@ -142,10 +142,10 @@
         const locked = Boolean(b.livestock_count);
         const animalId = b.animal_id ?? currentAnimal;
         openFormModal({
-          title: b.id ? "Edit Breed / Strain" : "Add Breed / Strain",
+          title: b.id ? "Edit Breed" : "Add Breed",
           submitText: b.id ? "Save Changes" : "Add Breed",
           body: `
-            ${field({ name: "name", label: "Breed / strain name", value: b.name, required: true, attrs: 'maxlength="120"' })}
+            ${field({ name: "name", label: "Breed name", value: b.name, required: true, attrs: 'maxlength="120"' })}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               ${field({ name: "animal_id", label: "Animal", value: animalId, required: true,
                   options: [{ value: "", label: "Select animal" }, ...animals.map((a) => ({ value: a.id, label: a.name }))],

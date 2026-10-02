@@ -13,7 +13,7 @@ Visitors **browse → filter → view livestock → inquire**, with no account n
 | Public registration, login, profiles, seller & user dashboards | **Removed.** Only administrators have accounts. |
 | Anyone could create listings ("Sell") | **Only admins** create, edit, publish and delete listings |
 | Buy and Message buttons, real-time chat (Socket.IO) | **One "Inquire" button** → inquiry form → database + email |
-| Species filter (Cattle, Goats, Sheep…) with free-text breed/location and price/weight/health filters | **Cascading dropdowns:** Animal Category → Production Purpose → Breed / Strain → Province (Zambia's 10 provinces). Price, weight and health filters removed. |
+| Species filter (Cattle, Goats, Sheep…) with free-text breed/location and price/weight/health filters | **Cascading dropdowns:** Animal Category → Production Purpose → Breed → Province (Zambia's 10 provinces). Price, weight and health filters removed. |
 | Hero: generic pasture slideshow | Photographic hero of **real African cattle photography** (Zambia, Kenya, Nigeria, Senegal, Mauritania) |
 | Tailwind compiled in the browser from the Play CDN | **Prebuilt Tailwind file**: same classes and look, faster, no third-party script |
 
@@ -122,7 +122,7 @@ SMTP credentials are only read on the server from `.env`. Nothing about email re
 | **Livestock** | Add/edit/delete listings, publish or unpublish, and upload up to 10 photos (remove, set cover). Animal → Purpose → Breed dropdowns, and a Type list that fits the animal (Bull/Cow…, Buck/Doe…, Hen/Pullet…). Filter by status/animal and search. |
 | **Inquiries** | Tabs for New, Contacted, In Progress, Resolved and Archived, plus search. Each inquiry has one-tap Call / WhatsApp / Email, a status changer, archive/restore, delete, and resend email. Links in notification emails open the inquiry directly. |
 | **Animals & Purposes** | Add, edit, enable/disable and delete animal categories (Cattle, Goats, Sheep, Pigs, Poultry…) and each animal's production purposes, with photos set in the Add and Edit forms: one **photo** per animal (upload / replace / remove) and up to **8 photos** per production purpose (add, remove, make first), shown on their tiles on the website. New items are added at the end. Disabling hides it and its listings from the website. |
-| **Breeds** | Add, edit, enable/disable and delete breeds / strains, each assigned to one animal's production purpose. A breed in use can't be deleted or moved, so the public filter stays accurate. |
+| **Breeds** | Add, edit, enable/disable and delete breeds, each assigned to one animal's production purpose. A breed in use can't be deleted or moved, so the public filter stays accurate. |
 
 Photos are resized in the browser before upload (good on mobile data). The server then stores an optimised WebP (max 1600px) plus a 640px card thumbnail, typically 100–300 KB instead of several MB.
 
@@ -132,10 +132,10 @@ Photos are resized in the browser before upload (good on mobile data). The serve
 
 The homepage filter cascades, and every option comes from the database:
 
-**Animal Category → Production Purpose → Breed / Strain → Province**
+**Animal Category → Production Purpose → Breed → Province**
 
-- No dropdown offers an "All …" option; each shows a prompt (e.g. *Select breed / strain*) until something is picked, and **Clear all filters** resets them.
-- Production Purpose stays locked until an animal is chosen, then lists only that animal's purposes. Breed / Strain stays locked until a purpose is chosen, then lists only that purpose's breeds (e.g. Goats → Meat → Boer, Kalahari Red, Savanna; Poultry → Layers → Lohmann Brown, ISA Brown, Hy-Line Brown). Visitors never see a breed that doesn't belong to their choices. The exception is **Dual-Purpose**: since dual-purpose stock can be any breed of its animal, its Breed / Strain list shows all of that animal's breeds, grouped by purpose (Dual-Purpose's own first), and admins can list e.g. a dual-purpose Jersey.
+- No dropdown offers an "All …" option; each shows a prompt (e.g. *Select breed*) until something is picked, and **Clear all filters** resets them.
+- Production Purpose stays locked until an animal is chosen, then lists only that animal's purposes. Breed stays locked until a purpose is chosen, then lists only that purpose's breeds (e.g. Goats → Meat → Boer, Kalahari Red, Savanna; Poultry → Layers → Lohmann Brown, ISA Brown, Hy-Line Brown). Visitors never see a breed that doesn't belong to their choices. The exception is **Dual-Purpose**: since dual-purpose stock can be any breed of its animal, its Breed list shows all of that animal's breeds, grouped by purpose (Dual-Purpose's own first), and admins can list e.g. a dual-purpose Jersey.
 
 | Animal | Production purposes |
 |---|---|
@@ -147,7 +147,7 @@ The homepage filter cascades, and every option comes from the database:
 
 **Photo tiles:** the homepage shows animal tiles; choosing an animal (tile or dropdown) switches them to that animal's production-purpose tiles, and clicking one filters the listings. Animal tiles show one photo (uploaded, else a recent listing photo, else a stock photo). **Purpose tiles slide through their photos** inside the card (about every 4 seconds, staggered; the text stays still; paused for visitors who prefer reduced motion), using the uploaded photos, else recent listing photos, else the animal's photo.
 
-Cattle breeds come from the client's cattle breed reference document. The other animals' breeds are common Zambian / Southern African breeds and strains; review them in Admin → Breeds.
+Cattle breeds come from the client's cattle breed reference document. The other animals' breeds are common Zambian / Southern African breeds; review them in Admin → Breeds.
 - Province always lists all 10 Zambian provinces (Central, Copperbelt, Eastern, Luapula, Lusaka, Muchinga, Northern, North-Western, Southern, Western), with listing counts for the earlier choices. Admins pick a listing's province from the same list.
 - Filtering runs in MySQL with indexed queries and pagination. The browser never downloads the whole table.
 - Filter selections are kept in the URL, so filtered results can be shared or bookmarked.

@@ -192,7 +192,7 @@
             .filter((b) => String(b.category_id) === String(purposeId) && usable(b))
             .map((b) => ({ value: b.id, label: label(b) }));
         }
-        return [{ value: "", label: purposeId ? (list.length ? "Select breed / strain" : "No breeds for this purpose") : "Select a purpose first" }]
+        return [{ value: "", label: purposeId ? (list.length ? "Select breed" : "No breeds for this purpose") : "Select a purpose first" }]
           .concat(list);
       }
 
@@ -224,7 +224,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             ${field({ name: "animal_id", label: "Animal Category", value: animalId, required: true, options: animalOptions(animalId) })}
             ${field({ name: "category_id", label: "Production Purpose", value: item.category_id, required: true, options: purposeOptions(animalId, item.category_id) })}
-            ${field({ name: "breed_id", label: "Breed / Strain", value: item.breed_id, options: breedOptions(item.category_id, item.breed_id) })}
+            ${field({ name: "breed_id", label: "Breed", value: item.breed_id, options: breedOptions(item.category_id, item.breed_id) })}
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
             ${field({ name: "livestock_type", label: "Type", value: item.livestock_type, options: typeOptions(animalId, item.livestock_type) })}

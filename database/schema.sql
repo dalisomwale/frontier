@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS admins (
   UNIQUE KEY uniq_admins_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Taxonomy: Animal Category -> Production Purpose -> Breed / Strain
+-- Taxonomy: Animal Category -> Production Purpose -> Breed
 --   animals     Cattle, Goats, Sheep, Pigs, Poultry
 --   categories  production purposes, each belonging to one animal
 --               (Cattle: Dairy, Beef, Dual-Purpose; Goats: Meat, Dairy, ...)

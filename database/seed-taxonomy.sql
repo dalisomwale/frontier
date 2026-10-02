@@ -1,10 +1,10 @@
 -- ===========================================================================
--- Reference data: Animal Category -> Production Purpose -> Breed / Strain.
+-- Reference data: Animal Category -> Production Purpose -> Breed.
 -- Real reference data only - no livestock, inquiries or admins.
 --
 -- Cattle breeds come from the client's cattle breed reference document; the
 -- other animals' breeds are common Zambian / Southern African breeds and
--- strains, and can be edited in Admin > Breeds.
+-- can be edited in Admin > Breeds.
 --
 -- `npm run db:setup` runs this only when the animals table is empty (a new
 -- install, or the first upgrade to animal categories), so anything an admin

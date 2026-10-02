@@ -14,7 +14,7 @@ const STATUSES = ["active", "disabled"];
 // Admin CRUD for the taxonomy:
 //   animals     Animal Category (Cattle, Goats, ...)
 //   categories  Production Purpose, each belonging to one animal
-//   breeds      Breed / Strain, each belonging to one production purpose
+//   breeds      Breed, each belonging to one production purpose
 function isDuplicate(error) {
   return error && error.code === "ER_DUP_ENTRY";
 }
