@@ -111,10 +111,11 @@
 
       function setAttributes(item) {
         const rows = [
-          ["Category", item.category_name],
-          ["Breed", item.breed_name],
+          ["Animal", item.animal_name],
+          ["Production Purpose", item.category_name],
+          ["Breed / Strain", item.breed_name],
           ["Type", item.livestock_type],
-          ["Quantity", item.quantity ? `${item.quantity} head` : null],
+          ["Quantity", item.quantity ? quantityLabel(item.quantity, item.animal_name) : null],
           ["Age", item.age_months !== null && item.age_months !== undefined ? formatAge(item.age_months) : null],
           ["Province", item.location],
           ["Listed", formatDateShort(item.created_at)],
@@ -141,7 +142,7 @@
         document.title = `${item.title} - Frontier Marketplace`;
         document.getElementById("listing-title").textContent = item.title;
         document.getElementById("listing-tags").innerHTML = [
-          item.category_name && `<span class="tag tag-category">${escapeHtml(item.category_name)}</span>`,
+          item.animal_name && `<span class="tag tag-category">${escapeHtml([item.animal_name, item.category_name].filter(Boolean).join(" · "))}</span>`,
           item.breed_name && `<span class="tag tag-breed">${escapeHtml(item.breed_name)}</span>`,
           item.livestock_type && `<span class="tag tag-muted">${escapeHtml(item.livestock_type)}</span>`,
         ].filter(Boolean).join("");
@@ -149,7 +150,8 @@
           `<span class="w-4 h-4 text-gray-400">${uiIcon("location")}</span>${escapeHtml(item.location)}`;
 
         const crumb = document.getElementById("crumb-category");
-        crumb.innerHTML = `<span class="mx-1">/</span><a class="hover:text-gray-700" href="/?category_id=${item.category_id}#listings">${escapeHtml(item.category_name)}</a>`;
+        crumb.innerHTML = `<span class="mx-1">/</span><a class="hover:text-gray-700" href="/?animal_id=${item.animal_id}#listings">${escapeHtml(item.animal_name)}</a>
+          <span class="mx-1">/</span><a class="hover:text-gray-700" href="/?animal_id=${item.animal_id}&category_id=${item.category_id}#listings">${escapeHtml(item.category_name)}</a>`;
         crumb.classList.remove("hidden");
 
         if (item.description) {
@@ -240,7 +242,7 @@
         try {
           const res = await apiRequest(`/api/livestock?category_id=${listing.category_id}&exclude=${listing.id}&limit=4`);
           if (!res.data.length) return;
-          document.getElementById("related-heading").textContent = `More ${listing.category_name} livestock`;
+          document.getElementById("related-heading").textContent = `More ${listing.category_name} ${listing.animal_name}`;
           const container = document.getElementById("related-container");
           container.innerHTML = res.data.map(renderLivestockCard).join("");
           bindInquireButtons(container, res.data);

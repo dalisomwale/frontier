@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
-    <title>Categories - Frontier Marketplace Admin</title>
+    <title>Animals &amp; Purposes - Frontier Marketplace Admin</title>
     <link rel="icon" href="/images/logo-icon.jpg" />
     <link rel="stylesheet" href="/css/tailwind.css" />
     <link rel="stylesheet" href="/css/style.css" />
@@ -18,100 +18,236 @@
     <div id="admin-topbar"></div>
 
     <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <h1 class="text-3xl font-bold text-gray-900">Categories</h1>
-          <p class="text-gray-500 mt-1">The first step of the website filter. Disabled categories, and their listings, are hidden from visitors.</p>
+      <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">Animals &amp; Purposes</h1>
+        <p class="text-gray-500 mt-1">The first two steps of the website filter: <strong class="text-gray-700">Animal Category → Production Purpose</strong> → Breed / Strain. Disabled items, and their listings, are hidden from visitors.</p>
+      </div>
+
+      <!-- Animals -->
+      <section class="mb-10" aria-labelledby="animals-h">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 id="animals-h" class="text-xl font-bold text-gray-900">Animal Categories</h2>
+          <button id="add-animal-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
+            <span class="w-5 h-5" data-icon="plus"></span> Add Animal
+          </button>
         </div>
-        <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
-          <span class="w-5 h-5" data-icon="plus"></span> Add Category
-        </button>
-      </div>
-      <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
-        <div id="list" class="overflow-x-auto"></div>
-      </div>
+        <div id="animals" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3"></div>
+      </section>
+
+      <!-- Production purposes -->
+      <section aria-labelledby="purposes-h">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 id="purposes-h" class="text-xl font-bold text-gray-900">Production Purposes</h2>
+          <button id="add-purpose-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
+            <span class="w-5 h-5" data-icon="plus"></span> Add Purpose
+          </button>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <div class="p-4 border-b border-gray-100"><div class="seg" id="tabs"></div></div>
+          <div id="purposes" class="overflow-x-auto"></div>
+        </div>
+      </section>
     </main>
 
     <div id="app-bottom-nav"></div>
 
     <script>
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
-      let rows = [];
+      let animals = [];
+      let purposes = [];
+      let current = getQueryParams().animal_id || "";
+      const statusOptions = [{ value: "active", label: "Active" }, { value: "disabled", label: "Disabled" }];
+      const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? "" : "s"}`;
 
-      async function loadList() {
-        const list = document.getElementById("list");
-        try {
-          rows = (await adminApi("/api/admin/categories")).data;
-        } catch (error) {
-          return renderEmptyState(list, { title: "Could not load categories", message: error.message, icon: "alert" });
+      // ---------------------------------------------------------------
+      // Animals
+      // ---------------------------------------------------------------
+      function renderAnimals() {
+        const box = document.getElementById("animals");
+        if (!animals.length) {
+          return renderEmptyState(box, { title: "No animals yet", message: "Add an animal category such as Cattle or Goats.", icon: "layers" });
         }
-        if (!rows.length) {
-          return renderEmptyState(list, { title: "No categories yet", message: "Add a category such as Dairy, Beef or Dual-Purpose.", icon: "layers" });
-        }
-        list.innerHTML = `
-          <table class="admin-table">
-            <thead><tr><th>Category</th><th class="text-center">Breeds</th><th class="text-center hidden sm:table-cell">Livestock</th><th class="hidden sm:table-cell text-center">Order</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
-            <tbody>${rows.map((c) => `
-              <tr>
-                <td><p class="font-semibold text-gray-900">${escapeHtml(c.name)}</p>${c.description ? `<p class="text-xs text-gray-500 line-clamp-1">${escapeHtml(c.description)}</p>` : ""}</td>
-                <td class="text-center"><a href="/admin/breeds.html?category_id=${c.id}" class="text-blue-600 font-semibold hover:underline">${c.breed_count}</a></td>
-                <td class="text-center hidden sm:table-cell">${c.livestock_count}</td>
-                <td class="text-center hidden sm:table-cell text-gray-500">${c.sort_order}</td>
-                <td>${statusPill(c.status)}</td>
-                <td class="text-right whitespace-nowrap">
-                  <button type="button" data-toggle="${c.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${c.status === "active" ? "Disable" : "Enable"}</button>
-                  <button type="button" data-edit="${c.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="Edit"><span class="w-4 h-4">${uiIcon("edit")}</span></button>
-                  <button type="button" data-delete="${c.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-red-600" title="Delete"><span class="w-4 h-4">${uiIcon("trash")}</span></button>
-                </td>
-              </tr>`).join("")}</tbody>
-          </table>`;
+        box.innerHTML = animals.map((a) => `
+          <div class="bg-white rounded-xl border ${String(a.id) === String(current) ? "border-blue-500 ring-2 ring-blue-100" : "border-gray-100"} shadow-sm p-4 flex flex-col gap-3">
+            <div class="flex items-start justify-between gap-2">
+              <button type="button" data-select="${a.id}" class="text-left min-w-0">
+                <p class="text-lg font-bold text-gray-900 truncate hover:text-blue-600">${escapeHtml(a.name)}</p>
+              </button>
+              ${statusPill(a.status)}
+            </div>
+            <p class="text-sm text-gray-500">${plural(a.purpose_count, "purpose")} · ${plural(a.breed_count, "breed")} · ${plural(a.livestock_count, "listing")}</p>
+            <div class="flex items-center gap-1 -ml-2 mt-auto">
+              <button type="button" data-toggle-animal="${a.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${a.status === "active" ? "Disable" : "Enable"}</button>
+              <button type="button" data-edit-animal="${a.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="Edit"><span class="w-4 h-4">${uiIcon("edit")}</span></button>
+              <button type="button" data-delete-animal="${a.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-red-600" title="Delete"><span class="w-4 h-4">${uiIcon("trash")}</span></button>
+            </div>
+          </div>`).join("");
 
-        const find = (id) => rows.find((c) => String(c.id) === id);
-        list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openEditor(find(b.dataset.edit))));
-        list.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", async () => {
-          const c = find(b.dataset.toggle);
-          const next = c.status === "active" ? "disabled" : "active";
-          if (next === "disabled" && c.livestock_count > 0 && !(await confirmAction({ title: `Disable ${c.name}?`, message: `Its ${c.livestock_count} listing(s) will be hidden from the website until you enable it again.`, confirmText: "Disable" }))) return;
+        const find = (id) => animals.find((a) => String(a.id) === id);
+        box.querySelectorAll("[data-select]").forEach((b) => b.addEventListener("click", () => selectAnimal(b.dataset.select)));
+        box.querySelectorAll("[data-edit-animal]").forEach((b) => b.addEventListener("click", () => openAnimalEditor(find(b.dataset.editAnimal))));
+        box.querySelectorAll("[data-toggle-animal]").forEach((b) => b.addEventListener("click", async () => {
+          const a = find(b.dataset.toggleAnimal);
+          const next = a.status === "active" ? "disabled" : "active";
+          if (next === "disabled" && a.livestock_count > 0 && !(await confirmAction({ title: `Disable ${a.name}?`, message: `Its ${plural(a.livestock_count, "listing")} will be hidden from the website until you enable it again.`, confirmText: "Disable" }))) return;
           try {
-            await adminApi(`/api/admin/categories/${c.id}`, { method: "PUT", body: { status: next } });
-            showNotification(`${c.name} ${next === "active" ? "enabled" : "disabled"}.`, "success");
-            loadList();
+            await adminApi(`/api/admin/animals/${a.id}`, { method: "PUT", body: { status: next } });
+            showNotification(`${a.name} ${next === "active" ? "enabled" : "disabled"}.`, "success");
+            load();
           } catch (error) { showNotification(error.message, "error"); }
         }));
-        list.querySelectorAll("[data-delete]").forEach((b) => b.addEventListener("click", async () => {
-          const c = find(b.dataset.delete);
-          if (!(await confirmAction({ title: `Delete ${c.name}?`, message: "Categories that still have breeds or livestock can't be deleted - disable them instead.", confirmText: "Delete", variant: "danger" }))) return;
+        box.querySelectorAll("[data-delete-animal]").forEach((b) => b.addEventListener("click", async () => {
+          const a = find(b.dataset.deleteAnimal);
+          if (!(await confirmAction({ title: `Delete ${a.name}?`, message: "Animals that still have production purposes can't be deleted - disable them instead.", confirmText: "Delete", variant: "danger" }))) return;
           try {
-            await adminApi(`/api/admin/categories/${c.id}`, { method: "DELETE" });
-            showNotification("Category deleted.", "success");
-            loadList();
+            await adminApi(`/api/admin/animals/${a.id}`, { method: "DELETE" });
+            showNotification("Animal deleted.", "success");
+            if (String(a.id) === String(current)) current = "";
+            load();
           } catch (error) { showNotification(error.message, "error"); }
         }));
       }
 
-      function openEditor(c = {}) {
+      function openAnimalEditor(a = {}) {
         openFormModal({
-          title: c.id ? "Edit Category" : "Add Category",
-          submitText: c.id ? "Save Changes" : "Add Category",
+          title: a.id ? "Edit Animal" : "Add Animal",
+          submitText: a.id ? "Save Changes" : "Add Animal",
           body: `
-            ${field({ name: "name", label: "Name", value: c.name, required: true, placeholder: "e.g. Dairy", attrs: 'maxlength="100"' })}
-            ${field({ name: "description", label: "Description", type: "textarea", value: c.description, placeholder: "Shown on the category tile on the homepage", attrs: 'maxlength="2000"' })}
+            ${field({ name: "name", label: "Animal name", value: a.name, required: true, placeholder: "e.g. Goats", attrs: 'maxlength="100"' })}
+            ${field({ name: "description", label: "Description", type: "textarea", value: a.description, placeholder: "Shown on the animal tile on the homepage", attrs: 'maxlength="2000"' })}
             <div class="grid grid-cols-2 gap-4">
-              ${field({ name: "sort_order", label: "Display order", type: "number", value: c.sort_order ?? (rows.length + 1), help: "Lower numbers show first", attrs: 'step="1"' })}
-              ${field({ name: "status", label: "Status", value: c.status || "active", options: [{ value: "active", label: "Active" }, { value: "disabled", label: "Disabled" }] })}
+              ${field({ name: "sort_order", label: "Display order", type: "number", value: a.sort_order ?? animals.length + 1, help: "Lower numbers show first", attrs: 'step="1"' })}
+              ${field({ name: "status", label: "Status", value: a.status || "active", options: statusOptions })}
             </div>`,
           async onSubmit(form) {
             const v = formValues(form);
-            if (!v.name.trim()) { const e = new Error("Please enter a name."); e.errors = { name: "Name is required." }; throw e; }
-            await adminApi(c.id ? `/api/admin/categories/${c.id}` : "/api/admin/categories", { method: c.id ? "PUT" : "POST", body: v });
-            showNotification(c.id ? "Category updated." : "Category added.", "success");
-            loadList();
+            if (!v.name.trim()) { const e = new Error("Please enter a name."); e.errors = { name: "Animal name is required." }; throw e; }
+            await adminApi(a.id ? `/api/admin/animals/${a.id}` : "/api/admin/animals", { method: a.id ? "PUT" : "POST", body: v });
+            showNotification(a.id ? "Animal updated." : "Animal added.", "success");
+            load();
           },
         });
       }
 
-      document.getElementById("add-btn").addEventListener("click", () => openEditor());
-      (async () => { await initAdminPage("categories"); loadList(); })();
+      // ---------------------------------------------------------------
+      // Production purposes
+      // ---------------------------------------------------------------
+      function selectAnimal(id) {
+        current = id;
+        history.replaceState(null, "", id ? `?animal_id=${id}` : location.pathname);
+        renderAnimals();
+        renderTabs();
+        renderPurposes();
+      }
+
+      function renderTabs() {
+        const counts = {};
+        purposes.forEach((p) => (counts[p.animal_id] = (counts[p.animal_id] || 0) + 1));
+        document.getElementById("tabs").innerHTML = [{ id: "", name: "All" }, ...animals]
+          .map((a) => `<button type="button" data-animal="${a.id}" class="${String(a.id) === String(current) ? "active" : ""}">${escapeHtml(a.name)}<span class="count">${a.id ? counts[a.id] || 0 : purposes.length}</span></button>`)
+          .join("");
+        document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => selectAnimal(b.dataset.animal)));
+      }
+
+      function renderPurposes() {
+        const box = document.getElementById("purposes");
+        const shown = purposes.filter((p) => !current || String(p.animal_id) === String(current));
+        if (!shown.length) {
+          return renderEmptyState(box, { title: "No production purposes yet", message: "Add a purpose such as Meat, Dairy or Layers for this animal.", icon: "layers" });
+        }
+        box.innerHTML = `
+          <table class="admin-table">
+            <thead><tr><th>Purpose</th><th>Animal</th><th class="text-center">Breeds</th><th class="text-center hidden sm:table-cell">Listings</th><th class="hidden sm:table-cell text-center">Order</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
+            <tbody>${shown.map((p) => `
+              <tr>
+                <td><p class="font-semibold text-gray-900">${escapeHtml(p.name)}</p>${p.description ? `<p class="text-xs text-gray-500 line-clamp-1">${escapeHtml(p.description)}</p>` : ""}</td>
+                <td><span class="tag tag-category">${escapeHtml(p.animal_name)}</span></td>
+                <td class="text-center"><a href="/admin/breeds.html?animal_id=${p.animal_id}&category_id=${p.id}" class="text-blue-600 font-semibold hover:underline">${p.breed_count}</a></td>
+                <td class="text-center hidden sm:table-cell">${p.livestock_count}</td>
+                <td class="text-center hidden sm:table-cell text-gray-500">${p.sort_order}</td>
+                <td>${statusPill(p.status)}</td>
+                <td class="text-right whitespace-nowrap">
+                  <button type="button" data-toggle="${p.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${p.status === "active" ? "Disable" : "Enable"}</button>
+                  <button type="button" data-edit="${p.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="Edit"><span class="w-4 h-4">${uiIcon("edit")}</span></button>
+                  <button type="button" data-delete="${p.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-red-600" title="Delete"><span class="w-4 h-4">${uiIcon("trash")}</span></button>
+                </td>
+              </tr>`).join("")}</tbody>
+          </table>`;
+
+        const find = (id) => purposes.find((p) => String(p.id) === id);
+        box.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openPurposeEditor(find(b.dataset.edit))));
+        box.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", async () => {
+          const p = find(b.dataset.toggle);
+          const next = p.status === "active" ? "disabled" : "active";
+          if (next === "disabled" && p.livestock_count > 0 && !(await confirmAction({ title: `Disable ${p.animal_name} · ${p.name}?`, message: `Its ${plural(p.livestock_count, "listing")} will be hidden from the website until you enable it again.`, confirmText: "Disable" }))) return;
+          try {
+            await adminApi(`/api/admin/categories/${p.id}`, { method: "PUT", body: { status: next } });
+            showNotification(`${p.animal_name} · ${p.name} ${next === "active" ? "enabled" : "disabled"}.`, "success");
+            load();
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+        box.querySelectorAll("[data-delete]").forEach((b) => b.addEventListener("click", async () => {
+          const p = find(b.dataset.delete);
+          if (!(await confirmAction({ title: `Delete ${p.animal_name} · ${p.name}?`, message: "Purposes that still have breeds or listings can't be deleted - disable them instead.", confirmText: "Delete", variant: "danger" }))) return;
+          try {
+            await adminApi(`/api/admin/categories/${p.id}`, { method: "DELETE" });
+            showNotification("Production purpose deleted.", "success");
+            load();
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+      }
+
+      function openPurposeEditor(p = {}) {
+        const animalOptions = [{ value: "", label: "Select animal" }, ...animals.map((a) => ({ value: a.id, label: a.name }))];
+        const inSameAnimal = purposes.filter((x) => String(x.animal_id) === String(p.animal_id ?? current)).length;
+        openFormModal({
+          title: p.id ? "Edit Production Purpose" : "Add Production Purpose",
+          submitText: p.id ? "Save Changes" : "Add Purpose",
+          body: `
+            ${field({ name: "animal_id", label: "Animal", value: p.animal_id ?? current, required: true, options: animalOptions,
+                help: p.livestock_count ? "This purpose is used by listings, so its animal can't be changed." : "",
+                attrs: p.livestock_count ? "disabled" : "" })}
+            ${field({ name: "name", label: "Purpose name", value: p.name, required: true, placeholder: "e.g. Meat, Dairy, Layers", attrs: 'maxlength="100"' })}
+            ${field({ name: "description", label: "Description", type: "textarea", value: p.description, placeholder: "Optional", attrs: 'maxlength="2000"' })}
+            <div class="grid grid-cols-2 gap-4">
+              ${field({ name: "sort_order", label: "Display order", type: "number", value: p.sort_order ?? inSameAnimal + 1, help: "Lower numbers show first", attrs: 'step="1"' })}
+              ${field({ name: "status", label: "Status", value: p.status || "active", options: statusOptions })}
+            </div>`,
+          async onSubmit(form) {
+            const v = formValues(form);
+            if (p.livestock_count) delete v.animal_id;
+            const errors = {};
+            if (!p.livestock_count && !v.animal_id) errors.animal_id = "Please choose an animal.";
+            if (!v.name.trim()) errors.name = "Purpose name is required.";
+            if (Object.keys(errors).length) { const e = new Error("Please correct the highlighted fields."); e.errors = errors; throw e; }
+            await adminApi(p.id ? `/api/admin/categories/${p.id}` : "/api/admin/categories", { method: p.id ? "PUT" : "POST", body: v });
+            showNotification(p.id ? "Production purpose updated." : "Production purpose added.", "success");
+            load();
+          },
+        });
+      }
+
+      async function load() {
+        try {
+          [animals, purposes] = await Promise.all([
+            adminApi("/api/admin/animals").then((r) => r.data),
+            adminApi("/api/admin/categories").then((r) => r.data),
+          ]);
+        } catch (error) {
+          return renderEmptyState(document.getElementById("purposes"), { title: "Could not load", message: error.message, icon: "alert" });
+        }
+        if (current && !animals.some((a) => String(a.id) === String(current))) current = "";
+        renderAnimals();
+        renderTabs();
+        renderPurposes();
+      }
+
+      document.getElementById("add-animal-btn").addEventListener("click", () => openAnimalEditor());
+      document.getElementById("add-purpose-btn").addEventListener("click", () => {
+        if (!animals.length) return showNotification("Add an animal first.", "warning");
+        openPurposeEditor();
+      });
+      (async () => { await initAdminPage("categories"); load(); })();
     </script>
   </body>
 </html>

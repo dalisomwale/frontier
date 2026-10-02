@@ -65,7 +65,7 @@ function buildInquiryEmail(inquiry) {
   const date = formatDate(inquiry.created_at || new Date());
   const rows = [
     ["Livestock", inquiry.livestock_title],
-    ["Category", inquiry.category_name || "-"],
+    ["Category", [inquiry.animal_name, inquiry.category_name].filter(Boolean).join(" · ") || "-"],
     ["Breed", inquiry.breed_name || "-"],
     ["Full Name", inquiry.full_name],
     ["Phone", inquiry.phone],

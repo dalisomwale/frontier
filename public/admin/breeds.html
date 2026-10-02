@@ -20,15 +20,18 @@
     <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 class="text-3xl font-bold text-gray-900">Breeds</h1>
-          <p class="text-gray-500 mt-1">Each breed belongs to one category. The website's Breed dropdown only shows the breeds of the chosen category.</p>
+          <h1 class="text-3xl font-bold text-gray-900">Breeds / Strains</h1>
+          <p class="text-gray-500 mt-1">Each breed belongs to one production purpose of one animal. On the website, the Breed dropdown only lists breeds for the animal and purpose the visitor picked.</p>
         </div>
         <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
           <span class="w-5 h-5" data-icon="plus"></span> Add Breed
         </button>
       </div>
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
-        <div class="p-4 border-b border-gray-100"><div class="seg" id="tabs"></div></div>
+        <div class="flex flex-col lg:flex-row lg:items-center gap-3 p-4 border-b border-gray-100">
+          <div class="seg" id="tabs"></div>
+          <select id="purpose-filter" class="field-input !py-2 !text-sm lg:!w-56 lg:ml-auto" aria-label="Filter by production purpose"></select>
+        </div>
         <div id="list" class="overflow-x-auto"></div>
       </div>
     </main>
@@ -37,32 +40,66 @@
 
     <script>
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
-      let categories = [];
+      let animals = [];
+      let purposes = [];
       let rows = [];
-      let current = getQueryParams().category_id || "";
+      const q = getQueryParams();
+      let currentAnimal = q.animal_id || "";
+      let currentPurpose = q.category_id || "";
 
-      function renderTabs() {
-        const counts = {};
-        rows.forEach((b) => (counts[b.category_id] = (counts[b.category_id] || 0) + 1));
-        document.getElementById("tabs").innerHTML = [{ id: "", name: "All" }, ...categories]
-          .map((c) => `<button type="button" data-cat="${c.id}" class="${String(c.id) === String(current) ? "active" : ""}">${escapeHtml(c.name)}<span class="count">${c.id ? counts[c.id] || 0 : rows.length}</span></button>`)
-          .join("");
-        document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => { current = b.dataset.cat; renderTabs(); renderList(); }));
+      const purposesOf = (animalId) => purposes.filter((p) => String(p.animal_id) === String(animalId));
+
+      function syncUrl() {
+        const params = new URLSearchParams();
+        if (currentAnimal) params.set("animal_id", currentAnimal);
+        if (currentPurpose) params.set("category_id", currentPurpose);
+        history.replaceState(null, "", params.toString() ? `?${params}` : location.pathname);
       }
+
+      function renderFilters() {
+        const counts = {};
+        rows.forEach((b) => (counts[b.animal_id] = (counts[b.animal_id] || 0) + 1));
+        document.getElementById("tabs").innerHTML = [{ id: "", name: "All" }, ...animals]
+          .map((a) => `<button type="button" data-animal="${a.id}" class="${String(a.id) === String(currentAnimal) ? "active" : ""}">${escapeHtml(a.name)}<span class="count">${a.id ? counts[a.id] || 0 : rows.length}</span></button>`)
+          .join("");
+        document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => {
+          currentAnimal = b.dataset.animal;
+          currentPurpose = "";
+          syncUrl();
+          renderFilters();
+          renderList();
+        }));
+
+        const select = document.getElementById("purpose-filter");
+        const list = currentAnimal ? purposesOf(currentAnimal) : [];
+        select.disabled = !currentAnimal;
+        select.innerHTML = currentAnimal
+          ? `<option value="">All purposes</option>` + list.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("")
+          : `<option value="">Choose an animal to filter by purpose</option>`;
+        select.value = list.some((p) => String(p.id) === String(currentPurpose)) ? currentPurpose : "";
+      }
+
+      document.getElementById("purpose-filter").addEventListener("change", (e) => {
+        currentPurpose = e.target.value;
+        syncUrl();
+        renderList();
+      });
 
       function renderList() {
         const list = document.getElementById("list");
-        const shown = rows.filter((b) => !current || String(b.category_id) === String(current));
+        const shown = rows.filter((b) =>
+          (!currentAnimal || String(b.animal_id) === String(currentAnimal)) &&
+          (!currentPurpose || String(b.category_id) === String(currentPurpose)));
         if (!shown.length) {
-          return renderEmptyState(list, { title: "No breeds yet", message: "Add a breed and assign it to a category.", icon: "tag" });
+          return renderEmptyState(list, { title: "No breeds here yet", message: "Add a breed or strain and assign it to an animal and production purpose.", icon: "tag" });
         }
         list.innerHTML = `
           <table class="admin-table">
-            <thead><tr><th>Breed</th><th>Category</th><th class="text-center hidden sm:table-cell">Livestock</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
+            <thead><tr><th>Breed / Strain</th><th>Animal · Purpose</th><th class="text-center hidden sm:table-cell">Listings</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
             <tbody>${shown.map((b) => `
               <tr>
                 <td><p class="font-semibold text-gray-900">${escapeHtml(b.name)}</p>${b.description ? `<p class="text-xs text-gray-500 line-clamp-1">${escapeHtml(b.description)}</p>` : ""}</td>
-                <td><span class="tag tag-category">${escapeHtml(b.category_name)}</span></td>
+                <td><span class="tag tag-category">${escapeHtml(b.animal_name)} · ${escapeHtml(b.category_name)}</span></td>
                 <td class="text-center hidden sm:table-cell">${b.livestock_count}</td>
                 <td>${statusPill(b.status)}</td>
                 <td class="text-right whitespace-nowrap">
@@ -96,24 +133,44 @@
         }));
       }
 
+      function purposeOptions(animalId) {
+        const list = purposesOf(animalId);
+        return [{ value: "", label: animalId ? (list.length ? "Select purpose" : "No purposes for this animal") : "Select an animal first" }]
+          .concat(list.map((p) => ({ value: p.id, label: p.name })));
+      }
+
       function openEditor(b = {}) {
+        const locked = Boolean(b.livestock_count);
+        const animalId = b.animal_id ?? currentAnimal;
         openFormModal({
-          title: b.id ? "Edit Breed" : "Add Breed",
+          title: b.id ? "Edit Breed / Strain" : "Add Breed / Strain",
           submitText: b.id ? "Save Changes" : "Add Breed",
           body: `
-            ${field({ name: "name", label: "Breed name", value: b.name, required: true, placeholder: "e.g. Boran", attrs: 'maxlength="120"' })}
-            ${field({ name: "category_id", label: "Category", value: b.category_id ?? current, required: true,
-                options: [{ value: "", label: "Select category" }, ...categories.map((c) => ({ value: c.id, label: c.name }))],
-                help: b.livestock_count ? "This breed is used by listings, so its category can't be changed." : "" ,
-                attrs: b.livestock_count ? "disabled" : "" })}
+            ${field({ name: "name", label: "Breed / strain name", value: b.name, required: true, placeholder: "e.g. Boer, ISA Brown", attrs: 'maxlength="120"' })}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              ${field({ name: "animal_id", label: "Animal", value: animalId, required: true,
+                  options: [{ value: "", label: "Select animal" }, ...animals.map((a) => ({ value: a.id, label: a.name }))],
+                  attrs: locked ? "disabled" : "" })}
+              ${field({ name: "category_id", label: "Production purpose", value: b.category_id ?? currentPurpose, required: true,
+                  options: purposeOptions(animalId), attrs: locked ? "disabled" : "" })}
+            </div>
+            ${locked ? `<p class="text-xs text-gray-500 -mt-2">This breed is used by listings, so its animal and purpose can't be changed.</p>` : ""}
             ${field({ name: "description", label: "Description", type: "textarea", value: b.description, placeholder: "Optional notes about this breed", attrs: 'maxlength="2000"' })}
             ${field({ name: "status", label: "Status", value: b.status || "active", options: [{ value: "active", label: "Active" }, { value: "disabled", label: "Disabled" }] })}`,
+          onOpen(form) {
+            form.elements.animal_id.addEventListener("change", () => {
+              form.elements.category_id.innerHTML = purposeOptions(form.elements.animal_id.value)
+                .map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join("");
+            });
+          },
           async onSubmit(form) {
             const v = formValues(form);
-            if (b.livestock_count) delete v.category_id;
+            delete v.animal_id;
+            if (locked) delete v.category_id;
             const errors = {};
             if (!v.name.trim()) errors.name = "Breed name is required.";
-            if (!b.livestock_count && !v.category_id) errors.category_id = "Please choose a category.";
+            if (!locked && !form.elements.animal_id.value) errors.animal_id = "Please choose an animal.";
+            if (!locked && !v.category_id) errors.category_id = "Please choose a production purpose.";
             if (Object.keys(errors).length) { const e = new Error("Please correct the highlighted fields."); e.errors = errors; throw e; }
             await adminApi(b.id ? `/api/admin/breeds/${b.id}` : "/api/admin/breeds", { method: b.id ? "PUT" : "POST", body: v });
             showNotification(b.id ? "Breed updated." : "Breed added.", "success");
@@ -124,14 +181,15 @@
 
       async function load() {
         try {
-          [categories, rows] = await Promise.all([
+          [animals, purposes, rows] = await Promise.all([
+            adminApi("/api/admin/animals").then((r) => r.data),
             adminApi("/api/admin/categories").then((r) => r.data),
             adminApi("/api/admin/breeds").then((r) => r.data),
           ]);
         } catch (error) {
           return renderEmptyState(document.getElementById("list"), { title: "Could not load breeds", message: error.message, icon: "alert" });
         }
-        renderTabs();
+        renderFilters();
         renderList();
       }
 

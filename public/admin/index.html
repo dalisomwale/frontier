@@ -63,7 +63,8 @@
         { key: "unpublished_livestock", label: "Unpublished", icon: "eyeOff", tint: "bg-gray-100 text-gray-600", href: "/admin/livestock.html?status=unpublished" },
         { key: "new_inquiries", label: "New Inquiries", icon: "inbox", tint: "bg-red-100 text-red-600", href: "/admin/inquiries.html?status=new" },
         { key: "total_inquiries", label: "Total Inquiries", icon: "inquire", tint: "bg-purple-100 text-purple-600", href: "/admin/inquiries.html" },
-        { key: "categories", label: "Categories", icon: "layers", tint: "bg-amber-100 text-amber-600", href: "/admin/categories.html" },
+        { key: "animals", label: "Animals", icon: "layers", tint: "bg-amber-100 text-amber-600", href: "/admin/categories.html" },
+        { key: "purposes", label: "Purposes", icon: "listings", tint: "bg-sky-100 text-sky-600", href: "/admin/categories.html" },
         { key: "breeds", label: "Breeds", icon: "tag", tint: "bg-emerald-100 text-emerald-600", href: "/admin/breeds.html" },
       ];
 
@@ -121,7 +122,7 @@
             <span class="w-14 h-11 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover">` : livestockFallbackMedia("w-7 h-7")}</span>
             <div class="min-w-0 flex-1">
               <p class="font-semibold text-gray-900 truncate">${escapeHtml(l.title)}</p>
-              <p class="text-sm text-gray-500 truncate">${escapeHtml([l.category_name, l.breed_name, l.location].filter(Boolean).join(" · "))}</p>
+              <p class="text-sm text-gray-500 truncate">${escapeHtml([l.animal_name, l.category_name, l.breed_name, l.location].filter(Boolean).join(" · "))}</p>
             </div>
             ${statusPill(l.status)}
           </a></li>`).join("")}</ul>`;

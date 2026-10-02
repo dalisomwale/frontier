@@ -81,11 +81,12 @@ router.post("/", async (req, res, next) => {
     }
 
     const [listing] = await pool.query(
-      `SELECT l.id, l.title, c.name AS category_name, b.name AS breed_name
+      `SELECT l.id, l.title, a.name AS animal_name, c.name AS category_name, b.name AS breed_name
        FROM livestock l
        JOIN categories c ON c.id = l.category_id
+       JOIN animals a ON a.id = c.animal_id
        LEFT JOIN breeds b ON b.id = l.breed_id
-       WHERE l.id = ? AND l.status = 'published' AND c.status = 'active'`,
+       WHERE l.id = ? AND l.status = 'published' AND c.status = 'active' AND a.status = 'active'`,
       [livestockId],
     );
     if (!listing.length) throw notFound("This listing is no longer available.");
@@ -93,12 +94,13 @@ router.post("/", async (req, res, next) => {
 
     const [result] = await pool.query(
       `INSERT INTO inquiries
-         (livestock_id, livestock_title, category_name, breed_name,
+         (livestock_id, livestock_title, animal_name, category_name, breed_name,
           full_name, phone, email, message, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         item.id,
         item.title,
+        item.animal_name,
         item.category_name,
         item.breed_name,
         values.full_name,
@@ -117,6 +119,7 @@ router.post("/", async (req, res, next) => {
       await sendInquiryNotification({
         ...values,
         livestock_title: item.title,
+        animal_name: item.animal_name,
         category_name: item.category_name,
         breed_name: item.breed_name,
         created_at: new Date(),

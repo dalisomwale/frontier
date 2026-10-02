@@ -14,6 +14,27 @@ const ZAMBIA_PROVINCES = [
   "Western",
 ];
 
+// Listing "Type" options for each animal (shown on listings, chosen in the
+// admin editor). Animals an admin adds later fall back to GENERIC.
+const LIVESTOCK_TYPES_BY_ANIMAL = {
+  Cattle: ["Bull", "Cow", "Heifer", "Steer", "Calf", "Mixed"],
+  Goats: ["Buck", "Doe", "Kid", "Wether", "Mixed"],
+  Sheep: ["Ram", "Ewe", "Lamb", "Wether", "Mixed"],
+  Pigs: ["Boar", "Sow", "Gilt", "Weaner", "Porker", "Mixed"],
+  Poultry: ["Hen", "Cock", "Pullet", "Point-of-lay", "Chicks", "Mixed"],
+  GENERIC: ["Male", "Female", "Young", "Mixed"],
+};
+
+function livestockTypesFor(animalName) {
+  return LIVESTOCK_TYPES_BY_ANIMAL[animalName] || LIVESTOCK_TYPES_BY_ANIMAL.GENERIC;
+}
+
+// "10 head" for most animals, "200 birds" for poultry.
+function quantityLabel(quantity, animalName) {
+  const n = Number(quantity) || 0;
+  return `${n.toLocaleString()} ${animalName === "Poultry" ? (n === 1 ? "bird" : "birds") : "head"}`;
+}
+
 /**
  * JSON API request. Throws an Error carrying `status` and, for validation
  * failures, `errors` ({ field: message }) so forms can highlight fields.

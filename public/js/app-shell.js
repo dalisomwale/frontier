@@ -16,7 +16,7 @@ function renderBottomNav(variant = "public") {
           { href: "/admin/index.html", icon: "dashboard", label: "Overview", match: ["/admin/index.html"] },
           { href: "/admin/livestock.html", icon: "listings", label: "Livestock", match: ["/admin/livestock.html"] },
           { href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", match: ["/admin/inquiries.html"], badge: true },
-          { href: "/admin/categories.html", icon: "layers", label: "Categories", match: ["/admin/categories.html"] },
+          { href: "/admin/categories.html", icon: "layers", label: "Animals", match: ["/admin/categories.html"] },
           { href: "/admin/breeds.html", icon: "tag", label: "Breeds", match: ["/admin/breeds.html"] },
         ]
       : [
@@ -53,7 +53,7 @@ function renderSidebar(active) {
     { key: "dashboard", href: "/admin/index.html", icon: "dashboard", label: "Dashboard" },
     { key: "livestock", href: "/admin/livestock.html", icon: "listings", label: "Livestock" },
     { key: "inquiries", href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", badge: true },
-    { key: "categories", href: "/admin/categories.html", icon: "layers", label: "Categories" },
+    { key: "categories", href: "/admin/categories.html", icon: "layers", label: "Animals & Purposes" },
     { key: "breeds", href: "/admin/breeds.html", icon: "tag", label: "Breeds" },
     { key: "site", href: "/", icon: "external", label: "View Website", external: true },
   ];

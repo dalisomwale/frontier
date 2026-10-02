@@ -12,6 +12,7 @@ const { sendInquiryNotification, recipients } = require("../server/services/mail
   console.log(`Via SMTP ${process.env.SMTP_HOST}:${process.env.SMTP_PORT || 587}\n`);
   const info = await sendInquiryNotification({
     livestock_title: "TEST - Frontier email check",
+    animal_name: "Cattle",
     category_name: "Beef",
     breed_name: "Boran",
     full_name: "Frontier Email Test",

@@ -2,11 +2,12 @@
 -- Frontier Marketplace - database schema (v2: admin-managed inquiry platform)
 -- ===========================================================================
 -- Prefer `npm run db:setup`, which runs this file against DB_NAME from .env,
--- archives any v1 tables first and seeds the category/breed reference list.
+-- archives any v1 tables first, migrates older v2 databases and seeds the
+-- animal / production purpose / breed reference list.
 --
 -- Running it by hand also works:
 --   mysql -u <user> -p <database> < database/schema.sql
---   mysql -u <user> -p <database> < database/seed-categories.sql
+--   mysql -u <user> -p <database> < database/seed-taxonomy.sql
 --
 -- Every statement is idempotent (CREATE TABLE IF NOT EXISTS).
 -- Compatible with MySQL 8.0+ and MariaDB 10.5+.
@@ -23,19 +24,41 @@ CREATE TABLE IF NOT EXISTS admins (
   UNIQUE KEY uniq_admins_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- categories: Dairy, Beef, Dual-Purpose (admins can add more) ---------------
-CREATE TABLE IF NOT EXISTS categories (
+-- Taxonomy: Animal Category -> Production Purpose -> Breed / Strain
+--   animals     Cattle, Goats, Sheep, Pigs, Poultry
+--   categories  production purposes, each belonging to one animal
+--               (Cattle: Dairy, Beef, Dual-Purpose; Goats: Meat, Dairy, ...)
+--   breeds      each belonging to one production purpose
+
+-- animals: the animal categories ---------------------------------------------
+CREATE TABLE IF NOT EXISTS animals (
   id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name         VARCHAR(100) NOT NULL,
   description  TEXT NULL,
   status       ENUM('active', 'disabled') NOT NULL DEFAULT 'active',
   sort_order   INT NOT NULL DEFAULT 0,
   created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uniq_categories_name (name),
+  UNIQUE KEY uniq_animals_name (name),
+  INDEX idx_animals_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- categories: production purposes; names are unique per animal (both Cattle
+-- and Goats have "Dairy") ----------------------------------------------------
+CREATE TABLE IF NOT EXISTS categories (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  animal_id    INT UNSIGNED NOT NULL,
+  name         VARCHAR(100) NOT NULL,
+  description  TEXT NULL,
+  status       ENUM('active', 'disabled') NOT NULL DEFAULT 'active',
+  sort_order   INT NOT NULL DEFAULT 0,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_categories_animal FOREIGN KEY (animal_id)
+    REFERENCES animals(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  UNIQUE KEY uniq_categories_animal_name (animal_id, name),
   INDEX idx_categories_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- breeds: each belongs to exactly one category ------------------------------
+-- breeds: each belongs to exactly one production purpose --------------------
 CREATE TABLE IF NOT EXISTS breeds (
   id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   category_id  INT UNSIGNED NOT NULL,
@@ -49,15 +72,15 @@ CREATE TABLE IF NOT EXISTS breeds (
   INDEX idx_breeds_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- livestock: listings, created by administrators only -----------------------
--- livestock_type is the "other classification" step of the public filter
--- (Category -> Breed -> Type -> Location).
+-- livestock: listings, created by administrators only. category_id is the
+-- production purpose (which implies the animal); livestock_type is the
+-- animal-specific type (Bull, Doe, Ewe, Sow, Hen...) shown on the listing.
 CREATE TABLE IF NOT EXISTS livestock (
   id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   title           VARCHAR(200) NOT NULL,
   category_id     INT UNSIGNED NOT NULL,
   breed_id        INT UNSIGNED NULL,
-  livestock_type  ENUM('Bull', 'Cow', 'Heifer', 'Steer', 'Calf', 'Mixed') NULL,
+  livestock_type  VARCHAR(40) NULL,
   quantity        INT UNSIGNED NOT NULL DEFAULT 1,
   age_months      SMALLINT UNSIGNED NULL,
   location        VARCHAR(150) NOT NULL,
@@ -99,6 +122,7 @@ CREATE TABLE IF NOT EXISTS inquiries (
   id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   livestock_id     INT UNSIGNED NULL,
   livestock_title  VARCHAR(200) NOT NULL,
+  animal_name      VARCHAR(100) NULL,
   category_name    VARCHAR(100) NULL,
   breed_name       VARCHAR(120) NULL,
   full_name        VARCHAR(120) NOT NULL,

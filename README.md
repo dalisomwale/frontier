@@ -2,7 +2,7 @@
 
 An admin-managed livestock discovery and inquiry platform for **Frontier Farms & Consult Ltd**.
 
-Visitors **browse → filter → view livestock → inquire**, with no account needed. Every inquiry is saved to the database and emailed to the marketplace team. Administrators manage livestock, photos, categories, breeds and inquiries from a secure dashboard.
+Visitors **browse → filter → view livestock → inquire**, with no account needed. Every inquiry is saved to the database and emailed to the marketplace team. Administrators manage livestock, photos, animals, production purposes, breeds and inquiries from a secure dashboard.
 
 ---
 
@@ -13,7 +13,7 @@ Visitors **browse → filter → view livestock → inquire**, with no account n
 | Public registration, login, profiles, seller & user dashboards | **Removed.** Only administrators have accounts. |
 | Anyone could create listings ("Sell") | **Only admins** create, edit, publish and delete listings |
 | Buy and Message buttons, real-time chat (Socket.IO) | **One "Inquire" button** → inquiry form → database + email |
-| Species filter (Cattle, Goats, Sheep…) with free-text breed/location and price/weight/health filters | **Cascading dropdowns:** Category → Breed → Province (Zambia's 10 provinces), all dropdowns. Price, weight and health filters removed. |
+| Species filter (Cattle, Goats, Sheep…) with free-text breed/location and price/weight/health filters | **Cascading dropdowns:** Animal Category → Production Purpose → Breed / Strain → Province (Zambia's 10 provinces). Price, weight and health filters removed. |
 | Hero: generic pasture slideshow | Photographic hero of **real African cattle photography** (Zambia, Kenya, Nigeria, Senegal, Mauritania) |
 | Tailwind compiled in the browser from the Play CDN | **Prebuilt Tailwind file**: same classes and look, faster, no third-party script |
 
@@ -35,7 +35,7 @@ The visual design (blue/navy brand, header, photo hero with the white filter car
 ```bash
 npm install
 cp .env.example .env          # then edit .env (database, SMTP, SESSION_SECRET)
-npm run db:setup              # creates tables + seeds categories & breeds
+npm run db:setup              # creates tables + seeds animals, purposes & breeds
 npm run create-admin          # create your administrator login
 npm run test-email            # optional: confirms SMTP works
 npm run dev                   # http://localhost:3000
@@ -44,7 +44,7 @@ npm run dev                   # http://localhost:3000
 - Public site: `http://localhost:3000`
 - Admin: `http://localhost:3000/admin/` (redirects to the login page)
 
-There is **no demo data**. The database starts with the category/breed reference list only. Add livestock from the admin dashboard; until then the site shows empty states.
+There is **no demo data**. The database starts with the animal / purpose / breed reference list only. Add livestock from the admin dashboard; until then the site shows empty states.
 
 ---
 
@@ -66,7 +66,7 @@ The current production setup (InterServer VPS, PM2 process `Frontier`, Nginx, do
    ```bash
    npm run db:setup
    ```
-   This **renames** the v1 tables (`users`, `listings`, `listing_media`, `listing_documents`, `messages`, `inquiries`, `favorites`, `reports`) to `legacy_v1_*`, so nothing is dropped. It then creates the v2 tables and seeds the 3 categories and 32 breeds. Existing **admin** accounts are copied into `admins` with their current passwords. Safe to run again on later deploys.
+   This **renames** the v1 tables (`users`, `listings`, `listing_media`, `listing_documents`, `messages`, `inquiries`, `favorites`, `reports`) to `legacy_v1_*`, so nothing is dropped. It then creates the v2 tables and seeds the reference list (5 animals, 19 production purposes, 70 breeds). Existing **admin** accounts are copied into `admins` with their current passwords. Safe to run again on later deploys. Databases set up before animal categories existed are upgraded in place: the existing Dairy / Beef / Dual-Purpose become Cattle's purposes (listings, breeds and inquiries are kept) and the other animals are added.
 6. **Create an admin** if you don't already have one, or to reset a password:
    ```bash
    npm run create-admin
@@ -99,7 +99,7 @@ Once you're happy with v2, you can drop the `legacy_v1_*` tables. v1 listing pho
 
 Every inquiry is saved to the database **first**, then emailed to everyone in `INQUIRY_NOTIFY_EMAILS` (default: `mpimpa.miyoba@gmail.com, dalisomwale003@gmail.com`).
 
-The email contains the livestock title, category, breed, the customer's name, phone, email and message, the date, and a button linking straight to the inquiry in the dashboard. *Reply-To* is set to the customer, so replying goes to them.
+The email contains the livestock title, category (animal · purpose, e.g. *Goats · Meat*), breed, the customer's name, phone, email and message, the date, and a button linking straight to the inquiry in the dashboard. *Reply-To* is set to the customer, so replying goes to them.
 
 **Gmail:** turn on 2-Step Verification on the sending account, create an **App Password** (Google Account → Security → App passwords), and use it as `SMTP_PASS`. Any other SMTP provider works too; set `SMTP_HOST`, `SMTP_PORT` and `SMTP_SECURE` accordingly.
 
@@ -113,11 +113,11 @@ SMTP credentials are only read on the server from `.env`. Nothing about email re
 
 | Page | What it does |
 |---|---|
-| **Dashboard** | Live counts from the database: total, published and unpublished livestock, categories, breeds, total and new inquiries. Also recent inquiries, recent livestock, and a failed-email warning. |
-| **Livestock** | Add/edit/delete listings, publish or unpublish, and upload up to 10 photos (remove, set cover). Filter by status/category and search. |
+| **Dashboard** | Live counts from the database: total, published and unpublished livestock, animals, purposes, breeds, total and new inquiries. Also recent inquiries, recent livestock, and a failed-email warning. |
+| **Livestock** | Add/edit/delete listings, publish or unpublish, and upload up to 10 photos (remove, set cover). Animal → Purpose → Breed dropdowns, and a Type list that fits the animal (Bull/Cow…, Buck/Doe…, Hen/Pullet…). Filter by status/animal and search. |
 | **Inquiries** | Tabs for New, Contacted, In Progress, Resolved and Archived, plus search. Each inquiry has one-tap Call / WhatsApp / Email, a status changer, archive/restore, delete, and resend email. Links in notification emails open the inquiry directly. |
-| **Categories** | Add, edit, enable/disable, delete and order categories. Disabling hides the category and its listings from the website. |
-| **Breeds** | Add, edit, enable/disable and delete breeds, and assign each to a category. A breed in use can't be deleted or moved to another category, so the public filter stays accurate. |
+| **Animals & Purposes** | Add, edit, enable/disable, delete and order animal categories (Cattle, Goats, Sheep, Pigs, Poultry…) and each animal's production purposes. Disabling hides it and its listings from the website. |
+| **Breeds** | Add, edit, enable/disable and delete breeds / strains, each assigned to one animal's production purpose. A breed in use can't be deleted or moved, so the public filter stays accurate. |
 
 Photos are resized in the browser before upload (good on mobile data). The server then stores an optimised WebP (max 1600px) plus a 640px card thumbnail, typically 100–300 KB instead of several MB.
 
@@ -127,9 +127,19 @@ Photos are resized in the browser before upload (good on mobile data). The serve
 
 The homepage filter cascades, and every option comes from the database:
 
-**Category → Breed → Province**
+**Animal Category → Production Purpose → Breed / Strain → Province**
 
-- Breed stays disabled until a category is chosen, then lists only that category's breeds (e.g. Dairy → the 11 dairy breeds), with listing counts.
+- Production Purpose stays locked until an animal is chosen, then lists only that animal's purposes. Breed / Strain stays locked until a purpose is chosen, then lists only that purpose's breeds (e.g. Goats → Meat → Boer, Kalahari Red, Savanna; Poultry → Layers → Lohmann Brown, ISA Brown, Hy-Line Brown). Visitors never see a breed that doesn't belong to their choices.
+
+| Animal | Production purposes |
+|---|---|
+| Cattle | Dairy, Beef, Dual-Purpose |
+| Goats | Meat, Dairy, Dual-Purpose, Indigenous/Local |
+| Sheep | Meat, Wool, Dual-Purpose, Indigenous/Local |
+| Pigs | Meat, Commercial, Indigenous/Local |
+| Poultry | Layers, Broilers, Dual-Purpose, Indigenous/Local, Breeding |
+
+Cattle breeds come from the client's cattle breed reference document. The other animals' breeds are common Zambian / Southern African breeds and strains; review them in Admin → Breeds.
 - Province always lists all 10 Zambian provinces (Central, Copperbelt, Eastern, Luapula, Lusaka, Muchinga, Northern, North-Western, Southern, Western), with listing counts for the earlier choices. Admins pick a listing's province from the same list.
 - Filtering runs in MySQL with indexed queries and pagination. The browser never downloads the whole table.
 - Filter selections are kept in the URL, so filtered results can be shared or bookmarked.
@@ -140,8 +150,8 @@ The homepage filter cascades, and every option comes from the database:
 
 ```
 database/
-  schema.sql            v2 tables (admins, categories, breeds, livestock, livestock_images, inquiries)
-  seed-categories.sql   Dairy / Beef / Dual-Purpose + 32 breeds (reference data only)
+  schema.sql            v2 tables (admins, animals, categories = production purposes, breeds, livestock, livestock_images, inquiries)
+  seed-taxonomy.sql     5 animals, 19 production purposes, 70 breeds (reference data only)
   setup.js              npm run db:setup - create, migrate from v1, seed
 scripts/
   create-admin.js       npm run create-admin
@@ -153,13 +163,13 @@ server/
   middleware/auth.js    admin-only auth + CSRF header check
   middleware/upload.js  photo upload, validation and WebP conversion (sharp)
   services/mailer.js    inquiry notification email (nodemailer)
-  routes/public.js      public livestock, categories and cascading filter API
+  routes/public.js      public livestock, animals, purposes and cascading filter API
   routes/inquiries.js   public inquiry submission
-  routes/admin/         auth, dashboard, livestock, taxonomy (categories + breeds), inquiries
+  routes/admin/         auth, dashboard, livestock, taxonomy (animals, purposes, breeds), inquiries
 public/
-  index.html            homepage: hero, filters, categories, listings
+  index.html            homepage: hero, filters, animal tiles, listings
   listing.html          livestock details + gallery + Inquire
-  admin/                login, dashboard, livestock, inquiries, categories, breeds
+  admin/                login, dashboard, livestock, inquiries, animals & purposes, breeds
   js/                   main, icons, app-shell, livestock, inquiry, admin
   css/style.css         brand styles (from v1, extended)
   css/tailwind.css      prebuilt Tailwind (generated - see below)
@@ -181,9 +191,10 @@ npm run build:css
 
 | Method | Endpoint | |
 |---|---|---|
-| GET | `/api/categories` | Active categories with breed/listing counts |
-| GET | `/api/livestock/filters?category_id=&breed_id=&type=` | Options for the dependent dropdowns |
-| GET | `/api/livestock?category_id=&breed_id=&type=&location=&page=&limit=` | Published listings |
+| GET | `/api/animals` | Active animal categories with purpose/listing counts |
+| GET | `/api/categories?animal_id=` | Active production purposes |
+| GET | `/api/livestock/filters?animal_id=&category_id=&breed_id=` | Options for the dependent dropdowns |
+| GET | `/api/livestock?animal_id=&category_id=&breed_id=&location=&page=&limit=` | Published listings |
 | GET | `/api/livestock/:id` | Listing details + photos |
 | POST | `/api/inquiries` | `{ livestock_id, full_name, phone, email, message }` |
 | GET | `/api/health` | Health check (app + database) |
@@ -197,7 +208,7 @@ npm run build:css
 | GET | `/api/admin/dashboard` |
 | GET / POST | `/api/admin/livestock` (POST is multipart with `images[]`) |
 | GET / PUT / DELETE | `/api/admin/livestock/:id` · PATCH `/api/admin/livestock/:id/status` |
-| GET / POST / PUT / DELETE | `/api/admin/categories[/:id]`, `/api/admin/breeds[/:id]` |
+| GET / POST / PUT / DELETE | `/api/admin/animals[/:id]`, `/api/admin/categories[/:id]`, `/api/admin/breeds[/:id]` |
 | GET / PATCH / DELETE | `/api/admin/inquiries[/:id]` · POST `/api/admin/inquiries/:id/resend-email` |
 
 ---
@@ -217,6 +228,6 @@ npm run build:css
 
 ## Notes
 
-- **No demo data.** Only the category/breed reference list is seeded. Dashboard numbers are live counts.
+- **No demo data.** Only the animal / purpose / breed reference list is seeded. Dashboard numbers are live counts.
 - **Hero photos** are real photographs from Unsplash (free licence). Credits are kept in `PHOTO-CREDITS.md` (not shown on the site).
 - **Terms of Service and Privacy Policy** were rewritten for the inquiry-only model. Have them reviewed before relying on them legally.

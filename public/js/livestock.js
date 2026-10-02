@@ -42,13 +42,17 @@ const HERO_PHOTOS = [
   },
 ];
 
-// Photography for the category tiles when a category has no listing photos
-// of its own yet. Matched by category name; anything else uses the default.
-const CATEGORY_PHOTOS = {
-  dairy: HERO_PHOTOS[2],
-  beef: HERO_PHOTOS[1],
-  "dual-purpose": HERO_PHOTOS[0],
-  default: HERO_PHOTOS[3],
+// Photography for the animal tiles when an animal has no listing photos of
+// its own yet. Cattle uses the hero photography; the other animals use the
+// real photos that shipped with v1 of the site. Matched by animal name;
+// anything else falls back to the default.
+const ANIMAL_PHOTOS = {
+  cattle: { src: () => unsplashUrl(HERO_PHOTOS[1].id, 900, 675), alt: HERO_PHOTOS[1].alt },
+  goats: { src: () => "/images/livestock/goat.webp", alt: "A brown goat looking at the camera" },
+  sheep: { src: () => "/images/livestock/sheep.webp", alt: "Sheep grazing" },
+  pigs: { src: () => "/images/livestock/pig.webp", alt: "A pig on a farm" },
+  poultry: { src: () => "/images/livestock/poultry.webp", alt: "A brown hen on grass" },
+  default: { src: () => "/images/livestock/cattle-fallback.webp", alt: "Livestock" },
 };
 
 function unsplashUrl(id, width, height) {
@@ -63,8 +67,8 @@ function viewportImageWidth(max = 2000) {
   return Math.min(max, Math.max(800, px));
 }
 
-function categoryPhoto(category) {
-  return CATEGORY_PHOTOS[String(category.name || "").toLowerCase()] || CATEGORY_PHOTOS.default;
+function animalPhoto(animal) {
+  return ANIMAL_PHOTOS[String(animal.name || "").toLowerCase()] || ANIMAL_PHOTOS.default;
 }
 
 function listingUrl(id) {
@@ -80,11 +84,12 @@ function cardImage(item) {
 }
 
 function renderLivestockCard(item) {
+  const animalPurpose = [item.animal_name, item.category_name].filter(Boolean).join(" · ");
   const meta = [
-    item.category_name ? `<span class="tag tag-category">${escapeHtml(item.category_name)}</span>` : "",
+    animalPurpose ? `<span class="tag tag-category">${escapeHtml(animalPurpose)}</span>` : "",
     item.breed_name ? `<span class="tag tag-breed">${escapeHtml(item.breed_name)}</span>` : "",
   ].join("");
-  const typeLine = [item.livestock_type, item.quantity > 1 ? `${item.quantity} head` : ""]
+  const typeLine = [item.livestock_type, item.quantity > 1 ? quantityLabel(item.quantity, item.animal_name) : ""]
     .filter(Boolean)
     .join(" · ");
 

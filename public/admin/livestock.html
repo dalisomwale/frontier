@@ -36,7 +36,7 @@
             <button type="button" data-status="unpublished">Unpublished</button>
           </div>
           <div class="flex flex-col sm:flex-row gap-3 md:ml-auto">
-            <select id="category-filter" class="field-input !py-2 !text-sm sm:!w-44"><option value="">All categories</option></select>
+            <select id="animal-filter" class="field-input !py-2 !text-sm sm:!w-44" aria-label="Filter by animal"><option value="">All animals</option></select>
             <div class="relative sm:flex-1 md:flex-none md:w-64">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
               <input id="search" type="search" placeholder="Search title, breed, location" class="field-input !py-2 !pl-9 !text-sm" />
@@ -53,10 +53,10 @@
     <script>
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
 
-      const TYPES = ["Bull", "Cow", "Heifer", "Steer", "Calf", "Mixed"];
       const MAX_PHOTOS = 10;
-      const state = { status: "", category: "", q: "", page: 1 };
-      let categories = [];
+      const state = { status: "", animal: "", q: "", page: 1 };
+      let animals = [];
+      let purposes = [];
       let breeds = [];
 
       // -----------------------------------------------------------------
@@ -67,7 +67,7 @@
         const list = document.getElementById("list");
         const params = new URLSearchParams({ page, limit: 20 });
         if (state.status) params.set("status", state.status);
-        if (state.category) params.set("category_id", state.category);
+        if (state.animal) params.set("animal_id", state.animal);
         if (state.q) params.set("q", state.q);
 
         let res;
@@ -78,7 +78,7 @@
         }
 
         if (!res.data.length) {
-          const filtered = state.status || state.category || state.q;
+          const filtered = state.status || state.animal || state.q;
           renderEmptyState(list, filtered
             ? { title: "No matching livestock", message: "Try a different filter or search.", icon: "search" }
             : { title: "No livestock yet", message: "Add your first listing. It stays unpublished until you publish it.", icon: "cattle",
@@ -87,7 +87,7 @@
           list.innerHTML = `
             <table class="admin-table">
               <thead><tr>
-                <th>Listing</th><th class="hidden md:table-cell">Category / Breed</th><th class="hidden lg:table-cell">Province</th>
+                <th>Listing</th><th class="hidden md:table-cell">Animal · Purpose / Breed</th><th class="hidden lg:table-cell">Province</th>
                 <th>Status</th><th class="hidden sm:table-cell text-center">Inquiries</th><th class="text-right hidden sm:table-cell">Actions</th>
               </tr></thead>
               <tbody>${res.data.map(rowHtml).join("")}</tbody>
@@ -118,13 +118,13 @@
                 <span class="w-16 h-12 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : livestockFallbackMedia("w-7 h-7")}</span>
                 <div class="min-w-0">
                   <button type="button" data-edit="${l.id}" class="font-semibold text-gray-900 hover:text-blue-600 text-left line-clamp-2">${escapeHtml(l.title)}</button>
-                  <p class="text-xs text-gray-500">${[l.livestock_type, l.quantity > 1 ? `${l.quantity} head` : "", `${l.image_count} photo${l.image_count == 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
-                  <p class="text-xs text-gray-500 md:hidden">${escapeHtml([l.category_name, l.breed_name].filter(Boolean).join(" · "))}</p>
+                  <p class="text-xs text-gray-500">${[l.livestock_type, l.quantity > 1 ? quantityLabel(l.quantity, l.animal_name) : "", `${l.image_count} photo${l.image_count == 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
+                  <p class="text-xs text-gray-500 md:hidden">${escapeHtml([l.animal_name, l.category_name, l.breed_name].filter(Boolean).join(" · "))}</p>
                   <div class="sm:hidden -ml-2 mt-1">${actionsHtml(l)}</div>
                 </div>
               </div>
             </td>
-            <td class="hidden md:table-cell"><span class="tag tag-category">${escapeHtml(l.category_name)}</span> ${l.breed_name ? `<span class="tag tag-breed">${escapeHtml(l.breed_name)}</span>` : ""}</td>
+            <td class="hidden md:table-cell"><span class="tag tag-category">${escapeHtml(l.animal_name)} · ${escapeHtml(l.category_name)}</span> ${l.breed_name ? `<span class="tag tag-breed">${escapeHtml(l.breed_name)}</span>` : ""}</td>
             <td class="hidden lg:table-cell text-gray-600">${escapeHtml(l.location)}</td>
             <td>${statusPill(l.status)}</td>
             <td class="hidden sm:table-cell text-center">${l.inquiry_count ? `<a class="text-blue-600 font-semibold hover:underline" href="/admin/inquiries.html?q=${encodeURIComponent(l.title)}">${l.inquiry_count}</a>` : `<span class="text-gray-400">0</span>`}</td>
@@ -170,11 +170,36 @@
       // -----------------------------------------------------------------
       // Editor
       // -----------------------------------------------------------------
-      function breedOptions(categoryId, selected) {
-        const list = breeds.filter((b) => String(b.category_id) === String(categoryId) && (b.status === "active" || String(b.id) === String(selected)));
-        return [{ value: "", label: categoryId ? (list.length ? "Select breed" : "No breeds in this category") : "Select a category first" }]
-          .concat(list.map((b) => ({ value: b.id, label: b.name + (b.status === "disabled" ? " (disabled)" : "") })));
+      // Cascading options for the editor. Disabled items stay selectable only
+      // when the listing already uses them, so editing never silently drops them.
+      const label = (row) => row.name + (row.status === "disabled" ? " (disabled)" : "");
+
+      function animalOptions(selected) {
+        return [{ value: "", label: "Select animal" }].concat(
+          animals.filter((a) => a.status === "active" || String(a.id) === String(selected)).map((a) => ({ value: a.id, label: label(a) })),
+        );
       }
+
+      function purposeOptions(animalId, selected) {
+        const list = purposes.filter((p) => String(p.animal_id) === String(animalId) && (p.status === "active" || String(p.id) === String(selected)));
+        return [{ value: "", label: animalId ? (list.length ? "Select purpose" : "No purposes for this animal") : "Select an animal first" }]
+          .concat(list.map((p) => ({ value: p.id, label: label(p) })));
+      }
+
+      function breedOptions(purposeId, selected) {
+        const list = breeds.filter((b) => String(b.category_id) === String(purposeId) && (b.status === "active" || String(b.id) === String(selected)));
+        return [{ value: "", label: purposeId ? (list.length ? "Select breed / strain" : "No breeds for this purpose") : "Select a purpose first" }]
+          .concat(list.map((b) => ({ value: b.id, label: label(b) })));
+      }
+
+      function typeOptions(animalId, selected) {
+        const animal = animals.find((a) => String(a.id) === String(animalId));
+        const list = livestockTypesFor(animal?.name);
+        const values = selected && !list.includes(selected) ? [...list, selected] : list;
+        return [{ value: "", label: "Not specified" }, ...values.map((t) => ({ value: t, label: t }))];
+      }
+
+      const optionsHtml = (opts) => opts.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join("");
 
       // Large phone photos are scaled down in the browser before upload, so
       // listings can be added over a mobile connection. The server then makes
@@ -208,19 +233,18 @@
         const photos = (item.images || []).map((im) => ({ id: im.id, src: im.thumb_path || im.image_path }));
         const removed = [];
 
-        const catOptions = [{ value: "", label: "Select category" }].concat(
-          categories.filter((c) => c.status === "active" || c.id === item.category_id).map((c) => ({ value: c.id, label: c.name + (c.status === "disabled" ? " (disabled)" : "") })),
-        );
+        const animalId = item.animal_id ?? "";
 
         const body = `
-          ${field({ name: "title", label: "Title", value: item.title, required: true, placeholder: "e.g. Boran Heifers - 10 head", attrs: 'maxlength="200"' })}
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            ${field({ name: "category_id", label: "Category", value: item.category_id, required: true, options: catOptions })}
-            ${field({ name: "breed_id", label: "Breed", value: item.breed_id, options: breedOptions(item.category_id, item.breed_id) })}
+          ${field({ name: "title", label: "Title", value: item.title, required: true, placeholder: "e.g. Boran Heifers - 10 head, or Boer Does", attrs: 'maxlength="200"' })}
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            ${field({ name: "animal_id", label: "Animal Category", value: animalId, required: true, options: animalOptions(animalId) })}
+            ${field({ name: "category_id", label: "Production Purpose", value: item.category_id, required: true, options: purposeOptions(animalId, item.category_id) })}
+            ${field({ name: "breed_id", label: "Breed / Strain", value: item.breed_id, options: breedOptions(item.category_id, item.breed_id) })}
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            ${field({ name: "livestock_type", label: "Type", value: item.livestock_type, options: [{ value: "", label: "Not specified" }, ...TYPES.map((t) => ({ value: t, label: t }))] })}
-            ${field({ name: "quantity", label: "Quantity (head)", type: "number", value: item.quantity ?? 1, attrs: 'min="1" step="1" inputmode="numeric"' })}
+            ${field({ name: "livestock_type", label: "Type", value: item.livestock_type, options: typeOptions(animalId, item.livestock_type) })}
+            ${field({ name: "quantity", label: "Quantity", type: "number", value: item.quantity ?? 1, attrs: 'min="1" step="1" inputmode="numeric"' })}
             ${field({ name: "age_months", label: "Age (months)", type: "number", value: item.age_months, attrs: 'min="0" max="600" step="1" inputmode="numeric"', placeholder: "Optional" })}
           </div>
           ${field({ name: "location", label: "Province", value: ZAMBIA_PROVINCES.includes(item.location) ? item.location : "", required: true,
@@ -250,10 +274,17 @@
           wide: true,
           body,
           onOpen(form) {
-            const catSelect = form.elements.category_id;
+            const animalSelect = form.elements.animal_id;
+            const purposeSelect = form.elements.category_id;
             const breedSelect = form.elements.breed_id;
-            catSelect.addEventListener("change", () => {
-              breedSelect.innerHTML = breedOptions(catSelect.value).map((o) => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join("");
+            const typeSelect = form.elements.livestock_type;
+            animalSelect.addEventListener("change", () => {
+              purposeSelect.innerHTML = optionsHtml(purposeOptions(animalSelect.value));
+              breedSelect.innerHTML = optionsHtml(breedOptions(""));
+              typeSelect.innerHTML = optionsHtml(typeOptions(animalSelect.value));
+            });
+            purposeSelect.addEventListener("change", () => {
+              breedSelect.innerHTML = optionsHtml(breedOptions(purposeSelect.value));
             });
 
             const grid = form.querySelector("#photo-grid");
@@ -312,7 +343,8 @@
             const v = formValues(form);
             const errors = {};
             if (!v.title.trim()) errors.title = "Title is required.";
-            if (!v.category_id) errors.category_id = "Please choose a category.";
+            if (!v.animal_id) errors.animal_id = "Please choose an animal.";
+            if (!v.category_id) errors.category_id = "Please choose a production purpose.";
             if (!v.location) errors.location = "Please choose a province.";
             if (Object.keys(errors).length) {
               const e = new Error("Please correct the highlighted fields.");
@@ -321,7 +353,7 @@
             }
 
             const fd = new FormData();
-            for (const key of ["title", "category_id", "breed_id", "livestock_type", "quantity", "age_months", "location", "description"]) fd.append(key, v[key] ?? "");
+            for (const key of ["title", "animal_id", "category_id", "breed_id", "livestock_type", "quantity", "age_months", "location", "description"]) fd.append(key, v[key] ?? "");
             fd.append("status", form.elements.publish.checked ? "published" : "unpublished");
             fd.append("remove_image_ids", JSON.stringify(removed));
             fd.append("image_order", JSON.stringify(photos.filter((p) => p.id).map((p) => p.id)));
@@ -356,7 +388,7 @@
           loadList(1);
         }),
       );
-      document.getElementById("category-filter").addEventListener("change", (e) => { state.category = e.target.value; loadList(1); });
+      document.getElementById("animal-filter").addEventListener("change", (e) => { state.animal = e.target.value; loadList(1); });
       let searchTimer;
       document.getElementById("search").addEventListener("input", (e) => {
         clearTimeout(searchTimer);
@@ -366,11 +398,12 @@
 
       (async () => {
         await initAdminPage("livestock");
-        [categories, breeds] = await Promise.all([
+        [animals, purposes, breeds] = await Promise.all([
+          adminApi("/api/admin/animals").then((r) => r.data),
           adminApi("/api/admin/categories").then((r) => r.data),
           adminApi("/api/admin/breeds").then((r) => r.data),
         ]);
-        document.getElementById("category-filter").innerHTML += categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+        document.getElementById("animal-filter").innerHTML += animals.map((a) => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
 
         const q = getQueryParams();
         if (q.status) document.querySelector(`#status-tabs [data-status="${q.status}"]`)?.click();

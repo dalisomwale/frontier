@@ -4,8 +4,10 @@ const { positiveInt, text, oneOf, badRequest, notFound } = require("../../lib/va
 
 const STATUSES = ["active", "disabled"];
 
-// Admin CRUD for categories and breeds. They share the same shape, so one
-// factory builds both routers.
+// Admin CRUD for the taxonomy:
+//   animals     Animal Category (Cattle, Goats, ...)
+//   categories  Production Purpose, each belonging to one animal
+//   breeds      Breed / Strain, each belonging to one production purpose
 function isDuplicate(error) {
   return error && error.code === "ER_DUP_ENTRY";
 }
@@ -13,59 +15,62 @@ function isInUse(error) {
   return error && (error.code === "ER_ROW_IS_REFERENCED_2" || error.code === "ER_ROW_IS_REFERENCED");
 }
 
-// ---------------------------------------------------------------------------
-// Categories
-// ---------------------------------------------------------------------------
-const categories = express.Router();
+function sortOrderOf(body) {
+  if (body.sort_order === undefined || body.sort_order === "") return undefined;
+  const value = Number.parseInt(body.sort_order, 10);
+  if (!Number.isSafeInteger(value)) throw badRequest("Sort order must be a whole number.");
+  return value;
+}
 
-categories.get("/", async (req, res, next) => {
+// ---------------------------------------------------------------------------
+// Animals
+// ---------------------------------------------------------------------------
+const animals = express.Router();
+
+animals.get("/", async (req, res, next) => {
   try {
     const [rows] = await pool.query(`
-      SELECT c.*,
-        (SELECT COUNT(*) FROM breeds b WHERE b.category_id = c.id) AS breed_count,
-        (SELECT COUNT(*) FROM livestock l WHERE l.category_id = c.id) AS livestock_count
-      FROM categories c ORDER BY c.sort_order ASC, c.name ASC`);
+      SELECT an.*,
+        (SELECT COUNT(*) FROM categories c WHERE c.animal_id = an.id) AS purpose_count,
+        (SELECT COUNT(*) FROM breeds b JOIN categories c ON c.id = b.category_id WHERE c.animal_id = an.id) AS breed_count,
+        (SELECT COUNT(*) FROM livestock l JOIN categories c ON c.id = l.category_id WHERE c.animal_id = an.id) AS livestock_count
+      FROM animals an ORDER BY an.sort_order ASC, an.name ASC`);
     res.json({ success: true, data: rows });
   } catch (error) {
     next(error);
   }
 });
 
-function categoryPayload(body, partial) {
+function animalPayload(body, partial) {
   const name = text(body.name, 100);
   const description = text(body.description, 2000);
   const status = body.status === undefined ? undefined : oneOf(body.status, STATUSES);
-  if (!partial && !name) throw badRequest("Category name is required.");
+  if (!partial && !name) throw badRequest("Animal name is required.");
   if (name === undefined || (body.name !== undefined && !name))
-    throw badRequest("Category name must be 1-100 characters.");
+    throw badRequest("Animal name must be 1-100 characters.");
   if (description === undefined) throw badRequest("Description is too long.");
   if (status === null) throw badRequest("Invalid status.");
-  const sortOrder = body.sort_order === undefined || body.sort_order === ""
-    ? undefined
-    : Number.parseInt(body.sort_order, 10);
-  if (sortOrder !== undefined && !Number.isSafeInteger(sortOrder))
-    throw badRequest("Sort order must be a whole number.");
-  return { name, description, status, sort_order: sortOrder };
+  return { name, description, status, sort_order: sortOrderOf(body) };
 }
 
-categories.post("/", async (req, res, next) => {
+animals.post("/", async (req, res, next) => {
   try {
-    const p = categoryPayload(req.body, false);
+    const p = animalPayload(req.body, false);
     const [result] = await pool.query(
-      "INSERT INTO categories (name, description, status, sort_order) VALUES (?, ?, ?, ?)",
+      "INSERT INTO animals (name, description, status, sort_order) VALUES (?, ?, ?, ?)",
       [p.name, p.description, p.status || "active", p.sort_order ?? 0],
     );
     res.status(201).json({ success: true, data: { id: result.insertId } });
   } catch (error) {
-    if (isDuplicate(error)) return next(badRequest("A category with that name already exists."));
+    if (isDuplicate(error)) return next(badRequest("An animal with that name already exists."));
     next(error);
   }
 });
 
-categories.put("/:id", async (req, res, next) => {
+animals.put("/:id", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
-    const p = categoryPayload(req.body, true);
+    const p = animalPayload(req.body, true);
     const fields = [];
     const params = [];
     for (const key of ["name", "description", "status", "sort_order"]) {
@@ -75,11 +80,118 @@ categories.put("/:id", async (req, res, next) => {
       }
     }
     if (!fields.length) throw badRequest("Nothing to update.");
-    const [result] = await pool.query(`UPDATE categories SET ${fields.join(", ")} WHERE id = ?`, [...params, id]);
-    if (!result.affectedRows) throw notFound("Category not found.");
+    const [result] = await pool.query(`UPDATE animals SET ${fields.join(", ")} WHERE id = ?`, [...params, id]);
+    if (!result.affectedRows) throw notFound("Animal not found.");
     res.json({ success: true });
   } catch (error) {
-    if (isDuplicate(error)) return next(badRequest("A category with that name already exists."));
+    if (isDuplicate(error)) return next(badRequest("An animal with that name already exists."));
+    next(error);
+  }
+});
+
+animals.delete("/:id", async (req, res, next) => {
+  try {
+    const [result] = await pool.query("DELETE FROM animals WHERE id = ?", [positiveInt(req.params.id)]);
+    if (!result.affectedRows) throw notFound("Animal not found.");
+    res.json({ success: true });
+  } catch (error) {
+    if (isInUse(error)) {
+      return next(badRequest(
+        "This animal still has production purposes. Delete or move them first, or disable the animal instead.",
+      ));
+    }
+    next(error);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Production purposes (table: categories)
+// ---------------------------------------------------------------------------
+const categories = express.Router();
+
+categories.get("/", async (req, res, next) => {
+  try {
+    const animalId = positiveInt(req.query.animal_id);
+    const [rows] = await pool.query(
+      `SELECT c.*, an.name AS animal_name,
+        (SELECT COUNT(*) FROM breeds b WHERE b.category_id = c.id) AS breed_count,
+        (SELECT COUNT(*) FROM livestock l WHERE l.category_id = c.id) AS livestock_count
+      FROM categories c JOIN animals an ON an.id = c.animal_id
+      ${animalId ? "WHERE c.animal_id = ?" : ""}
+      ORDER BY an.sort_order ASC, an.name ASC, c.sort_order ASC, c.name ASC`,
+      animalId ? [animalId] : [],
+    );
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+async function categoryPayload(body, partial) {
+  const name = text(body.name, 100);
+  const description = text(body.description, 2000);
+  const status = body.status === undefined ? undefined : oneOf(body.status, STATUSES);
+  const animalId = body.animal_id === undefined ? undefined : positiveInt(body.animal_id);
+  if (!partial && (!name || !animalId)) throw badRequest("Purpose name and animal are required.");
+  if (name === undefined || (body.name !== undefined && !name))
+    throw badRequest("Purpose name must be 1-100 characters.");
+  if (description === undefined) throw badRequest("Description is too long.");
+  if (status === null) throw badRequest("Invalid status.");
+  if (animalId === null) throw badRequest("Please choose an animal.");
+  if (animalId) {
+    const [rows] = await pool.query("SELECT id FROM animals WHERE id = ?", [animalId]);
+    if (!rows.length) throw badRequest("That animal does not exist.");
+  }
+  return { name, description, status, animal_id: animalId, sort_order: sortOrderOf(body) };
+}
+
+categories.post("/", async (req, res, next) => {
+  try {
+    const p = await categoryPayload(req.body, false);
+    const [result] = await pool.query(
+      "INSERT INTO categories (animal_id, name, description, status, sort_order) VALUES (?, ?, ?, ?, ?)",
+      [p.animal_id, p.name, p.description, p.status || "active", p.sort_order ?? 0],
+    );
+    res.status(201).json({ success: true, data: { id: result.insertId } });
+  } catch (error) {
+    if (isDuplicate(error)) return next(badRequest("That animal already has a purpose with this name."));
+    next(error);
+  }
+});
+
+categories.put("/:id", async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id);
+    const p = await categoryPayload(req.body, true);
+
+    // Moving a purpose that has listings to another animal would mislabel
+    // those listings, so block it.
+    if (p.animal_id) {
+      const [[current]] = await pool.query(
+        `SELECT c.animal_id, (SELECT COUNT(*) FROM livestock l WHERE l.category_id = c.id) AS used
+         FROM categories c WHERE c.id = ?`,
+        [id],
+      );
+      if (!current) throw notFound("Production purpose not found.");
+      if (current.animal_id !== p.animal_id && Number(current.used) > 0) {
+        throw badRequest("This purpose is used by livestock listings, so its animal can't be changed.");
+      }
+    }
+
+    const fields = [];
+    const params = [];
+    for (const key of ["animal_id", "name", "description", "status", "sort_order"]) {
+      if (req.body[key] !== undefined) {
+        fields.push(`${key} = ?`);
+        params.push(p[key] ?? null);
+      }
+    }
+    if (!fields.length) throw badRequest("Nothing to update.");
+    const [result] = await pool.query(`UPDATE categories SET ${fields.join(", ")} WHERE id = ?`, [...params, id]);
+    if (!result.affectedRows) throw notFound("Production purpose not found.");
+    res.json({ success: true });
+  } catch (error) {
+    if (isDuplicate(error)) return next(badRequest("That animal already has a purpose with this name."));
     next(error);
   }
 });
@@ -88,12 +200,12 @@ categories.delete("/:id", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
     const [result] = await pool.query("DELETE FROM categories WHERE id = ?", [id]);
-    if (!result.affectedRows) throw notFound("Category not found.");
+    if (!result.affectedRows) throw notFound("Production purpose not found.");
     res.json({ success: true });
   } catch (error) {
     if (isInUse(error)) {
       return next(badRequest(
-        "This category still has breeds or livestock. Move or delete them first, or disable the category instead.",
+        "This purpose still has breeds or livestock. Move or delete them first, or disable the purpose instead.",
       ));
     }
     next(error);
@@ -108,13 +220,25 @@ const breeds = express.Router();
 breeds.get("/", async (req, res, next) => {
   try {
     const categoryId = positiveInt(req.query.category_id);
+    const animalId = positiveInt(req.query.animal_id);
+    const where = [];
+    const params = [];
+    if (categoryId) {
+      where.push("b.category_id = ?");
+      params.push(categoryId);
+    }
+    if (animalId) {
+      where.push("c.animal_id = ?");
+      params.push(animalId);
+    }
     const [rows] = await pool.query(
-      `SELECT b.*, c.name AS category_name,
+      `SELECT b.*, c.name AS category_name, c.animal_id, an.name AS animal_name,
          (SELECT COUNT(*) FROM livestock l WHERE l.breed_id = b.id) AS livestock_count
        FROM breeds b JOIN categories c ON c.id = b.category_id
-       ${categoryId ? "WHERE b.category_id = ?" : ""}
-       ORDER BY c.sort_order ASC, c.name ASC, b.name ASC`,
-      categoryId ? [categoryId] : [],
+       JOIN animals an ON an.id = c.animal_id
+       ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+       ORDER BY an.sort_order ASC, an.name ASC, c.sort_order ASC, c.name ASC, b.name ASC`,
+      params,
     );
     res.json({ success: true, data: rows });
   } catch (error) {
@@ -127,15 +251,15 @@ async function breedPayload(body, partial) {
   const description = text(body.description, 2000);
   const status = body.status === undefined ? undefined : oneOf(body.status, STATUSES);
   const categoryId = body.category_id === undefined ? undefined : positiveInt(body.category_id);
-  if (!partial && (!name || !categoryId)) throw badRequest("Breed name and category are required.");
+  if (!partial && (!name || !categoryId)) throw badRequest("Breed name and production purpose are required.");
   if (name === undefined || (body.name !== undefined && !name))
     throw badRequest("Breed name must be 1-120 characters.");
   if (description === undefined) throw badRequest("Description is too long.");
   if (status === null) throw badRequest("Invalid status.");
-  if (categoryId === null) throw badRequest("Please choose a category.");
+  if (categoryId === null) throw badRequest("Please choose a production purpose.");
   if (categoryId) {
     const [rows] = await pool.query("SELECT id FROM categories WHERE id = ?", [categoryId]);
-    if (!rows.length) throw badRequest("That category does not exist.");
+    if (!rows.length) throw badRequest("That production purpose does not exist.");
   }
   return { name, description, status, category_id: categoryId };
 }
@@ -149,7 +273,7 @@ breeds.post("/", async (req, res, next) => {
     );
     res.status(201).json({ success: true, data: { id: result.insertId } });
   } catch (error) {
-    if (isDuplicate(error)) return next(badRequest("That breed already exists in this category."));
+    if (isDuplicate(error)) return next(badRequest("That breed already exists for this production purpose."));
     next(error);
   }
 });
@@ -169,7 +293,7 @@ breeds.put("/:id", async (req, res, next) => {
       );
       if (!current) throw notFound("Breed not found.");
       if (current.category_id !== p.category_id && Number(current.used) > 0) {
-        throw badRequest("This breed is used by livestock listings, so its category can't be changed.");
+        throw badRequest("This breed is used by livestock listings, so its production purpose can't be changed.");
       }
     }
 
@@ -186,7 +310,7 @@ breeds.put("/:id", async (req, res, next) => {
     if (!result.affectedRows) throw notFound("Breed not found.");
     res.json({ success: true });
   } catch (error) {
-    if (isDuplicate(error)) return next(badRequest("That breed already exists in this category."));
+    if (isDuplicate(error)) return next(badRequest("That breed already exists for this production purpose."));
     next(error);
   }
 });
@@ -207,4 +331,4 @@ breeds.delete("/:id", async (req, res, next) => {
   }
 });
 
-module.exports = { categories, breeds };
+module.exports = { animals, categories, breeds };

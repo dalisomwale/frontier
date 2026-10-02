@@ -99,7 +99,7 @@
                   </td>
                   <td class="hidden md:table-cell font-normal">
                     <p class="text-gray-900 line-clamp-1">${escapeHtml(i.livestock_title)}</p>
-                    <p class="text-xs text-gray-500">${escapeHtml([i.category_name, i.breed_name].filter(Boolean).join(" · "))}</p>
+                    <p class="text-xs text-gray-500">${escapeHtml([i.animal_name, i.category_name, i.breed_name].filter(Boolean).join(" · "))}</p>
                   </td>
                   <td class="hidden xl:table-cell font-normal text-gray-600 max-w-xs"><p class="line-clamp-2 text-sm">${escapeHtml(i.message)}</p></td>
                   <td class="hidden sm:table-cell font-normal text-gray-500 text-sm whitespace-nowrap" title="${escapeHtml(formatDate(i.created_at))}">${timeAgo(i.created_at)}</td>
@@ -165,7 +165,7 @@
                 <div><dt class="text-gray-500">Phone</dt><dd class="font-semibold text-gray-900">${escapeHtml(i.phone)}</dd></div>
                 <div><dt class="text-gray-500">Email</dt><dd class="font-semibold text-gray-900 break-all">${escapeHtml(i.email)}</dd></div>
                 <div><dt class="text-gray-500">Livestock</dt><dd class="font-semibold text-gray-900">${listingLink}</dd></div>
-                <div><dt class="text-gray-500">Category / Breed</dt><dd class="font-semibold text-gray-900">${escapeHtml([i.category_name, i.breed_name].filter(Boolean).join(" · ") || "-")}</dd></div>
+                <div><dt class="text-gray-500">Animal · Purpose · Breed</dt><dd class="font-semibold text-gray-900">${escapeHtml([i.animal_name, i.category_name, i.breed_name].filter(Boolean).join(" · ") || "-")}</dd></div>
               </dl>
 
               <div>

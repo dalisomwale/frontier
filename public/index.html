@@ -47,23 +47,30 @@
             </p>
           </div>
 
-          <!-- Filter: Category -> Breed -> Location (province), all dropdowns -->
-          <form id="filter-form" class="filter-glass rounded-xl p-5 sm:p-6 max-w-5xl mx-auto" role="search" aria-label="Filter livestock">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <!-- Filter: Animal Category -> Production Purpose -> Breed / Strain -> Province.
+               Each dropdown stays locked until the one before it is chosen. -->
+          <form id="filter-form" class="filter-glass rounded-xl p-5 sm:p-6 max-w-6xl mx-auto" role="search" aria-label="Filter livestock">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               <div>
-                <label for="filter-category" class="block text-sm font-medium text-white mb-2"><span class="filter-step">1</span>Category</label>
-                <select id="filter-category" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
-                  <option value="">All Categories</option>
+                <label for="filter-animal" class="block text-sm font-medium text-white mb-2"><span class="filter-step">1</span>Animal Category</label>
+                <select id="filter-animal" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
+                  <option value="">All Animals</option>
                 </select>
               </div>
               <div>
-                <label for="filter-breed" class="block text-sm font-medium text-white mb-2"><span class="filter-step">2</span>Breed</label>
+                <label for="filter-purpose" class="block text-sm font-medium text-white mb-2"><span class="filter-step">2</span>Production Purpose</label>
+                <select id="filter-purpose" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white" disabled>
+                  <option value="">Select an animal first</option>
+                </select>
+              </div>
+              <div>
+                <label for="filter-breed" class="block text-sm font-medium text-white mb-2"><span class="filter-step">3</span>Breed / Strain</label>
                 <select id="filter-breed" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white" disabled>
-                  <option value="">Select a category first</option>
+                  <option value="">Select a purpose first</option>
                 </select>
               </div>
               <div>
-                <label for="filter-location" class="block text-sm font-medium text-white mb-2"><span class="filter-step">3</span>Province</label>
+                <label for="filter-location" class="block text-sm font-medium text-white mb-2"><span class="filter-step">4</span>Province</label>
                 <select id="filter-location" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
                   <option value="">All Provinces</option>
                 </select>
@@ -86,16 +93,14 @@
         </div>
       </section>
 
-      <!-- Categories -->
+      <!-- Animal categories -->
       <section id="categories" class="py-12 bg-white" style="scroll-margin-top: 72px" aria-labelledby="categories-heading">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="flex items-end justify-between gap-4 mb-6">
-            <div>
-              <h2 id="categories-heading" class="text-3xl font-bold text-gray-900">Explore Categories</h2>
-              <p class="text-gray-600 mt-1">Start with the purpose you're buying for, then narrow down by breed.</p>
-            </div>
+          <div class="mb-6">
+            <h2 id="categories-heading" class="text-3xl font-bold text-gray-900">Browse by Animal</h2>
+            <p class="text-gray-600 mt-1">Choose an animal, then narrow down by production purpose and breed.</p>
           </div>
-          <div id="category-tiles" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div>
+          <div id="animal-tiles" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div>
         </div>
       </section>
 
@@ -136,11 +141,12 @@
       const HERO_INTERVAL_MS = 6000;
       const PAGE_SIZE = 12;
       const els = {
-        category: document.getElementById("filter-category"),
+        animal: document.getElementById("filter-animal"),
+        purpose: document.getElementById("filter-purpose"),
         breed: document.getElementById("filter-breed"),
         location: document.getElementById("filter-location"),
       };
-      let categories = [];
+      let animals = [];
       let currentPage = 1;
       let optionsRequest = 0;
 
@@ -188,78 +194,78 @@
       }
 
       // ---------------------------------------------------------------
-      // Categories: tiles, chips and the first filter dropdown
+      // Animal categories: tiles, chips and the first filter dropdown
       // ---------------------------------------------------------------
-      async function loadCategories() {
-        const tiles = document.getElementById("category-tiles");
+      async function loadAnimals() {
+        const tiles = document.getElementById("animal-tiles");
         try {
-          const res = await apiRequest("/api/categories");
-          categories = res.data;
+          animals = (await apiRequest("/api/animals")).data;
         } catch (error) {
-          renderEmptyState(tiles, { title: "Categories unavailable", message: error.message, icon: "layers" });
+          renderEmptyState(tiles, { title: "Animals unavailable", message: error.message, icon: "layers" });
           return;
         }
 
-        els.category.innerHTML =
-          `<option value="">All Categories</option>` +
-          categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+        els.animal.innerHTML =
+          `<option value="">All Animals</option>` +
+          animals.map((a) => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
 
-        if (!categories.length) {
-          renderEmptyState(tiles, { title: "No categories yet", message: "Categories will appear here once they are set up.", icon: "layers" });
+        if (!animals.length) {
+          renderEmptyState(tiles, { title: "No animal categories yet", message: "Animal categories will appear here once they are set up.", icon: "layers" });
         } else {
-          const tileWidth = Math.min(1200, viewportImageWidth(1200) / (window.innerWidth >= 1024 ? 2 : 1));
-          tiles.innerHTML = categories
-            .map((c) => {
-              const photo = categoryPhoto(c);
-              const src = c.cover_image || unsplashUrl(photo.id, Math.round(tileWidth), Math.round(tileWidth * 0.75));
-              const alt = c.cover_image ? `${c.name} livestock` : photo.alt;
-              const count = Number(c.livestock_count);
+          tiles.innerHTML = animals
+            .map((a) => {
+              const photo = animalPhoto(a);
+              const src = a.cover_image || photo.src();
+              const alt = a.cover_image ? `${a.name} for sale` : photo.alt;
+              const count = Number(a.livestock_count);
+              const purposes = Number(a.purpose_count);
               return `
-                <a href="#listings" class="cat-tile group" data-category="${c.id}">
+                <a href="#listings" class="cat-tile group" data-animal="${a.id}">
                   <img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async"
                     onerror="this.onerror=null;this.src='/images/livestock/cattle-fallback.webp'">
                   <div class="absolute inset-x-0 bottom-0 p-5">
-                    <h3 class="text-2xl font-bold">${escapeHtml(c.name)}</h3>
-                    ${c.description ? `<p class="text-sm text-blue-100 mt-1 line-clamp-2">${escapeHtml(c.description)}</p>` : ""}
+                    <h3 class="text-2xl font-bold">${escapeHtml(a.name)}</h3>
+                    ${a.description ? `<p class="text-sm text-blue-100 mt-1 line-clamp-2">${escapeHtml(a.description)}</p>` : ""}
                     <div class="mt-3 flex items-center justify-between text-sm">
-                      <span class="text-blue-100">${c.breed_count} breed${c.breed_count == 1 ? "" : "s"} · ${count} listing${count === 1 ? "" : "s"}</span>
+                      <span class="text-blue-100">${purposes} purpose${purposes === 1 ? "" : "s"} · ${count} listing${count === 1 ? "" : "s"}</span>
                       <span class="inline-flex items-center gap-1 font-semibold group-hover:translate-x-1 transition">Browse <span class="w-4 h-4">${uiIcon("chevronRight")}</span></span>
                     </div>
                   </div>
                 </a>`;
             })
             .join("");
-          tiles.querySelectorAll("[data-category]").forEach((tile) =>
+          tiles.querySelectorAll("[data-animal]").forEach((tile) =>
             tile.addEventListener("click", (event) => {
               event.preventDefault();
-              selectCategory(tile.dataset.category, { scroll: true });
+              selectAnimal(tile.dataset.animal, { scroll: true });
             }),
           );
         }
-        renderCategoryChips();
+        renderAnimalChips();
       }
 
-      function renderCategoryChips() {
+      function renderAnimalChips() {
         const chips = document.getElementById("category-chips");
-        chips.innerHTML = [{ id: "", name: "All" }, ...categories]
-          .map((c) => `<button type="button" data-value="${c.id}" class="species-chip justify-center px-3"><span>${escapeHtml(c.name)}</span></button>`)
+        chips.innerHTML = [{ id: "", name: "All" }, ...animals]
+          .map((a) => `<button type="button" data-value="${a.id}" class="species-chip justify-center px-3"><span>${escapeHtml(a.name)}</span></button>`)
           .join("");
         chips.querySelectorAll("button").forEach((btn) =>
-          btn.addEventListener("click", () => selectCategory(btn.dataset.value)),
+          btn.addEventListener("click", () => selectAnimal(btn.dataset.value)),
         );
         paintChips();
       }
 
       function paintChips() {
         document.querySelectorAll("#category-chips button").forEach((btn) => {
-          const on = btn.dataset.value === els.category.value;
+          const on = btn.dataset.value === els.animal.value;
           btn.classList.toggle("active", on);
           btn.setAttribute("aria-pressed", String(on));
         });
       }
 
-      async function selectCategory(id, { scroll = false } = {}) {
-        els.category.value = id;
+      async function selectAnimal(id, { scroll = false } = {}) {
+        els.animal.value = id;
+        els.purpose.value = "";
         els.breed.value = "";
         els.location.value = "";
         await refreshOptions();
@@ -267,8 +273,9 @@
       }
 
       // ---------------------------------------------------------------
-      // Cascading dropdowns. Each one's options come from the database and
-      // depend only on the selections before it.
+      // Cascading dropdowns. Options come from the database: purposes for
+      // the chosen animal, breeds for the chosen purpose, and all 10
+      // provinces with counts for the choices so far.
       // ---------------------------------------------------------------
       function fillSelect(select, placeholder, options, keep) {
         select.innerHTML =
@@ -277,11 +284,14 @@
         select.value = options.some((o) => String(o.value) === String(keep)) ? keep : "";
       }
 
+      const withCount = (name, count) => `${name}${count ? ` (${count})` : ""}`;
+
       async function refreshOptions() {
         const request = ++optionsRequest;
         const params = new URLSearchParams();
-        if (els.category.value) params.set("category_id", els.category.value);
-        if (els.breed.value) params.set("breed_id", els.breed.value);
+        if (els.animal.value) params.set("animal_id", els.animal.value);
+        if (els.animal.value && els.purpose.value) params.set("category_id", els.purpose.value);
+        if (els.animal.value && els.purpose.value && els.breed.value) params.set("breed_id", els.breed.value);
 
         let data;
         try {
@@ -291,23 +301,42 @@
         }
         if (request !== optionsRequest) return; // a newer change superseded this one
 
-        if (!els.category.value) {
+        if (!els.animal.value) {
+          els.purpose.disabled = true;
+          fillSelect(els.purpose, "Select an animal first", [], "");
+        } else {
+          els.purpose.disabled = false;
+          fillSelect(
+            els.purpose,
+            data.purposes.length ? "All Purposes" : "No purposes for this animal",
+            data.purposes.map((p) => ({ value: p.id, label: withCount(p.name, p.count) })),
+            els.purpose.value,
+          );
+        }
+
+        if (!els.purpose.value) {
           els.breed.disabled = true;
-          fillSelect(els.breed, "Select a category first", [], "");
+          fillSelect(els.breed, els.animal.value ? "Select a purpose first" : "Select an animal first", [], "");
         } else {
           els.breed.disabled = false;
           fillSelect(
             els.breed,
-            data.breeds.length ? "All Breeds" : "No breeds in this category",
-            data.breeds.map((b) => ({ value: b.id, label: `${b.name}${b.count ? ` (${b.count})` : ""}` })),
+            data.breeds.length ? "All Breeds / Strains" : "No breeds for this purpose",
+            data.breeds.map((b) => ({ value: b.id, label: withCount(b.name, b.count) })),
             els.breed.value,
           );
         }
-        fillSelect(els.location, "All Provinces", data.locations.map((l) => ({ value: l.value, label: `${l.value}${l.count ? ` (${l.count})` : ""}` })), els.location.value);
+
+        fillSelect(els.location, "All Provinces", data.locations.map((l) => ({ value: l.value, label: withCount(l.value, l.count) })), els.location.value);
         paintChips();
       }
 
-      els.category.addEventListener("change", () => {
+      els.animal.addEventListener("change", () => {
+        els.purpose.value = "";
+        els.breed.value = "";
+        refreshOptions();
+      });
+      els.purpose.addEventListener("change", () => {
         els.breed.value = "";
         refreshOptions();
       });
@@ -318,7 +347,8 @@
       // ---------------------------------------------------------------
       function currentFilters() {
         const params = new URLSearchParams();
-        if (els.category.value) params.set("category_id", els.category.value);
+        if (els.animal.value) params.set("animal_id", els.animal.value);
+        if (els.purpose.value) params.set("category_id", els.purpose.value);
         if (els.breed.value) params.set("breed_id", els.breed.value);
         if (els.location.value) params.set("location", els.location.value);
         return params;
@@ -351,7 +381,7 @@
           if (!res.data.length) {
             const filtered = [...currentFilters().keys()].length > 0;
             renderEmptyState(container, filtered
-              ? { title: "No livestock matches these filters", message: "Try another breed or location, or clear the filters to see everything available.", icon: "search",
+              ? { title: "No livestock matches these filters", message: "Try another purpose, breed or province, or clear the filters to see everything available.", icon: "search",
                   action: `<button type="button" onclick="document.getElementById('clear-filters-btn').click()" class="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-700">Clear all filters</button>` }
               : { title: "No livestock listed yet", message: "New listings from the Frontier team will appear here. Please check back soon.", icon: "cattle" });
           } else {
@@ -367,7 +397,7 @@
       }
 
       function describeFilters() {
-        const parts = [els.category, els.breed, els.location]
+        const parts = [els.animal, els.purpose, els.breed, els.location]
           .filter((s) => s.value)
           .map((s) => s.options[s.selectedIndex].text.replace(/\s\(\d+\)$/, ""));
         return parts.length ? ` · ${parts.join(" · ")}` : "";
@@ -399,12 +429,13 @@
       // ---------------------------------------------------------------
       document.addEventListener("DOMContentLoaded", async () => {
         initHero();
-        await loadCategories();
+        await loadAnimals();
 
         // Restore filters from a shared/bookmarked URL, in cascade order.
         const q = getQueryParams();
-        if (q.category_id) els.category.value = q.category_id;
+        if (q.animal_id) els.animal.value = q.animal_id;
         await refreshOptions();
+        if (q.category_id) { els.purpose.value = q.category_id; await refreshOptions(); }
         if (q.breed_id) { els.breed.value = q.breed_id; await refreshOptions(); }
         if (q.location) els.location.value = q.location;
         paintChips();

@@ -2,21 +2,22 @@ const express = require("express");
 const pool = require("../../db");
 const { uploadImages, saveImage, deleteImageFiles, MAX_FILES } = require("../../middleware/upload");
 const { positiveInt, text, oneOf, badRequest, notFound, PROVINCES } = require("../../lib/validate");
-const { LIVESTOCK_TYPES } = require("../public");
 
 const router = express.Router();
 const STATUSES = ["published", "unpublished"];
 const MAX_PAGE_SIZE = 50;
 
-// Validates the listing fields and checks the breed really belongs to the
-// chosen category (so the public Category -> Breed filter stays truthful).
+// Validates the listing fields and checks the hierarchy is consistent: the
+// production purpose belongs to the chosen animal and the breed belongs to
+// the purpose (so the public Animal -> Purpose -> Breed filter stays truthful).
 async function payload(body) {
   const title = text(body.title, 200);
   const location = text(body.location, 150);
   const description = text(body.description, 5000);
   const categoryId = positiveInt(body.category_id);
   const breedId = body.breed_id === "" || body.breed_id === undefined ? null : positiveInt(body.breed_id);
-  const type = body.livestock_type ? oneOf(body.livestock_type, LIVESTOCK_TYPES) : null;
+  const animalId = body.animal_id === "" || body.animal_id === undefined ? null : positiveInt(body.animal_id);
+  const type = text(body.livestock_type, 40);
   const status = oneOf(body.status || "unpublished", STATUSES);
   const quantity = body.quantity === "" || body.quantity === undefined ? 1 : positiveInt(body.quantity);
   const age = body.age_months === "" || body.age_months === undefined || body.age_months === null
@@ -25,26 +26,29 @@ async function payload(body) {
 
   const errors = {};
   if (!title) errors.title = title === undefined ? "Title must be 200 characters or fewer." : "Title is required.";
-  if (!categoryId) errors.category_id = "Please choose a category.";
+  if (body.animal_id !== undefined && !animalId) errors.animal_id = "Please choose an animal.";
+  if (!categoryId) errors.category_id = "Please choose a production purpose.";
   if (body.breed_id && !breedId) errors.breed_id = "Please choose a valid breed.";
   if (!location) errors.location = "Please choose a province.";
   else if (!PROVINCES.includes(location)) errors.location = "Please choose one of Zambia's 10 provinces.";
   if (description === undefined) errors.description = "Description must be 5000 characters or fewer.";
-  if (body.livestock_type && !type) errors.livestock_type = "Please choose a valid type.";
+  if (type === undefined) errors.livestock_type = "Type must be 40 characters or fewer.";
   if (!status) errors.status = "Invalid status.";
   if (!quantity || quantity > 100000) errors.quantity = "Quantity must be a whole number from 1.";
   if (age !== null && (!Number.isSafeInteger(age) || age < 0 || age > 600))
     errors.age_months = "Age must be between 0 and 600 months.";
 
   if (categoryId && !errors.category_id) {
-    const [cats] = await pool.query("SELECT id FROM categories WHERE id = ?", [categoryId]);
-    if (!cats.length) errors.category_id = "That category does not exist.";
+    const [cats] = await pool.query("SELECT id, animal_id FROM categories WHERE id = ?", [categoryId]);
+    if (!cats.length) errors.category_id = "That production purpose does not exist.";
+    else if (animalId && cats[0].animal_id !== animalId)
+      errors.category_id = "That production purpose doesn't belong to the selected animal.";
   }
   if (breedId && !errors.breed_id && !errors.category_id) {
     const [rows] = await pool.query("SELECT category_id FROM breeds WHERE id = ?", [breedId]);
     if (!rows.length) errors.breed_id = "That breed does not exist.";
     else if (rows[0].category_id !== categoryId)
-      errors.breed_id = "That breed doesn't belong to the selected category.";
+      errors.breed_id = "That breed doesn't belong to the selected production purpose.";
   }
 
   if (Object.keys(errors).length) {
@@ -58,7 +62,7 @@ async function payload(body) {
     title,
     category_id: categoryId,
     breed_id: breedId,
-    livestock_type: type,
+    livestock_type: type || null,
     quantity,
     age_months: age,
     location,
@@ -96,8 +100,9 @@ async function storeImages(conn, livestockId, files) {
 
 async function loadOne(id) {
   const [rows] = await pool.query(
-    `SELECT l.*, c.name AS category_name, b.name AS breed_name
+    `SELECT l.*, c.animal_id, a.name AS animal_name, c.name AS category_name, b.name AS breed_name
      FROM livestock l JOIN categories c ON c.id = l.category_id
+     JOIN animals a ON a.id = c.animal_id
      LEFT JOIN breeds b ON b.id = l.breed_id WHERE l.id = ?`,
     [id],
   );
@@ -123,8 +128,13 @@ router.get("/", async (req, res, next) => {
     const params = [];
 
     const status = oneOf(req.query.status, STATUSES);
+    const animalId = positiveInt(req.query.animal_id);
     const categoryId = positiveInt(req.query.category_id);
     const q = text(req.query.q, 100);
+    if (animalId) {
+      where.push("c.animal_id = ?");
+      params.push(animalId);
+    }
     if (status) {
       where.push("l.status = ?");
       params.push(status);
@@ -134,27 +144,29 @@ router.get("/", async (req, res, next) => {
       params.push(categoryId);
     }
     if (q) {
-      where.push("(l.title LIKE ? OR l.location LIKE ? OR b.name LIKE ?)");
+      where.push("(l.title LIKE ? OR l.location LIKE ? OR b.name LIKE ? OR a.name LIKE ? OR c.name LIKE ?)");
       const like = `%${q.replace(/[\\%_]/g, "\\$&")}%`;
-      params.push(like, like, like);
+      params.push(like, like, like, like, like);
     }
     const condition = where.join(" AND ");
 
     const [rows] = await pool.query(
       `SELECT l.id, l.title, l.status, l.location, l.livestock_type, l.quantity,
-         l.created_at, l.updated_at, c.name AS category_name, b.name AS breed_name,
+         l.created_at, l.updated_at, a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
          (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = l.id
             ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path,
          (SELECT COUNT(*) FROM livestock_images li WHERE li.livestock_id = l.id) AS image_count,
          (SELECT COUNT(*) FROM inquiries i WHERE i.livestock_id = l.id) AS inquiry_count
        FROM livestock l JOIN categories c ON c.id = l.category_id
+       JOIN animals a ON a.id = c.animal_id
        LEFT JOIN breeds b ON b.id = l.breed_id
        WHERE ${condition}
        ORDER BY l.created_at DESC, l.id DESC LIMIT ? OFFSET ?`,
       [...params, limit, (page - 1) * limit],
     );
     const [[{ total }]] = await pool.query(
-      `SELECT COUNT(*) AS total FROM livestock l LEFT JOIN breeds b ON b.id = l.breed_id WHERE ${condition}`,
+      `SELECT COUNT(*) AS total FROM livestock l JOIN categories c ON c.id = l.category_id
+       JOIN animals a ON a.id = c.animal_id LEFT JOIN breeds b ON b.id = l.breed_id WHERE ${condition}`,
       params,
     );
     res.json({

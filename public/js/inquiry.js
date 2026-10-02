@@ -33,7 +33,7 @@ function openInquiryModal(listing) {
   closeInquiryModal();
   const lastFocus = document.activeElement;
   const thumb = listing.thumb_path || listing.images?.[0]?.thumb_path;
-  const subtitle = [listing.category_name, listing.breed_name].filter(Boolean).join(" · ");
+  const subtitle = [listing.animal_name, listing.category_name, listing.breed_name].filter(Boolean).join(" · ");
 
   const backdrop = document.createElement("div");
   backdrop.id = "inquiry-modal";

@@ -10,7 +10,10 @@
 //   3. creates the v2 tables (schema.sql) if they are missing;
 //   4. carries v1 admin accounts (users.role = 'admin') across into `admins`,
 //      keeping their existing password hashes so they can still sign in;
-//   5. seeds the category/breed reference list when categories is empty.
+//   5. upgrades earlier v2 databases to animal categories (Animal ->
+//      Production Purpose -> Breed): existing purposes become Cattle's;
+//   6. seeds the animal / purpose / breed reference list when the animals
+//      table is empty (new install, or the first upgrade to animals).
 require("dotenv").config();
 
 const fs = require("fs");
@@ -103,6 +106,11 @@ async function main() {
   await conn.query(readSql("schema.sql"));
   console.log("Schema is up to date.");
 
+  // Decided before step 4 adds "Cattle", so an upgrade still gets the
+  // other animals seeded.
+  const [[{ animalCount }]] = await conn.query("SELECT COUNT(*) AS animalCount FROM animals");
+  const seedTaxonomy = Number(animalCount) === 0;
+
   // --- 3. Carry v1 admins across -------------------------------------------
   const legacyUsers = LEGACY_PREFIX + "users";
   if (await tableExists(conn, legacyUsers)) {
@@ -116,20 +124,62 @@ async function main() {
     }
   }
 
-  // --- 4. Reference data ----------------------------------------------------
-  const [[{ count }]] = await conn.query(
-    "SELECT COUNT(*) AS count FROM categories",
+  // --- 4. Upgrade to animal categories -------------------------------------
+  // Databases set up before animals existed have categories (Dairy, Beef,
+  // Dual-Purpose) without an animal. They were all cattle, so attach them
+  // to "Cattle"; breeds and listings keep pointing at the same rows.
+  if (!(await columnExists(conn, "categories", "animal_id"))) {
+    await conn.query(
+      `INSERT IGNORE INTO animals (name, description, sort_order)
+       VALUES ('Cattle', 'Dairy, beef and dual-purpose cattle.', 1)`,
+    );
+    const [[cattle]] = await conn.query("SELECT id FROM animals WHERE name = 'Cattle'");
+    await conn.query("ALTER TABLE categories ADD COLUMN animal_id INT UNSIGNED NULL AFTER id");
+    await conn.query("UPDATE categories SET animal_id = ?", [cattle.id]);
+    await conn.query(
+      `ALTER TABLE categories
+         MODIFY animal_id INT UNSIGNED NOT NULL,
+         ADD CONSTRAINT fk_categories_animal FOREIGN KEY (animal_id)
+           REFERENCES animals(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+         ADD UNIQUE KEY uniq_categories_animal_name (animal_id, name)`,
+    );
+    const [oldIndex] = await conn.query(
+      "SHOW INDEX FROM categories WHERE Key_name = 'uniq_categories_name'",
+    );
+    if (oldIndex.length) await conn.query("ALTER TABLE categories DROP INDEX uniq_categories_name");
+    console.log("  upgraded categories to production purposes under Cattle");
+  }
+
+  // livestock_type was a cattle-only list; it now depends on the animal.
+  const [[typeColumn]] = await conn.query(
+    `SELECT DATA_TYPE AS type FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = 'livestock' AND column_name = 'livestock_type'`,
+    [DB_NAME],
   );
-  if (Number(count) === 0) {
-    await conn.query(readSql("seed-categories.sql"));
+  if (typeColumn && typeColumn.type === "enum") {
+    await conn.query("ALTER TABLE livestock MODIFY livestock_type VARCHAR(40) NULL");
+    console.log("  livestock type is now per animal");
+  }
+
+  if (!(await columnExists(conn, "inquiries", "animal_name"))) {
+    await conn.query("ALTER TABLE inquiries ADD COLUMN animal_name VARCHAR(100) NULL AFTER livestock_title");
+    await conn.query("UPDATE inquiries SET animal_name = 'Cattle' WHERE animal_name IS NULL");
+    console.log("  inquiries now record the animal");
+  }
+
+  // --- 5. Reference data ----------------------------------------------------
+  if (seedTaxonomy) {
+    await conn.query(readSql("seed-taxonomy.sql"));
     const [[seeded]] = await conn.query(
-      "SELECT (SELECT COUNT(*) FROM categories) AS categories, (SELECT COUNT(*) FROM breeds) AS breeds",
+      `SELECT (SELECT COUNT(*) FROM animals) AS animals,
+              (SELECT COUNT(*) FROM categories) AS purposes,
+              (SELECT COUNT(*) FROM breeds) AS breeds`,
     );
     console.log(
-      `Seeded ${seeded.categories} categories and ${seeded.breeds} breeds.`,
+      `Reference data: ${seeded.animals} animals, ${seeded.purposes} production purposes, ${seeded.breeds} breeds.`,
     );
   } else {
-    console.log("Categories already present - reference seed skipped.");
+    console.log("Animals already present - reference seed skipped.");
   }
 
   const [[{ admins }]] = await conn.query(
