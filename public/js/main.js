@@ -180,10 +180,12 @@ function confirmAction({
     document.body.appendChild(overlay);
 
     const onKey = (event) => {
-      if (event.key === "Escape") finish(false);
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      finish(false);
     };
     function finish(result) {
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
       overlay.remove();
       resolve(result);
     }
@@ -192,7 +194,7 @@ function confirmAction({
     overlay.addEventListener("click", (event) => {
       if (event.target === overlay) finish(false);
     });
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
     overlay.querySelector("[data-confirm-ok]").focus();
   });
 }

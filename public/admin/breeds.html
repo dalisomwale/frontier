@@ -114,7 +114,10 @@
         list.querySelectorAll("[data-toggle]").forEach((btn) => btn.addEventListener("click", async () => {
           const b = find(btn.dataset.toggle);
           const next = b.status === "active" ? "disabled" : "active";
-          if (next === "disabled" && b.livestock_count > 0 && !(await confirmAction({ title: `Disable ${b.name}?`, message: `Its ${b.livestock_count} listing(s) will be hidden from the website until you enable it again.`, confirmText: "Disable" }))) return;
+          const ok = await confirmAction(next === "disabled"
+            ? { title: `Disable ${b.name}?`, message: b.livestock_count ? `It will be hidden from the website, along with its ${b.livestock_count} listing${b.livestock_count == 1 ? "" : "s"}.` : "It will be hidden from the website.", confirmText: "Disable", variant: "danger" }
+            : { title: `Enable ${b.name}?`, message: "It will be shown on the website again.", confirmText: "Enable" });
+          if (!ok) return;
           try {
             await adminApi(`/api/admin/breeds/${b.id}`, { method: "PUT", body: { status: next } });
             showNotification(`${b.name} ${next === "active" ? "enabled" : "disabled"}.`, "success");

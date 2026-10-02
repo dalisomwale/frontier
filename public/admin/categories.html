@@ -83,7 +83,10 @@
         box.querySelectorAll("[data-toggle-animal]").forEach((b) => b.addEventListener("click", async () => {
           const a = find(b.dataset.toggleAnimal);
           const next = a.status === "active" ? "disabled" : "active";
-          if (next === "disabled" && a.livestock_count > 0 && !(await confirmAction({ title: `Disable ${a.name}?`, message: `Its ${plural(a.livestock_count, "listing")} will be hidden from the website until you enable it again.`, confirmText: "Disable" }))) return;
+          const ok = await confirmAction(next === "disabled"
+            ? { title: `Disable ${a.name}?`, message: a.livestock_count ? `It will be hidden from the website, along with its ${plural(a.livestock_count, "listing")}.` : "It will be hidden from the website.", confirmText: "Disable", variant: "danger" }
+            : { title: `Enable ${a.name}?`, message: "It will be shown on the website again.", confirmText: "Enable" });
+          if (!ok) return;
           try {
             await adminApi(`/api/admin/animals/${a.id}`, { method: "PUT", body: { status: next } });
             showNotification(`${a.name} ${next === "active" ? "enabled" : "disabled"}.`, "success");
@@ -177,7 +180,10 @@
         box.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", async () => {
           const p = find(b.dataset.toggle);
           const next = p.status === "active" ? "disabled" : "active";
-          if (next === "disabled" && p.livestock_count > 0 && !(await confirmAction({ title: `Disable ${p.name} (${p.animal_name})?`, message: `Its ${plural(p.livestock_count, "listing")} will be hidden from the website until you enable it again.`, confirmText: "Disable" }))) return;
+          const ok = await confirmAction(next === "disabled"
+            ? { title: `Disable ${p.name} (${p.animal_name})?`, message: p.livestock_count ? `It will be hidden from the website, along with its ${plural(p.livestock_count, "listing")}.` : "It will be hidden from the website.", confirmText: "Disable", variant: "danger" }
+            : { title: `Enable ${p.name} (${p.animal_name})?`, message: "It will be shown on the website again.", confirmText: "Enable" });
+          if (!ok) return;
           try {
             await adminApi(`/api/admin/categories/${p.id}`, { method: "PUT", body: { status: next } });
             showNotification(`${p.name} (${p.animal_name}) ${next === "active" ? "enabled" : "disabled"}.`, "success");

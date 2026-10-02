@@ -13,7 +13,17 @@ async function adminApi(url, options = {}) {
   }
 }
 
+function confirmRemovePhoto() {
+  return confirmAction({
+    title: "Remove this photo?",
+    message: "It will be deleted when you save.",
+    confirmText: "Remove",
+    variant: "danger",
+  });
+}
+
 async function adminLogout() {
+  if (!(await confirmAction({ title: "Log out?", message: "You'll need to sign in again to use the admin.", confirmText: "Log out" }))) return;
   try {
     await adminApi("/api/admin/auth/logout", { method: "POST" });
   } finally {
@@ -239,7 +249,8 @@ function bindPhotoField(form, current) {
     form.dispatchEvent(new Event("input"));
   });
 
-  removeBtn.addEventListener("click", () => {
+  removeBtn.addEventListener("click", async () => {
+    if (!state.file && current && !(await confirmRemovePhoto())) return;
     if (state.url) URL.revokeObjectURL(state.url);
     state.file = null;
     state.url = null;
@@ -309,7 +320,8 @@ function bindPhotosField(form, existing = []) {
       changed();
       render();
     }));
-    grid.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => {
+    grid.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", async () => {
+      if (items[Number(b.dataset.remove)]?.id && !(await confirmRemovePhoto())) return;
       const [p] = items.splice(Number(b.dataset.remove), 1);
       if (p.id) removed.push(p.id);
       if (p.url) URL.revokeObjectURL(p.url);

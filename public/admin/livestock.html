@@ -99,7 +99,7 @@
       function actionsHtml(l) {
         const published = l.status === "published";
         return `
-              <button type="button" data-toggle="${l.id}" data-to="${published ? "unpublished" : "published"}" class="text-sm font-medium ${published ? "text-gray-600 hover:text-gray-900" : "text-green-700 hover:text-green-800"} px-2 py-1" title="${published ? "Unpublish" : "Publish"}">${published ? "Unpublish" : "Publish"}</button>
+              <button type="button" data-toggle="${l.id}" data-title="${escapeHtml(l.title)}" data-to="${published ? "unpublished" : "published"}" class="text-sm font-medium ${published ? "text-gray-600 hover:text-gray-900" : "text-green-700 hover:text-green-800"} px-2 py-1" title="${published ? "Unpublish" : "Publish"}">${published ? "Unpublish" : "Publish"}</button>
               ${published ? `<a href="/listing.html?id=${l.id}" target="_blank" rel="noopener" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="View on website"><span class="w-4 h-4">${uiIcon("external")}</span></a>` : ""}
               <button type="button" data-edit="${l.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="Edit"><span class="w-4 h-4">${uiIcon("edit")}</span></button>
               <button type="button" data-delete="${l.id}" data-title="${escapeHtml(l.title)}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-red-600" title="Delete"><span class="w-4 h-4">${uiIcon("trash")}</span></button>
@@ -132,6 +132,11 @@
         root.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openEditor(b.dataset.edit)));
         root.querySelectorAll("[data-toggle]").forEach((b) =>
           b.addEventListener("click", async () => {
+            const publish = b.dataset.to === "published";
+            const ok = await confirmAction(publish
+              ? { title: "Publish this listing?", message: `"${b.dataset.title}" will be visible on the website.`, confirmText: "Publish" }
+              : { title: "Unpublish this listing?", message: `"${b.dataset.title}" will be hidden from the website.`, confirmText: "Unpublish", variant: "danger" });
+            if (!ok) return;
             b.disabled = true;
             try {
               await adminApi(`/api/admin/livestock/${b.dataset.toggle}/status`, { method: "PATCH", body: { status: b.dataset.to } });
@@ -292,7 +297,8 @@
                 form.dispatchEvent(new Event("input"));
                 renderPhotos();
               }));
-              grid.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => {
+              grid.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", async () => {
+                if (photos[Number(b.dataset.remove)]?.id && !(await confirmRemovePhoto())) return;
                 const [p] = photos.splice(Number(b.dataset.remove), 1);
                 if (p.id) removed.push(p.id);
                 if (p.url) URL.revokeObjectURL(p.url);

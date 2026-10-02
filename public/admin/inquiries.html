@@ -214,6 +214,10 @@
           }),
         );
         backdrop.querySelector("[data-archive]").addEventListener("click", async () => {
+          const ok = await confirmAction(i.is_archived
+            ? { title: "Restore this inquiry?", message: "It will move back to the inbox.", confirmText: "Restore" }
+            : { title: "Archive this inquiry?", message: "It will move out of the inbox. You can find it under Archived.", confirmText: "Archive" });
+          if (!ok) return;
           try {
             await adminApi(`/api/admin/inquiries/${i.id}`, { method: "PATCH", body: { is_archived: !i.is_archived } });
             showNotification(i.is_archived ? "Inquiry restored." : "Inquiry archived.", "success");
@@ -235,6 +239,7 @@
           }
         });
         backdrop.querySelector("[data-resend]")?.addEventListener("click", async (e) => {
+          if (!(await confirmAction({ title: "Resend the email?", message: "The notification for this inquiry will be emailed to both inboxes again.", confirmText: "Resend" }))) return;
           e.target.disabled = true;
           e.target.textContent = "Sending…";
           try {
