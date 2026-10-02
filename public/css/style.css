@@ -1490,3 +1490,12 @@ body.admin-pending main {
     transition: none;
   }
 }
+
+.hero-accent {
+  white-space: nowrap;
+  color: #7dd3fc;
+  background: linear-gradient(90deg, #7dd3fc 0%, #67e8f9 45%, #6ee7b7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
