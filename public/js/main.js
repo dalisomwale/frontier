@@ -25,6 +25,13 @@ const LIVESTOCK_TYPES_BY_ANIMAL = {
   GENERIC: ["Male", "Female", "Young", "Mixed"],
 };
 
+// "Dual-Purpose" can be any breed of its animal, so its Breed / Strain
+// list shows all of that animal's breeds. Must match isAllBreedsPurpose()
+// in server/lib/validate.js.
+function isAllBreedsPurpose(name) {
+  return String(name || "").toLowerCase().replace(/[^a-z]/g, "") === "dualpurpose";
+}
+
 function livestockTypesFor(animalName) {
   return LIVESTOCK_TYPES_BY_ANIMAL[animalName] || LIVESTOCK_TYPES_BY_ANIMAL.GENERIC;
 }

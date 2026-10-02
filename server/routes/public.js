@@ -8,7 +8,7 @@
 //           breed; the animal comes from the purpose.
 const express = require("express");
 const pool = require("../db");
-const { positiveInt, text, notFound, PROVINCES } = require("../lib/validate");
+const { positiveInt, text, notFound, PROVINCES, isAllBreedsPurpose } = require("../lib/validate");
 
 const router = express.Router();
 const MAX_PAGE_SIZE = 48;
@@ -165,15 +165,29 @@ router.get("/livestock/filters", async (req, res, next) => {
 
     // Only list breeds when the chosen purpose really belongs to the chosen
     // animal, so a stale or hand-edited URL can't mix them up.
+    //
+    // Dual-Purpose lists every active breed of the animal, grouped by the
+    // purpose each breed belongs to (its own breeds first). Counts are always
+    // listings in the chosen purpose with that breed.
     let breeds = [];
-    if (filters.animal && filters.purpose && purposes.some((p) => p.id === filters.purpose)) {
+    const purpose = filters.animal && filters.purpose && purposes.find((p) => p.id === filters.purpose);
+    if (purpose && isAllBreedsPurpose(purpose.name)) {
+      [breeds] = await pool.query(
+        `SELECT bb.id, bb.name, cc.name AS group_name,
+           (SELECT COUNT(*) ${FROM} WHERE ${VISIBLE} AND l.breed_id = bb.id AND l.category_id = ?) AS count
+         FROM breeds bb JOIN categories cc ON cc.id = bb.category_id
+         WHERE cc.animal_id = ? AND bb.status = 'active' AND cc.status = 'active'
+         ORDER BY (cc.id = ?) DESC, cc.sort_order ASC, cc.name ASC, bb.name ASC`,
+        [purpose.id, filters.animal, purpose.id],
+      );
+    } else if (purpose) {
       [breeds] = await pool.query(
         `SELECT bb.id, bb.name,
-           (SELECT COUNT(*) ${FROM} WHERE ${VISIBLE} AND l.breed_id = bb.id) AS count
+           (SELECT COUNT(*) ${FROM} WHERE ${VISIBLE} AND l.breed_id = bb.id AND l.category_id = ?) AS count
          FROM breeds bb
          WHERE bb.category_id = ? AND bb.status = 'active'
          ORDER BY bb.name ASC`,
-        [filters.purpose],
+        [purpose.id, purpose.id],
       );
     }
 

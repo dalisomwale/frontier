@@ -15,6 +15,13 @@ const PROVINCES = [
   "Western",
 ];
 
+// A "Dual-Purpose" production purpose can be any breed of its animal, so
+// its Breed / Strain list shows all of that animal's breeds. Matched by name
+// ("Dual-Purpose", "Dual purpose", "dual-purpose"...).
+function isAllBreedsPurpose(name) {
+  return String(name || "").toLowerCase().replace(/[^a-z]/g, "") === "dualpurpose";
+}
+
 function positiveInt(value, fallback = null) {
   const parsed = Number.parseInt(value, 10);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
@@ -62,6 +69,7 @@ const notFound = (message = "Not found") => new HttpError(404, message);
 
 module.exports = {
   PROVINCES,
+  isAllBreedsPurpose,
   positiveInt,
   text,
   isEmail,

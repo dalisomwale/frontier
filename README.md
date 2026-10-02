@@ -130,7 +130,7 @@ The homepage filter cascades, and every option comes from the database:
 **Animal Category → Production Purpose → Breed / Strain → Province**
 
 - No dropdown offers an "All …" option; each shows a prompt (e.g. *Select breed / strain*) until something is picked, and **Clear all filters** resets them.
-- Production Purpose stays locked until an animal is chosen, then lists only that animal's purposes. Breed / Strain stays locked until a purpose is chosen, then lists only that purpose's breeds (e.g. Goats → Meat → Boer, Kalahari Red, Savanna; Poultry → Layers → Lohmann Brown, ISA Brown, Hy-Line Brown). Visitors never see a breed that doesn't belong to their choices.
+- Production Purpose stays locked until an animal is chosen, then lists only that animal's purposes. Breed / Strain stays locked until a purpose is chosen, then lists only that purpose's breeds (e.g. Goats → Meat → Boer, Kalahari Red, Savanna; Poultry → Layers → Lohmann Brown, ISA Brown, Hy-Line Brown). Visitors never see a breed that doesn't belong to their choices. The exception is **Dual-Purpose**: since dual-purpose stock can be any breed of its animal, its Breed / Strain list shows all of that animal's breeds, grouped by purpose (Dual-Purpose's own first), and admins can list e.g. a dual-purpose Jersey.
 
 | Animal | Production purposes |
 |---|---|

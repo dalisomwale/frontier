@@ -186,10 +186,25 @@
           .concat(list.map((p) => ({ value: p.id, label: label(p) })));
       }
 
+      // Dual-Purpose can be any breed of its animal: list them all, with the
+      // purpose each breed belongs to, Dual-Purpose's own breeds first.
       function breedOptions(purposeId, selected) {
-        const list = breeds.filter((b) => String(b.category_id) === String(purposeId) && (b.status === "active" || String(b.id) === String(selected)));
+        const purpose = purposes.find((p) => String(p.id) === String(purposeId));
+        const usable = (b) => b.status === "active" || String(b.id) === String(selected);
+        let list;
+        if (purpose && isAllBreedsPurpose(purpose.name)) {
+          const own = (b) => String(b.category_id) === String(purpose.id);
+          list = breeds
+            .filter((b) => String(b.animal_id) === String(purpose.animal_id) && usable(b))
+            .sort((a, b) => Number(own(b)) - Number(own(a)) || a.category_name.localeCompare(b.category_name) || a.name.localeCompare(b.name))
+            .map((b) => ({ value: b.id, label: own(b) ? label(b) : `${label(b)} (${b.category_name})` }));
+        } else {
+          list = breeds
+            .filter((b) => String(b.category_id) === String(purposeId) && usable(b))
+            .map((b) => ({ value: b.id, label: label(b) }));
+        }
         return [{ value: "", label: purposeId ? (list.length ? "Select breed / strain" : "No breeds for this purpose") : "Select a purpose first" }]
-          .concat(list.map((b) => ({ value: b.id, label: label(b) })));
+          .concat(list);
       }
 
       function typeOptions(animalId, selected) {

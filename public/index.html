@@ -406,10 +406,24 @@
         return `<option value="" disabled hidden selected>${escapeHtml(text)}</option>`;
       }
 
+      // Options with a `group` are shown under <optgroup> headings (used for
+      // Dual-Purpose, whose breed list spans all of the animal's purposes).
       function fillSelect(select, placeholder, options, keep) {
-        select.innerHTML =
-          placeholderOption(placeholder) +
-          options.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join("");
+        const optionHtml = (o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`;
+        let body = "";
+        if (options.some((o) => o.group)) {
+          const groups = new Map();
+          options.forEach((o) => {
+            if (!groups.has(o.group)) groups.set(o.group, []);
+            groups.get(o.group).push(o);
+          });
+          groups.forEach((list, group) => {
+            body += `<optgroup label="${escapeHtml(group)}">${list.map(optionHtml).join("")}</optgroup>`;
+          });
+        } else {
+          body = options.map(optionHtml).join("");
+        }
+        select.innerHTML = placeholderOption(placeholder) + body;
         select.value = options.some((o) => String(o.value) === String(keep)) ? keep : "";
       }
 
@@ -451,7 +465,7 @@
           fillSelect(
             els.breed,
             data.breeds.length ? "Select breed / strain" : "No breeds for this purpose",
-            data.breeds.map((b) => ({ value: b.id, label: withCount(b.name, b.count) })),
+            data.breeds.map((b) => ({ value: b.id, label: withCount(b.name, b.count), group: b.group_name })),
             els.breed.value,
           );
         }

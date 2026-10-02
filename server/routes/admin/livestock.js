@@ -1,7 +1,7 @@
 const express = require("express");
 const pool = require("../../db");
 const { uploadImages, saveImage, deleteImageFiles, MAX_FILES } = require("../../middleware/upload");
-const { positiveInt, text, oneOf, badRequest, notFound, PROVINCES } = require("../../lib/validate");
+const { positiveInt, text, oneOf, badRequest, notFound, PROVINCES, isAllBreedsPurpose } = require("../../lib/validate");
 
 const router = express.Router();
 const STATUSES = ["published", "unpublished"];
@@ -25,6 +25,7 @@ async function payload(body) {
     : Number.parseInt(body.age_months, 10);
 
   const errors = {};
+  let purposeRow = null;
   if (!title) errors.title = title === undefined ? "Title must be 200 characters or fewer." : "Title is required.";
   if (body.animal_id !== undefined && !animalId) errors.animal_id = "Please choose an animal.";
   if (!categoryId) errors.category_id = "Please choose a production purpose.";
@@ -39,16 +40,24 @@ async function payload(body) {
     errors.age_months = "Age must be between 0 and 600 months.";
 
   if (categoryId && !errors.category_id) {
-    const [cats] = await pool.query("SELECT id, animal_id FROM categories WHERE id = ?", [categoryId]);
+    const [cats] = await pool.query("SELECT id, animal_id, name FROM categories WHERE id = ?", [categoryId]);
+    purposeRow = cats[0];
     if (!cats.length) errors.category_id = "That production purpose does not exist.";
     else if (animalId && cats[0].animal_id !== animalId)
       errors.category_id = "That production purpose doesn't belong to the selected animal.";
   }
   if (breedId && !errors.breed_id && !errors.category_id) {
-    const [rows] = await pool.query("SELECT category_id FROM breeds WHERE id = ?", [breedId]);
+    const [rows] = await pool.query(
+      `SELECT b.category_id, c.animal_id FROM breeds b JOIN categories c ON c.id = b.category_id WHERE b.id = ?`,
+      [breedId],
+    );
+    // A Dual-Purpose listing may use any breed of the same animal.
+    const anyBreedOfAnimal = purposeRow && isAllBreedsPurpose(purposeRow.name);
     if (!rows.length) errors.breed_id = "That breed does not exist.";
-    else if (rows[0].category_id !== categoryId)
-      errors.breed_id = "That breed doesn't belong to the selected production purpose.";
+    else if (anyBreedOfAnimal ? rows[0].animal_id !== purposeRow.animal_id : rows[0].category_id !== categoryId)
+      errors.breed_id = anyBreedOfAnimal
+        ? "That breed belongs to a different animal."
+        : "That breed doesn't belong to the selected production purpose.";
   }
 
   if (Object.keys(errors).length) {
