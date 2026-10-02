@@ -74,11 +74,6 @@ function cardImage(item) {
 }
 
 function renderLivestockCard(item) {
-  const meta = [
-    item.animal_name ? `<span class="tag tag-category">${escapeHtml(item.animal_name)}</span>` : "",
-    item.category_name ? `<span class="tag tag-muted">${escapeHtml(item.category_name)}</span>` : "",
-    item.breed_name ? `<span class="tag tag-breed">${escapeHtml(item.breed_name)}</span>` : "",
-  ].join("");
   const typeLine = [item.livestock_type, item.quantity > 1 ? quantityLabel(item.quantity, item.animal_name) : ""]
     .filter(Boolean)
     .join(", ");
@@ -87,7 +82,6 @@ function renderLivestockCard(item) {
     <article class="lv-card">
       <div class="lv-card-media">${cardImage(item)}</div>
       <div class="p-2.5 sm:p-3 flex flex-col flex-1">
-        <div class="flex flex-wrap gap-1 mb-1.5">${meta}</div>
         <h3 class="text-xs sm:text-sm font-semibold text-gray-900 line-clamp-2 mb-1">
           <a href="${listingUrl(item.id)}" class="lv-card-link">${escapeHtml(item.title)}</a>
         </h3>

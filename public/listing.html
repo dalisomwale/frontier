@@ -53,7 +53,6 @@
         <div class="lg:col-span-1">
           <div class="lg:sticky lg:top-20 bg-white lg:bg-transparent rounded-lg lg:rounded-none p-5 lg:p-0 shadow-sm lg:shadow-none">
             <div class="mb-5 pb-5 border-b border-gray-200">
-              <div id="listing-tags" class="flex flex-wrap gap-1.5 mb-2"></div>
               <h1 id="listing-title" class="text-2xl sm:text-3xl font-bold text-gray-900">
                 <span class="inline-block h-8 w-64 bg-gray-200 rounded animate-pulse"></span>
               </h1>
@@ -135,12 +134,6 @@
       function renderListing(item) {
         document.title = `${item.title} - Frontier Marketplace`;
         document.getElementById("listing-title").textContent = item.title;
-        document.getElementById("listing-tags").innerHTML = [
-          item.animal_name && `<span class="tag tag-category">${escapeHtml(item.animal_name)}</span>`,
-          item.category_name && `<span class="tag tag-muted">${escapeHtml(item.category_name)}</span>`,
-          item.breed_name && `<span class="tag tag-breed">${escapeHtml(item.breed_name)}</span>`,
-          item.livestock_type && `<span class="tag tag-muted">${escapeHtml(item.livestock_type)}</span>`,
-        ].filter(Boolean).join("");
         document.getElementById("listing-location").innerHTML =
           `<span class="w-4 h-4 text-gray-400">${uiIcon("location")}</span>${escapeHtml(item.location)}`;
 
