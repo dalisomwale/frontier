@@ -45,7 +45,7 @@
         </form>
       </div>
       <p class="text-center text-sm mt-6">
-        <a href="/" class="text-blue-200 hover:text-white">← Back to Frontier Marketplace</a>
+        <a href="/" class="text-blue-200 hover:text-white">Back to website</a>
       </p>
     </main>
 
@@ -57,11 +57,9 @@
 
       function nextUrl() {
         const next = getQueryParams().next || "";
-        // Only allow redirects within the admin area.
         return next.startsWith("/admin/") && !next.startsWith("//") ? next : "/admin/index.html";
       }
 
-      // Already signed in? Go straight to the dashboard.
       apiRequest("/api/admin/auth/me", { headers: ADMIN_HEADER })
         .then(() => (window.location.href = nextUrl()))
         .catch(() => document.getElementById("email").focus());

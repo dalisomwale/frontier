@@ -1,4 +1,3 @@
-/* Frontier Marketplace Custom Styles */
 
 :root {
   --primary-color: #2563eb;
@@ -28,7 +27,6 @@ body {
   color: #1f2937;
 }
 
-/* Animations */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -70,7 +68,6 @@ body {
   animation: spin 1s linear infinite;
 }
 
-/* Buttons */
 .btn {
   padding: 10px 20px;
   border: none;
@@ -121,7 +118,6 @@ body {
   cursor: not-allowed;
 }
 
-/* Forms */
 .form-group {
   margin-bottom: 20px;
 }
@@ -170,7 +166,6 @@ body {
   margin-top: 4px;
 }
 
-/* Cards */
 .card {
   background-color: white;
   border: 1px solid var(--border-color);
@@ -201,7 +196,6 @@ body {
   color: #6b7280;
 }
 
-/* Badges */
 .badge {
   display: inline-block;
   padding: 6px 12px;
@@ -230,7 +224,6 @@ body {
   color: #b45309;
 }
 
-/* Alerts */
 .alert {
   padding: 12px 16px;
   border-radius: 8px;
@@ -261,7 +254,6 @@ body {
   color: #b45309;
 }
 
-/* Tables */
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -288,7 +280,6 @@ body {
   background-color: #f3f4f6;
 }
 
-/* Listings */
 .listing-card {
   display: flex;
   flex-direction: column;
@@ -322,7 +313,6 @@ body {
   color: #6b7280;
 }
 
-/* Dashboard */
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -349,7 +339,6 @@ body {
   color: #6b7280;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .dashboard-grid {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -369,9 +358,6 @@ body {
   }
 }
 
-/* ==========================================================================
-   Brand mark
-   ========================================================================== */
 .brand-mark {
   width: 42px;
   height: 42px;
@@ -397,8 +383,6 @@ body {
   border-radius: 20px;
 }
 
-/* Header brand mark: the full logo (cow + lettering), uncropped, standing
-   in for a text wordmark now that headers carry the logo alone. */
 .brand-mark-full {
   width: 48px;
   height: 48px;
@@ -416,9 +400,6 @@ body {
   object-fit: contain;
 }
 
-/* ==========================================================================
-   Pictorial species icons / badges
-   ========================================================================== */
 .species-icon {
   display: inline-flex;
   align-items: center;
@@ -452,7 +433,6 @@ body {
   background: white;
 }
 
-/* Selectable category chips above the listings: neutral until chosen */
 #category-chips .species-chip {
   background: #f3f4f6;
   color: #374151;
@@ -466,7 +446,6 @@ body {
   border-color: var(--primary-color);
 }
 
-/* Small inline icon used next to listing card text (e.g. location) */
 .meta-icon {
   display: inline-flex;
   flex-shrink: 0;
@@ -478,10 +457,6 @@ body {
   height: 14px;
 }
 
-/* ==========================================================================
-   Listing image gallery: a single frame with prev/next controls instead of
-   a thumbnail strip, so all listing photos share one consistent viewport.
-   ========================================================================== */
 .gallery-frame {
   position: relative;
   width: 100%;
@@ -517,6 +492,10 @@ body {
 .gallery-nav svg {
   width: 18px;
   height: 18px;
+}
+
+.gallery-nav.hidden {
+  display: none;
 }
 
 .gallery-nav:hover {
@@ -561,9 +540,6 @@ body {
   width: 18px;
 }
 
-/* Hero banner: auto-transitioning photo slideshow behind a gradient that is
-   lighter on the right so the photography reads clearly. A local photo sits
-   underneath as a fallback while (or if) the CDN photos load. */
 .hero-photo {
   position: relative;
   background: #0b2a5e url("/images/livestock/hero-fallback.webp") center / cover
@@ -664,7 +640,6 @@ body {
   z-index: 1;
 }
 
-/* Stat / dashboard widget cards */
 .stat-tile {
   display: flex;
   align-items: center;
@@ -690,9 +665,6 @@ body {
   height: 24px;
 }
 
-/* ==========================================================================
-   Mobile app bottom navigation
-   ========================================================================== */
 .app-bottom-nav {
   position: fixed;
   left: 0;
@@ -747,9 +719,6 @@ body {
   }
 }
 
-/* ==========================================================================
-   Desktop dashboard sidebar shell (authenticated app pages)
-   ========================================================================== */
 .app-sidebar {
   display: none;
 }
@@ -769,19 +738,10 @@ body {
     overflow-y: auto;
   }
 
-  /* !important: overrides Tailwind's .mx-auto margin-left:auto utility,
-     which the CDN build injects after this stylesheet regardless of
-     source order, on the same element. */
   .app-content-shifted {
     margin-left: 250px !important;
   }
 
-  /* The sidebar already carries the brand mark and (in its footer) a
-     logout control, so the top bar - otherwise just a duplicate logo
-     plus a mobile-only logout button - is redundant chrome on desktop.
-     Without this, its full-width sticky bar (z-index 50) painted over
-     the sidebar's own brand block (z-index 40) at the same top-left
-     corner, showing two overlapping logos. */
   body:has(.app-sidebar) #page-topnav {
     display: none;
   }
@@ -864,7 +824,6 @@ body {
   color: #fecaca;
 }
 
-/* Utility Classes */
 .text-center {
   text-align: center;
 }
@@ -907,11 +866,6 @@ body {
   overflow: hidden;
 }
 
-/* ==========================================================================
-   v2: discovery & inquiry platform
-   ========================================================================== */
-
-/* Header text links (public pages) */
 .top-link {
   font-size: 0.925rem;
   font-weight: 500;
@@ -923,29 +877,12 @@ body {
   color: var(--primary-color);
 }
 
-/* Filter selects: a disabled dropdown reads clearly as "pick the one before
-   first" rather than looking broken. */
 .filter-select:disabled {
   background-color: #f3f4f6;
   color: #9ca3af;
   cursor: not-allowed;
 }
 
-.filter-step {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 9999px;
-  background: #eff6ff;
-  color: var(--primary-color);
-  font-size: 11px;
-  font-weight: 700;
-  margin-right: 6px;
-}
-
-/* Category & breed pills on cards and the details page */
 .tag {
   display: inline-flex;
   align-items: center;
@@ -973,8 +910,6 @@ body {
   color: #4b5563;
 }
 
-/* Listing card: whole card links to the details page; the Inquire button
-   sits on top of it and opens the inquiry form instead. */
 .lv-card {
   position: relative;
   display: flex;
@@ -1024,7 +959,6 @@ body {
   z-index: 2;
 }
 
-/* Category tiles ("Explore Categories") */
 .cat-tile {
   position: relative;
   display: block;
@@ -1069,7 +1003,6 @@ body {
   }
 }
 
-/* Details-page thumbnail strip under the main gallery frame */
 .gallery-thumbs {
   display: flex;
   gap: 8px;
@@ -1102,9 +1035,6 @@ body {
   object-fit: cover;
 }
 
-/* ==========================================================================
-   Inquiry modal: centred dialog on desktop, bottom sheet on phones
-   ========================================================================== */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1174,7 +1104,7 @@ body.modal-open {
   padding: 10px 14px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
-  font-size: 16px; /* 16px stops iOS zooming into the field */
+  font-size: 16px;
   color: #111827;
   background: #fff;
 }
@@ -1216,9 +1146,6 @@ body.modal-open {
   animation: spin 0.8s linear infinite;
 }
 
-/* ==========================================================================
-   Admin
-   ========================================================================== */
 .admin-table {
   width: 100%;
   border-collapse: collapse;
@@ -1353,7 +1280,6 @@ body.modal-open {
   height: 26px;
 }
 
-/* Photo manager inside the livestock editor */
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
@@ -1440,7 +1366,6 @@ body.modal-open {
   height: 22px;
 }
 
-/* Admin bottom nav has 5 tabs; keep labels from wrapping */
 .app-bottom-nav[data-variant="admin"] a span {
   white-space: nowrap;
   font-size: 10.5px;
@@ -1461,8 +1386,6 @@ body.modal-open {
   justify-content: center;
 }
 
-/* Icons dropped into a Tailwind-sized span (e.g. <span class="w-5 h-5">)
-   fill that span. Species/stat tiles keep their own sizing above. */
 span[class*="w-"]:not(.species-icon):not(.stat-tile-icon):has(> svg) {
   display: inline-flex;
   flex-shrink: 0;
@@ -1473,8 +1396,6 @@ span[class*="w-"]:not(.species-icon):not(.stat-tile-icon) > svg {
   height: 100%;
 }
 
-/* Admin pages stay blank until the session check passes (no flash of the
-   dashboard for signed-out visitors). */
 body.admin-pending main {
   visibility: hidden;
 }
@@ -1483,7 +1404,6 @@ body.admin-pending main {
   display: none;
 }
 
-/* Hero filter card: frosted glass over the hero photo */
 .filter-glass {
   background: rgba(255, 255, 255, 0.14);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
@@ -1492,23 +1412,16 @@ body.admin-pending main {
   box-shadow: 0 20px 40px -18px rgba(5, 15, 40, 0.55);
 }
 
-.filter-glass .filter-step {
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
-}
-
 .filter-glass .filter-select {
   border-color: rgba(255, 255, 255, 0.6);
 }
 
-/* Browsers without backdrop-filter get a solid navy card instead */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .filter-glass {
     background: rgba(11, 42, 94, 0.88);
   }
 }
 
-/* Admin: single photo field for animals / production purposes */
 .photo-field-preview {
   flex: none;
   width: 176px;
@@ -1532,8 +1445,6 @@ body.admin-pending main {
   object-fit: cover;
 }
 
-/* Production-purpose tiles: photos cross-fade inside the tile; the text
-   overlay stays still. */
 .cat-tile .tile-slides {
   position: absolute;
   inset: 0;

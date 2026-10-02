@@ -6,7 +6,7 @@
     <title>Frontier Marketplace - Find the Right Livestock</title>
     <meta
       name="description"
-      content="Browse dairy, beef and dual-purpose cattle listings from Frontier Farms & Consult, explore breeds, and send an inquiry directly to the marketplace team."
+      content="Cattle, goats, sheep, pigs and poultry for sale across Zambia from Frontier Farms & Consult."
     />
     <link rel="icon" href="/images/logo-icon.jpg" />
     <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
@@ -33,44 +33,38 @@
     </nav>
 
     <main>
-      <!-- Hero: real photography slideshow + discovery filter -->
       <section class="hero-photo text-white pt-14 pb-10 md:pt-24 md:pb-14" aria-labelledby="hero-heading">
         <div id="hero-slides" class="hero-slides" aria-hidden="true"></div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="max-w-2xl mb-8 md:mb-12">
-            <h1 id="hero-heading" class="text-4xl md:text-6xl font-bold leading-tight mb-4">
+            <h1 id="hero-heading" class="text-4xl md:text-6xl font-bold leading-tight">
               Find the Right Livestock for Your Needs
             </h1>
-            <p class="text-lg md:text-xl text-blue-100">
-              Browse livestock listings, explore breeds and categories, and send an inquiry directly to the marketplace team.
-            </p>
           </div>
 
-          <!-- Filter: Animal Category -> Production Purpose -> Breed / Strain -> Province.
-               Each dropdown stays locked until the one before it is chosen. -->
           <form id="filter-form" class="filter-glass rounded-xl p-5 sm:p-6 max-w-6xl mx-auto" role="search" aria-label="Filter livestock">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               <div>
-                <label for="filter-animal" class="block text-sm font-medium text-white mb-2"><span class="filter-step">1</span>Animal Category</label>
+                <label for="filter-animal" class="block text-sm font-medium text-white mb-2">Animal Category</label>
                 <select id="filter-animal" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
                   <option value="" disabled hidden selected>Select animal</option>
                 </select>
               </div>
               <div>
-                <label for="filter-purpose" class="block text-sm font-medium text-white mb-2"><span class="filter-step">2</span>Production Purpose</label>
+                <label for="filter-purpose" class="block text-sm font-medium text-white mb-2">Production Purpose</label>
                 <select id="filter-purpose" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white" disabled>
                   <option value="" disabled hidden selected>Select an animal first</option>
                 </select>
               </div>
               <div>
-                <label for="filter-breed" class="block text-sm font-medium text-white mb-2"><span class="filter-step">3</span>Breed / Strain</label>
+                <label for="filter-breed" class="block text-sm font-medium text-white mb-2">Breed / Strain</label>
                 <select id="filter-breed" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white" disabled>
                   <option value="" disabled hidden selected>Select a purpose first</option>
                 </select>
               </div>
               <div>
-                <label for="filter-location" class="block text-sm font-medium text-white mb-2"><span class="filter-step">4</span>Province</label>
+                <label for="filter-location" class="block text-sm font-medium text-white mb-2">Province</label>
                 <select id="filter-location" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
                   <option value="" disabled hidden selected>Select province</option>
                 </select>
@@ -93,19 +87,16 @@
         </div>
       </section>
 
-      <!-- Animal categories -->
       <section id="categories" class="py-12 bg-white" style="scroll-margin-top: 72px" aria-labelledby="categories-heading">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="mb-6">
-            <button type="button" id="tiles-back" class="hidden mb-2 text-sm font-medium text-blue-600 hover:text-blue-700">← All animals</button>
+            <button type="button" id="tiles-back" class="hidden mb-2 items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"><span class="w-4 h-4" data-icon="chevronLeft"></span>All animals</button>
             <h2 id="categories-heading" class="text-3xl font-bold text-gray-900">Browse by Animal</h2>
-            <p id="categories-sub" class="text-gray-600 mt-1">Choose an animal, then narrow down by production purpose and breed.</p>
           </div>
           <div id="animal-tiles" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div>
         </div>
       </section>
 
-      <!-- Listings -->
       <section id="listings" class="bg-gray-50 py-10 border-t border-gray-100" style="scroll-margin-top: 72px" aria-labelledby="listings-heading">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex flex-wrap items-end justify-between gap-2 mb-4">
@@ -148,14 +139,10 @@
         location: document.getElementById("filter-location"),
       };
       let animals = [];
-      let tilesFor = null; // which animal's purposes the tile section shows ("" = animals)
+      let tilesFor = null;
       let currentPage = 1;
       let optionsRequest = 0;
 
-      // ---------------------------------------------------------------
-      // Hero slideshow. Only the first photo loads up front; each next
-      // photo is fetched just before it is shown.
-      // ---------------------------------------------------------------
       function initHero() {
         const host = document.getElementById("hero-slides");
         const dots = document.getElementById("hero-dots");
@@ -195,9 +182,6 @@
         start();
       }
 
-      // ---------------------------------------------------------------
-      // Animal categories: tiles, chips and the first filter dropdown
-      // ---------------------------------------------------------------
       async function loadAnimals() {
         const tiles = document.getElementById("animal-tiles");
         try {
@@ -217,11 +201,7 @@
         renderAnimalChips();
       }
 
-      // One photo tile. Photo priority: the one uploaded in the admin, then a
-      // real listing photo, then the stock photo for the animal.
-      // `slides` (2+ photos) makes the photo cross-fade inside the tile while
-      // the text stays put; a single `src` is a still photo.
-      function tileHtml({ id, attr, name, description, meta, src, slides = null, alt, active = false }) {
+      function tileHtml({ id, attr, name, src, slides = null, alt, active = false }) {
         const fallback = "this.onerror=null;this.src='/images/livestock/cattle-fallback.webp'";
         const media = slides && slides.length > 1
           ? `<div class="tile-slides" aria-hidden="true">${slides.map((url, i) => `
@@ -234,21 +214,10 @@
             ${media}
             <div class="absolute inset-x-0 bottom-0 p-5">
               <h3 class="text-2xl font-bold">${escapeHtml(name)}</h3>
-              ${description ? `<p class="text-sm text-blue-100 mt-1 line-clamp-2">${escapeHtml(description)}</p>` : ""}
-              <div class="mt-3 flex items-center justify-between text-sm">
-                <span class="text-blue-100">${meta}</span>
-                <span class="inline-flex items-center gap-1 font-semibold group-hover:translate-x-1 transition">Browse <span class="w-4 h-4">${uiIcon("chevronRight")}</span></span>
-              </div>
             </div>
           </a>`;
       }
 
-      const plural = (n, word) => `${Number(n)} ${word}${Number(n) === 1 ? "" : "s"}`;
-
-      // The tile section follows the Animal dropdown: animal tiles when no
-      // animal is chosen, that animal's production purposes when one is.
-      // Purpose tile slideshows. Each tile has its own timer, started a little
-      // later than the previous one so the tiles don't all change together.
       const TILE_SLIDE_MS = 4000;
       let tileTimers = [];
 
@@ -286,22 +255,20 @@
         stopTileSlides();
         const tiles = document.getElementById("animal-tiles");
         const heading = document.getElementById("categories-heading");
-        const sub = document.getElementById("categories-sub");
         const back = document.getElementById("tiles-back");
 
         if (!animalId) {
           heading.textContent = "Browse by Animal";
-          sub.textContent = "Choose an animal, then narrow down by production purpose and breed.";
           back.classList.add("hidden");
+          back.classList.remove("inline-flex");
           if (!animals.length) {
-            renderEmptyState(tiles, { title: "No animal categories yet", message: "Animal categories will appear here once they are set up.", icon: "layers" });
+            renderEmptyState(tiles, { title: "No animals yet", message: "", icon: "layers" });
             return;
           }
           tiles.innerHTML = animals.map((a) => {
             const photo = animalPhoto(a);
             return tileHtml({
-              id: a.id, attr: "data-animal", name: a.name, description: a.description,
-              meta: `${plural(a.purpose_count, "purpose")} · ${plural(a.livestock_count, "listing")}`,
+              id: a.id, attr: "data-animal", name: a.name,
               src: a.image_path || a.cover_image || photo.src(),
               alt: a.image_path || a.cover_image ? `${a.name} for sale` : photo.alt,
             });
@@ -318,8 +285,8 @@
 
         const animal = animals.find((a) => String(a.id) === String(animalId));
         heading.textContent = animal ? animal.name : "Production purposes";
-        sub.textContent = "Choose a production purpose to see matching listings.";
         back.classList.remove("hidden");
+        back.classList.add("inline-flex");
         let purposes = [];
         try {
           purposes = (await apiRequest(`/api/categories?animal_id=${encodeURIComponent(animalId)}`)).data;
@@ -327,17 +294,14 @@
           renderEmptyState(tiles, { title: "Purposes unavailable", message: error.message, icon: "layers" });
           return;
         }
-        if (tilesFor !== animalId) return; // the animal changed while loading
+        if (tilesFor !== animalId) return;
         if (!purposes.length) {
-          renderEmptyState(tiles, { title: "No production purposes yet", message: `Purposes for ${animal?.name || "this animal"} will appear here once they are set up.`, icon: "layers" });
+          renderEmptyState(tiles, { title: "No production purposes yet", message: "", icon: "layers" });
           return;
         }
         const fallback = animal ? animal.image_path || animalPhoto(animal).src() : "/images/livestock/cattle-fallback.webp";
-        // Slides: photos uploaded for the purpose, else recent listing photos,
-        // else the animal's photo.
         tiles.innerHTML = purposes.map((p) => tileHtml({
-          id: p.id, attr: "data-purpose", name: p.name, description: p.description,
-          meta: `${plural(p.breed_count, "breed")} · ${plural(p.livestock_count, "listing")}`,
+          id: p.id, attr: "data-purpose", name: p.name,
           slides: p.photos.length ? p.photos : p.listing_photos.length ? p.listing_photos : [fallback],
           alt: `${p.animal_name} - ${p.name}`,
         })).join("");
@@ -354,7 +318,6 @@
         startTileSlides();
       }
 
-      // Outline the purpose tile that matches the Purpose dropdown.
       function paintPurposeTiles() {
         document.querySelectorAll("#animal-tiles [data-purpose]").forEach((tile) => {
           const on = tile.dataset.purpose === els.purpose.value;
@@ -394,20 +357,10 @@
         applyFilters({ scroll });
       }
 
-      // ---------------------------------------------------------------
-      // Cascading dropdowns. Options come from the database: purposes for
-      // the chosen animal, breeds for the chosen purpose, and all 10
-      // provinces with counts for the choices so far.
-      // ---------------------------------------------------------------
-      // The prompt ("Select breed / strain") shows in the closed dropdown but is
-      // hidden from the list, so there is never an "All ..." choice to pick.
-      // "Clear all filters" puts every dropdown back on its prompt.
       function placeholderOption(text) {
         return `<option value="" disabled hidden selected>${escapeHtml(text)}</option>`;
       }
 
-      // Options with a `group` are shown under <optgroup> headings (used for
-      // Dual-Purpose, whose breed list spans all of the animal's purposes).
       function fillSelect(select, placeholder, options, keep) {
         const optionHtml = (o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`;
         let body = "";
@@ -442,7 +395,7 @@
         } catch {
           return;
         }
-        if (request !== optionsRequest) return; // a newer change superseded this one
+        if (request !== optionsRequest) return;
 
         if (!els.animal.value) {
           els.purpose.disabled = true;
@@ -486,9 +439,6 @@
       });
       els.breed.addEventListener("change", refreshOptions);
 
-      // ---------------------------------------------------------------
-      // Results
-      // ---------------------------------------------------------------
       function currentFilters() {
         const params = new URLSearchParams();
         if (els.animal.value) params.set("animal_id", els.animal.value);
@@ -520,14 +470,14 @@
           const res = await apiRequest(`/api/livestock?${params}`);
           const total = res.pagination.totalItems;
           summary.textContent = total
-            ? `${total} listing${total === 1 ? "" : "s"}${describeFilters()}`
+            ? `${total} listing${total === 1 ? "" : "s"}`
             : "";
           if (!res.data.length) {
             const filtered = [...currentFilters().keys()].length > 0;
             renderEmptyState(container, filtered
-              ? { title: "No livestock matches these filters", message: "Try another purpose, breed or province, or clear the filters to see everything available.", icon: "search",
+              ? { title: "No livestock matches these filters", message: "", icon: "search",
                   action: `<button type="button" onclick="document.getElementById('clear-filters-btn').click()" class="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-700">Clear all filters</button>` }
-              : { title: "No livestock listed yet", message: "New listings from the Frontier team will appear here. Please check back soon.", icon: "cattle" });
+              : { title: "No livestock listed yet", message: "Please check back soon.", icon: "cattle" });
           } else {
             container.innerHTML = res.data.map(renderLivestockCard).join("");
             bindInquireButtons(container, res.data);
@@ -538,13 +488,6 @@
           renderEmptyState(container, { title: "Listings could not be loaded", message: error.message, icon: "alert" });
           document.getElementById("pagination-container").innerHTML = "";
         }
-      }
-
-      function describeFilters() {
-        const parts = [els.animal, els.purpose, els.breed, els.location]
-          .filter((s) => s.value)
-          .map((s) => s.options[s.selectedIndex].text.replace(/\s\(\d+\)$/, ""));
-        return parts.length ? ` · ${parts.join(" · ")}` : "";
       }
 
       function renderPagination(pagination) {
@@ -570,12 +513,10 @@
         applyFilters({ scroll: false });
       });
 
-      // ---------------------------------------------------------------
       document.addEventListener("DOMContentLoaded", async () => {
         initHero();
         await loadAnimals();
 
-        // Restore filters from a shared/bookmarked URL, in cascade order.
         const q = getQueryParams();
         if (q.animal_id) els.animal.value = q.animal_id;
         await refreshOptions();

@@ -25,14 +25,13 @@
         </div>
       </div>
 
-      <!-- Stats (all live from the database) -->
       <div id="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8"></div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section class="bg-white rounded-xl border border-gray-100 shadow-sm">
           <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <h2 class="text-lg font-bold text-gray-900">Recent Inquiries</h2>
-            <a href="/admin/inquiries.html" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all →</a>
+            <a href="/admin/inquiries.html" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
           </div>
           <div id="recent-inquiries"></div>
         </section>
@@ -40,7 +39,7 @@
         <section class="bg-white rounded-xl border border-gray-100 shadow-sm">
           <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <h2 class="text-lg font-bold text-gray-900">Recent Livestock</h2>
-            <a href="/admin/livestock.html" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all →</a>
+            <a href="/admin/livestock.html" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
           </div>
           <div id="recent-livestock"></div>
         </section>
@@ -107,7 +106,7 @@
             <span class="w-14 h-11 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover">` : livestockFallbackMedia("w-7 h-7")}</span>
             <div class="min-w-0 flex-1">
               <p class="font-semibold text-gray-900 truncate">${escapeHtml(l.title)}</p>
-              <p class="text-sm text-gray-500 truncate">${escapeHtml([l.animal_name, l.category_name, l.breed_name, l.location].filter(Boolean).join(" · "))}</p>
+              <p class="text-sm text-gray-500 truncate">${escapeHtml([l.animal_name, l.category_name, l.breed_name, l.location].filter(Boolean).join(", "))}</p>
             </div>
             ${statusPill(l.status)}
           </a></li>`).join("")}</ul>`;

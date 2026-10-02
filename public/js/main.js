@@ -1,6 +1,4 @@
-// Shared utilities for every page (public and admin).
 
-// Zambia's 10 provinces - must match PROVINCES in server/lib/validate.js.
 const ZAMBIA_PROVINCES = [
   "Central",
   "Copperbelt",
@@ -14,8 +12,6 @@ const ZAMBIA_PROVINCES = [
   "Western",
 ];
 
-// Listing "Type" options for each animal (shown on listings, chosen in the
-// admin editor). Animals an admin adds later fall back to GENERIC.
 const LIVESTOCK_TYPES_BY_ANIMAL = {
   Cattle: ["Bull", "Cow", "Heifer", "Steer", "Calf", "Mixed"],
   Goats: ["Buck", "Doe", "Kid", "Wether", "Mixed"],
@@ -25,9 +21,6 @@ const LIVESTOCK_TYPES_BY_ANIMAL = {
   GENERIC: ["Male", "Female", "Young", "Mixed"],
 };
 
-// "Dual-Purpose" can be any breed of its animal, so its Breed / Strain
-// list shows all of that animal's breeds. Must match isAllBreedsPurpose()
-// in server/lib/validate.js.
 function isAllBreedsPurpose(name) {
   return String(name || "").toLowerCase().replace(/[^a-z]/g, "") === "dualpurpose";
 }
@@ -36,16 +29,11 @@ function livestockTypesFor(animalName) {
   return LIVESTOCK_TYPES_BY_ANIMAL[animalName] || LIVESTOCK_TYPES_BY_ANIMAL.GENERIC;
 }
 
-// "10 head" for most animals, "200 birds" for poultry.
 function quantityLabel(quantity, animalName) {
   const n = Number(quantity) || 0;
   return `${n.toLocaleString()} ${animalName === "Poultry" ? (n === 1 ? "bird" : "birds") : "head"}`;
 }
 
-/**
- * JSON API request. Throws an Error carrying `status` and, for validation
- * failures, `errors` ({ field: message }) so forms can highlight fields.
- */
 async function apiRequest(url, options = {}) {
   const headers = { ...options.headers };
   let body = options.body;
@@ -159,18 +147,14 @@ function createPagination(currentPage, totalPages, onPageChange) {
     nav.appendChild(btn);
   };
 
-  button("← Previous", currentPage - 1, { disabled: currentPage <= 1 });
+  button("Previous", currentPage - 1, { disabled: currentPage <= 1 });
   for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
     button(String(i), i, { active: i === currentPage });
   }
-  button("Next →", currentPage + 1, { disabled: currentPage >= totalPages });
+  button("Next", currentPage + 1, { disabled: currentPage >= totalPages });
   return nav;
 }
 
-/**
- * Promise-based confirmation dialog (styled replacement for window.confirm).
- *   if (!(await confirmAction({ title, message, variant: "danger", confirmText: "Delete" }))) return;
- */
 function confirmAction({
   title = "Are you sure?",
   message = "",
@@ -213,9 +197,6 @@ function confirmAction({
   });
 }
 
-/**
- * Friendly empty state. `icon` is a uiIcon() name from icons.js.
- */
 function renderEmptyState(container, { title = "Nothing here yet", message = "", icon = "listings", action = "" } = {}) {
   container.innerHTML = `
     <div class="empty-state col-span-full">

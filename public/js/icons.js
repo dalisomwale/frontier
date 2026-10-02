@@ -1,5 +1,3 @@
-// Line icons shared across the site (same stroke style as v1's icon set),
-// plus the "no photo yet" fallback used on listing cards.
 
 const UI_ICON_SVG = {
   home: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>`,
@@ -37,7 +35,6 @@ function uiIcon(name) {
   return UI_ICON_SVG[name] || "";
 }
 
-// "No photo yet" placeholder on a soft tint, instead of a blank grey box.
 function livestockFallbackMedia(extraClass = "w-16 h-16") {
   return `<div class="w-full h-full flex items-center justify-center bg-blue-50"><span class="species-icon ${extraClass}">${UI_ICON_SVG.cattle}</span></div>`;
 }

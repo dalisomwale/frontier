@@ -1,9 +1,4 @@
-// Public listing helpers: hero/category photography, listing cards.
 
-// Real photographs from Unsplash (free Unsplash License - commercial use
-// allowed, no permission needed). Every photo was checked on its Unsplash
-// page: location, camera and photographer are recorded below and in
-// PHOTO-CREDITS.md. Served from Unsplash's CDN, resized to the viewport.
 const HERO_PHOTOS = [
   {
     id: "photo-1771172032297-7c42b11af31d",
@@ -42,10 +37,6 @@ const HERO_PHOTOS = [
   },
 ];
 
-// Photography for the animal tiles when an animal has no listing photos of
-// its own yet. Cattle uses the hero photography; the other animals use the
-// real photos that shipped with v1 of the site. Matched by animal name;
-// anything else falls back to the default.
 const ANIMAL_PHOTOS = {
   cattle: { src: () => unsplashUrl(HERO_PHOTOS[1].id, 900, 675), alt: HERO_PHOTOS[1].alt },
   goats: { src: () => "/images/livestock/goat.webp", alt: "A brown goat looking at the camera" },
@@ -61,7 +52,6 @@ function unsplashUrl(id, width, height) {
   return `https://images.unsplash.com/${id}?${params}`;
 }
 
-// Width that fills the screen without downloading more pixels than needed.
 function viewportImageWidth(max = 2000) {
   const px = Math.ceil((window.innerWidth * Math.min(window.devicePixelRatio || 1, 2)) / 400) * 400;
   return Math.min(max, Math.max(800, px));
@@ -84,14 +74,14 @@ function cardImage(item) {
 }
 
 function renderLivestockCard(item) {
-  const animalPurpose = [item.animal_name, item.category_name].filter(Boolean).join(" · ");
   const meta = [
-    animalPurpose ? `<span class="tag tag-category">${escapeHtml(animalPurpose)}</span>` : "",
+    item.animal_name ? `<span class="tag tag-category">${escapeHtml(item.animal_name)}</span>` : "",
+    item.category_name ? `<span class="tag tag-muted">${escapeHtml(item.category_name)}</span>` : "",
     item.breed_name ? `<span class="tag tag-breed">${escapeHtml(item.breed_name)}</span>` : "",
   ].join("");
   const typeLine = [item.livestock_type, item.quantity > 1 ? quantityLabel(item.quantity, item.animal_name) : ""]
     .filter(Boolean)
-    .join(" · ");
+    .join(", ");
 
   return `
     <article class="lv-card">
@@ -114,7 +104,6 @@ function renderLivestockCard(item) {
     </article>`;
 }
 
-// Wires every [data-inquire] button inside `container` to the inquiry form.
 function bindInquireButtons(container, items) {
   const byId = new Map(items.map((item) => [String(item.id), item]));
   container.querySelectorAll("[data-inquire]").forEach((btn) => {

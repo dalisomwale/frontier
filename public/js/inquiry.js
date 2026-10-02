@@ -1,6 +1,3 @@
-// Inquiry form (modal on desktop, bottom sheet on phones). Used by the
-// listing cards and the details page. The listing is attached automatically -
-// visitors only enter their name, phone, email and message.
 
 const INQUIRY_LIMITS = { nameMin: 2, nameMax: 120, messageMin: 10, messageMax: 2000 };
 
@@ -33,7 +30,7 @@ function openInquiryModal(listing) {
   closeInquiryModal();
   const lastFocus = document.activeElement;
   const thumb = listing.thumb_path || listing.images?.[0]?.thumb_path;
-  const subtitle = [listing.animal_name, listing.category_name, listing.breed_name].filter(Boolean).join(" · ");
+  const subtitle = [listing.animal_name, listing.category_name, listing.breed_name].filter(Boolean).join(", ");
 
   const backdrop = document.createElement("div");
   backdrop.id = "inquiry-modal";
@@ -62,7 +59,7 @@ function openInquiryModal(listing) {
         <div>
           <label for="inq-name" class="field-label">Full Name</label>
           <input id="inq-name" name="full_name" type="text" class="field-input" autocomplete="name"
-            maxlength="${INQUIRY_LIMITS.nameMax}" required placeholder="e.g. Chanda Mulenga">
+            maxlength="${INQUIRY_LIMITS.nameMax}" required>
           <p class="field-error hidden" data-error-for="full_name"></p>
         </div>
 
@@ -76,19 +73,15 @@ function openInquiryModal(listing) {
           <div>
             <label for="inq-email" class="field-label">Email</label>
             <input id="inq-email" name="email" type="email" class="field-input" autocomplete="email" inputmode="email"
-              maxlength="255" required placeholder="you@example.com">
+              maxlength="255" required>
             <p class="field-error hidden" data-error-for="email"></p>
           </div>
         </div>
 
         <div>
-          <div class="flex items-baseline justify-between">
-            <label for="inq-message" class="field-label">Message</label>
-            <span id="inq-count" class="text-xs text-gray-400">0 / ${INQUIRY_LIMITS.messageMax}</span>
-          </div>
+          <label for="inq-message" class="field-label">Message</label>
           <textarea id="inq-message" name="message" rows="4" class="field-input resize-y" required
-            maxlength="${INQUIRY_LIMITS.messageMax}"
-            placeholder="Tell us what you're looking for - quantity, timing, questions about the animals…"></textarea>
+            maxlength="${INQUIRY_LIMITS.messageMax}"></textarea>
           <p class="field-error hidden" data-error-for="message"></p>
         </div>
 
@@ -100,9 +93,6 @@ function openInquiryModal(listing) {
           class="w-full inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 font-semibold transition disabled:opacity-70 disabled:cursor-wait">
           Send Inquiry
         </button>
-        <p class="text-xs text-gray-500 text-center">
-          Your details go only to the Frontier Marketplace team, who will contact you about this listing.
-        </p>
       </form>
     </div>`;
 
@@ -111,8 +101,6 @@ function openInquiryModal(listing) {
 
   const form = backdrop.querySelector("#inquiry-form");
   const submit = backdrop.querySelector("#inquiry-submit");
-  const message = backdrop.querySelector("#inq-message");
-  const counter = backdrop.querySelector("#inq-count");
 
   const close = () => {
     closeInquiryModal();
@@ -126,10 +114,6 @@ function openInquiryModal(listing) {
     if (event.key === "Escape") close();
   };
   document.addEventListener("keydown", backdrop._onKey);
-
-  message.addEventListener("input", () => {
-    counter.textContent = `${message.value.length} / ${INQUIRY_LIMITS.messageMax}`;
-  });
 
   function showErrors(errors) {
     form.querySelectorAll("[data-error-for]").forEach((el) => {
@@ -145,7 +129,6 @@ function openInquiryModal(listing) {
     if (first) form.elements[first].focus();
   }
 
-  // Clear a field's error as soon as the visitor fixes it.
   form.querySelectorAll(".field-input").forEach((input) => {
     input.addEventListener("input", () => {
       if (!input.classList.contains("has-error")) return;
@@ -201,7 +184,7 @@ function openInquiryModal(listing) {
           <span class="w-8 h-8">${uiIcon("check")}</span>
         </div>
         <h2 class="text-xl font-bold text-gray-900 mb-2">Your inquiry has been sent successfully.</h2>
-        <p class="text-sm text-gray-600 mb-6">Thank you. The Frontier Marketplace team will contact you shortly about <strong>${escapeHtml(listing.title)}</strong>.</p>
+        <p class="text-sm text-gray-600 mb-6">We'll be in touch shortly.</p>
         <button type="button" data-close class="w-full sm:w-auto bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 font-semibold">Done</button>
       </div>`;
     const done = backdrop.querySelector("[data-close]");

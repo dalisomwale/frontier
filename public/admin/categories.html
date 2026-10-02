@@ -20,10 +20,8 @@
     <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900">Animals &amp; Purposes</h1>
-        <p class="text-gray-500 mt-1">The first two steps of the website filter: <strong class="text-gray-700">Animal Category → Production Purpose</strong> → Breed / Strain. Disabled items, and their listings, are hidden from visitors.</p>
       </div>
 
-      <!-- Animals -->
       <section class="mb-10" aria-labelledby="animals-h">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 id="animals-h" class="text-xl font-bold text-gray-900">Animal Categories</h2>
@@ -34,7 +32,6 @@
         <div id="animals" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3"></div>
       </section>
 
-      <!-- Production purposes -->
       <section aria-labelledby="purposes-h">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 id="purposes-h" class="text-xl font-bold text-gray-900">Production Purposes</h2>
@@ -59,9 +56,6 @@
       const statusOptions = [{ value: "active", label: "Active" }, { value: "disabled", label: "Disabled" }];
       const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? "" : "s"}`;
 
-      // ---------------------------------------------------------------
-      // Animals
-      // ---------------------------------------------------------------
       function renderAnimals() {
         const box = document.getElementById("animals");
         if (!animals.length) {
@@ -75,7 +69,7 @@
               </button>
               ${statusPill(a.status)}
             </div>
-            <p class="text-sm text-gray-500">${plural(a.purpose_count, "purpose")} · ${plural(a.breed_count, "breed")} · ${plural(a.livestock_count, "listing")}</p>
+            <p class="text-sm text-gray-500">${plural(a.purpose_count, "purpose")}, ${plural(a.breed_count, "breed")}, ${plural(a.livestock_count, "listing")}</p>
             <div class="flex items-center gap-1 -ml-2 mt-auto">
               <button type="button" data-toggle-animal="${a.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${a.status === "active" ? "Disable" : "Enable"}</button>
               <button type="button" data-edit-animal="${a.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="Edit"><span class="w-4 h-4">${uiIcon("edit")}</span></button>
@@ -114,9 +108,8 @@
           title: a.id ? "Edit Animal" : "Add Animal",
           submitText: a.id ? "Save Changes" : "Add Animal",
           body: `
-            ${field({ name: "name", label: "Animal name", value: a.name, required: true, placeholder: "e.g. Goats", attrs: 'maxlength="100"' })}
-            ${field({ name: "description", label: "Description", type: "textarea", value: a.description, placeholder: "Shown on the animal tile on the homepage", attrs: 'maxlength="2000"' })}
-            ${photoField({ current: a.image_path, help: "Shown on this animal's tile on the website. JPEG, PNG or WebP; cropped to a 4:3 tile." })}
+            ${field({ name: "name", label: "Animal name", value: a.name, required: true, attrs: 'maxlength="100"' })}
+            ${photoField({ current: a.image_path, help: "JPEG, PNG or WebP." })}
             ${field({ name: "status", label: "Status", value: a.status || "active", options: statusOptions })}`,
           onOpen(form) {
             photo = bindPhotoField(form, a.image_path);
@@ -128,8 +121,6 @@
             try {
               await photo.apply(`/api/admin/animals/${a.id || res.data.id}`);
             } catch (error) {
-              // The details are saved; only the photo failed. Say so rather than
-              // keeping the form open (saving again would create a duplicate).
               showNotification(`Animal saved, but the photo wasn't: ${error.message} Open it again to retry.`, "warning");
               load();
               return;
@@ -140,9 +131,6 @@
         });
       }
 
-      // ---------------------------------------------------------------
-      // Production purposes
-      // ---------------------------------------------------------------
       function selectAnimal(id) {
         current = id;
         history.replaceState(null, "", id ? `?animal_id=${id}` : location.pathname);
@@ -189,16 +177,16 @@
         box.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", async () => {
           const p = find(b.dataset.toggle);
           const next = p.status === "active" ? "disabled" : "active";
-          if (next === "disabled" && p.livestock_count > 0 && !(await confirmAction({ title: `Disable ${p.animal_name} · ${p.name}?`, message: `Its ${plural(p.livestock_count, "listing")} will be hidden from the website until you enable it again.`, confirmText: "Disable" }))) return;
+          if (next === "disabled" && p.livestock_count > 0 && !(await confirmAction({ title: `Disable ${p.name} (${p.animal_name})?`, message: `Its ${plural(p.livestock_count, "listing")} will be hidden from the website until you enable it again.`, confirmText: "Disable" }))) return;
           try {
             await adminApi(`/api/admin/categories/${p.id}`, { method: "PUT", body: { status: next } });
-            showNotification(`${p.animal_name} · ${p.name} ${next === "active" ? "enabled" : "disabled"}.`, "success");
+            showNotification(`${p.name} (${p.animal_name}) ${next === "active" ? "enabled" : "disabled"}.`, "success");
             load();
           } catch (error) { showNotification(error.message, "error"); }
         }));
         box.querySelectorAll("[data-delete]").forEach((b) => b.addEventListener("click", async () => {
           const p = find(b.dataset.delete);
-          if (!(await confirmAction({ title: `Delete ${p.animal_name} · ${p.name}?`, message: "Purposes that still have breeds or listings can't be deleted - disable them instead.", confirmText: "Delete", variant: "danger" }))) return;
+          if (!(await confirmAction({ title: `Delete ${p.name} (${p.animal_name})?`, message: "Purposes that still have breeds or listings can't be deleted - disable them instead.", confirmText: "Delete", variant: "danger" }))) return;
           try {
             await adminApi(`/api/admin/categories/${p.id}`, { method: "DELETE" });
             showNotification("Production purpose deleted.", "success");
@@ -217,9 +205,9 @@
             ${field({ name: "animal_id", label: "Animal", value: p.animal_id ?? current, required: true, options: animalOptions,
                 help: p.livestock_count ? "This purpose is used by listings, so its animal can't be changed." : "",
                 attrs: p.livestock_count ? "disabled" : "" })}
-            ${field({ name: "name", label: "Purpose name", value: p.name, required: true, placeholder: "e.g. Meat, Dairy, Layers", attrs: 'maxlength="100"' })}
-            ${field({ name: "description", label: "Description", type: "textarea", value: p.description, placeholder: "Shown on the purpose tile on the website (optional)", attrs: 'maxlength="2000"' })}
-            ${photosField({ help: `Shown as a slideshow on this purpose's tile on the website when visitors choose the animal. Up to ${MAX_PURPOSE_PHOTOS} photos; the first shows first. JPEG, PNG or WebP, cropped to 4:3.` })}
+            ${field({ name: "name", label: "Purpose name", value: p.name, required: true, attrs: 'maxlength="100"' })}
+            ${field({ name: "description", label: "Description", type: "textarea", value: p.description, attrs: 'maxlength="2000"' })}
+            ${photosField({ help: `Up to ${MAX_PURPOSE_PHOTOS} photos.` })}
             ${field({ name: "status", label: "Status", value: p.status || "active", options: statusOptions })}`,
           onOpen(form) {
             photo = bindPhotosField(form, p.photos || []);
@@ -235,8 +223,6 @@
             try {
               await photo.apply(`/api/admin/categories/${p.id || res.data.id}`);
             } catch (error) {
-              // The details are saved; only the photo failed. Say so rather than
-              // keeping the form open (saving again would create a duplicate).
               showNotification(`Production purpose saved, but some photos weren't: ${error.message} Open it again to retry.`, "warning");
               load();
               return;

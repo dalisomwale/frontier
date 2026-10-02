@@ -20,7 +20,6 @@
     <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900">Inquiries</h1>
-        <p class="text-gray-500 mt-1">Every inquiry sent from the website. Contact the customer, then update the status as you go.</p>
       </div>
 
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
@@ -93,13 +92,13 @@
                   <td>
                     <div class="min-w-[160px]">
                       <p class="text-gray-900">${escapeHtml(i.full_name)}</p>
-                      <p class="text-xs text-gray-500 font-normal">${escapeHtml(i.phone)} · ${escapeHtml(i.email)}</p>
+                      <p class="text-xs text-gray-500 font-normal">${escapeHtml(i.phone)}<br>${escapeHtml(i.email)}</p>
                       <p class="text-xs text-gray-500 font-normal md:hidden mt-0.5">${escapeHtml(i.livestock_title)}</p>
                     </div>
                   </td>
                   <td class="hidden md:table-cell font-normal">
                     <p class="text-gray-900 line-clamp-1">${escapeHtml(i.livestock_title)}</p>
-                    <p class="text-xs text-gray-500">${escapeHtml([i.animal_name, i.category_name, i.breed_name].filter(Boolean).join(" · "))}</p>
+                    <p class="text-xs text-gray-500">${escapeHtml([i.animal_name, i.category_name, i.breed_name].filter(Boolean).join(", "))}</p>
                   </td>
                   <td class="hidden xl:table-cell font-normal text-gray-600 max-w-xs"><p class="line-clamp-2 text-sm">${escapeHtml(i.message)}</p></td>
                   <td class="hidden sm:table-cell font-normal text-gray-500 text-sm whitespace-nowrap" title="${escapeHtml(formatDate(i.created_at))}">${timeAgo(i.created_at)}</td>
@@ -119,7 +118,7 @@
       function whatsappNumber(phone) {
         let d = phone.replace(/\D/g, "");
         if (phone.trim().startsWith("+")) return d;
-        if (d.startsWith("0")) d = "260" + d.slice(1); // Zambian local number
+        if (d.startsWith("0")) d = "260" + d.slice(1);
         return d;
       }
 
@@ -165,7 +164,7 @@
                 <div><dt class="text-gray-500">Phone</dt><dd class="font-semibold text-gray-900">${escapeHtml(i.phone)}</dd></div>
                 <div><dt class="text-gray-500">Email</dt><dd class="font-semibold text-gray-900 break-all">${escapeHtml(i.email)}</dd></div>
                 <div><dt class="text-gray-500">Livestock</dt><dd class="font-semibold text-gray-900">${listingLink}</dd></div>
-                <div><dt class="text-gray-500">Animal · Purpose · Breed</dt><dd class="font-semibold text-gray-900">${escapeHtml([i.animal_name, i.category_name, i.breed_name].filter(Boolean).join(" · ") || "-")}</dd></div>
+                <div><dt class="text-gray-500">Animal / Purpose / Breed</dt><dd class="font-semibold text-gray-900">${escapeHtml([i.animal_name, i.category_name, i.breed_name].filter(Boolean).join(", ") || "-")}</dd></div>
               </dl>
 
               <div>
@@ -264,7 +263,7 @@
         if (q.q) { state.q = q.q; document.getElementById("search").value = q.q; }
         renderTabs();
         await loadList(1);
-        if (q.id) openInquiry(q.id); // deep link from the notification email
+        if (q.id) openInquiry(q.id);
       })();
     </script>
   </body>

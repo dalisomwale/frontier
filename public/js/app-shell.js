@@ -1,5 +1,3 @@
-// Shared navigation chrome: the mobile bottom tab bar (public + admin) and the
-// desktop admin sidebar. Uses icons from icons.js.
 
 function renderBottomNav(variant = "public") {
   const mount = document.getElementById("app-bottom-nav");

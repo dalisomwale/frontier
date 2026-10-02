@@ -21,7 +21,6 @@
       <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
           <h1 class="text-3xl font-bold text-gray-900">Livestock</h1>
-          <p class="text-gray-500 mt-1">Create, edit and publish listings. Only published listings are visible on the website.</p>
         </div>
         <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
           <span class="w-5 h-5" data-icon="plus"></span> Add Livestock
@@ -59,9 +58,6 @@
       let purposes = [];
       let breeds = [];
 
-      // -----------------------------------------------------------------
-      // List
-      // -----------------------------------------------------------------
       async function loadList(page = state.page) {
         state.page = page;
         const list = document.getElementById("list");
@@ -87,7 +83,7 @@
           list.innerHTML = `
             <table class="admin-table">
               <thead><tr>
-                <th>Listing</th><th class="hidden md:table-cell">Animal · Purpose / Breed</th><th class="hidden lg:table-cell">Province</th>
+                <th>Listing</th><th class="hidden md:table-cell">Animal / Purpose / Breed</th><th class="hidden lg:table-cell">Province</th>
                 <th>Status</th><th class="hidden sm:table-cell text-center">Inquiries</th><th class="text-right hidden sm:table-cell">Actions</th>
               </tr></thead>
               <tbody>${res.data.map(rowHtml).join("")}</tbody>
@@ -118,13 +114,13 @@
                 <span class="w-16 h-12 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : livestockFallbackMedia("w-7 h-7")}</span>
                 <div class="min-w-0">
                   <button type="button" data-edit="${l.id}" class="font-semibold text-gray-900 hover:text-blue-600 text-left line-clamp-2">${escapeHtml(l.title)}</button>
-                  <p class="text-xs text-gray-500">${[l.livestock_type, l.quantity > 1 ? quantityLabel(l.quantity, l.animal_name) : "", `${l.image_count} photo${l.image_count == 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</p>
-                  <p class="text-xs text-gray-500 md:hidden">${escapeHtml([l.animal_name, l.category_name, l.breed_name].filter(Boolean).join(" · "))}</p>
+                  <p class="text-xs text-gray-500">${[l.livestock_type, l.quantity > 1 ? quantityLabel(l.quantity, l.animal_name) : "", l.image_count ? `${l.image_count} photo${l.image_count == 1 ? "" : "s"}` : ""].filter(Boolean).join(", ")}</p>
+                  <p class="text-xs text-gray-500 md:hidden">${escapeHtml([l.animal_name, l.category_name, l.breed_name].filter(Boolean).join(", "))}</p>
                   <div class="sm:hidden -ml-2 mt-1">${actionsHtml(l)}</div>
                 </div>
               </div>
             </td>
-            <td class="hidden md:table-cell"><span class="tag tag-category">${escapeHtml(l.animal_name)} · ${escapeHtml(l.category_name)}</span> ${l.breed_name ? `<span class="tag tag-breed">${escapeHtml(l.breed_name)}</span>` : ""}</td>
+            <td class="hidden md:table-cell"><span class="tag tag-category">${escapeHtml(l.animal_name)}, ${escapeHtml(l.category_name)}</span> ${l.breed_name ? `<span class="tag tag-breed">${escapeHtml(l.breed_name)}</span>` : ""}</td>
             <td class="hidden lg:table-cell text-gray-600">${escapeHtml(l.location)}</td>
             <td>${statusPill(l.status)}</td>
             <td class="hidden sm:table-cell text-center">${l.inquiry_count ? `<a class="text-blue-600 font-semibold hover:underline" href="/admin/inquiries.html?q=${encodeURIComponent(l.title)}">${l.inquiry_count}</a>` : `<span class="text-gray-400">0</span>`}</td>
@@ -167,11 +163,6 @@
         );
       }
 
-      // -----------------------------------------------------------------
-      // Editor
-      // -----------------------------------------------------------------
-      // Cascading options for the editor. Disabled items stay selectable only
-      // when the listing already uses them, so editing never silently drops them.
       const label = (row) => row.name + (row.status === "disabled" ? " (disabled)" : "");
 
       function animalOptions(selected) {
@@ -186,8 +177,6 @@
           .concat(list.map((p) => ({ value: p.id, label: label(p) })));
       }
 
-      // Dual-Purpose can be any breed of its animal: list them all, with the
-      // purpose each breed belongs to, Dual-Purpose's own breeds first.
       function breedOptions(purposeId, selected) {
         const purpose = purposes.find((p) => String(p.id) === String(purposeId));
         const usable = (b) => b.status === "active" || String(b.id) === String(selected);
@@ -225,14 +214,13 @@
             return showNotification(error.message, "error");
           }
         }
-        // photos: { id?, src, file?, url? } - existing photos have an id.
         const photos = (item.images || []).map((im) => ({ id: im.id, src: im.thumb_path || im.image_path }));
         const removed = [];
 
         const animalId = item.animal_id ?? "";
 
         const body = `
-          ${field({ name: "title", label: "Title", value: item.title, required: true, placeholder: "e.g. Boran Heifers - 10 head, or Boer Does", attrs: 'maxlength="200"' })}
+          ${field({ name: "title", label: "Title", value: item.title, required: true, attrs: 'maxlength="200"' })}
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             ${field({ name: "animal_id", label: "Animal Category", value: animalId, required: true, options: animalOptions(animalId) })}
             ${field({ name: "category_id", label: "Production Purpose", value: item.category_id, required: true, options: purposeOptions(animalId, item.category_id) })}
@@ -241,12 +229,12 @@
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
             ${field({ name: "livestock_type", label: "Type", value: item.livestock_type, options: typeOptions(animalId, item.livestock_type) })}
             ${field({ name: "quantity", label: "Quantity", type: "number", value: item.quantity ?? 1, attrs: 'min="1" step="1" inputmode="numeric"' })}
-            ${field({ name: "age_months", label: "Age (months)", type: "number", value: item.age_months, attrs: 'min="0" max="600" step="1" inputmode="numeric"', placeholder: "Optional" })}
+            ${field({ name: "age_months", label: "Age (months)", type: "number", value: item.age_months, attrs: 'min="0" max="600" step="1" inputmode="numeric"' })}
           </div>
           ${field({ name: "location", label: "Province", value: ZAMBIA_PROVINCES.includes(item.location) ? item.location : "", required: true,
               help: item.location && !ZAMBIA_PROVINCES.includes(item.location) ? `Previously "${item.location}" - choose its province.` : "",
               options: [{ value: "", label: "Select province" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
-          ${field({ name: "description", label: "Description", type: "textarea", value: item.description, rows: 5, placeholder: "Condition, feeding, vaccinations, any other details buyers should know…", attrs: 'maxlength="5000"' })}
+          ${field({ name: "description", label: "Description", type: "textarea", value: item.description, rows: 5, attrs: 'maxlength="5000"' })}
 
           <div>
             <div class="flex items-baseline justify-between mb-2">
@@ -255,7 +243,7 @@
             </div>
             <div id="photo-grid" class="photo-grid"></div>
             <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple class="hidden">
-            <p class="text-xs text-gray-500 mt-2">JPEG, PNG or WebP, up to ${MAX_PHOTOS} photos. The first photo is the cover shown on listing cards.</p>
+            <p class="text-xs text-gray-500 mt-2">Up to ${MAX_PHOTOS} photos. The first one is the cover.</p>
           </div>
 
           <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50 cursor-pointer">
@@ -358,8 +346,6 @@
 
             const res = await adminApi(id ? `/api/admin/livestock/${id}` : "/api/admin/livestock", { method: id ? "PUT" : "POST", body: fd });
 
-            // A new photo chosen as cover: existing photos keep their order on
-            // the server, so move the new upload to the front afterwards.
             if (photos[0]?.file && res.data.images.length > 1) {
               const firstNewIndex = res.data.images.length - newPhotos.length;
               const coverId = res.data.images[firstNewIndex].id;
@@ -376,7 +362,6 @@
         });
       }
 
-      // -----------------------------------------------------------------
       document.querySelectorAll("#status-tabs button").forEach((b) =>
         b.addEventListener("click", () => {
           document.querySelectorAll("#status-tabs button").forEach((x) => x.classList.toggle("active", x === b));

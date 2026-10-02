@@ -1,17 +1,13 @@
-// Shared admin page bootstrap: auth guard, chrome, API helper, form modal.
-// Requires main.js, icons.js and app-shell.js.
 
 const ADMIN_HEADER = { "X-Frontier-Admin": "1" };
 
-// Every admin API call carries the CSRF header and bounces to the login page
-// if the session has expired.
 async function adminApi(url, options = {}) {
   try {
     return await apiRequest(url, { ...options, headers: { ...ADMIN_HEADER, ...options.headers } });
   } catch (error) {
     if (error.status === 401 && !url.includes("/auth/login")) {
       window.location.href = `/admin/login.html?next=${encodeURIComponent(location.pathname + location.search)}`;
-      await new Promise(() => {}); // stop the caller while the page navigates
+      await new Promise(() => {});
     }
     throw error;
   }
@@ -25,10 +21,6 @@ async function adminLogout() {
   }
 }
 
-/**
- * Renders the sidebar/topbar/bottom-nav, verifies the session, and resolves
- * with the signed-in admin. Page content stays hidden until then.
- */
 async function initAdminPage(active) {
   renderSidebar(active);
   renderBottomNav("admin");
@@ -64,7 +56,6 @@ async function refreshNewInquiryBadge() {
     const res = await adminApi("/api/admin/inquiries?status=new&limit=1");
     setNewInquiryBadge(res.summary.new);
   } catch {
-    /* badge is best-effort */
   }
 }
 
@@ -73,12 +64,6 @@ function statusPill(status, label) {
   return `<span class="status-pill st-${escapeHtml(status)}">${escapeHtml(text)}</span>`;
 }
 
-/**
- * Generic modal form.
- *   openFormModal({ title, body, submitText, wide, onSubmit(form) => Promise })
- * onSubmit may throw an Error with `.errors` ({ field: message }) to
- * highlight fields; the modal stays open until onSubmit resolves.
- */
 function openFormModal({ title, body, submitText = "Save", wide = false, onSubmit, onOpen }) {
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
@@ -184,9 +169,6 @@ function formValues(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
 
-// Large phone photos are scaled down in the browser before upload, so
-// listings can be added over a mobile connection. The server then makes
-// the final optimised WebP versions.
 async function shrinkImage(file) {
   if (file.size < 1.5 * 1024 * 1024 || !window.createImageBitmap) return file;
   try {
@@ -203,14 +185,6 @@ async function shrinkImage(file) {
   }
 }
 
-/**
- * Single-photo field for animal categories and production purposes.
- *   body:   photoField({ current: item.image_path })
- *   onOpen: const photo = bindPhotoField(form, item.image_path)
- *   save:   await photo.apply(`/api/admin/animals/${id}`)
- * Shows the current photo, lets the admin upload / replace / remove it, and
- * only talks to the server when the form is saved.
- */
 function photoField({ label = "Photo", current = null, help = "" } = {}) {
   return `
     <div data-photo-field>
@@ -227,7 +201,7 @@ function photoField({ label = "Photo", current = null, help = "" } = {}) {
               <span class="w-4 h-4">${uiIcon("trash")}</span>Remove
             </button>
           </div>
-          <p class="text-xs text-gray-500">${escapeHtml(help || "Shown on the website. JPEG, PNG or WebP; it's cropped to a 4:3 tile.")}</p>
+          <p class="text-xs text-gray-500">${escapeHtml(help || "JPEG, PNG or WebP.")}</p>
         </div>
       </div>
     </div>`;
@@ -291,14 +265,6 @@ function bindPhotoField(form, current) {
   };
 }
 
-/**
- * Multi-photo field for a production purpose's slideshow (up to `max`).
- *   body:   photosField({ count: item.photos.length })
- *   onOpen: const photos = bindPhotosField(form, item.photos)
- *   save:   await photos.apply(`/api/admin/categories/${id}`)
- * Nothing is sent until the form is saved; then removed photos are
- * deleted, new ones uploaded, and the order saved (first shows first).
- */
 const MAX_PURPOSE_PHOTOS = 8;
 
 function photosField({ label = "Photos", help = "" } = {}) {
@@ -310,7 +276,7 @@ function photosField({ label = "Photos", help = "" } = {}) {
       </div>
       <div class="photo-grid" data-photos-grid></div>
       <input type="file" accept="image/jpeg,image/png,image/webp" multiple class="sr-only" data-photos-input>
-      <p class="text-xs text-gray-500 mt-2">${escapeHtml(help || `Up to ${MAX_PURPOSE_PHOTOS} photos. JPEG, PNG or WebP; each is cropped to a 4:3 tile.`)}</p>
+      <p class="text-xs text-gray-500 mt-2">${escapeHtml(help || `Up to ${MAX_PURPOSE_PHOTOS} photos.`)}</p>
     </div>`;
 }
 
@@ -319,7 +285,6 @@ function bindPhotosField(form, existing = []) {
   const grid = box.querySelector("[data-photos-grid]");
   const input = box.querySelector("[data-photos-input]");
   const count = box.querySelector("[data-photos-count]");
-  // items: { id?, src, file?, url? } - existing photos have an id
   const items = existing.map((p) => ({ id: p.id, src: p.image_path }));
   const removed = [];
   const changed = () => form.dispatchEvent(new Event("input"));
