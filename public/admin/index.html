@@ -23,13 +23,7 @@
           <h1 class="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
           <p id="greeting" class="text-gray-500 mt-1"></p>
         </div>
-        <a href="/admin/livestock.html?new=1" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
-          <span class="w-5 h-5" data-icon="plus"></span> Add Livestock
-        </a>
       </div>
-
-      <!-- Inquiry email status: set up or not, test, resend failed -->
-      <section id="email-panel" class="hidden mb-6 rounded-xl border p-4 sm:p-5" aria-live="polite"></section>
 
       <!-- Stats (all live from the database) -->
       <div id="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8"></div>
@@ -78,88 +72,6 @@
               <p class="text-2xl sm:text-3xl font-bold ${t.key === "new_inquiries" && stats[t.key] ? "text-red-600" : "text-gray-900"}">${stats[t.key].toLocaleString()}</p>
             </div>
           </a>`).join("");
-
-        renderEmailPanel(stats.failed_emails);
-      }
-
-      // ---------------------------------------------------------------
-      // Inquiry email status
-      // ---------------------------------------------------------------
-      async function renderEmailPanel(failedCount) {
-        const panel = document.getElementById("email-panel");
-        let status;
-        try {
-          status = (await adminApi("/api/admin/email/status")).data;
-        } catch {
-          return;
-        }
-        const ok = status.configured;
-        // Quiet when everything is fine; prominent when emails are off or failing.
-        const tone = !ok || failedCount ? "border-amber-300 bg-amber-50" : "border-gray-100 bg-white";
-        const failedLine = failedCount
-          ? `<p class="text-sm text-amber-900 mt-1"><strong>${failedCount} notification email${failedCount === 1 ? "" : "s"} failed to send.</strong> The inquiries themselves are saved.</p>`
-          : "";
-        panel.className = `mb-6 rounded-xl border p-4 sm:p-5 ${tone}`;
-        panel.innerHTML = `
-          <div class="flex flex-col lg:flex-row lg:items-center gap-4">
-            <div class="flex items-start gap-3 flex-1 min-w-0">
-              <span class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${ok ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}">
-                <span class="w-5 h-5">${uiIcon(ok ? "mail" : "alert")}</span>
-              </span>
-              <div class="min-w-0">
-                <p class="font-semibold text-gray-900">${ok ? "Inquiry emails are on" : "Inquiry emails are off"}</p>
-                ${ok
-                  ? `<p class="text-sm text-gray-600 break-words">New inquiries are emailed to <strong>${status.recipients.map(escapeHtml).join("</strong> and <strong>")}</strong>, sent from ${escapeHtml(status.user || status.from)}.</p>`
-                  : `<p class="text-sm text-amber-900">${escapeHtml(status.problems.join("; "))}. Inquiries are still saved here. Add the email settings to <code>.env</code> on the server and restart the app.</p>`}
-                ${failedLine}
-                <p data-email-result class="hidden text-sm mt-2"></p>
-              </div>
-            </div>
-            <div class="flex flex-wrap gap-2 flex-shrink-0">
-              ${failedCount && ok ? `<button type="button" data-resend-failed class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold text-sm"><span class="w-4 h-4">${uiIcon("refresh")}</span>Resend ${failedCount} failed</button>` : ""}
-              ${ok ? `<button type="button" data-test-email class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm"><span class="w-4 h-4">${uiIcon("mail")}</span>Send test email</button>` : ""}
-            </div>
-          </div>`;
-        panel.classList.remove("hidden");
-
-        const result = panel.querySelector("[data-email-result]");
-        const showResult = (text, good) => {
-          result.textContent = text;
-          result.className = `text-sm mt-2 font-medium ${good ? "text-green-700" : "text-red-700"}`;
-        };
-        const busy = async (button, label, work) => {
-          const original = button.innerHTML;
-          button.disabled = true;
-          button.innerHTML = `<span class="btn-spinner !border-gray-300 !border-t-gray-600"></span> ${label}`;
-          try {
-            await work();
-          } finally {
-            button.disabled = false;
-            button.innerHTML = original;
-          }
-        };
-
-        panel.querySelector("[data-test-email]")?.addEventListener("click", (e) =>
-          busy(e.currentTarget, "Sending…", async () => {
-            try {
-              const res = await adminApi("/api/admin/email/test", { method: "POST" });
-              showResult(`${res.message} Check both inboxes (and spam the first time).`, true);
-            } catch (error) {
-              showResult(error.message, false);
-            }
-          }),
-        );
-        panel.querySelector("[data-resend-failed]")?.addEventListener("click", (e) =>
-          busy(e.currentTarget, "Resending…", async () => {
-            try {
-              const res = await adminApi("/api/admin/email/resend-failed", { method: "POST" });
-              showNotification(res.message, res.data.failed ? "warning" : "success");
-              loadDashboard();
-            } catch (error) {
-              showResult(error.message, false);
-            }
-          }),
-        );
       }
 
       function renderRecentInquiries(items) {
@@ -186,9 +98,8 @@
         if (!items.length) {
           return renderEmptyState(box, {
             title: "No livestock yet",
-            message: "Add your first listing - it stays unpublished until you choose to publish it.",
+            message: "Listings you add on the Livestock page will appear here.",
             icon: "cattle",
-            action: `<a href="/admin/livestock.html?new=1" class="inline-block mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold">Add Livestock</a>`,
           });
         }
         box.innerHTML = `<ul class="divide-y divide-gray-100">${items.map((l) => `
