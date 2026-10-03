@@ -101,6 +101,8 @@ CREATE TABLE IF NOT EXISTS livestock (
   location        VARCHAR(150) NOT NULL,
   description     TEXT NULL,
   status          ENUM('published', 'unpublished') NOT NULL DEFAULT 'unpublished',
+  published_at    DATETIME NULL,
+  verification    ENUM('unverified', 'verified') NOT NULL DEFAULT 'unverified',
   created_by      INT UNSIGNED NULL,
   created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

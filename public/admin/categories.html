@@ -24,9 +24,9 @@
 
       <section class="mb-10" aria-labelledby="animals-h">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h2 id="animals-h" class="text-xl font-bold text-gray-900">Animal Categories</h2>
+          <h2 id="animals-h" class="text-xl font-bold text-gray-900">Manage Animal Categories</h2>
           <button id="add-animal-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
-            <span class="w-5 h-5" data-icon="plus"></span> Add Animal
+            <span class="w-5 h-5" data-icon="plus"></span> Add Animal Category
           </button>
         </div>
         <div id="animals" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3"></div>
@@ -34,7 +34,7 @@
 
       <section aria-labelledby="purposes-h">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h2 id="purposes-h" class="text-xl font-bold text-gray-900">Production Purposes</h2>
+          <h2 id="purposes-h" class="text-xl font-bold text-gray-900">Manage Production Purposes</h2>
           <button id="add-purpose-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
             <span class="w-5 h-5" data-icon="plus"></span> Add Purpose
           </button>
@@ -69,7 +69,6 @@
               </button>
               ${statusPill(a.status)}
             </div>
-            <p class="text-sm text-gray-500">${plural(a.purpose_count, "purpose")}, ${plural(a.breed_count, "breed")}, ${plural(a.livestock_count, "listing")}</p>
             <div class="flex items-center gap-1 -ml-2 mt-auto">
               <button type="button" data-toggle-animal="${a.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${a.status === "active" ? "Disable" : "Enable"}</button>
               <button type="button" data-edit-animal="${a.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="Edit"><span class="w-4 h-4">${uiIcon("edit")}</span></button>
@@ -108,10 +107,10 @@
       function openAnimalEditor(a = {}) {
         let photo;
         openFormModal({
-          title: a.id ? "Edit Animal" : "Add Animal",
-          submitText: a.id ? "Save Changes" : "Add Animal",
+          title: a.id ? "Edit Animal Category" : "Add Animal Category",
+          submitText: a.id ? "Save Changes" : "Add Animal Category",
           body: `
-            ${field({ name: "name", label: "Animal name", value: a.name, required: true, attrs: 'maxlength="100"' })}
+            ${field({ name: "name", label: "Animal category name", value: a.name, required: true, attrs: 'maxlength="100"' })}
             ${photoField({ current: a.image_path, help: "JPEG, PNG or WebP." })}
             ${field({ name: "status", label: "Status", value: a.status || "active", options: statusOptions })}`,
           onOpen(form) {
@@ -124,11 +123,11 @@
             try {
               await photo.apply(`/api/admin/animals/${a.id || res.data.id}`);
             } catch (error) {
-              showNotification(`Animal saved, but the photo wasn't: ${error.message} Open it again to retry.`, "warning");
+              showNotification(`Animal category saved, but the photo wasn't: ${error.message} Open it again to retry.`, "warning");
               load();
               return;
             }
-            showNotification(a.id ? "Animal updated." : "Animal added.", "success");
+            showNotification(a.id ? "Animal category updated." : "Animal category added.", "success");
             load();
           },
         });

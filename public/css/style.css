@@ -1499,3 +1499,48 @@ body.admin-pending main {
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+.pill-select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  padding: 4px 26px 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%236b7280'%3E%3Cpath d='M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4z'/%3E%3C/svg%3E");
+}
+
+.pill-select:focus {
+  outline: 2px solid #93c5fd;
+  outline-offset: 1px;
+}
+
+.pill-select:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.pill-select[data-value="published"] {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.pill-select[data-value="unpublished"] {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.pill-select[data-value="verified"] {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.pill-select[data-value="unverified"] {
+  background-color: #fef3c7;
+  color: #92400e;
+}

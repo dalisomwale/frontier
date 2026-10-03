@@ -5,6 +5,13 @@ const { positiveInt, text, oneOf, badRequest, notFound, PROVINCES, isAllBreedsPu
 
 const router = express.Router();
 const STATUSES = ["published", "unpublished"];
+const VERIFICATIONS = ["unverified", "verified"];
+
+// Sets published_at when a listing becomes published (keeping the original
+// date if it was already published) and clears it when unpublished. Must come
+// before "status = ?" in an UPDATE, as MySQL applies assignments in order.
+const PUBLISHED_AT_SQL =
+  "published_at = CASE WHEN ? = 'published' THEN IF(status = 'published' AND published_at IS NOT NULL, published_at, NOW()) ELSE NULL END";
 const MAX_PAGE_SIZE = 50;
 
 // Validates the listing fields and checks the hierarchy is consistent: the
@@ -19,6 +26,7 @@ async function payload(body) {
   const animalId = body.animal_id === "" || body.animal_id === undefined ? null : positiveInt(body.animal_id);
   const type = text(body.livestock_type, 40);
   const status = oneOf(body.status || "unpublished", STATUSES);
+  const verification = body.verification === undefined ? undefined : oneOf(body.verification, VERIFICATIONS);
   const quantity = body.quantity === "" || body.quantity === undefined ? 1 : positiveInt(body.quantity);
   const age = body.age_months === "" || body.age_months === undefined || body.age_months === null
     ? null
@@ -35,6 +43,7 @@ async function payload(body) {
   if (description === undefined) errors.description = "Description must be 5000 characters or fewer.";
   if (type === undefined) errors.livestock_type = "Type must be 40 characters or fewer.";
   if (!status) errors.status = "Invalid status.";
+  if (verification === null || verification === "") errors.verification = "Invalid verification status.";
   if (!quantity || quantity > 100000) errors.quantity = "Quantity must be a whole number from 1.";
   if (age !== null && (!Number.isSafeInteger(age) || age < 0 || age > 600))
     errors.age_months = "Age must be between 0 and 600 months.";
@@ -77,6 +86,7 @@ async function payload(body) {
     location,
     description,
     status,
+    verification,
   };
 }
 
@@ -160,7 +170,7 @@ router.get("/", async (req, res, next) => {
     const condition = where.join(" AND ");
 
     const [rows] = await pool.query(
-      `SELECT l.id, l.title, l.status, l.location, l.livestock_type, l.quantity,
+      `SELECT l.id, l.title, l.status, l.published_at, l.verification, l.location, l.livestock_type, l.quantity,
          l.created_at, l.updated_at, a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
          (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = l.id
             ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path,
@@ -203,10 +213,11 @@ router.post("/", uploadImages, async (req, res, next) => {
     await conn.beginTransaction();
     const [result] = await conn.query(
       `INSERT INTO livestock
-         (title, category_id, breed_id, livestock_type, quantity, age_months, location, description, status, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (title, category_id, breed_id, livestock_type, quantity, age_months, location, description, status,
+          published_at, verification, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, IF(? = 'published', NOW(), NULL), ?, ?)`,
       [p.title, p.category_id, p.breed_id, p.livestock_type, p.quantity, p.age_months,
-        p.location, p.description, p.status, req.admin.id],
+        p.location, p.description, p.status, p.status, p.verification || "unverified", req.admin.id],
     );
     await storeImages(conn, result.insertId, req.files);
     await conn.commit();
@@ -243,9 +254,10 @@ router.put("/:id", uploadImages, async (req, res, next) => {
     await conn.beginTransaction();
     await conn.query(
       `UPDATE livestock SET title = ?, category_id = ?, breed_id = ?, livestock_type = ?, quantity = ?,
-         age_months = ?, location = ?, description = ?, status = ? WHERE id = ?`,
+         age_months = ?, location = ?, description = ?, ${PUBLISHED_AT_SQL}, status = ?,
+         verification = COALESCE(?, verification) WHERE id = ?`,
       [p.title, p.category_id, p.breed_id, p.livestock_type, p.quantity, p.age_months,
-        p.location, p.description, p.status, id],
+        p.location, p.description, p.status, p.status, p.verification ?? null, id],
     );
 
     if (removeIds.length) {
@@ -283,8 +295,24 @@ router.patch("/:id/status", async (req, res, next) => {
   try {
     const status = oneOf(req.body.status, STATUSES);
     if (!status) throw badRequest("Status must be published or unpublished.");
-    const [result] = await pool.query("UPDATE livestock SET status = ? WHERE id = ?", [
+    const [result] = await pool.query(`UPDATE livestock SET ${PUBLISHED_AT_SQL}, status = ? WHERE id = ?`, [
       status,
+      status,
+      positiveInt(req.params.id),
+    ]);
+    if (!result.affectedRows) throw notFound("Livestock listing not found.");
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/:id/verification", async (req, res, next) => {
+  try {
+    const verification = oneOf(req.body.verification, VERIFICATIONS);
+    if (!verification) throw badRequest("Verification must be verified or unverified.");
+    const [result] = await pool.query("UPDATE livestock SET verification = ? WHERE id = ?", [
+      verification,
       positiveInt(req.params.id),
     ]);
     if (!result.affectedRows) throw notFound("Livestock listing not found.");

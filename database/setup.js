@@ -167,6 +167,19 @@ async function main() {
     console.log("  inquiries now record the animal");
   }
 
+  // Listings record when they were published and whether they are verified.
+  if (!(await columnExists(conn, "livestock", "published_at"))) {
+    await conn.query("ALTER TABLE livestock ADD COLUMN published_at DATETIME NULL AFTER status");
+    await conn.query("UPDATE livestock SET published_at = created_at WHERE status = 'published'");
+    console.log("  listings now record their publish date");
+  }
+  if (!(await columnExists(conn, "livestock", "verification"))) {
+    await conn.query(
+      "ALTER TABLE livestock ADD COLUMN verification ENUM('unverified', 'verified') NOT NULL DEFAULT 'unverified' AFTER published_at",
+    );
+    console.log("  listings can now be marked verified");
+  }
+
   // Photos for animal categories and production purposes (shown as tiles on
   // the website, uploaded in Admin > Animals & Purposes).
   for (const table of ["animals", "categories"]) {
