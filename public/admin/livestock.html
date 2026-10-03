@@ -84,8 +84,8 @@
             <table class="admin-table">
               <thead><tr>
                 <th>Listing</th><th class="hidden md:table-cell">Breed</th><th class="hidden xl:table-cell">Province</th>
-                <th class="hidden md:table-cell">Date</th><th>Status</th><th class="hidden sm:table-cell">Verification</th>
-                <th class="hidden sm:table-cell text-center">Inquiries</th><th class="text-right hidden sm:table-cell">Actions</th>
+                <th class="hidden sm:table-cell text-center">Inquiries</th><th class="hidden md:table-cell">Date</th>
+                <th>Status</th><th class="hidden sm:table-cell">Verification</th><th class="text-right hidden sm:table-cell">Actions</th>
               </tr></thead>
               <tbody>${res.data.map(rowHtml).join("")}</tbody>
             </table>`;
@@ -132,10 +132,10 @@
             </td>
             <td class="hidden md:table-cell">${l.breed_name ? `<span class="text-gray-700">${escapeHtml(l.breed_name)}</span>` : `<span class="text-xs text-gray-400">Not specified</span>`}</td>
             <td class="hidden xl:table-cell text-gray-600">${escapeHtml(l.location)}</td>
+            <td class="hidden sm:table-cell text-center">${l.inquiry_count ? `<a class="text-blue-600 font-semibold hover:underline" href="/admin/inquiries.html?q=${encodeURIComponent(l.title)}">${l.inquiry_count}</a>` : `<span class="text-gray-400">0</span>`}</td>
             <td class="hidden md:table-cell whitespace-nowrap">${l.status === "published" && l.published_at ? `<span class="text-gray-700">${formatDateShort(l.published_at)}</span>` : `<span class="text-xs text-gray-400">Not published</span>`}</td>
             <td>${pillSelect("status", l, STATUS_OPTIONS, l.status)}</td>
             <td class="hidden sm:table-cell">${pillSelect("verification", l, VERIFICATION_OPTIONS, l.verification || "unverified")}</td>
-            <td class="hidden sm:table-cell text-center">${l.inquiry_count ? `<a class="text-blue-600 font-semibold hover:underline" href="/admin/inquiries.html?q=${encodeURIComponent(l.title)}">${l.inquiry_count}</a>` : `<span class="text-gray-400">0</span>`}</td>
             <td class="text-right whitespace-nowrap hidden sm:table-cell">${actionsHtml(l)}</td>
           </tr>`;
       }
