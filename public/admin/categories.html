@@ -62,12 +62,12 @@
           return renderEmptyState(box, { title: "No animals yet", message: "Add an animal category such as Cattle or Goats.", icon: "layers" });
         }
         box.innerHTML = animals.map((a) => `
-          <div class="bg-white rounded-xl border ${String(a.id) === String(current) ? "border-blue-500 ring-2 ring-blue-100" : "border-gray-100"} shadow-sm p-4 flex flex-col gap-3">
+          <div class="bg-white rounded-xl border ${String(a.id) === String(current) ? "border-blue-500 ring-2 ring-blue-100" : "border-gray-200"} shadow-sm p-4 flex flex-col gap-3">
             <div class="flex items-start justify-between gap-2">
               <button type="button" data-select="${a.id}" class="text-left min-w-0">
                 <p class="text-lg font-bold text-gray-900 truncate hover:text-blue-600">${escapeHtml(a.name)}</p>
               </button>
-              ${statusPill(a.status)}
+              ${a.status === "active" ? "" : statusPill(a.status)}
             </div>
             <div class="flex items-center gap-1 -ml-2 mt-auto">
               <button type="button" data-toggle-animal="${a.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${a.status === "active" ? "Disable" : "Enable"}</button>
