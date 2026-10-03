@@ -304,7 +304,7 @@
         }
         const fallback = animal ? animal.image_path || animalPhoto(animal).src() : "/images/livestock/cattle-fallback.webp";
         tiles.innerHTML = purposes.map((p) => tileHtml({
-          id: p.id, attr: "data-purpose", name: p.name, subtitle: p.description, more: true,
+          id: p.id, attr: "data-purpose", name: p.name, subtitle: p.description,
           slides: p.photos.length ? p.photos : p.listing_photos.length ? p.listing_photos : [fallback],
           alt: `${p.animal_name} - ${p.name}`,
         })).join("");
