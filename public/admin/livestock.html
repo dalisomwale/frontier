@@ -83,7 +83,7 @@
           list.innerHTML = `
             <table class="admin-table">
               <thead><tr>
-                <th>Listing</th><th class="hidden md:table-cell">Animal / Purpose / Breed</th><th class="hidden xl:table-cell">Province</th>
+                <th>Listing</th><th class="hidden md:table-cell">Breed</th><th class="hidden xl:table-cell">Province</th>
                 <th class="hidden md:table-cell">Date</th><th>Status</th><th class="hidden sm:table-cell">Verification</th>
                 <th class="hidden sm:table-cell text-center">Inquiries</th><th class="text-right hidden sm:table-cell">Actions</th>
               </tr></thead>
@@ -123,14 +123,14 @@
                 <span class="w-16 h-12 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : livestockFallbackMedia("w-7 h-7")}</span>
                 <div class="min-w-0">
                   <button type="button" data-edit="${l.id}" class="font-semibold text-gray-900 hover:text-blue-600 text-left line-clamp-2">${escapeHtml(l.title)}</button>
-                  <p class="text-xs text-gray-500">${[l.livestock_type, l.quantity > 1 ? quantityLabel(l.quantity, l.animal_name) : "", l.image_count ? `${l.image_count} photo${l.image_count == 1 ? "" : "s"}` : ""].filter(Boolean).join(", ")}</p>
-                  <p class="text-xs text-gray-500 md:hidden">${escapeHtml([l.animal_name, l.category_name, l.breed_name].filter(Boolean).join(", "))}</p>
+                  <p class="text-xs text-gray-500">${[l.livestock_type, l.quantity > 1 ? quantityLabel(l.quantity, l.animal_name) : ""].filter(Boolean).join(", ")}</p>
+                  ${l.breed_name ? `<p class="text-xs text-gray-500 md:hidden">${escapeHtml(l.breed_name)}</p>` : ""}
                   <div class="sm:hidden mt-1.5">${pillSelect("verification", l, VERIFICATION_OPTIONS, l.verification || "unverified")}</div>
                   <div class="sm:hidden -ml-2 mt-1">${actionsHtml(l)}</div>
                 </div>
               </div>
             </td>
-            <td class="hidden md:table-cell"><span class="tag tag-category">${escapeHtml(l.animal_name)}, ${escapeHtml(l.category_name)}</span> ${l.breed_name ? `<span class="tag tag-breed">${escapeHtml(l.breed_name)}</span>` : ""}</td>
+            <td class="hidden md:table-cell">${l.breed_name ? `<span class="text-gray-700">${escapeHtml(l.breed_name)}</span>` : `<span class="text-xs text-gray-400">Not specified</span>`}</td>
             <td class="hidden xl:table-cell text-gray-600">${escapeHtml(l.location)}</td>
             <td class="hidden md:table-cell whitespace-nowrap">${l.status === "published" && l.published_at ? `<span class="text-gray-700">${formatDateShort(l.published_at)}</span>` : `<span class="text-xs text-gray-400">Not published</span>`}</td>
             <td>${pillSelect("status", l, STATUS_OPTIONS, l.status)}</td>
