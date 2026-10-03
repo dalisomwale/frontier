@@ -271,7 +271,7 @@
           tiles.innerHTML = animals.map((a) => {
             const photo = animalPhoto(a);
             return tileHtml({
-              id: a.id, attr: "data-animal", name: a.name,
+              id: a.id, attr: "data-animal", name: a.name, more: true,
               src: a.image_path || a.cover_image || photo.src(),
               alt: a.image_path || a.cover_image ? `${a.name} for sale` : photo.alt,
             });
