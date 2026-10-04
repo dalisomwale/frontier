@@ -283,7 +283,7 @@
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             ${field({ name: "seller_id", label: "Seller", value: sellerId, options: sellerOptions(sellerId),
-                help: sellers.length ? "" : "Add sellers on the Sellers page." })}
+                help: sellers.length ? "Only admins see the seller. Customers' inquiries still come to Frontier." : "Add sellers on the Sellers page." })}
             ${field({ name: "location", label: "Province", value: ZAMBIA_PROVINCES.includes(item.location) ? item.location : "", required: true,
                 help: item.location && !ZAMBIA_PROVINCES.includes(item.location) ? `Previously "${item.location}" - choose its province.` : "",
                 options: [{ value: "", label: "Select province" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
