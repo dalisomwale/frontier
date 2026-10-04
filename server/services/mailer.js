@@ -147,7 +147,7 @@ function buildInquiryEmail(inquiry) {
     ["Livestock", inquiry.livestock_title],
     ["Category", [inquiry.animal_name, inquiry.category_name].filter(Boolean).join(" · ") || "-"],
     ["Breed", inquiry.breed_name || "-"],
-    ["Seller", inquiry.seller_name ? [inquiry.seller_name, inquiry.seller_phone].filter(Boolean).join("\n") : "Not assigned"],
+    ["Seller", inquiry.seller_name ? [inquiry.seller_name, inquiry.seller_phone].filter(Boolean).join("\n") : "Frontier's stock"],
     ["Full Name", inquiry.full_name],
     ["Phone", inquiry.phone],
     ["Email", inquiry.email],

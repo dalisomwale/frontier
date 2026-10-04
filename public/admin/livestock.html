@@ -35,7 +35,7 @@
             <button type="button" data-status="unpublished">Unpublished</button>
           </div>
           <div class="flex flex-col sm:flex-row gap-3 md:ml-auto">
-            <select id="seller-filter" class="field-input !py-2 !text-sm sm:!w-44" aria-label="Filter by seller"><option value="">All sellers</option><option value="none">No seller</option></select>
+            <select id="seller-filter" class="field-input !py-2 !text-sm sm:!w-44" aria-label="Filter by seller"><option value="">All sellers</option><option value="none">Frontier's stock</option></select>
             <select id="animal-filter" class="field-input !py-2 !text-sm sm:!w-44" aria-label="Filter by category"><option value="">All categories</option></select>
             <div class="relative sm:flex-1 md:flex-none md:w-64">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
@@ -137,7 +137,7 @@
             <td class="hidden md:table-cell">${l.breed_name ? `<span class="text-gray-700">${escapeHtml(l.breed_name)}</span>` : `<span class="text-xs text-gray-400">Not specified</span>`}</td>
             <td class="hidden lg:table-cell">${l.seller_id
               ? `<a href="/admin/sellers.html?id=${l.seller_id}" class="text-blue-700 font-medium hover:underline" title="${escapeHtml(l.seller_name)}">${escapeHtml(l.seller_business_name || l.seller_name)}</a>`
-              : `<span class="text-xs text-gray-400">No seller</span>`}</td>
+              : `<span class="text-xs text-gray-500">Frontier's stock</span>`}</td>
             <td class="hidden xl:table-cell text-gray-600">${escapeHtml(l.location)}</td>
             <td class="hidden sm:table-cell text-center">${l.inquiry_count ? `<a class="text-blue-600 font-semibold hover:underline" href="/admin/inquiries.html?q=${encodeURIComponent(l.title)}">${l.inquiry_count}</a>` : `<span class="text-gray-400">0</span>`}</td>
             <td class="hidden md:table-cell whitespace-nowrap">${l.status === "published" && l.published_at ? `<span class="text-gray-700">${formatDateShort(l.published_at)}</span>` : `<span class="text-xs text-gray-400">Not published</span>`}</td>
@@ -244,7 +244,7 @@
 
       function sellerOptions(selected) {
         const usable = sellers.filter((s) => s.status === "active" || String(s.id) === String(selected));
-        return [{ value: "", label: "No seller (Frontier's own stock)" }].concat(
+        return [{ value: "", label: "Frontier's stock" }].concat(
           usable.map((s) => ({
             value: s.id,
             label: `${s.name}${s.business_name ? ` (${s.business_name})` : ""}${s.status === "inactive" ? " - inactive" : ""}`,
