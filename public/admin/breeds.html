@@ -94,11 +94,12 @@
         }
         list.innerHTML = `
           <table class="admin-table">
-            <thead><tr><th>Breed</th><th>Category / Purpose</th><th class="text-center hidden sm:table-cell">Listings</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
+            <thead><tr><th>Breed</th><th>Category</th><th>Purpose</th><th class="text-center hidden sm:table-cell">Listings</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
             <tbody>${shown.map((b) => `
               <tr>
                 <td><p class="font-semibold text-gray-900">${escapeHtml(b.name)}</p>${b.description ? `<p class="text-xs text-gray-500 line-clamp-1">${escapeHtml(b.description)}</p>` : ""}</td>
-                <td><span class="tag tag-category">${escapeHtml(b.animal_name)}, ${escapeHtml(b.category_name)}</span></td>
+                <td><span class="tag tag-category">${escapeHtml(b.animal_name)}</span></td>
+                <td><span class="tag tag-muted">${escapeHtml(b.category_name)}</span></td>
                 <td class="text-center hidden sm:table-cell">${b.livestock_count}</td>
                 <td>${statusPill(b.status)}</td>
                 <td class="text-right whitespace-nowrap">
