@@ -74,7 +74,7 @@
         select.disabled = !currentAnimal;
         select.innerHTML = currentAnimal
           ? `<option value="">All purposes</option>` + list.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("")
-          : `<option value="">Choose an animal to filter by purpose</option>`;
+          : `<option value="">Choose a category to filter by purpose</option>`;
         select.value = list.some((p) => String(p.id) === String(currentPurpose)) ? currentPurpose : "";
       }
 
@@ -90,11 +90,11 @@
           (!currentAnimal || String(b.animal_id) === String(currentAnimal)) &&
           (!currentPurpose || String(b.category_id) === String(currentPurpose)));
         if (!shown.length) {
-          return renderEmptyState(list, { title: "No breeds here yet", message: "Add a breed and assign it to an animal and production purpose.", icon: "tag" });
+          return renderEmptyState(list, { title: "No breeds here yet", message: "Add a breed and assign it to a category and production purpose.", icon: "tag" });
         }
         list.innerHTML = `
           <table class="admin-table">
-            <thead><tr><th>Breed</th><th>Animal / Purpose</th><th class="text-center hidden sm:table-cell">Listings</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
+            <thead><tr><th>Breed</th><th>Category / Purpose</th><th class="text-center hidden sm:table-cell">Listings</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
             <tbody>${shown.map((b) => `
               <tr>
                 <td><p class="font-semibold text-gray-900">${escapeHtml(b.name)}</p>${b.description ? `<p class="text-xs text-gray-500 line-clamp-1">${escapeHtml(b.description)}</p>` : ""}</td>
@@ -137,7 +137,7 @@
 
       function purposeOptions(animalId) {
         const list = purposesOf(animalId);
-        return [{ value: "", label: animalId ? (list.length ? "Select purpose" : "No purposes for this animal") : "Select an animal first" }]
+        return [{ value: "", label: animalId ? (list.length ? "Select purpose" : "No purposes for this category") : "Select a category first" }]
           .concat(list.map((p) => ({ value: p.id, label: p.name })));
       }
 
@@ -150,13 +150,13 @@
           body: `
             ${field({ name: "name", label: "Breed name", value: b.name, required: true, attrs: 'maxlength="120"' })}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              ${field({ name: "animal_id", label: "Animal", value: animalId, required: true,
-                  options: [{ value: "", label: "Select animal" }, ...animals.map((a) => ({ value: a.id, label: a.name }))],
+              ${field({ name: "animal_id", label: "Category", value: animalId, required: true,
+                  options: [{ value: "", label: "Select category" }, ...animals.map((a) => ({ value: a.id, label: a.name }))],
                   attrs: locked ? "disabled" : "" })}
               ${field({ name: "category_id", label: "Production purpose", value: b.category_id ?? currentPurpose, required: true,
                   options: purposeOptions(animalId), attrs: locked ? "disabled" : "" })}
             </div>
-            ${locked ? `<p class="text-xs text-gray-500 -mt-2">This breed is used by listings, so its animal and purpose can't be changed.</p>` : ""}
+            ${locked ? `<p class="text-xs text-gray-500 -mt-2">This breed is used by listings, so its category and purpose can't be changed.</p>` : ""}
             ${field({ name: "description", label: "Description", type: "textarea", value: b.description, attrs: 'maxlength="2000"' })}
             ${field({ name: "status", label: "Status", value: b.status || "active", options: [{ value: "active", label: "Active" }, { value: "disabled", label: "Disabled" }] })}`,
           onOpen(form) {
@@ -171,7 +171,7 @@
             if (locked) delete v.category_id;
             const errors = {};
             if (!v.name.trim()) errors.name = "Breed name is required.";
-            if (!locked && !form.elements.animal_id.value) errors.animal_id = "Please choose an animal.";
+            if (!locked && !form.elements.animal_id.value) errors.animal_id = "Please choose a category.";
             if (!locked && !v.category_id) errors.category_id = "Please choose a production purpose.";
             if (Object.keys(errors).length) { const e = new Error("Please correct the highlighted fields."); e.errors = errors; throw e; }
             await adminApi(b.id ? `/api/admin/breeds/${b.id}` : "/api/admin/breeds", { method: b.id ? "PUT" : "POST", body: v });

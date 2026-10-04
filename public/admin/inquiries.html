@@ -198,7 +198,7 @@
                 <div><dt class="text-gray-500">Phone</dt><dd class="font-semibold text-gray-900">${escapeHtml(i.phone)}</dd></div>
                 <div><dt class="text-gray-500">Email</dt><dd class="font-semibold text-gray-900 break-all">${escapeHtml(i.email)}</dd></div>
                 <div><dt class="text-gray-500">Livestock</dt><dd class="font-semibold text-gray-900">${listingLink}</dd></div>
-                <div><dt class="text-gray-500">Animal / Purpose / Breed</dt><dd class="font-semibold text-gray-900">${escapeHtml([i.animal_name, i.category_name, i.breed_name].filter(Boolean).join(", ") || "-")}</dd></div>
+                <div><dt class="text-gray-500">Category / Purpose / Breed</dt><dd class="font-semibold text-gray-900">${escapeHtml([i.animal_name, i.category_name, i.breed_name].filter(Boolean).join(", ") || "-")}</dd></div>
               </dl>
 
               ${sellerPanel(i)}

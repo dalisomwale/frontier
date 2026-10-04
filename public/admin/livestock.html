@@ -36,7 +36,7 @@
           </div>
           <div class="flex flex-col sm:flex-row gap-3 md:ml-auto">
             <select id="seller-filter" class="field-input !py-2 !text-sm sm:!w-44" aria-label="Filter by seller"><option value="">All sellers</option><option value="none">No seller</option></select>
-            <select id="animal-filter" class="field-input !py-2 !text-sm sm:!w-44" aria-label="Filter by animal"><option value="">All animals</option></select>
+            <select id="animal-filter" class="field-input !py-2 !text-sm sm:!w-44" aria-label="Filter by category"><option value="">All categories</option></select>
             <div class="relative sm:flex-1 md:flex-none md:w-64">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
               <input id="search" type="search" placeholder="Search title, breed, location" class="field-input !py-2 !pl-9 !text-sm" />
@@ -205,14 +205,14 @@
       const label = (row) => row.name + (row.status === "disabled" ? " (disabled)" : "");
 
       function animalOptions(selected) {
-        return [{ value: "", label: "Select animal" }].concat(
+        return [{ value: "", label: "Select category" }].concat(
           animals.filter((a) => a.status === "active" || String(a.id) === String(selected)).map((a) => ({ value: a.id, label: label(a) })),
         );
       }
 
       function purposeOptions(animalId, selected) {
         const list = purposes.filter((p) => String(p.animal_id) === String(animalId) && (p.status === "active" || String(p.id) === String(selected)));
-        return [{ value: "", label: animalId ? (list.length ? "Select purpose" : "No purposes for this animal") : "Select an animal first" }]
+        return [{ value: "", label: animalId ? (list.length ? "Select purpose" : "No purposes for this category") : "Select a category first" }]
           .concat(list.map((p) => ({ value: p.id, label: label(p) })));
       }
 
@@ -272,7 +272,7 @@
         const body = `
           ${field({ name: "title", label: "Title", value: item.title, required: true, attrs: 'maxlength="200"' })}
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            ${field({ name: "animal_id", label: "Animal Category", value: animalId, required: true, options: animalOptions(animalId) })}
+            ${field({ name: "animal_id", label: "Category", value: animalId, required: true, options: animalOptions(animalId) })}
             ${field({ name: "category_id", label: "Production Purpose", value: item.category_id, required: true, options: purposeOptions(animalId, item.category_id) })}
             ${field({ name: "breed_id", label: "Breed", value: item.breed_id, options: breedOptions(item.category_id, item.breed_id) })}
           </div>
@@ -382,7 +382,7 @@
             const v = formValues(form);
             const errors = {};
             if (!v.title.trim()) errors.title = "Title is required.";
-            if (!v.animal_id) errors.animal_id = "Please choose an animal.";
+            if (!v.animal_id) errors.animal_id = "Please choose a category.";
             if (!v.category_id) errors.category_id = "Please choose a production purpose.";
             if (!v.location) errors.location = "Please choose a province.";
             if (Object.keys(errors).length) {

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
-    <title>Animals &amp; Purposes - Frontier Marketplace Admin</title>
+    <title>Categories &amp; Purposes - Frontier Marketplace Admin</title>
     <link rel="icon" href="/images/logo-icon.jpg" />
     <link rel="stylesheet" href="/css/tailwind.css" />
     <link rel="stylesheet" href="/css/style.css" />
@@ -19,14 +19,14 @@
 
     <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-900">Animals &amp; Purposes</h1>
+        <h1 class="text-3xl font-bold text-gray-900">Categories &amp; Purposes</h1>
       </div>
 
       <section class="mb-10" aria-labelledby="animals-h">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h2 id="animals-h" class="text-xl font-bold text-gray-900">Manage Animal Categories</h2>
+          <h2 id="animals-h" class="text-xl font-bold text-gray-900">Manage Categories</h2>
           <button id="add-animal-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
-            <span class="w-5 h-5" data-icon="plus"></span> Add Animal Category
+            <span class="w-5 h-5" data-icon="plus"></span> Add Category
           </button>
         </div>
         <div id="animals" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3"></div>
@@ -59,7 +59,7 @@
       function renderAnimals() {
         const box = document.getElementById("animals");
         if (!animals.length) {
-          return renderEmptyState(box, { title: "No animals yet", message: "Add an animal category such as Cattle or Goats.", icon: "layers" });
+          return renderEmptyState(box, { title: "No categories yet", message: "Add a category such as Cattle or Goats.", icon: "layers" });
         }
         box.innerHTML = animals.map((a) => `
           <div class="bg-white rounded-xl border ${String(a.id) === String(current) ? "border-blue-500 ring-2 ring-blue-100" : "border-gray-200"} shadow-sm p-4 flex flex-col gap-3">
@@ -94,10 +94,10 @@
         }));
         box.querySelectorAll("[data-delete-animal]").forEach((b) => b.addEventListener("click", async () => {
           const a = find(b.dataset.deleteAnimal);
-          if (!(await confirmAction({ title: `Delete ${a.name}?`, message: "Animals that still have production purposes can't be deleted - disable them instead.", confirmText: "Delete", variant: "danger" }))) return;
+          if (!(await confirmAction({ title: `Delete ${a.name}?`, message: "Categories that still have production purposes can't be deleted - disable them instead.", confirmText: "Delete", variant: "danger" }))) return;
           try {
             await adminApi(`/api/admin/animals/${a.id}`, { method: "DELETE" });
-            showNotification("Animal deleted.", "success");
+            showNotification("Category deleted.", "success");
             if (String(a.id) === String(current)) current = "";
             load();
           } catch (error) { showNotification(error.message, "error"); }
@@ -107,10 +107,10 @@
       function openAnimalEditor(a = {}) {
         let photo;
         openFormModal({
-          title: a.id ? "Edit Animal Category" : "Add Animal Category",
-          submitText: a.id ? "Save Changes" : "Add Animal Category",
+          title: a.id ? "Edit Category" : "Add Category",
+          submitText: a.id ? "Save Changes" : "Add Category",
           body: `
-            ${field({ name: "name", label: "Animal category name", value: a.name, required: true, attrs: 'maxlength="100"' })}
+            ${field({ name: "name", label: "Category name", value: a.name, required: true, attrs: 'maxlength="100"' })}
             ${photoField({ current: a.image_path, help: "JPEG, PNG or WebP." })}
             ${field({ name: "status", label: "Status", value: a.status || "active", options: statusOptions })}`,
           onOpen(form) {
@@ -118,16 +118,16 @@
           },
           async onSubmit(form) {
             const v = formValues(form);
-            if (!v.name.trim()) { const e = new Error("Please enter a name."); e.errors = { name: "Animal name is required." }; throw e; }
+            if (!v.name.trim()) { const e = new Error("Please enter a name."); e.errors = { name: "Category name is required." }; throw e; }
             const res = await adminApi(a.id ? `/api/admin/animals/${a.id}` : "/api/admin/animals", { method: a.id ? "PUT" : "POST", body: v });
             try {
               await photo.apply(`/api/admin/animals/${a.id || res.data.id}`);
             } catch (error) {
-              showNotification(`Animal category saved, but the photo wasn't: ${error.message} Open it again to retry.`, "warning");
+              showNotification(`Category saved, but the photo wasn't: ${error.message} Open it again to retry.`, "warning");
               load();
               return;
             }
-            showNotification(a.id ? "Animal category updated." : "Animal category added.", "success");
+            showNotification(a.id ? "Category updated." : "Category added.", "success");
             load();
           },
         });
@@ -154,11 +154,11 @@
         const box = document.getElementById("purposes");
         const shown = purposes.filter((p) => !current || String(p.animal_id) === String(current));
         if (!shown.length) {
-          return renderEmptyState(box, { title: "No production purposes yet", message: "Add a purpose such as Meat, Dairy or Layers for this animal.", icon: "layers" });
+          return renderEmptyState(box, { title: "No production purposes yet", message: "Add a purpose such as Meat, Dairy or Layers for this category.", icon: "layers" });
         }
         box.innerHTML = `
           <table class="admin-table">
-            <thead><tr><th>Purpose</th><th>Animal</th><th class="text-center">Breeds</th><th class="text-center hidden sm:table-cell">Listings</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
+            <thead><tr><th>Purpose</th><th>Category</th><th class="text-center">Breeds</th><th class="text-center hidden sm:table-cell">Listings</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
             <tbody>${shown.map((p) => `
               <tr>
                 <td><p class="font-semibold text-gray-900">${escapeHtml(p.name)}</p>${p.description ? `<p class="text-xs text-gray-500 line-clamp-1">${escapeHtml(p.description)}</p>` : ""}</td>
@@ -202,13 +202,13 @@
 
       function openPurposeEditor(p = {}) {
         let photo;
-        const animalOptions = [{ value: "", label: "Select animal" }, ...animals.map((a) => ({ value: a.id, label: a.name }))];
+        const animalOptions = [{ value: "", label: "Select category" }, ...animals.map((a) => ({ value: a.id, label: a.name }))];
         openFormModal({
           title: p.id ? "Edit Production Purpose" : "Add Production Purpose",
           submitText: p.id ? "Save Changes" : "Add Purpose",
           body: `
-            ${field({ name: "animal_id", label: "Animal", value: p.animal_id ?? current, required: true, options: animalOptions,
-                help: p.livestock_count ? "This purpose is used by listings, so its animal can't be changed." : "",
+            ${field({ name: "animal_id", label: "Category", value: p.animal_id ?? current, required: true, options: animalOptions,
+                help: p.livestock_count ? "This purpose is used by listings, so its category can't be changed." : "",
                 attrs: p.livestock_count ? "disabled" : "" })}
             ${field({ name: "name", label: "Purpose name", value: p.name, required: true, attrs: 'maxlength="100"' })}
             ${field({ name: "description", label: "Description", type: "textarea", value: p.description, attrs: 'maxlength="2000"' })}
@@ -255,7 +255,7 @@
 
       document.getElementById("add-animal-btn").addEventListener("click", () => openAnimalEditor());
       document.getElementById("add-purpose-btn").addEventListener("click", () => {
-        if (!animals.length) return showNotification("Add an animal first.", "warning");
+        if (!animals.length) return showNotification("Add a category first.", "warning");
         openPurposeEditor();
       });
       (async () => { await initAdminPage("categories"); load(); })();

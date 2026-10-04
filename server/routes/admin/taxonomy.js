@@ -88,9 +88,9 @@ function animalPayload(body, partial) {
   const name = text(body.name, 100);
   const description = text(body.description, 2000);
   const status = body.status === undefined ? undefined : oneOf(body.status, STATUSES);
-  if (!partial && !name) throw badRequest("Animal name is required.");
+  if (!partial && !name) throw badRequest("Category name is required.");
   if (name === undefined || (body.name !== undefined && !name))
-    throw badRequest("Animal name must be 1-100 characters.");
+    throw badRequest("Category name must be 1-100 characters.");
   if (description === undefined) throw badRequest("Description is too long.");
   if (status === null) throw badRequest("Invalid status.");
   return { name, description, status };
@@ -105,7 +105,7 @@ animals.post("/", async (req, res, next) => {
     );
     res.status(201).json({ success: true, data: { id: result.insertId } });
   } catch (error) {
-    if (isDuplicate(error)) return next(badRequest("An animal with that name already exists."));
+    if (isDuplicate(error)) return next(badRequest("A category with that name already exists."));
     next(error);
   }
 });
@@ -124,10 +124,10 @@ animals.put("/:id", async (req, res, next) => {
     }
     if (!fields.length) throw badRequest("Nothing to update.");
     const [result] = await pool.query(`UPDATE animals SET ${fields.join(", ")} WHERE id = ?`, [...params, id]);
-    if (!result.affectedRows) throw notFound("Animal not found.");
+    if (!result.affectedRows) throw notFound("Category not found.");
     res.json({ success: true });
   } catch (error) {
-    if (isDuplicate(error)) return next(badRequest("An animal with that name already exists."));
+    if (isDuplicate(error)) return next(badRequest("A category with that name already exists."));
     next(error);
   }
 });
@@ -137,20 +137,20 @@ animals.delete("/:id", async (req, res, next) => {
     const id = positiveInt(req.params.id);
     const [[row]] = await pool.query("SELECT image_path FROM animals WHERE id = ?", [id]);
     const [result] = await pool.query("DELETE FROM animals WHERE id = ?", [id]);
-    if (!result.affectedRows) throw notFound("Animal not found.");
+    if (!result.affectedRows) throw notFound("Category not found.");
     deleteTaxonomyImage(row?.image_path);
     res.json({ success: true });
   } catch (error) {
     if (isInUse(error)) {
       return next(badRequest(
-        "This animal still has production purposes. Delete or move them first, or disable the animal instead.",
+        "This category still has production purposes. Delete or move them first, or disable the category instead.",
       ));
     }
     next(error);
   }
 });
 
-photoRoutes(animals, "animals", "animal", "Animal");
+photoRoutes(animals, "animals", "animal", "Category");
 
 // ---------------------------------------------------------------------------
 // Production purposes (table: categories)
@@ -189,10 +189,10 @@ async function categoryPayload(body, partial) {
     throw badRequest("Purpose name must be 1-100 characters.");
   if (description === undefined) throw badRequest("Description is too long.");
   if (status === null) throw badRequest("Invalid status.");
-  if (animalId === null) throw badRequest("Please choose an animal.");
+  if (animalId === null) throw badRequest("Please choose a category.");
   if (animalId) {
     const [rows] = await pool.query("SELECT id FROM animals WHERE id = ?", [animalId]);
-    if (!rows.length) throw badRequest("That animal does not exist.");
+    if (!rows.length) throw badRequest("That category does not exist.");
   }
   return { name, description, status, animal_id: animalId };
 }
@@ -206,7 +206,7 @@ categories.post("/", async (req, res, next) => {
     );
     res.status(201).json({ success: true, data: { id: result.insertId } });
   } catch (error) {
-    if (isDuplicate(error)) return next(badRequest("That animal already has a purpose with this name."));
+    if (isDuplicate(error)) return next(badRequest("That category already has a purpose with this name."));
     next(error);
   }
 });
@@ -226,7 +226,7 @@ categories.put("/:id", async (req, res, next) => {
       );
       if (!current) throw notFound("Production purpose not found.");
       if (current.animal_id !== p.animal_id && Number(current.used) > 0) {
-        throw badRequest("This purpose is used by livestock listings, so its animal can't be changed.");
+        throw badRequest("This purpose is used by livestock listings, so its category can't be changed.");
       }
     }
 
@@ -243,7 +243,7 @@ categories.put("/:id", async (req, res, next) => {
     if (!result.affectedRows) throw notFound("Production purpose not found.");
     res.json({ success: true });
   } catch (error) {
-    if (isDuplicate(error)) return next(badRequest("That animal already has a purpose with this name."));
+    if (isDuplicate(error)) return next(badRequest("That category already has a purpose with this name."));
     next(error);
   }
 });

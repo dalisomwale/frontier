@@ -37,7 +37,7 @@ async function payload(body) {
   const errors = {};
   let purposeRow = null;
   if (!title) errors.title = title === undefined ? "Title must be 200 characters or fewer." : "Title is required.";
-  if (body.animal_id !== undefined && !animalId) errors.animal_id = "Please choose an animal.";
+  if (body.animal_id !== undefined && !animalId) errors.animal_id = "Please choose a category.";
   if (!categoryId) errors.category_id = "Please choose a production purpose.";
   if (body.breed_id && !breedId) errors.breed_id = "Please choose a valid breed.";
   if (sellerGiven && body.seller_id !== "" && body.seller_id !== null && !sellerId) errors.seller_id = "Please choose a valid seller.";
@@ -56,7 +56,7 @@ async function payload(body) {
     purposeRow = cats[0];
     if (!cats.length) errors.category_id = "That production purpose does not exist.";
     else if (animalId && cats[0].animal_id !== animalId)
-      errors.category_id = "That production purpose doesn't belong to the selected animal.";
+      errors.category_id = "That production purpose doesn't belong to the selected category.";
   }
   if (breedId && !errors.breed_id && !errors.category_id) {
     const [rows] = await pool.query(
@@ -68,7 +68,7 @@ async function payload(body) {
     if (!rows.length) errors.breed_id = "That breed does not exist.";
     else if (anyBreedOfAnimal ? rows[0].animal_id !== purposeRow.animal_id : rows[0].category_id !== categoryId)
       errors.breed_id = anyBreedOfAnimal
-        ? "That breed belongs to a different animal."
+        ? "That breed belongs to a different category."
         : "That breed doesn't belong to the selected production purpose.";
   }
 

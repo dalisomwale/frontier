@@ -15,8 +15,8 @@ function renderBottomNav(variant = "public") {
           { href: "/admin/livestock.html", icon: "listings", label: "Livestock", match: ["/admin/livestock.html"] },
           { href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", match: ["/admin/inquiries.html"], badge: true },
           { href: "/admin/sellers.html", icon: "users", label: "Sellers", match: ["/admin/sellers.html"] },
-          { href: "/admin/categories.html", icon: "layers", label: "Animals", match: ["/admin/categories.html"] },
           { href: "/admin/breeds.html", icon: "tag", label: "Breeds", match: ["/admin/breeds.html"] },
+          { href: "/admin/categories.html", icon: "layers", label: "Categories", match: ["/admin/categories.html"] },
         ]
       : [
           { href: "/", icon: "home", label: "Home", match: ["/index.html"], exactHash: "" },
@@ -53,8 +53,8 @@ function renderSidebar(active) {
     { key: "livestock", href: "/admin/livestock.html", icon: "listings", label: "Livestock" },
     { key: "inquiries", href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", badge: true },
     { key: "sellers", href: "/admin/sellers.html", icon: "users", label: "Sellers" },
-    { key: "categories", href: "/admin/categories.html", icon: "layers", label: "Animals & Purposes" },
     { key: "breeds", href: "/admin/breeds.html", icon: "tag", label: "Breeds" },
+    { key: "categories", href: "/admin/categories.html", icon: "layers", label: "Categories & Purposes" },
     { key: "site", href: "/", icon: "external", label: "View Website", external: true },
   ];
 
