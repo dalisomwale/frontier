@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS inquiries (
   updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_inquiries_livestock FOREIGN KEY (livestock_id)
     REFERENCES livestock(id) ON DELETE SET NULL,
-  CONSTRAINT fk_inquiries_seller FOREIGN KEY (seller_id)
+  CONSTRAINT fk_inquiries_seller_ref FOREIGN KEY (seller_id)
     REFERENCES sellers(id) ON DELETE SET NULL,
   INDEX idx_inquiries_seller (seller_id),
   INDEX idx_inquiries_status (is_archived, status, created_at),

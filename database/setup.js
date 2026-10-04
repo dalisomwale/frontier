@@ -53,6 +53,21 @@ async function columnExists(conn, table, column) {
   return rows.length > 0;
 }
 
+// Foreign key names must be unique across the whole database in MySQL, and
+// the archived v1 tables (legacy_v1_*) still hold some of the old names.
+// Returns `base`, or the first free variant of it.
+async function freeConstraintName(conn, base) {
+  for (let n = 1; n < 20; n++) {
+    const name = n === 1 ? base : `${base}_${n}`;
+    const [rows] = await conn.query(
+      "SELECT 1 FROM information_schema.table_constraints WHERE constraint_schema = ? AND constraint_name = ?",
+      [DB_NAME, name],
+    );
+    if (!rows.length) return name;
+  }
+  throw new Error(`No free constraint name for ${base}`);
+}
+
 async function main() {
   const base = {
     host: process.env.DB_HOST || "localhost",
@@ -183,19 +198,21 @@ async function main() {
   // Sellers (admin only). The sellers table itself comes from schema.sql;
   // existing listings and inquiries get a link to it.
   if (!(await columnExists(conn, "livestock", "seller_id"))) {
+    const fk = await freeConstraintName(conn, "fk_livestock_seller");
     await conn.query(
       `ALTER TABLE livestock ADD COLUMN seller_id INT UNSIGNED NULL AFTER verification,
          ADD INDEX idx_livestock_seller (seller_id),
-         ADD CONSTRAINT fk_livestock_seller FOREIGN KEY (seller_id) REFERENCES sellers(id) ON DELETE SET NULL`,
+         ADD CONSTRAINT ${fk} FOREIGN KEY (seller_id) REFERENCES sellers(id) ON DELETE SET NULL`,
     );
     console.log("  listings can now be linked to a seller");
   }
   if (!(await columnExists(conn, "inquiries", "seller_id"))) {
+    const fk = await freeConstraintName(conn, "fk_inquiries_seller_ref");
     await conn.query(
       `ALTER TABLE inquiries ADD COLUMN seller_id INT UNSIGNED NULL AFTER breed_name,
          ADD COLUMN seller_name VARCHAR(150) NULL AFTER seller_id,
          ADD INDEX idx_inquiries_seller (seller_id),
-         ADD CONSTRAINT fk_inquiries_seller FOREIGN KEY (seller_id) REFERENCES sellers(id) ON DELETE SET NULL`,
+         ADD CONSTRAINT ${fk} FOREIGN KEY (seller_id) REFERENCES sellers(id) ON DELETE SET NULL`,
     );
     console.log("  inquiries now record the seller");
   }
