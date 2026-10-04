@@ -35,6 +35,7 @@
             <button type="button" data-status="unpublished">Unpublished</button>
           </div>
           <div class="flex flex-col sm:flex-row gap-3 md:ml-auto">
+            <select id="seller-filter" class="field-input !py-2 !text-sm sm:!w-44" aria-label="Filter by seller"><option value="">All sellers</option><option value="none">No seller</option></select>
             <select id="animal-filter" class="field-input !py-2 !text-sm sm:!w-44" aria-label="Filter by animal"><option value="">All animals</option></select>
             <div class="relative sm:flex-1 md:flex-none md:w-64">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
@@ -53,7 +54,8 @@
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
 
       const MAX_PHOTOS = 10;
-      const state = { status: "", animal: "", q: "", page: 1 };
+      const state = { status: "", animal: "", seller: "", q: "", page: 1 };
+      let sellers = [];
       let animals = [];
       let purposes = [];
       let breeds = [];
@@ -64,6 +66,7 @@
         const params = new URLSearchParams({ page, limit: 20 });
         if (state.status) params.set("status", state.status);
         if (state.animal) params.set("animal_id", state.animal);
+        if (state.seller) params.set("seller_id", state.seller);
         if (state.q) params.set("q", state.q);
 
         let res;
@@ -74,7 +77,7 @@
         }
 
         if (!res.data.length) {
-          const filtered = state.status || state.animal || state.q;
+          const filtered = state.status || state.animal || state.seller || state.q;
           renderEmptyState(list, filtered
             ? { title: "No matching livestock", message: "Try a different filter or search.", icon: "search" }
             : { title: "No livestock yet", message: "Add your first listing. It stays unpublished until you publish it.", icon: "cattle",
@@ -125,6 +128,7 @@
                   <button type="button" data-edit="${l.id}" class="font-semibold text-gray-900 hover:text-blue-600 text-left line-clamp-2">${escapeHtml(l.title)}</button>
                   <p class="text-xs text-gray-500">${[l.livestock_type, l.quantity > 1 ? quantityLabel(l.quantity, l.animal_name) : ""].filter(Boolean).join(", ")}</p>
                   ${l.breed_name ? `<p class="text-xs text-gray-500 md:hidden">${escapeHtml(l.breed_name)}</p>` : ""}
+                  ${l.seller_name ? `<a href="/admin/sellers.html?id=${l.seller_id}" class="inline-flex items-center gap-1 text-xs text-blue-700 hover:underline mt-0.5"><span class="w-3.5 h-3.5">${uiIcon("users")}</span>${escapeHtml(l.seller_name)}</a>` : ""}
                   <div class="sm:hidden mt-1.5">${pillSelect("verification", l, VERIFICATION_OPTIONS, l.verification || "unverified")}</div>
                   <div class="sm:hidden -ml-2 mt-1">${actionsHtml(l)}</div>
                 </div>
@@ -235,6 +239,16 @@
         return [{ value: "", label: "Not specified" }, ...values.map((t) => ({ value: t, label: t }))];
       }
 
+      function sellerOptions(selected) {
+        const usable = sellers.filter((s) => s.status === "active" || String(s.id) === String(selected));
+        return [{ value: "", label: "No seller (Frontier's own stock)" }].concat(
+          usable.map((s) => ({
+            value: s.id,
+            label: `${s.name}${s.business_name ? ` (${s.business_name})` : ""}${s.status === "inactive" ? " - inactive" : ""}`,
+          })),
+        );
+      }
+
       const optionsHtml = (opts) => opts.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join("");
 
       async function openEditor(id) {
@@ -250,6 +264,7 @@
         const removed = [];
 
         const animalId = item.animal_id ?? "";
+        const sellerId = id ? item.seller_id ?? "" : getQueryParams().seller_id || "";
 
         const body = `
           ${field({ name: "title", label: "Title", value: item.title, required: true, attrs: 'maxlength="200"' })}
@@ -263,9 +278,13 @@
             ${field({ name: "quantity", label: "Quantity", type: "number", value: item.quantity ?? 1, attrs: 'min="1" step="1" inputmode="numeric"' })}
             ${field({ name: "age_months", label: "Age (months)", type: "number", value: item.age_months, attrs: 'min="0" max="600" step="1" inputmode="numeric"' })}
           </div>
-          ${field({ name: "location", label: "Province", value: ZAMBIA_PROVINCES.includes(item.location) ? item.location : "", required: true,
-              help: item.location && !ZAMBIA_PROVINCES.includes(item.location) ? `Previously "${item.location}" - choose its province.` : "",
-              options: [{ value: "", label: "Select province" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            ${field({ name: "seller_id", label: "Seller", value: sellerId, options: sellerOptions(sellerId),
+                help: sellers.length ? "Only admins see the seller. Customers' inquiries still come to Frontier." : "Add sellers on the Sellers page." })}
+            ${field({ name: "location", label: "Province", value: ZAMBIA_PROVINCES.includes(item.location) ? item.location : "", required: true,
+                help: item.location && !ZAMBIA_PROVINCES.includes(item.location) ? `Previously "${item.location}" - choose its province.` : "",
+                options: [{ value: "", label: "Select province" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
+          </div>
           ${field({ name: "description", label: "Description", type: "textarea", value: item.description, rows: 5, attrs: 'maxlength="5000"' })}
 
           <div>
@@ -370,7 +389,7 @@
             }
 
             const fd = new FormData();
-            for (const key of ["title", "animal_id", "category_id", "breed_id", "livestock_type", "quantity", "age_months", "location", "description"]) fd.append(key, v[key] ?? "");
+            for (const key of ["title", "animal_id", "category_id", "breed_id", "seller_id", "livestock_type", "quantity", "age_months", "location", "description"]) fd.append(key, v[key] ?? "");
             fd.append("status", v.status);
             fd.append("verification", v.verification);
             fd.append("remove_image_ids", JSON.stringify(removed));
@@ -404,6 +423,7 @@
         }),
       );
       document.getElementById("animal-filter").addEventListener("change", (e) => { state.animal = e.target.value; loadList(1); });
+      document.getElementById("seller-filter").addEventListener("change", (e) => { state.seller = e.target.value; loadList(1); });
       let searchTimer;
       document.getElementById("search").addEventListener("input", (e) => {
         clearTimeout(searchTimer);
@@ -413,14 +433,17 @@
 
       (async () => {
         await initAdminPage("livestock");
-        [animals, purposes, breeds] = await Promise.all([
+        [animals, purposes, breeds, sellers] = await Promise.all([
           adminApi("/api/admin/animals").then((r) => r.data),
           adminApi("/api/admin/categories").then((r) => r.data),
           adminApi("/api/admin/breeds").then((r) => r.data),
+          adminApi("/api/admin/sellers").then((r) => r.data),
         ]);
+        document.getElementById("seller-filter").innerHTML += sellers.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
         document.getElementById("animal-filter").innerHTML += animals.map((a) => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
 
         const q = getQueryParams();
+        if (q.seller_id) { state.seller = q.seller_id; document.getElementById("seller-filter").value = q.seller_id; }
         if (q.status) document.querySelector(`#status-tabs [data-status="${q.status}"]`)?.click();
         else await loadList(1);
         if (q.new) openEditor();

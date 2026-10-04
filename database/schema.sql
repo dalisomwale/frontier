@@ -87,6 +87,25 @@ CREATE TABLE IF NOT EXISTS category_images (
   INDEX idx_category_images (category_id, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- sellers: the farmers and suppliers whose livestock Frontier lists. Admin
+-- only - visitors never see sellers; every inquiry comes to Frontier, which
+-- then knows from the listing which seller it is for.
+CREATE TABLE IF NOT EXISTS sellers (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name           VARCHAR(120) NOT NULL,
+  business_name  VARCHAR(150) NULL,
+  phone          VARCHAR(30) NOT NULL,
+  email          VARCHAR(255) NULL,
+  province       VARCHAR(50) NULL,
+  address        VARCHAR(255) NULL,
+  notes          TEXT NULL,
+  status         ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_sellers_name (name),
+  INDEX idx_sellers_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- livestock: listings, created by administrators only. category_id is the
 -- production purpose (which implies the animal); livestock_type is the
 -- animal-specific type (Bull, Doe, Ewe, Sow, Hen...) shown on the listing.
@@ -103,6 +122,7 @@ CREATE TABLE IF NOT EXISTS livestock (
   status          ENUM('published', 'unpublished') NOT NULL DEFAULT 'unpublished',
   published_at    DATETIME NULL,
   verification    ENUM('unverified', 'verified') NOT NULL DEFAULT 'unverified',
+  seller_id       INT UNSIGNED NULL,
   created_by      INT UNSIGNED NULL,
   created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -112,6 +132,9 @@ CREATE TABLE IF NOT EXISTS livestock (
     REFERENCES breeds(id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_livestock_admin FOREIGN KEY (created_by)
     REFERENCES admins(id) ON DELETE SET NULL,
+  CONSTRAINT fk_livestock_seller FOREIGN KEY (seller_id)
+    REFERENCES sellers(id) ON DELETE SET NULL,
+  INDEX idx_livestock_seller (seller_id),
   INDEX idx_livestock_public (status, category_id, breed_id),
   INDEX idx_livestock_location (location),
   INDEX idx_livestock_type (livestock_type),
@@ -142,6 +165,8 @@ CREATE TABLE IF NOT EXISTS inquiries (
   animal_name      VARCHAR(100) NULL,
   category_name    VARCHAR(100) NULL,
   breed_name       VARCHAR(120) NULL,
+  seller_id        INT UNSIGNED NULL,
+  seller_name      VARCHAR(150) NULL,
   full_name        VARCHAR(120) NOT NULL,
   phone            VARCHAR(30) NOT NULL,
   email            VARCHAR(255) NOT NULL,
@@ -155,6 +180,9 @@ CREATE TABLE IF NOT EXISTS inquiries (
   updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_inquiries_livestock FOREIGN KEY (livestock_id)
     REFERENCES livestock(id) ON DELETE SET NULL,
+  CONSTRAINT fk_inquiries_seller FOREIGN KEY (seller_id)
+    REFERENCES sellers(id) ON DELETE SET NULL,
+  INDEX idx_inquiries_seller (seller_id),
   INDEX idx_inquiries_status (is_archived, status, created_at),
   INDEX idx_inquiries_livestock (livestock_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

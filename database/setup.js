@@ -180,6 +180,26 @@ async function main() {
     console.log("  listings can now be marked verified");
   }
 
+  // Sellers (admin only). The sellers table itself comes from schema.sql;
+  // existing listings and inquiries get a link to it.
+  if (!(await columnExists(conn, "livestock", "seller_id"))) {
+    await conn.query(
+      `ALTER TABLE livestock ADD COLUMN seller_id INT UNSIGNED NULL AFTER verification,
+         ADD INDEX idx_livestock_seller (seller_id),
+         ADD CONSTRAINT fk_livestock_seller FOREIGN KEY (seller_id) REFERENCES sellers(id) ON DELETE SET NULL`,
+    );
+    console.log("  listings can now be linked to a seller");
+  }
+  if (!(await columnExists(conn, "inquiries", "seller_id"))) {
+    await conn.query(
+      `ALTER TABLE inquiries ADD COLUMN seller_id INT UNSIGNED NULL AFTER breed_name,
+         ADD COLUMN seller_name VARCHAR(150) NULL AFTER seller_id,
+         ADD INDEX idx_inquiries_seller (seller_id),
+         ADD CONSTRAINT fk_inquiries_seller FOREIGN KEY (seller_id) REFERENCES sellers(id) ON DELETE SET NULL`,
+    );
+    console.log("  inquiries now record the seller");
+  }
+
   // Photos for animal categories and production purposes (shown as tiles on
   // the website, uploaded in Admin > Animals & Purposes).
   for (const table of ["animals", "categories"]) {

@@ -25,7 +25,8 @@
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
         <div class="flex flex-col lg:flex-row lg:items-center gap-3 p-4 border-b border-gray-100">
           <div class="seg" id="tabs"></div>
-          <div class="relative lg:ml-auto lg:w-72">
+          <select id="seller-filter" class="field-input !py-2 !text-sm lg:!w-48 lg:ml-auto" aria-label="Filter by seller"><option value="">All sellers</option><option value="none">No seller</option></select>
+          <div class="relative lg:w-72">
             <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
             <input id="search" type="search" placeholder="Search name, phone, email, listing" class="field-input !py-2 !pl-9 !text-sm" />
           </div>
@@ -47,7 +48,7 @@
         { value: "resolved", label: "Resolved" },
       ];
       const TABS = [{ value: "", label: "All" }, ...STATUSES, { value: "archived", label: "Archived" }];
-      const state = { tab: "", q: "", page: 1 };
+      const state = { tab: "", q: "", seller: "", page: 1 };
       const statusLabel = (s) => STATUSES.find((x) => x.value === s)?.label || s;
 
       function renderTabs(summary = {}) {
@@ -66,6 +67,7 @@
         if (state.tab === "archived") params.set("archived", "1");
         else if (state.tab) params.set("status", state.tab);
         if (state.q) params.set("q", state.q);
+        if (state.seller) params.set("seller_id", state.seller);
 
         let res;
         try {
@@ -77,8 +79,8 @@
         setNewInquiryBadge(res.summary.new);
 
         if (!res.data.length) {
-          renderEmptyState(list, state.q || state.tab
-            ? { title: "No inquiries here", message: state.q ? "No inquiries match your search." : "No inquiries with this status.", icon: "inbox" }
+          renderEmptyState(list, state.q || state.tab || state.seller
+            ? { title: "No inquiries here", message: state.q ? "No inquiries match your search." : state.seller ? "No inquiries for this seller." : "No inquiries with this status.", icon: "inbox" }
             : { title: "No inquiries yet", message: "When visitors click Inquire on a listing, their details will appear here and be emailed to the team.", icon: "inbox" });
         } else {
           list.innerHTML = `
@@ -94,11 +96,13 @@
                       <p class="text-gray-900">${escapeHtml(i.full_name)}</p>
                       <p class="text-xs text-gray-500 font-normal">${escapeHtml(i.phone)}<br>${escapeHtml(i.email)}</p>
                       <p class="text-xs text-gray-500 font-normal md:hidden mt-0.5">${escapeHtml(i.livestock_title)}</p>
+                      ${i.seller_name ? `<p class="text-xs text-blue-700 font-normal md:hidden">Seller: ${escapeHtml(i.seller_current_name || i.seller_name)}</p>` : ""}
                     </div>
                   </td>
                   <td class="hidden md:table-cell font-normal">
                     <p class="text-gray-900 line-clamp-1">${escapeHtml(i.livestock_title)}</p>
                     <p class="text-xs text-gray-500">${escapeHtml([i.animal_name, i.category_name, i.breed_name].filter(Boolean).join(", "))}</p>
+                    ${i.seller_name ? `<p class="text-xs text-blue-700 mt-0.5">Seller: ${escapeHtml(i.seller_current_name || i.seller_name)}</p>` : ""}
                   </td>
                   <td class="hidden xl:table-cell font-normal text-gray-600 max-w-xs"><p class="line-clamp-2 text-sm">${escapeHtml(i.message)}</p></td>
                   <td class="hidden sm:table-cell font-normal text-gray-500 text-sm whitespace-nowrap" title="${escapeHtml(formatDate(i.created_at))}">${timeAgo(i.created_at)}</td>
@@ -120,6 +124,36 @@
         if (phone.trim().startsWith("+")) return d;
         if (d.startsWith("0")) d = "260" + d.slice(1);
         return d;
+      }
+
+      function sellerPanel(i) {
+        if (!i.seller_name) {
+          return `<div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            <span class="font-semibold text-gray-900">Seller:</span> not assigned. This listing has no seller (Frontier's own stock).</div>`;
+        }
+        if (!i.seller_id) {
+          return `<div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            <span class="font-semibold text-gray-900">Seller:</span> ${escapeHtml(i.seller_name)} <span class="text-gray-400">(seller since removed)</span></div>`;
+        }
+        const name = i.seller_current_name || i.seller_name;
+        const phone = i.seller_phone || "";
+        return `
+          <div class="rounded-lg border border-blue-100 bg-blue-50/60 p-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Seller for this inquiry</p>
+                <a href="/admin/sellers.html?id=${i.seller_id}" class="text-base font-bold text-gray-900 hover:text-blue-700">${escapeHtml(name)}</a>
+                ${i.seller_business_name ? `<p class="text-sm text-gray-600">${escapeHtml(i.seller_business_name)}</p>` : ""}
+                <p class="text-sm text-gray-700 mt-1">${escapeHtml(phone)}${i.seller_email ? ` <span class="text-gray-400">|</span> <span class="break-all">${escapeHtml(i.seller_email)}</span>` : ""}</p>
+                ${i.seller_status === "inactive" ? `<p class="text-xs text-amber-700 mt-1">This seller is marked inactive.</p>` : ""}
+              </div>
+              ${phone ? `
+                <div class="flex gap-2 flex-shrink-0">
+                  <a href="tel:${escapeHtml(phone.replace(/[^\d+]/g, ""))}" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-blue-500 text-sm font-medium text-gray-700"><span class="w-4 h-4 text-blue-600">${uiIcon("phone")}</span>Call seller</a>
+                  <a href="https://wa.me/${whatsappNumber(phone)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-green-500 text-sm font-medium text-gray-700"><span class="w-4 h-4 text-green-600">${uiIcon("inquire")}</span>WhatsApp</a>
+                </div>` : ""}
+            </div>
+          </div>`;
       }
 
       async function openInquiry(id) {
@@ -166,6 +200,8 @@
                 <div><dt class="text-gray-500">Livestock</dt><dd class="font-semibold text-gray-900">${listingLink}</dd></div>
                 <div><dt class="text-gray-500">Animal / Purpose / Breed</dt><dd class="font-semibold text-gray-900">${escapeHtml([i.animal_name, i.category_name, i.breed_name].filter(Boolean).join(", ") || "-")}</dd></div>
               </dl>
+
+              ${sellerPanel(i)}
 
               <div>
                 <p class="text-sm text-gray-500 mb-1">Message</p>
@@ -261,9 +297,16 @@
         searchTimer = setTimeout(() => { state.q = e.target.value.trim(); loadList(1); }, 300);
       });
 
+      document.getElementById("seller-filter").addEventListener("change", (e) => { state.seller = e.target.value; loadList(1); });
+
       (async () => {
         await initAdminPage("inquiries");
         const q = getQueryParams();
+        try {
+          const sellers = (await adminApi("/api/admin/sellers")).data;
+          document.getElementById("seller-filter").innerHTML += sellers.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+        } catch {}
+        if (q.seller_id) { state.seller = q.seller_id; document.getElementById("seller-filter").value = q.seller_id; }
         if (q.status) state.tab = q.status;
         if (q.q) { state.q = q.q; document.getElementById("search").value = q.q; }
         renderTabs();

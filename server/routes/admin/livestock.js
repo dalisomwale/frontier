@@ -24,6 +24,8 @@ async function payload(body) {
   const categoryId = positiveInt(body.category_id);
   const breedId = body.breed_id === "" || body.breed_id === undefined ? null : positiveInt(body.breed_id);
   const animalId = body.animal_id === "" || body.animal_id === undefined ? null : positiveInt(body.animal_id);
+  const sellerGiven = body.seller_id !== undefined;
+  const sellerId = body.seller_id === "" || body.seller_id === undefined || body.seller_id === null ? null : positiveInt(body.seller_id);
   const type = text(body.livestock_type, 40);
   const status = oneOf(body.status || "unpublished", STATUSES);
   const verification = body.verification === undefined ? undefined : oneOf(body.verification, VERIFICATIONS);
@@ -38,6 +40,7 @@ async function payload(body) {
   if (body.animal_id !== undefined && !animalId) errors.animal_id = "Please choose an animal.";
   if (!categoryId) errors.category_id = "Please choose a production purpose.";
   if (body.breed_id && !breedId) errors.breed_id = "Please choose a valid breed.";
+  if (sellerGiven && body.seller_id !== "" && body.seller_id !== null && !sellerId) errors.seller_id = "Please choose a valid seller.";
   if (!location) errors.location = "Please choose a province.";
   else if (!PROVINCES.includes(location)) errors.location = "Please choose one of Zambia's 10 provinces.";
   if (description === undefined) errors.description = "Description must be 5000 characters or fewer.";
@@ -69,6 +72,11 @@ async function payload(body) {
         : "That breed doesn't belong to the selected production purpose.";
   }
 
+  if (sellerId && !errors.seller_id) {
+    const [sellers] = await pool.query("SELECT id FROM sellers WHERE id = ?", [sellerId]);
+    if (!sellers.length) errors.seller_id = "That seller does not exist.";
+  }
+
   if (Object.keys(errors).length) {
     const error = badRequest("Please correct the highlighted fields.");
     error.status = 422;
@@ -87,6 +95,8 @@ async function payload(body) {
     description,
     status,
     verification,
+    seller_given: sellerGiven,
+    seller_id: sellerId,
   };
 }
 
@@ -119,10 +129,12 @@ async function storeImages(conn, livestockId, files) {
 
 async function loadOne(id) {
   const [rows] = await pool.query(
-    `SELECT l.*, c.animal_id, a.name AS animal_name, c.name AS category_name, b.name AS breed_name
+    `SELECT l.*, c.animal_id, a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
+       s.name AS seller_name, s.business_name AS seller_business_name, s.phone AS seller_phone, s.status AS seller_status
      FROM livestock l JOIN categories c ON c.id = l.category_id
      JOIN animals a ON a.id = c.animal_id
-     LEFT JOIN breeds b ON b.id = l.breed_id WHERE l.id = ?`,
+     LEFT JOIN breeds b ON b.id = l.breed_id
+     LEFT JOIN sellers s ON s.id = l.seller_id WHERE l.id = ?`,
     [id],
   );
   if (!rows.length) throw notFound("Livestock listing not found.");
@@ -149,7 +161,13 @@ router.get("/", async (req, res, next) => {
     const status = oneOf(req.query.status, STATUSES);
     const animalId = positiveInt(req.query.animal_id);
     const categoryId = positiveInt(req.query.category_id);
+    const sellerId = req.query.seller_id === "none" ? "none" : positiveInt(req.query.seller_id);
     const q = text(req.query.q, 100);
+    if (sellerId === "none") where.push("l.seller_id IS NULL");
+    else if (sellerId) {
+      where.push("l.seller_id = ?");
+      params.push(sellerId);
+    }
     if (animalId) {
       where.push("c.animal_id = ?");
       params.push(animalId);
@@ -163,15 +181,16 @@ router.get("/", async (req, res, next) => {
       params.push(categoryId);
     }
     if (q) {
-      where.push("(l.title LIKE ? OR l.location LIKE ? OR b.name LIKE ? OR a.name LIKE ? OR c.name LIKE ?)");
+      where.push("(l.title LIKE ? OR l.location LIKE ? OR b.name LIKE ? OR a.name LIKE ? OR c.name LIKE ? OR s.name LIKE ? OR s.business_name LIKE ?)");
       const like = `%${q.replace(/[\\%_]/g, "\\$&")}%`;
-      params.push(like, like, like, like, like);
+      params.push(like, like, like, like, like, like, like);
     }
     const condition = where.join(" AND ");
 
     const [rows] = await pool.query(
       `SELECT l.id, l.title, l.status, l.published_at, l.verification, l.location, l.livestock_type, l.quantity,
          l.created_at, l.updated_at, a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
+         l.seller_id, s.name AS seller_name, s.business_name AS seller_business_name,
          (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = l.id
             ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path,
          (SELECT COUNT(*) FROM livestock_images li WHERE li.livestock_id = l.id) AS image_count,
@@ -179,13 +198,15 @@ router.get("/", async (req, res, next) => {
        FROM livestock l JOIN categories c ON c.id = l.category_id
        JOIN animals a ON a.id = c.animal_id
        LEFT JOIN breeds b ON b.id = l.breed_id
+       LEFT JOIN sellers s ON s.id = l.seller_id
        WHERE ${condition}
        ORDER BY l.created_at DESC, l.id DESC LIMIT ? OFFSET ?`,
       [...params, limit, (page - 1) * limit],
     );
     const [[{ total }]] = await pool.query(
       `SELECT COUNT(*) AS total FROM livestock l JOIN categories c ON c.id = l.category_id
-       JOIN animals a ON a.id = c.animal_id LEFT JOIN breeds b ON b.id = l.breed_id WHERE ${condition}`,
+       JOIN animals a ON a.id = c.animal_id LEFT JOIN breeds b ON b.id = l.breed_id
+       LEFT JOIN sellers s ON s.id = l.seller_id WHERE ${condition}`,
       params,
     );
     res.json({
@@ -214,10 +235,10 @@ router.post("/", uploadImages, async (req, res, next) => {
     const [result] = await conn.query(
       `INSERT INTO livestock
          (title, category_id, breed_id, livestock_type, quantity, age_months, location, description, status,
-          published_at, verification, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, IF(? = 'published', NOW(), NULL), ?, ?)`,
+          published_at, verification, seller_id, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, IF(? = 'published', NOW(), NULL), ?, ?, ?)`,
       [p.title, p.category_id, p.breed_id, p.livestock_type, p.quantity, p.age_months,
-        p.location, p.description, p.status, p.status, p.verification || "unverified", req.admin.id],
+        p.location, p.description, p.status, p.status, p.verification || "unverified", p.seller_id, req.admin.id],
     );
     await storeImages(conn, result.insertId, req.files);
     await conn.commit();
@@ -255,9 +276,11 @@ router.put("/:id", uploadImages, async (req, res, next) => {
     await conn.query(
       `UPDATE livestock SET title = ?, category_id = ?, breed_id = ?, livestock_type = ?, quantity = ?,
          age_months = ?, location = ?, description = ?, ${PUBLISHED_AT_SQL}, status = ?,
-         verification = COALESCE(?, verification) WHERE id = ?`,
+         verification = COALESCE(?, verification),
+         seller_id = IF(?, ?, seller_id) WHERE id = ?`,
       [p.title, p.category_id, p.breed_id, p.livestock_type, p.quantity, p.age_months,
-        p.location, p.description, p.status, p.status, p.verification ?? null, id],
+        p.location, p.description, p.status, p.status, p.verification ?? null,
+        p.seller_given ? 1 : 0, p.seller_id, id],
     );
 
     if (removeIds.length) {

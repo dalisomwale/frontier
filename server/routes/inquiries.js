@@ -15,6 +15,13 @@ const {
 
 const router = express.Router();
 
+// "Name (Business)" - recorded on the inquiry so it keeps the seller even if
+// the seller is later deleted. Visitors never see it.
+function sellerLabel(item) {
+  if (!item.seller_name) return null;
+  return item.seller_business_name ? `${item.seller_name} (${item.seller_business_name})` : item.seller_name;
+}
+
 const LIMITS = {
   name: { min: 2, max: 120 },
   message: { min: 10, max: 2000 },
@@ -81,11 +88,14 @@ router.post("/", async (req, res, next) => {
     }
 
     const [listing] = await pool.query(
-      `SELECT l.id, l.title, a.name AS animal_name, c.name AS category_name, b.name AS breed_name
+      `SELECT l.id, l.title, a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
+         s.id AS seller_id, s.name AS seller_name, s.business_name AS seller_business_name,
+         s.phone AS seller_phone, s.email AS seller_email
        FROM livestock l
        JOIN categories c ON c.id = l.category_id
        JOIN animals a ON a.id = c.animal_id
        LEFT JOIN breeds b ON b.id = l.breed_id
+       LEFT JOIN sellers s ON s.id = l.seller_id
        WHERE l.id = ? AND l.status = 'published' AND c.status = 'active' AND a.status = 'active'`,
       [livestockId],
     );
@@ -94,15 +104,17 @@ router.post("/", async (req, res, next) => {
 
     const [result] = await pool.query(
       `INSERT INTO inquiries
-         (livestock_id, livestock_title, animal_name, category_name, breed_name,
+         (livestock_id, livestock_title, animal_name, category_name, breed_name, seller_id, seller_name,
           full_name, phone, email, message, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         item.id,
         item.title,
         item.animal_name,
         item.category_name,
         item.breed_name,
+        item.seller_id,
+        sellerLabel(item),
         values.full_name,
         values.phone,
         values.email,
@@ -122,6 +134,9 @@ router.post("/", async (req, res, next) => {
         animal_name: item.animal_name,
         category_name: item.category_name,
         breed_name: item.breed_name,
+        seller_name: sellerLabel(item),
+        seller_phone: item.seller_phone,
+        seller_email: item.seller_email,
         created_at: new Date(),
         admin_url: adminUrl(req, inquiryId),
       });

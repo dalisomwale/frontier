@@ -51,7 +51,9 @@ router.post("/resend-failed", async (req, res, next) => {
     const check = await verifyEmail();
     if (!check.ok) return res.status(400).json({ success: false, message: check.message });
     const [rows] = await pool.query(
-      "SELECT * FROM inquiries WHERE email_status = 'failed' AND is_archived = 0 ORDER BY created_at ASC LIMIT 50",
+      `SELECT i.*, s.name AS seller_current_name, s.business_name AS seller_business_name,
+         s.phone AS seller_phone, s.email AS seller_email, s.status AS seller_status FROM inquiries i LEFT JOIN sellers s ON s.id = i.seller_id
+       WHERE i.email_status = 'failed' AND i.is_archived = 0 ORDER BY i.created_at ASC LIMIT 50`,
     );
     let sent = 0;
     let failed = 0;

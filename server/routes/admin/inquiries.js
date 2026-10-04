@@ -20,16 +20,24 @@ router.get("/", async (req, res, next) => {
       where.push("i.status = ?");
       params.push(status);
     }
+    const sellerId = req.query.seller_id === "none" ? "none" : positiveInt(req.query.seller_id);
+    if (sellerId === "none") where.push("i.seller_id IS NULL");
+    else if (sellerId) {
+      where.push("i.seller_id = ?");
+      params.push(sellerId);
+    }
     const q = text(req.query.q, 100);
     if (q) {
       const like = `%${q.replace(/[\\%_]/g, "\\$&")}%`;
-      where.push("(i.full_name LIKE ? OR i.email LIKE ? OR i.phone LIKE ? OR i.livestock_title LIKE ?)");
-      params.push(like, like, like, like);
+      where.push("(i.full_name LIKE ? OR i.email LIKE ? OR i.phone LIKE ? OR i.livestock_title LIKE ? OR i.seller_name LIKE ?)");
+      params.push(like, like, like, like, like);
     }
     const condition = where.join(" AND ");
 
     const [rows] = await pool.query(
-      `SELECT i.* FROM inquiries i WHERE ${condition}
+      `SELECT i.*, s.name AS seller_current_name, s.business_name AS seller_business_name,
+         s.phone AS seller_phone, s.email AS seller_email, s.status AS seller_status
+       FROM inquiries i LEFT JOIN sellers s ON s.id = i.seller_id WHERE ${condition}
        ORDER BY i.created_at DESC, i.id DESC LIMIT ? OFFSET ?`,
       [...params, limit, (page - 1) * limit],
     );
@@ -61,8 +69,10 @@ router.get("/", async (req, res, next) => {
 router.get("/:id", async (req, res, next) => {
   try {
     const [rows] = await pool.query(
-      `SELECT i.*, l.status AS livestock_status FROM inquiries i
-       LEFT JOIN livestock l ON l.id = i.livestock_id WHERE i.id = ?`,
+      `SELECT i.*, s.name AS seller_current_name, s.business_name AS seller_business_name,
+         s.phone AS seller_phone, s.email AS seller_email, s.status AS seller_status, l.status AS livestock_status FROM inquiries i
+       LEFT JOIN livestock l ON l.id = i.livestock_id
+       LEFT JOIN sellers s ON s.id = i.seller_id WHERE i.id = ?`,
       [positiveInt(req.params.id)],
     );
     if (!rows.length) throw notFound("Inquiry not found.");
@@ -100,7 +110,11 @@ router.patch("/:id", async (req, res, next) => {
 router.post("/:id/resend-email", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
-    const [rows] = await pool.query("SELECT * FROM inquiries WHERE id = ?", [id]);
+    const [rows] = await pool.query(
+      `SELECT i.*, s.name AS seller_current_name, s.business_name AS seller_business_name,
+         s.phone AS seller_phone, s.email AS seller_email, s.status AS seller_status FROM inquiries i LEFT JOIN sellers s ON s.id = i.seller_id WHERE i.id = ?`,
+      [id],
+    );
     if (!rows.length) throw notFound("Inquiry not found.");
     try {
       await sendInquiryNotification({ ...rows[0], created_at: new Date(rows[0].created_at) });

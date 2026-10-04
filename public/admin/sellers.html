@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Manage Sellers - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/admin.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Manage Sellers</h1>
+        </div>
+        <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
+          <span class="w-5 h-5" data-icon="plus"></span> Add Seller
+        </button>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center gap-3 p-4 border-b border-gray-100">
+          <div class="seg" id="tabs"></div>
+          <div class="relative md:ml-auto md:w-72">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+            <input id="search" type="search" placeholder="Search name, farm, phone, province" class="field-input !py-2 !pl-9 !text-sm" />
+          </div>
+        </div>
+        <div id="list" class="overflow-x-auto"></div>
+      </div>
+    </main>
+
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+
+      const TABS = [{ value: "", label: "All", key: "all" }, { value: "active", label: "Active", key: "active" }, { value: "inactive", label: "Inactive", key: "inactive" }];
+      const state = { status: "", q: "" };
+      let rows = [];
+
+      const STATUS_LABELS = { new: "New", contacted: "Contacted", in_progress: "In Progress", resolved: "Resolved" };
+
+      function whatsappNumber(phone) {
+        let d = phone.replace(/\D/g, "");
+        if (phone.trim().startsWith("+")) return d;
+        if (d.startsWith("0")) d = "260" + d.slice(1);
+        return d;
+      }
+
+      function sellerStatusPill(status) {
+        return status === "active"
+          ? `<span class="status-pill st-active">Active</span>`
+          : `<span class="status-pill st-disabled">Inactive</span>`;
+      }
+
+      function renderTabs(summary = {}) {
+        document.getElementById("tabs").innerHTML = TABS.map((t) => `
+          <button type="button" data-tab="${t.value}" class="${t.value === state.status ? "active" : ""}">${t.label}${summary[t.key] !== undefined ? `<span class="count">${summary[t.key]}</span>` : ""}</button>`).join("");
+        document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => { state.status = b.dataset.tab; load(); }));
+      }
+
+      async function load() {
+        const list = document.getElementById("list");
+        const params = new URLSearchParams();
+        if (state.status) params.set("status", state.status);
+        if (state.q) params.set("q", state.q);
+        let res;
+        try {
+          res = await adminApi(`/api/admin/sellers?${params}`);
+        } catch (error) {
+          return renderEmptyState(list, { title: "Could not load sellers", message: error.message, icon: "alert" });
+        }
+        rows = res.data;
+        renderTabs(res.summary);
+
+        if (!rows.length) {
+          return renderEmptyState(list, state.q || state.status
+            ? { title: "No matching sellers", message: "Try a different search or filter.", icon: "search" }
+            : { title: "No sellers yet", message: "Add the farmers and suppliers whose livestock you list.", icon: "users",
+                action: `<button type="button" onclick="openEditor()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold">Add Seller</button>` });
+        }
+
+        list.innerHTML = `
+          <table class="admin-table">
+            <thead><tr>
+              <th>Seller</th><th class="hidden md:table-cell">Contact</th><th class="hidden lg:table-cell">Province</th>
+              <th class="hidden sm:table-cell text-center">Listings</th><th class="hidden sm:table-cell text-center">Inquiries</th>
+              <th>Status</th><th class="text-right hidden sm:table-cell">Actions</th>
+            </tr></thead>
+            <tbody>${rows.map(rowHtml).join("")}</tbody>
+          </table>`;
+        bindRows(list);
+      }
+
+      function actionsHtml(s) {
+        return `
+          <button type="button" data-toggle="${s.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${s.status === "active" ? "Deactivate" : "Activate"}</button>
+          <button type="button" data-edit="${s.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="Edit"><span class="w-4 h-4">${uiIcon("edit")}</span></button>
+          <button type="button" data-delete="${s.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-red-600" title="Delete"><span class="w-4 h-4">${uiIcon("trash")}</span></button>`;
+      }
+
+      function rowHtml(s) {
+        const listings = Number(s.listing_count);
+        const inquiries = Number(s.inquiry_count);
+        const fresh = Number(s.new_inquiry_count);
+        return `
+          <tr class="cursor-pointer" data-open="${s.id}">
+            <td>
+              <div class="min-w-[180px]">
+                <p class="font-semibold text-gray-900">${escapeHtml(s.name)}</p>
+                ${s.business_name ? `<p class="text-xs text-gray-500">${escapeHtml(s.business_name)}</p>` : ""}
+                <p class="text-xs text-gray-500 md:hidden">${escapeHtml(s.phone)}</p>
+                <div class="sm:hidden -ml-2 mt-1" data-stop>${actionsHtml(s)}</div>
+              </div>
+            </td>
+            <td class="hidden md:table-cell">
+              <p class="text-gray-800">${escapeHtml(s.phone)}</p>
+              ${s.email ? `<p class="text-xs text-gray-500 break-all">${escapeHtml(s.email)}</p>` : ""}
+            </td>
+            <td class="hidden lg:table-cell text-gray-600">${s.province ? escapeHtml(s.province) : `<span class="text-xs text-gray-400">Not set</span>`}</td>
+            <td class="hidden sm:table-cell text-center">
+              ${listings ? `<span class="font-semibold text-gray-900">${listings}</span><span class="block text-xs text-gray-500">${Number(s.published_count)} published</span>` : `<span class="text-gray-400">0</span>`}
+            </td>
+            <td class="hidden sm:table-cell text-center">
+              ${inquiries ? `<span class="font-semibold text-gray-900">${inquiries}</span>${fresh ? `<span class="block text-xs font-semibold text-red-600">${fresh} new</span>` : ""}` : `<span class="text-gray-400">0</span>`}
+            </td>
+            <td>${sellerStatusPill(s.status)}</td>
+            <td class="text-right whitespace-nowrap hidden sm:table-cell" data-stop>${actionsHtml(s)}</td>
+          </tr>`;
+      }
+
+      const find = (id) => rows.find((s) => String(s.id) === String(id));
+
+      function bindRows(root) {
+        root.querySelectorAll("[data-stop]").forEach((el) => el.addEventListener("click", (e) => e.stopPropagation()));
+        root.querySelectorAll("[data-open]").forEach((row) => row.addEventListener("click", () => openSeller(row.dataset.open)));
+        root.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openEditor(find(b.dataset.edit))));
+        root.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", () => toggleSeller(find(b.dataset.toggle))));
+        root.querySelectorAll("[data-delete]").forEach((b) => b.addEventListener("click", () => deleteSeller(find(b.dataset.delete))));
+      }
+
+      async function toggleSeller(s, after) {
+        const next = s.status === "active" ? "inactive" : "active";
+        const ok = await confirmAction(next === "inactive"
+          ? { title: `Deactivate ${s.name}?`, message: "They won't be offered when adding new listings. Their existing listings stay as they are.", confirmText: "Deactivate", variant: "danger" }
+          : { title: `Activate ${s.name}?`, message: "They'll be available to choose when adding listings.", confirmText: "Activate" });
+        if (!ok) return;
+        try {
+          await adminApi(`/api/admin/sellers/${s.id}/status`, { method: "PATCH", body: { status: next } });
+          showNotification(`${s.name} ${next === "active" ? "activated" : "deactivated"}.`, "success");
+          load();
+          if (after) after();
+        } catch (error) { showNotification(error.message, "error"); }
+      }
+
+      async function deleteSeller(s, after) {
+        const listings = Number(s.listing_count);
+        if (listings) {
+          return confirmAction({
+            title: `${s.name} can't be deleted yet`,
+            message: `They have ${listings} listing${listings === 1 ? "" : "s"}. Move ${listings === 1 ? "it" : "them"} to another seller or delete ${listings === 1 ? "it" : "them"} first, or deactivate the seller instead.`,
+            confirmText: "OK",
+            cancelText: "Close",
+          });
+        }
+        const ok = await confirmAction({
+          title: `Delete ${s.name}?`,
+          message: "This permanently removes the seller. Past inquiries keep their name.",
+          confirmText: "Delete",
+          variant: "danger",
+        });
+        if (!ok) return;
+        try {
+          await adminApi(`/api/admin/sellers/${s.id}`, { method: "DELETE" });
+          showNotification("Seller deleted.", "success");
+          load();
+          if (after) after();
+        } catch (error) { showNotification(error.message, "error"); }
+      }
+
+      function openEditor(s = {}, after) {
+        openFormModal({
+          title: s.id ? "Edit Seller" : "Add Seller",
+          submitText: s.id ? "Save Changes" : "Add Seller",
+          wide: true,
+          body: `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              ${field({ name: "name", label: "Full name", value: s.name, required: true, attrs: 'maxlength="120" autocomplete="off"' })}
+              ${field({ name: "business_name", label: "Farm / business name", value: s.business_name, attrs: 'maxlength="150"' })}
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              ${field({ name: "phone", label: "Phone number", type: "tel", value: s.phone, required: true, attrs: 'maxlength="30" inputmode="tel"' })}
+              ${field({ name: "email", label: "Email", type: "email", value: s.email, attrs: 'maxlength="255" inputmode="email"' })}
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              ${field({ name: "province", label: "Province", value: s.province || "", options: [{ value: "", label: "Not set" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
+              ${field({ name: "address", label: "Town / address", value: s.address, attrs: 'maxlength="255"' })}
+            </div>
+            ${field({ name: "notes", label: "Notes", type: "textarea", value: s.notes, rows: 3, help: "Only visible to admins.", attrs: 'maxlength="2000"' })}
+            ${field({ name: "status", label: "Status", value: s.status || "active", options: [{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }] })}`,
+          async onSubmit(form) {
+            const v = formValues(form);
+            const errors = {};
+            if (!v.name.trim()) errors.name = "Full name is required.";
+            if (!v.phone.trim()) errors.phone = "Phone number is required.";
+            if (Object.keys(errors).length) {
+              const e = new Error("Please correct the highlighted fields.");
+              e.errors = errors;
+              throw e;
+            }
+            await adminApi(s.id ? `/api/admin/sellers/${s.id}` : "/api/admin/sellers", { method: s.id ? "PUT" : "POST", body: v });
+            showNotification(s.id ? "Seller updated." : "Seller added.", "success");
+            load();
+            if (after) after();
+          },
+        });
+      }
+
+      async function openSeller(id) {
+        let s;
+        try {
+          s = (await adminApi(`/api/admin/sellers/${id}`)).data;
+        } catch (error) {
+          return showNotification(error.message, "error");
+        }
+        document.getElementById("seller-modal")?.remove();
+        const backdrop = document.createElement("div");
+        backdrop.id = "seller-modal";
+        backdrop.className = "modal-backdrop";
+
+        const listingRows = s.listings.map((l) => `
+          <a href="/admin/livestock.html?edit=${l.id}" class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
+            <span class="w-14 h-10 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : livestockFallbackMedia("w-6 h-6")}</span>
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-gray-900 truncate">${escapeHtml(l.title)}</p>
+              <p class="text-xs text-gray-500 truncate">${escapeHtml([l.breed_name, l.location].filter(Boolean).join(", "))}</p>
+            </div>
+            <div class="flex flex-col items-end gap-1 flex-shrink-0 text-xs">
+              <span class="status-pill ${l.status === "published" ? "st-published" : "st-unpublished"}">${l.status === "published" ? "Published" : "Unpublished"}</span>
+              <span class="${l.verification === "verified" ? "text-blue-700" : "text-amber-700"} font-semibold">${l.verification === "verified" ? "Verified" : "Unverified"}</span>
+            </div>
+          </a>`).join("");
+
+        const inquiryRows = s.inquiries.map((i) => `
+          <a href="/admin/inquiries.html?id=${i.id}" class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
+            <span class="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0">${escapeHtml(i.full_name.charAt(0).toUpperCase())}</span>
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-gray-900 truncate">${escapeHtml(i.full_name)}</p>
+              <p class="text-xs text-gray-500 truncate">${escapeHtml(i.livestock_title)}</p>
+            </div>
+            <div class="text-right flex-shrink-0">
+              ${statusPill(i.status, STATUS_LABELS[i.status])}
+              <p class="text-xs text-gray-400 mt-1">${i.is_archived ? "Archived, " : ""}${timeAgo(i.created_at)}</p>
+            </div>
+          </a>`).join("");
+
+        const stat = (label, value, tone = "text-gray-900") => `
+          <div class="rounded-lg border border-gray-200 p-3 text-center">
+            <p class="text-2xl font-bold ${tone}">${Number(value)}</p>
+            <p class="text-xs text-gray-500">${label}</p>
+          </div>`;
+
+        backdrop.innerHTML = `
+          <div class="modal-panel modal-wide" role="dialog" aria-modal="true" aria-labelledby="seller-title">
+            <div class="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h2 id="seller-title" class="text-xl font-bold text-gray-900 truncate">${escapeHtml(s.name)}</h2>
+                  ${sellerStatusPill(s.status)}
+                </div>
+                ${s.business_name ? `<p class="text-sm text-gray-500">${escapeHtml(s.business_name)}</p>` : ""}
+              </div>
+              <button type="button" data-close class="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 flex-shrink-0" aria-label="Close"><span class="w-5 h-5">${uiIcon("close")}</span></button>
+            </div>
+            <div class="p-5 space-y-5">
+              <div class="grid ${s.email ? "grid-cols-3" : "grid-cols-2"} gap-2">
+                <a href="tel:${escapeHtml(s.phone.replace(/[^\d+]/g, ""))}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-blue-600">${uiIcon("phone")}</span>Call</a>
+                <a href="https://wa.me/${whatsappNumber(s.phone)}" target="_blank" rel="noopener" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-green-500 hover:bg-green-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-green-600">${uiIcon("inquire")}</span>WhatsApp</a>
+                ${s.email ? `<a href="mailto:${escapeHtml(s.email)}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-blue-600">${uiIcon("mail")}</span>Email</a>` : ""}
+              </div>
+
+              <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div><dt class="text-gray-500">Phone</dt><dd class="font-semibold text-gray-900">${escapeHtml(s.phone)}</dd></div>
+                <div><dt class="text-gray-500">Email</dt><dd class="font-semibold text-gray-900 break-all">${s.email ? escapeHtml(s.email) : "-"}</dd></div>
+                <div><dt class="text-gray-500">Province</dt><dd class="font-semibold text-gray-900">${s.province ? escapeHtml(s.province) : "-"}</dd></div>
+                <div><dt class="text-gray-500">Town / address</dt><dd class="font-semibold text-gray-900">${s.address ? escapeHtml(s.address) : "-"}</dd></div>
+                <div><dt class="text-gray-500">Added</dt><dd class="font-semibold text-gray-900">${formatDateShort(s.created_at)}</dd></div>
+              </dl>
+
+              ${s.notes ? `
+                <div>
+                  <p class="text-sm text-gray-500 mb-1">Notes</p>
+                  <div class="bg-gray-50 border border-gray-100 rounded-lg p-4 text-gray-800 whitespace-pre-line text-sm">${escapeHtml(s.notes)}</div>
+                </div>` : ""}
+
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                ${stat("Listings", s.listing_count)}
+                ${stat("Published", s.published_count, "text-green-700")}
+                ${stat("Inquiries", s.inquiry_count)}
+                ${stat("New inquiries", s.new_inquiry_count, Number(s.new_inquiry_count) ? "text-red-600" : "text-gray-900")}
+              </div>
+
+              <section>
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="font-bold text-gray-900">Listings</h3>
+                  <div class="flex items-center gap-3 text-sm">
+                    ${s.listings.length ? `<a href="/admin/livestock.html?seller_id=${s.id}" class="font-medium text-blue-600 hover:text-blue-700">View all</a>` : ""}
+                    <a href="/admin/livestock.html?new=1&seller_id=${s.id}" class="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700"><span class="w-4 h-4">${uiIcon("plus")}</span>Add listing</a>
+                  </div>
+                </div>
+                <div class="rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+                  ${listingRows || `<p class="px-3 py-4 text-sm text-gray-500">No listings for this seller yet.</p>`}
+                </div>
+              </section>
+
+              <section>
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="font-bold text-gray-900">Inquiries</h3>
+                  ${s.inquiries.length ? `<a href="/admin/inquiries.html?seller_id=${s.id}" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>` : ""}
+                </div>
+                <div class="rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+                  ${inquiryRows || `<p class="px-3 py-4 text-sm text-gray-500">No inquiries about this seller's listings yet.</p>`}
+                </div>
+              </section>
+            </div>
+            <div class="flex flex-wrap justify-between gap-3 px-5 py-4 border-t border-gray-100">
+              <button type="button" data-delete class="inline-flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-700"><span class="w-4 h-4">${uiIcon("trash")}</span>Delete</button>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" data-toggle class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium text-sm">${s.status === "active" ? "Deactivate" : "Activate"}</button>
+                <button type="button" data-edit class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold text-sm"><span class="w-4 h-4">${uiIcon("edit")}</span>Edit</button>
+              </div>
+            </div>
+          </div>`;
+        document.body.appendChild(backdrop);
+        document.body.classList.add("modal-open");
+
+        const close = () => {
+          document.removeEventListener("keydown", onKey);
+          backdrop.remove();
+          if (!document.querySelector(".modal-backdrop")) document.body.classList.remove("modal-open");
+          if (getQueryParams().id) history.replaceState(null, "", location.pathname);
+        };
+        const onKey = (e) => {
+          if (e.key !== "Escape") return;
+          if (document.querySelector("[aria-labelledby=confirm-action-title]")) return;
+          if (document.querySelectorAll(".modal-backdrop").length > 1) return;
+          close();
+        };
+        document.addEventListener("keydown", onKey);
+        backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
+        backdrop.querySelector("[data-close]").addEventListener("click", close);
+        const reopen = () => { close(); openSeller(s.id); };
+        backdrop.querySelector("[data-edit]").addEventListener("click", () => openEditor(s, reopen));
+        backdrop.querySelector("[data-toggle]").addEventListener("click", () => toggleSeller(s, reopen));
+        backdrop.querySelector("[data-delete]").addEventListener("click", () => deleteSeller(s, close));
+      }
+
+      let searchTimer;
+      document.getElementById("search").addEventListener("input", (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => { state.q = e.target.value.trim(); load(); }, 300);
+      });
+      document.getElementById("add-btn").addEventListener("click", () => openEditor());
+
+      (async () => {
+        await initAdminPage("sellers");
+        renderTabs();
+        await load();
+        const q = getQueryParams();
+        if (q.id) openSeller(q.id);
+        if (q.new) openEditor();
+      })();
+    </script>
+  </body>
+</html>
