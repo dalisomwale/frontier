@@ -86,7 +86,7 @@
           list.innerHTML = `
             <table class="admin-table">
               <thead><tr>
-                <th>Listing</th><th class="hidden md:table-cell">Breed</th><th class="hidden xl:table-cell">Province</th>
+                <th>Listing</th><th class="hidden lg:table-cell">Seller</th><th class="hidden md:table-cell">Breed</th><th class="hidden xl:table-cell">Province</th>
                 <th class="hidden sm:table-cell text-center">Inquiries</th><th class="hidden md:table-cell">Date</th>
                 <th>Status</th><th class="hidden sm:table-cell">Verification</th><th class="text-right hidden sm:table-cell">Actions</th>
               </tr></thead>
@@ -128,12 +128,15 @@
                   <button type="button" data-edit="${l.id}" class="font-semibold text-gray-900 hover:text-blue-600 text-left line-clamp-2">${escapeHtml(l.title)}</button>
                   <p class="text-xs text-gray-500">${[l.livestock_type, l.quantity > 1 ? quantityLabel(l.quantity, l.animal_name) : ""].filter(Boolean).join(", ")}</p>
                   ${l.breed_name ? `<p class="text-xs text-gray-500 md:hidden">${escapeHtml(l.breed_name)}</p>` : ""}
-                  ${l.seller_name ? `<a href="/admin/sellers.html?id=${l.seller_id}" class="inline-flex items-center gap-1 text-xs text-blue-700 hover:underline mt-0.5"><span class="w-3.5 h-3.5">${uiIcon("users")}</span>${escapeHtml(l.seller_name)}</a>` : ""}
+                  ${l.seller_id ? `<a href="/admin/sellers.html?id=${l.seller_id}" class="lg:hidden inline-flex items-center gap-1 text-xs text-blue-700 hover:underline mt-0.5"><span class="w-3.5 h-3.5">${uiIcon("users")}</span>${escapeHtml(l.seller_business_name || l.seller_name)}</a>` : ""}
                   <div class="sm:hidden mt-1.5">${pillSelect("verification", l, VERIFICATION_OPTIONS, l.verification || "unverified")}</div>
                   <div class="sm:hidden -ml-2 mt-1">${actionsHtml(l)}</div>
                 </div>
               </div>
             </td>
+            <td class="hidden lg:table-cell">${l.seller_id
+              ? `<a href="/admin/sellers.html?id=${l.seller_id}" class="text-blue-700 font-medium hover:underline" title="${escapeHtml(l.seller_name)}">${escapeHtml(l.seller_business_name || l.seller_name)}</a>`
+              : `<span class="text-xs text-gray-400">No seller</span>`}</td>
             <td class="hidden md:table-cell">${l.breed_name ? `<span class="text-gray-700">${escapeHtml(l.breed_name)}</span>` : `<span class="text-xs text-gray-400">Not specified</span>`}</td>
             <td class="hidden xl:table-cell text-gray-600">${escapeHtml(l.location)}</td>
             <td class="hidden sm:table-cell text-center">${l.inquiry_count ? `<a class="text-blue-600 font-semibold hover:underline" href="/admin/inquiries.html?q=${encodeURIComponent(l.title)}">${l.inquiry_count}</a>` : `<span class="text-gray-400">0</span>`}</td>
@@ -439,7 +442,7 @@
           adminApi("/api/admin/breeds").then((r) => r.data),
           adminApi("/api/admin/sellers").then((r) => r.data),
         ]);
-        document.getElementById("seller-filter").innerHTML += sellers.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+        document.getElementById("seller-filter").innerHTML += sellers.map((s) => `<option value="${s.id}">${escapeHtml(s.business_name || s.name)}</option>`).join("");
         document.getElementById("animal-filter").innerHTML += animals.map((a) => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
 
         const q = getQueryParams();
