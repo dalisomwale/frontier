@@ -86,7 +86,7 @@
           list.innerHTML = `
             <table class="admin-table">
               <thead><tr>
-                <th>Listing</th><th class="hidden lg:table-cell">Seller</th><th class="hidden md:table-cell">Breed</th><th class="hidden xl:table-cell">Province</th>
+                <th>Listing</th><th class="hidden md:table-cell">Breed</th><th class="hidden lg:table-cell">Seller</th><th class="hidden xl:table-cell">Province</th>
                 <th class="hidden sm:table-cell text-center">Inquiries</th><th class="hidden md:table-cell">Date</th>
                 <th>Status</th><th class="hidden sm:table-cell">Verification</th><th class="text-right hidden sm:table-cell">Actions</th>
               </tr></thead>
@@ -134,10 +134,10 @@
                 </div>
               </div>
             </td>
+            <td class="hidden md:table-cell">${l.breed_name ? `<span class="text-gray-700">${escapeHtml(l.breed_name)}</span>` : `<span class="text-xs text-gray-400">Not specified</span>`}</td>
             <td class="hidden lg:table-cell">${l.seller_id
               ? `<a href="/admin/sellers.html?id=${l.seller_id}" class="text-blue-700 font-medium hover:underline" title="${escapeHtml(l.seller_name)}">${escapeHtml(l.seller_business_name || l.seller_name)}</a>`
               : `<span class="text-xs text-gray-400">No seller</span>`}</td>
-            <td class="hidden md:table-cell">${l.breed_name ? `<span class="text-gray-700">${escapeHtml(l.breed_name)}</span>` : `<span class="text-xs text-gray-400">Not specified</span>`}</td>
             <td class="hidden xl:table-cell text-gray-600">${escapeHtml(l.location)}</td>
             <td class="hidden sm:table-cell text-center">${l.inquiry_count ? `<a class="text-blue-600 font-semibold hover:underline" href="/admin/inquiries.html?q=${encodeURIComponent(l.title)}">${l.inquiry_count}</a>` : `<span class="text-gray-400">0</span>`}</td>
             <td class="hidden md:table-cell whitespace-nowrap">${l.status === "published" && l.published_at ? `<span class="text-gray-700">${formatDateShort(l.published_at)}</span>` : `<span class="text-xs text-gray-400">Not published</span>`}</td>
