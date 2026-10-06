@@ -21,7 +21,7 @@
   <body class="bg-gray-50">
     <nav id="page-topnav" class="site-header sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center gap-3 lg:gap-6 h-16 lg:h-20">
+        <div class="flex items-center gap-3 h-16 lg:h-[72px]">
           <a href="/" class="flex items-center gap-3 flex-shrink-0" aria-label="Frontier Marketplace home">
             <div class="brand-mark-full">
               <img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
@@ -29,55 +29,27 @@
             <span class="hidden sm:block lg:hidden xl:block font-bold text-gray-900">Frontier Marketplace</span>
           </a>
 
-          <button type="button" id="filter-trigger" class="search-trigger lg:hidden" aria-controls="filter-form" aria-expanded="false">
-            <span class="search-trigger-icon"><span class="w-4 h-4" data-icon="search"></span></span>
-            <span class="min-w-0 text-left">
-              <span class="block text-sm font-semibold text-gray-900 leading-tight">Find livestock</span>
-              <span id="filter-summary" class="block text-xs text-gray-500 truncate">Animal, purpose, breed, province</span>
-            </span>
-            <span id="filter-count" class="search-trigger-count hidden">0</span>
-          </button>
-
-          <div id="filter-backdrop" class="search-backdrop" hidden></div>
-          <form id="filter-form" class="header-search" role="search" aria-label="Filter livestock" novalidate>
-            <div class="header-search-head">
-              <p class="text-lg font-bold text-gray-900">Find livestock</p>
-              <button type="button" id="filter-close" class="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100" aria-label="Close"><span class="w-5 h-5" data-icon="close"></span></button>
-            </div>
-            <div class="header-search-fields">
-              <div class="hs-seg">
-                <label for="filter-animal">Animal Category</label>
-                <select id="filter-animal" class="hs-select" required>
-                  <option value="" disabled hidden selected>Select animal</option>
-                </select>
-              </div>
-              <div class="hs-seg">
-                <label for="filter-purpose">Production Purpose</label>
-                <select id="filter-purpose" class="hs-select" required disabled>
-                  <option value="" disabled hidden selected>Choose animal first</option>
-                </select>
-              </div>
-              <div class="hs-seg">
-                <label for="filter-breed">Breed</label>
-                <select id="filter-breed" class="hs-select" required disabled>
-                  <option value="" disabled hidden selected>Choose purpose first</option>
-                </select>
-              </div>
-              <div class="hs-seg">
-                <label for="filter-location">Province</label>
-                <select id="filter-location" class="hs-select" required>
-                  <option value="" disabled hidden selected>Select province</option>
-                </select>
-              </div>
-            </div>
-            <div class="header-search-actions">
-              <button type="button" id="clear-filters-btn" class="hs-clear" hidden>Clear</button>
-              <button type="submit" id="search-btn" class="hs-submit">
-                <span class="w-4 h-4" data-icon="search"></span>
-                <span id="search-btn-label">Search</span>
+          <div class="flex items-center gap-1 ml-auto lg:ml-8">
+            <div class="nav-menu" id="menu-animals">
+              <button type="button" class="nav-menu-btn" aria-haspopup="true" aria-expanded="false">
+                Browse Animals <span class="nav-menu-caret" data-icon="chevronRight"></span>
               </button>
+              <div class="nav-dropdown"></div>
             </div>
-          </form>
+            <div class="nav-menu" id="menu-province">
+              <button type="button" class="nav-menu-btn" aria-haspopup="true" aria-expanded="false">
+                Province <span class="nav-menu-caret" data-icon="chevronRight"></span>
+              </button>
+              <div class="nav-dropdown"></div>
+            </div>
+          </div>
+
+          <div hidden aria-hidden="true">
+            <select id="filter-animal"><option value="" disabled hidden selected></option></select>
+            <select id="filter-purpose" disabled><option value="" disabled hidden selected></option></select>
+            <select id="filter-breed" disabled><option value="" disabled hidden selected></option></select>
+            <select id="filter-location"><option value="" disabled hidden selected></option></select>
+          </div>
         </div>
       </div>
     </nav>
@@ -118,6 +90,7 @@
             </div>
           </div>
 
+          <div id="active-filters" class="hidden flex flex-wrap items-center gap-2 mb-4"></div>
           <div id="category-chips" class="flex flex-wrap gap-2 mb-5"></div>
 
           <div id="listings-container" class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6 mb-6"></div>
@@ -442,7 +415,7 @@
         fillSelect(els.location, "Select province", data.locations.map((l) => ({ value: l.value, label: withCount(l.value, l.count) })), els.location.value);
         paintChips();
         syncTiles();
-        updateSearchUi();
+        renderActiveFilters();
       }
 
       els.animal.addEventListener("change", () => {
@@ -488,7 +461,7 @@
             const filtered = [...currentFilters().keys()].length > 0;
             renderEmptyState(container, filtered
               ? { title: "No livestock matches these filters", message: "", icon: "search",
-                  action: `<button type="button" onclick="document.getElementById('clear-filters-btn').click()" class="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-700">Clear all filters</button>` }
+                  action: `<button type="button" onclick="clearFilters()" class="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-700">Clear all filters</button>` }
               : { title: "No livestock listed yet", message: "Please check back soon.", icon: "cattle" });
           } else {
             container.innerHTML = res.data.map(renderLivestockCard).join("");
@@ -514,52 +487,240 @@
         );
       }
 
-      const searchForm = document.getElementById("filter-form");
-      const searchTrigger = document.getElementById("filter-trigger");
-      const searchBackdrop = document.getElementById("filter-backdrop");
+      // ---------------------------------------------------------------
+      // Header menus: Browse Animals (animal > purpose > breed) and Province
+      // ---------------------------------------------------------------
+      const menuCache = { purposes: {}, breeds: {} };
+      const getPurposes = (animalId) =>
+        (menuCache.purposes[animalId] ??= apiRequest(`/api/categories?animal_id=${encodeURIComponent(animalId)}`).then((r) => r.data));
+      const getBreeds = (animalId, purposeId) =>
+        (menuCache.breeds[`${animalId}:${purposeId}`] ??= apiRequest(
+          `/api/livestock/filters?animal_id=${encodeURIComponent(animalId)}&category_id=${encodeURIComponent(purposeId)}`,
+        ).then((r) => r.data.breeds));
+      const flyoutMode = () => window.matchMedia("(min-width: 1024px) and (hover: hover)").matches;
+      const menus = [...document.querySelectorAll(".nav-menu")];
 
-      function openSearch() {
-        searchForm.classList.add("open");
-        searchBackdrop.hidden = false;
-        searchTrigger.setAttribute("aria-expanded", "true");
-        document.body.classList.add("modal-open");
-        setTimeout(() => (els.animal.value ? els.location : els.animal).focus(), 50);
+      function navLink({ label, count, attrs = "", sub = false, active = false }) {
+        return `<li class="nav-item">
+          <button type="button" class="nav-link ${active ? "is-active" : ""}" ${attrs}>
+            <span class="nav-label">${escapeHtml(label)}</span>
+            ${Number(count) ? `<span class="nav-count">${Number(count)}</span>` : ""}
+            ${sub ? `<span class="nav-caret">${uiIcon("chevronRight")}</span>` : ""}
+          </button>
+          ${sub && flyoutMode() ? `<div class="nav-flyout" data-sub></div>` : ""}
+        </li>`;
       }
-      function closeSearch() {
-        if (!searchForm.classList.contains("open")) return;
-        searchForm.classList.remove("open");
-        searchBackdrop.hidden = true;
-        searchTrigger.setAttribute("aria-expanded", "false");
-        document.body.classList.remove("modal-open");
-      }
-      searchTrigger.addEventListener("click", openSearch);
-      searchBackdrop.addEventListener("click", closeSearch);
-      document.getElementById("filter-close").addEventListener("click", closeSearch);
-      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSearch(); });
-      window.matchMedia("(min-width: 1024px)").addEventListener("change", (e) => { if (e.matches) closeSearch(); });
 
-      function updateSearchUi() {
-        const chosen = Object.values(els).filter((s) => s.value);
-        document.getElementById("clear-filters-btn").hidden = chosen.length === 0;
-        const count = document.getElementById("filter-count");
-        count.textContent = chosen.length;
-        count.classList.toggle("hidden", chosen.length === 0);
-        document.getElementById("filter-summary").textContent = chosen.length
-          ? chosen.map((s) => s.options[s.selectedIndex].text.replace(/\s\(\d+\)$/, "")).join(", ")
-          : "Animal, purpose, breed, province";
-      }
-      els.location.addEventListener("change", updateSearchUi);
+      const animalItems = () => animals.map((a) => navLink({
+        label: a.name, count: a.livestock_count, sub: true,
+        attrs: `data-animal="${a.id}"`, active: els.animal.value === String(a.id),
+      })).join("");
 
-      searchForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        closeSearch();
-        applyFilters();
+      async function purposeItems(animalId) {
+        const list = await getPurposes(animalId);
+        if (!list.length) return `<li class="nav-empty">No production purposes yet</li>`;
+        return list.map((p) => navLink({
+          label: p.name, count: p.livestock_count, sub: true,
+          attrs: `data-animal="${animalId}" data-purpose="${p.id}"`, active: els.purpose.value === String(p.id),
+        })).join("");
+      }
+
+      async function breedItems(animalId, purposeId) {
+        const list = await getBreeds(animalId, purposeId);
+        if (!list.length) return `<li class="nav-empty">No breeds yet</li>`;
+        let html = "";
+        let group = null;
+        list.forEach((b) => {
+          if (b.group_name && b.group_name !== group) {
+            group = b.group_name;
+            html += `<li class="nav-group">${escapeHtml(group)}</li>`;
+          }
+          html += navLink({
+            label: b.name, count: b.count,
+            attrs: `data-animal="${animalId}" data-purpose="${purposeId}" data-breed="${b.id}"`,
+            active: els.breed.value === String(b.id),
+          });
+        });
+        return html;
+      }
+
+      function provinceItems() {
+        return [...els.location.options].filter((o) => o.value).map((o) => {
+          const m = o.text.match(/^(.*?)(?: \((\d+)\))?$/);
+          return navLink({ label: m[1], count: m[2], attrs: `data-province="${escapeHtml(o.value)}"`, active: els.location.value === o.value });
+        }).join("");
+      }
+
+      // Desktop: cascading fly-out menus, filled in as they are hovered.
+      async function fillFlyout(item) {
+        const sub = item.querySelector(":scope > [data-sub]");
+        if (!sub || sub.dataset.loaded) return;
+        sub.dataset.loaded = "1";
+        const link = item.querySelector(":scope > .nav-link");
+        sub.innerHTML = `<ul class="nav-list"><li class="nav-empty">Loading...</li></ul>`;
+        try {
+          const html = link.dataset.purpose
+            ? await breedItems(link.dataset.animal, link.dataset.purpose)
+            : await purposeItems(link.dataset.animal);
+          sub.innerHTML = `<ul class="nav-list ${link.dataset.purpose ? "nav-scroll" : ""}">${html}</ul>`;
+        } catch {
+          delete sub.dataset.loaded;
+          sub.innerHTML = `<ul class="nav-list"><li class="nav-empty">Could not load</li></ul>`;
+        }
+      }
+
+      // Phones and tablets: one panel that drills down level by level.
+      async function drill(menu, level = {}) {
+        const panel = menu.querySelector(".nav-dropdown");
+        const { animalId, purposeId } = level;
+        const animal = animals.find((a) => String(a.id) === String(animalId));
+        let title = "";
+        let body = "";
+        let back = "";
+        let show = "";
+        if (menu.id === "menu-province") {
+          title = "Province";
+          body = provinceItems();
+        } else if (!animalId) {
+          title = "Browse Animals";
+          body = animalItems();
+        } else if (!purposeId) {
+          title = animal?.name || "";
+          back = `data-back-animal=""`;
+          show = `<button type="button" class="nav-show" data-animal="${animalId}">Show all ${escapeHtml(animal?.name || "")}</button>`;
+          body = `<li class="nav-empty">Loading...</li>`;
+        } else {
+          const purposes = await getPurposes(animalId);
+          const purpose = purposes.find((p) => String(p.id) === String(purposeId));
+          title = `${purpose?.name || ""} ${animal?.name || ""}`.trim();
+          back = `data-back-animal="${animalId}"`;
+          show = `<button type="button" class="nav-show" data-animal="${animalId}" data-purpose="${purposeId}">Show all ${escapeHtml(title)}</button>`;
+          body = `<li class="nav-empty">Loading...</li>`;
+        }
+        const render = (items) => {
+          panel.innerHTML = `<div class="nav-list nav-drill">
+            <div class="nav-drill-head">
+              ${back ? `<button type="button" class="nav-back" ${back} aria-label="Back">${uiIcon("chevronLeft")}</button>` : ""}
+              <p class="nav-drill-title">${escapeHtml(title)}</p>
+            </div>
+            ${show}
+            <ul>${items}</ul>
+          </div>`;
+        };
+        render(body);
+        if (animalId && menu.id === "menu-animals") {
+          try {
+            render(purposeId ? await breedItems(animalId, purposeId) : await purposeItems(animalId));
+          } catch {
+            render(`<li class="nav-empty">Could not load</li>`);
+          }
+        }
+      }
+
+      function openMenu(menu) {
+        menus.forEach((m) => m !== menu && closeMenu(m));
+        menu.classList.add("open");
+        menu.querySelector(".nav-menu-btn").setAttribute("aria-expanded", "true");
+        const panel = menu.querySelector(".nav-dropdown");
+        if (flyoutMode()) {
+          panel.innerHTML = `<ul class="nav-list">${menu.id === "menu-province" ? provinceItems() : animalItems()}</ul>`;
+        } else {
+          drill(menu);
+        }
+      }
+
+      function closeMenu(menu) {
+        menu.classList.remove("open");
+        menu.querySelector(".nav-menu-btn").setAttribute("aria-expanded", "false");
+      }
+      const closeMenus = () => menus.forEach(closeMenu);
+
+      menus.forEach((menu) => {
+        const btn = menu.querySelector(".nav-menu-btn");
+        const panel = menu.querySelector(".nav-dropdown");
+        let hoverTimer;
+        btn.addEventListener("click", () => (menu.classList.contains("open") ? closeMenu(menu) : openMenu(menu)));
+        menu.addEventListener("mouseenter", () => {
+          if (!flyoutMode()) return;
+          clearTimeout(hoverTimer);
+          if (!menu.classList.contains("open")) openMenu(menu);
+        });
+        menu.addEventListener("mouseleave", () => {
+          if (!flyoutMode()) return;
+          hoverTimer = setTimeout(() => closeMenu(menu), 180);
+        });
+        panel.addEventListener("mouseover", (e) => {
+          const item = e.target.closest(".nav-item");
+          if (item) fillFlyout(item);
+        });
+        panel.addEventListener("focusin", (e) => {
+          const item = e.target.closest(".nav-item");
+          if (item) fillFlyout(item);
+        });
+        panel.addEventListener("click", (e) => {
+          const backBtn = e.target.closest(".nav-back");
+          if (backBtn) return drill(menu, backBtn.dataset.backAnimal ? { animalId: backBtn.dataset.backAnimal } : {});
+          const link = e.target.closest(".nav-link, .nav-show");
+          if (!link) return;
+          const d = link.dataset;
+          if (d.province !== undefined) return pickProvince(d.province);
+          const isLeafOrShow = link.classList.contains("nav-show") || d.breed || flyoutMode();
+          if (!isLeafOrShow) return drill(menu, d.purpose ? { animalId: d.animal, purposeId: d.purpose } : { animalId: d.animal });
+          pickAnimal(d.animal, d.purpose, d.breed);
+        });
       });
-      document.getElementById("clear-filters-btn").addEventListener("click", async () => {
+
+      document.addEventListener("click", (e) => {
+        if (!e.composedPath().some((el) => el.classList?.contains("nav-menu"))) closeMenus();
+      });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenus(); });
+
+      async function pickAnimal(animalId, purposeId, breedId) {
+        closeMenus();
+        els.animal.value = animalId || "";
+        els.purpose.value = "";
+        els.breed.value = "";
+        await refreshOptions();
+        if (purposeId) { els.purpose.value = purposeId; await refreshOptions(); }
+        if (breedId) { els.breed.value = breedId; await refreshOptions(); }
+        applyFilters({ scroll: true });
+      }
+
+      async function pickProvince(value) {
+        closeMenus();
+        els.location.value = value;
+        await refreshOptions();
+        applyFilters({ scroll: true });
+      }
+
+      // Chosen filters, shown above the listings with a remove button each.
+      function renderActiveFilters() {
+        const box = document.getElementById("active-filters");
+        const parts = [["animal", els.animal], ["purpose", els.purpose], ["breed", els.breed], ["location", els.location]]
+          .filter(([, s]) => s.value)
+          .map(([key, s]) => ({ key, text: s.options[s.selectedIndex].text.replace(/\s\(\d+\)$/, "") }));
+        box.classList.toggle("hidden", !parts.length);
+        box.innerHTML = parts.map((p) => `
+          <span class="filter-pill">${escapeHtml(p.text)}
+            <button type="button" data-remove="${p.key}" aria-label="Remove ${escapeHtml(p.text)}">${uiIcon("close")}</button>
+          </span>`).join("") + (parts.length ? `<button type="button" id="clear-all" class="text-sm font-semibold text-blue-600 hover:text-blue-700 px-1">Clear all</button>` : "");
+        box.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", async () => {
+          const key = b.dataset.remove;
+          if (key === "animal") { els.animal.value = ""; els.purpose.value = ""; els.breed.value = ""; }
+          if (key === "purpose") { els.purpose.value = ""; els.breed.value = ""; }
+          if (key === "breed") els.breed.value = "";
+          if (key === "location") els.location.value = "";
+          await refreshOptions();
+          applyFilters({ scroll: false });
+        }));
+        document.getElementById("clear-all")?.addEventListener("click", clearFilters);
+      }
+
+      async function clearFilters() {
         Object.values(els).forEach((s) => (s.value = ""));
         await refreshOptions();
         applyFilters({ scroll: false });
-      });
+      }
 
       document.addEventListener("DOMContentLoaded", async () => {
         initHero();
