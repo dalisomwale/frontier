@@ -494,11 +494,7 @@
 
       async function purposeItems(animalId, { heading = true } = {}) {
         const list = await getPurposes(animalId);
-        const animalName = animals.find((a) => String(a.id) === String(animalId))?.name || "";
-        const head = heading
-          ? `<li class="nav-heading">${escapeHtml(purposeHeading(animalId))}</li>
-             <li><button type="button" class="nav-show" data-animal="${animalId}">Show all ${escapeHtml(animalName)}</button></li>`
-          : "";
+        const head = heading ? `<li class="nav-heading">${escapeHtml(purposeHeading(animalId))}</li>` : "";
         if (!list.length) return head + `<li class="nav-empty">No production purposes yet</li>`;
         return head + list.map((p) => navLink({
           label: p.name, count: p.livestock_count, sub: true,
@@ -514,13 +510,7 @@
 
       async function breedItems(animalId, purposeId, { heading = true } = {}) {
         const list = await getBreeds(animalId, purposeId);
-        let head = "";
-        if (heading) {
-          const animalName = animals.find((a) => String(a.id) === String(animalId))?.name || "";
-          const purposeName = (await getPurposes(animalId)).find((p) => String(p.id) === String(purposeId))?.name || "";
-          head = `<li class="nav-heading">${escapeHtml(await breedHeading(animalId, purposeId))}</li>
-            <li><button type="button" class="nav-show" data-animal="${animalId}" data-purpose="${purposeId}">Show all ${escapeHtml(`${purposeName} ${animalName}`.trim())}</button></li>`;
-        }
+        const head = heading ? `<li class="nav-heading">${escapeHtml(await breedHeading(animalId, purposeId))}</li>` : "";
         if (!list.length) return head + `<li class="nav-empty">No breeds yet</li>`;
         let html = head;
         let group = null;
@@ -584,7 +574,6 @@
         let title = "";
         let body = "";
         let back = "";
-        let show = "";
         if (menu.id === "menu-province") {
           title = "Province";
           body = provinceItems();
@@ -594,14 +583,10 @@
         } else if (!purposeId) {
           title = purposeHeading(animalId);
           back = `data-back-animal=""`;
-          show = `<button type="button" class="nav-show" data-animal="${animalId}">Show all ${escapeHtml(animal?.name || "")}</button>`;
           body = `<li class="nav-empty">Loading...</li>`;
         } else {
-          const purposes = await getPurposes(animalId);
-          const purpose = purposes.find((p) => String(p.id) === String(purposeId));
           title = await breedHeading(animalId, purposeId);
           back = `data-back-animal="${animalId}"`;
-          show = `<button type="button" class="nav-show" data-animal="${animalId}" data-purpose="${purposeId}">Show all ${escapeHtml(`${purpose?.name || ""} ${animal?.name || ""}`.trim())}</button>`;
           body = `<li class="nav-empty">Loading...</li>`;
         }
         const render = (items) => {
@@ -610,7 +595,6 @@
               ${back ? `<button type="button" class="nav-back" ${back} aria-label="Back">${uiIcon("chevronLeft")}</button>` : ""}
               <p class="nav-drill-title">${escapeHtml(title)}</p>
             </div>
-            ${show}
             <ul>${items}</ul>
           </div>`;
         };
@@ -649,16 +633,16 @@
         panel.addEventListener("click", (e) => {
           const backBtn = e.target.closest(".nav-back");
           if (backBtn) return drill(menu, backBtn.dataset.backAnimal ? { animalId: backBtn.dataset.backAnimal } : {});
-          const link = e.target.closest(".nav-link, .nav-show");
+          const link = e.target.closest(".nav-link");
           if (!link) return;
           const d = link.dataset;
           if (d.province !== undefined) return pickProvince(d.province);
-          const isLeafOrShow = link.classList.contains("nav-show") || d.breed;
-          if (!isLeafOrShow) {
-            if (flyoutMode()) return toggleFlyout(link.closest(".nav-item"));
-            return drill(menu, d.purpose ? { animalId: d.animal, purposeId: d.purpose } : { animalId: d.animal });
-          }
-          pickAnimal(d.animal, d.purpose, d.breed);
+          if (d.breed) return pickAnimal(d.animal, d.purpose, d.breed);
+          // Animal or purpose: show its listings straight away and open the
+          // next level, keeping the menu open.
+          pickAnimal(d.animal, d.purpose, null, { close: false });
+          if (flyoutMode()) return toggleFlyout(link.closest(".nav-item"));
+          drill(menu, d.purpose ? { animalId: d.animal, purposeId: d.purpose } : { animalId: d.animal });
         });
       });
 
@@ -667,15 +651,15 @@
       });
       document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenus(); });
 
-      async function pickAnimal(animalId, purposeId, breedId) {
-        closeMenus();
+      async function pickAnimal(animalId, purposeId, breedId, { close = true } = {}) {
+        if (close) closeMenus();
         els.animal.value = animalId || "";
         els.purpose.value = "";
         els.breed.value = "";
         await refreshOptions();
         if (purposeId) { els.purpose.value = purposeId; await refreshOptions(); }
         if (breedId) { els.breed.value = breedId; await refreshOptions(); }
-        applyFilters({ scroll: true });
+        applyFilters({ scroll: close });
       }
 
       async function pickProvince(value) {
