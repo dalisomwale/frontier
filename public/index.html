@@ -318,23 +318,39 @@
 
       document.getElementById("tiles-back").addEventListener("click", () => selectAnimal(""));
 
+      // Chips above the listings: the animals, or - once an animal is
+      // chosen - that animal's production purposes.
       function renderAnimalChips() {
-        const chips = document.getElementById("category-chips");
-        chips.innerHTML = [{ id: "", name: "All" }, ...animals]
-          .map((a) => `<button type="button" data-value="${a.id}" class="species-chip justify-center px-3"><span>${escapeHtml(a.name)}</span></button>`)
-          .join("");
-        chips.querySelectorAll("button").forEach((btn) =>
-          btn.addEventListener("click", () => selectAnimal(btn.dataset.value)),
-        );
         paintChips();
       }
 
       function paintChips() {
-        document.querySelectorAll("#category-chips button").forEach((btn) => {
-          const on = btn.dataset.value === els.animal.value;
-          btn.classList.toggle("active", on);
-          btn.setAttribute("aria-pressed", String(on));
-        });
+        const chips = document.getElementById("category-chips");
+        const chip = (value, label, on, extra = "") =>
+          `<button type="button" ${extra} data-value="${escapeHtml(value)}" class="species-chip justify-center px-3 ${on ? "active" : ""}" aria-pressed="${on}"><span>${label}</span></button>`;
+
+        if (!els.animal.value) {
+          chips.innerHTML = [{ id: "", name: "All" }, ...animals]
+            .map((a) => chip(String(a.id), escapeHtml(a.name), String(a.id) === els.animal.value, 'data-kind="animal"'))
+            .join("");
+        } else {
+          const purposes = [...els.purpose.options].filter((o) => o.value);
+          chips.innerHTML =
+            `<button type="button" data-kind="back" class="species-chip justify-center !pl-2 pr-3"><span class="w-4 h-4 inline-flex">${uiIcon("chevronLeft")}</span><span>All animals</span></button>` +
+            purposes.map((o) => chip(o.value, escapeHtml(o.text.replace(/\s\(\d+\)$/, "")), o.value === els.purpose.value, 'data-kind="purpose"')).join("");
+        }
+
+        chips.querySelectorAll("button").forEach((btn) =>
+          btn.addEventListener("click", async () => {
+            const kind = btn.dataset.kind;
+            if (kind === "animal") return selectAnimal(btn.dataset.value);
+            if (kind === "back") return selectAnimal("");
+            els.purpose.value = els.purpose.value === btn.dataset.value ? "" : btn.dataset.value;
+            els.breed.value = "";
+            await refreshOptions();
+            applyFilters({ scroll: false });
+          }),
+        );
       }
 
       async function selectAnimal(id, { scroll = false } = {}) {
