@@ -19,75 +19,88 @@
     <script src="/js/inquiry.js"></script>
   </head>
   <body class="bg-gray-50">
-    <nav id="page-topnav" class="bg-white shadow-md sticky top-0 z-50">
+    <nav id="page-topnav" class="site-header sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center h-16">
-          <a href="/" class="flex items-center gap-3" aria-label="Frontier Marketplace home">
+        <div class="flex items-center gap-3 lg:gap-6 h-16 lg:h-20">
+          <a href="/" class="flex items-center gap-3 flex-shrink-0" aria-label="Frontier Marketplace home">
             <div class="brand-mark-full">
               <img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
             </div>
-            <span class="hidden sm:block font-bold text-gray-900">Frontier Marketplace</span>
+            <span class="hidden sm:block lg:hidden xl:block font-bold text-gray-900">Frontier Marketplace</span>
           </a>
+
+          <button type="button" id="filter-trigger" class="search-trigger lg:hidden" aria-controls="filter-form" aria-expanded="false">
+            <span class="search-trigger-icon"><span class="w-4 h-4" data-icon="search"></span></span>
+            <span class="min-w-0 text-left">
+              <span class="block text-sm font-semibold text-gray-900 leading-tight">Find livestock</span>
+              <span id="filter-summary" class="block text-xs text-gray-500 truncate">Animal, purpose, breed, province</span>
+            </span>
+            <span id="filter-count" class="search-trigger-count hidden">0</span>
+          </button>
+
+          <div id="filter-backdrop" class="search-backdrop" hidden></div>
+          <form id="filter-form" class="header-search" role="search" aria-label="Filter livestock" novalidate>
+            <div class="header-search-head">
+              <p class="text-lg font-bold text-gray-900">Find livestock</p>
+              <button type="button" id="filter-close" class="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100" aria-label="Close"><span class="w-5 h-5" data-icon="close"></span></button>
+            </div>
+            <div class="header-search-fields">
+              <div class="hs-seg">
+                <label for="filter-animal">Animal Category</label>
+                <select id="filter-animal" class="hs-select" required>
+                  <option value="" disabled hidden selected>Select animal</option>
+                </select>
+              </div>
+              <div class="hs-seg">
+                <label for="filter-purpose">Production Purpose</label>
+                <select id="filter-purpose" class="hs-select" required disabled>
+                  <option value="" disabled hidden selected>Choose animal first</option>
+                </select>
+              </div>
+              <div class="hs-seg">
+                <label for="filter-breed">Breed</label>
+                <select id="filter-breed" class="hs-select" required disabled>
+                  <option value="" disabled hidden selected>Choose purpose first</option>
+                </select>
+              </div>
+              <div class="hs-seg">
+                <label for="filter-location">Province</label>
+                <select id="filter-location" class="hs-select" required>
+                  <option value="" disabled hidden selected>Select province</option>
+                </select>
+              </div>
+            </div>
+            <div class="header-search-actions">
+              <button type="button" id="clear-filters-btn" class="hs-clear" hidden>Clear</button>
+              <button type="submit" id="search-btn" class="hs-submit">
+                <span class="w-4 h-4" data-icon="search"></span>
+                <span id="search-btn-label">Search</span>
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </nav>
 
     <main>
-      <section class="hero-photo text-white pt-14 pb-10 md:pt-24 md:pb-14" aria-labelledby="hero-heading">
+      <section class="hero-photo text-white pt-20 pb-12 md:pt-32 md:pb-20" aria-labelledby="hero-heading">
         <div id="hero-slides" class="hero-slides" aria-hidden="true"></div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="max-w-4xl mb-8 md:mb-12">
+          <div class="max-w-4xl">
             <h1 id="hero-heading" class="text-4xl md:text-6xl font-bold leading-tight text-balance">
               Sourcing Livestock Across Zambia, <span class="hero-accent">Made Easy</span>
             </h1>
           </div>
 
-          <form id="filter-form" class="filter-glass rounded-xl p-5 sm:p-6 max-w-6xl mx-auto" role="search" aria-label="Filter livestock">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <div>
-                <label for="filter-animal" class="block text-sm font-medium text-white mb-2">Animal Category</label>
-                <select id="filter-animal" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
-                  <option value="" disabled hidden selected>Select animal</option>
-                </select>
-              </div>
-              <div>
-                <label for="filter-purpose" class="block text-sm font-medium text-white mb-2">Production Purpose</label>
-                <select id="filter-purpose" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white" disabled>
-                  <option value="" disabled hidden selected>Select an animal first</option>
-                </select>
-              </div>
-              <div>
-                <label for="filter-breed" class="block text-sm font-medium text-white mb-2">Breed</label>
-                <select id="filter-breed" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white" disabled>
-                  <option value="" disabled hidden selected>Select a purpose first</option>
-                </select>
-              </div>
-              <div>
-                <label for="filter-location" class="block text-sm font-medium text-white mb-2">Province</label>
-                <select id="filter-location" class="filter-select w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white">
-                  <option value="" disabled hidden selected>Select province</option>
-                </select>
-              </div>
-            </div>
-            <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
-              <button type="button" id="clear-filters-btn" class="text-sm font-medium text-blue-100 hover:text-white self-center sm:self-auto">
-                Clear all filters
-              </button>
-              <button type="submit" id="search-btn" class="w-full sm:w-auto inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-8 py-2.5 rounded-lg hover:bg-blue-700 font-medium">
-                <span class="w-4 h-4" data-icon="search"></span>
-                <span id="search-btn-label">Show Livestock</span>
-              </button>
-            </div>
-          </form>
 
-          <div class="mt-6 flex items-center justify-center gap-4">
+          <div class="mt-12 md:mt-20 flex items-center justify-center gap-4">
             <div id="hero-dots" class="hero-dots" role="tablist" aria-label="Hero photos"></div>
           </div>
         </div>
       </section>
 
-      <section id="categories" class="py-12 bg-white" style="scroll-margin-top: 72px" aria-labelledby="categories-heading">
+      <section id="categories" class="py-12 bg-white" style="scroll-margin-top: 96px" aria-labelledby="categories-heading">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="mb-6">
             <button type="button" id="tiles-back" class="hidden mb-2 items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"><span class="w-4 h-4" data-icon="chevronLeft"></span>All animals</button>
@@ -97,7 +110,7 @@
         </div>
       </section>
 
-      <section id="listings" class="bg-gray-50 py-10 border-t border-gray-100" style="scroll-margin-top: 72px" aria-labelledby="listings-heading">
+      <section id="listings" class="bg-gray-50 py-10 border-t border-gray-100" style="scroll-margin-top: 96px" aria-labelledby="listings-heading">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex flex-wrap items-end justify-between gap-2 mb-4">
             <div>
@@ -402,12 +415,12 @@
 
         if (!els.animal.value) {
           els.purpose.disabled = true;
-          fillSelect(els.purpose, "Select an animal first", [], "");
+          fillSelect(els.purpose, "Choose animal first", [], "");
         } else {
           els.purpose.disabled = false;
           fillSelect(
             els.purpose,
-            data.purposes.length ? "Select production purpose" : "No purposes for this animal",
+            data.purposes.length ? "Select purpose" : "No purposes for this animal",
             data.purposes.map((p) => ({ value: p.id, label: withCount(p.name, p.count) })),
             els.purpose.value,
           );
@@ -415,7 +428,7 @@
 
         if (!els.purpose.value) {
           els.breed.disabled = true;
-          fillSelect(els.breed, els.animal.value ? "Select a purpose first" : "Select an animal first", [], "");
+          fillSelect(els.breed, els.animal.value ? "Choose purpose first" : "Choose animal first", [], "");
         } else {
           els.breed.disabled = false;
           fillSelect(
@@ -429,6 +442,7 @@
         fillSelect(els.location, "Select province", data.locations.map((l) => ({ value: l.value, label: withCount(l.value, l.count) })), els.location.value);
         paintChips();
         syncTiles();
+        updateSearchUi();
       }
 
       els.animal.addEventListener("change", () => {
@@ -500,8 +514,45 @@
         );
       }
 
-      document.getElementById("filter-form").addEventListener("submit", (event) => {
+      const searchForm = document.getElementById("filter-form");
+      const searchTrigger = document.getElementById("filter-trigger");
+      const searchBackdrop = document.getElementById("filter-backdrop");
+
+      function openSearch() {
+        searchForm.classList.add("open");
+        searchBackdrop.hidden = false;
+        searchTrigger.setAttribute("aria-expanded", "true");
+        document.body.classList.add("modal-open");
+        setTimeout(() => (els.animal.value ? els.location : els.animal).focus(), 50);
+      }
+      function closeSearch() {
+        if (!searchForm.classList.contains("open")) return;
+        searchForm.classList.remove("open");
+        searchBackdrop.hidden = true;
+        searchTrigger.setAttribute("aria-expanded", "false");
+        document.body.classList.remove("modal-open");
+      }
+      searchTrigger.addEventListener("click", openSearch);
+      searchBackdrop.addEventListener("click", closeSearch);
+      document.getElementById("filter-close").addEventListener("click", closeSearch);
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSearch(); });
+      window.matchMedia("(min-width: 1024px)").addEventListener("change", (e) => { if (e.matches) closeSearch(); });
+
+      function updateSearchUi() {
+        const chosen = Object.values(els).filter((s) => s.value);
+        document.getElementById("clear-filters-btn").hidden = chosen.length === 0;
+        const count = document.getElementById("filter-count");
+        count.textContent = chosen.length;
+        count.classList.toggle("hidden", chosen.length === 0);
+        document.getElementById("filter-summary").textContent = chosen.length
+          ? chosen.map((s) => s.options[s.selectedIndex].text.replace(/\s\(\d+\)$/, "")).join(", ")
+          : "Animal, purpose, breed, province";
+      }
+      els.location.addEventListener("change", updateSearchUi);
+
+      searchForm.addEventListener("submit", (event) => {
         event.preventDefault();
+        closeSearch();
         applyFilters();
       });
       document.getElementById("clear-filters-btn").addEventListener("click", async () => {
