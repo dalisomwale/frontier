@@ -502,10 +502,17 @@
         })).join("");
       }
 
-      async function breedItems(animalId, purposeId) {
+      async function breedHeading(animalId, purposeId) {
+        const animal = animals.find((a) => String(a.id) === String(animalId));
+        const purpose = (await getPurposes(animalId)).find((p) => String(p.id) === String(purposeId));
+        return `Breed for ${animal?.name || ""}${purpose ? ` (${purpose.name})` : ""}`;
+      }
+
+      async function breedItems(animalId, purposeId, { heading = true } = {}) {
         const list = await getBreeds(animalId, purposeId);
-        if (!list.length) return `<li class="nav-empty">No breeds yet</li>`;
-        let html = "";
+        const head = heading ? `<li class="nav-heading">${escapeHtml(await breedHeading(animalId, purposeId))}</li>` : "";
+        if (!list.length) return head + `<li class="nav-empty">No breeds yet</li>`;
+        let html = head;
         let group = null;
         list.forEach((b) => {
           if (b.group_name && b.group_name !== group) {
@@ -569,9 +576,9 @@
         } else {
           const purposes = await getPurposes(animalId);
           const purpose = purposes.find((p) => String(p.id) === String(purposeId));
-          title = `${purpose?.name || ""} ${animal?.name || ""}`.trim();
+          title = await breedHeading(animalId, purposeId);
           back = `data-back-animal="${animalId}"`;
-          show = `<button type="button" class="nav-show" data-animal="${animalId}" data-purpose="${purposeId}">Show all ${escapeHtml(title)}</button>`;
+          show = `<button type="button" class="nav-show" data-animal="${animalId}" data-purpose="${purposeId}">Show all ${escapeHtml(`${purpose?.name || ""} ${animal?.name || ""}`.trim())}</button>`;
           body = `<li class="nav-empty">Loading...</li>`;
         }
         const render = (items) => {
@@ -587,7 +594,7 @@
         render(body);
         if (animalId && menu.id === "menu-animals") {
           try {
-            render(purposeId ? await breedItems(animalId, purposeId) : await purposeItems(animalId, { heading: false }));
+            render(purposeId ? await breedItems(animalId, purposeId, { heading: false }) : await purposeItems(animalId, { heading: false }));
           } catch {
             render(`<li class="nav-empty">Could not load</li>`);
           }
