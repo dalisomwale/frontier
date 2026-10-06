@@ -268,7 +268,7 @@
         }
 
         const animal = animals.find((a) => String(a.id) === String(animalId));
-        heading.textContent = animal ? animal.name : "Production purposes";
+        heading.textContent = animal ? `Production purpose for ${animal.name}` : "Production purposes";
         back.classList.remove("hidden");
         back.classList.add("inline-flex");
         let purposes = [];
