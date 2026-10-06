@@ -477,7 +477,6 @@
         return `<li class="nav-item">
           <button type="button" class="nav-link ${active ? "is-active" : ""}" ${attrs}>
             <span class="nav-label">${escapeHtml(label)}</span>
-            ${Number(count) ? `<span class="nav-count">${Number(count)}</span>` : ""}
             ${sub ? `<span class="nav-caret">${uiIcon("chevronRight")}</span>` : ""}
           </button>
           ${sub && flyoutMode() ? `<div class="nav-flyout" data-sub></div>` : ""}

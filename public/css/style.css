@@ -1606,14 +1606,6 @@ body.admin-pending main {
   text-overflow: ellipsis;
 }
 
-.nav-count {
-  font-size: 12px;
-  font-weight: 600;
-  color: #6b7280;
-  background: #f3f4f6;
-  border-radius: 9999px;
-  padding: 1px 7px;
-}
 
 .nav-caret {
   display: inline-flex;
