@@ -1589,8 +1589,7 @@ body.admin-pending main {
 }
 
 .nav-link:hover,
-.nav-item:hover > .nav-link,
-.nav-item:focus-within > .nav-link {
+.nav-item.is-open > .nav-link {
   background: #eff6ff;
   color: #1d4ed8;
 }
@@ -1667,8 +1666,7 @@ body.admin-pending main {
     z-index: 61;
   }
 
-  .nav-item:hover > .nav-flyout,
-  .nav-item:focus-within > .nav-flyout {
+  .nav-item.is-open > .nav-flyout {
     display: block;
   }
 
