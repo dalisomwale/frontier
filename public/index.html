@@ -505,7 +505,7 @@
       async function breedHeading(animalId, purposeId) {
         const animal = animals.find((a) => String(a.id) === String(animalId));
         const purpose = (await getPurposes(animalId)).find((p) => String(p.id) === String(purposeId));
-        return `Breed for ${animal?.name || ""}${purpose ? ` (${purpose.name})` : ""}`;
+        return `Breed for ${purpose ? `${purpose.name} ` : ""}${animal?.name || ""}`;
       }
 
       async function breedItems(animalId, purposeId, { heading = true } = {}) {
