@@ -1641,6 +1641,16 @@ body.admin-pending main {
   color: #9ca3af;
 }
 
+.nav-heading {
+  padding: 8px 12px 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 12px;
+  font-weight: 700;
+  color: #111827;
+  white-space: nowrap;
+}
+
 .nav-group {
   padding: 10px 12px 4px;
   font-size: 11px;

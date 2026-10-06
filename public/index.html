@@ -516,10 +516,14 @@
         attrs: `data-animal="${a.id}"`, active: els.animal.value === String(a.id),
       })).join("");
 
-      async function purposeItems(animalId) {
+      const purposeHeading = (animalId) =>
+        `Production purpose for ${animals.find((a) => String(a.id) === String(animalId))?.name || ""}`;
+
+      async function purposeItems(animalId, { heading = true } = {}) {
         const list = await getPurposes(animalId);
-        if (!list.length) return `<li class="nav-empty">No production purposes yet</li>`;
-        return list.map((p) => navLink({
+        const head = heading ? `<li class="nav-heading">${escapeHtml(purposeHeading(animalId))}</li>` : "";
+        if (!list.length) return head + `<li class="nav-empty">No production purposes yet</li>`;
+        return head + list.map((p) => navLink({
           label: p.name, count: p.livestock_count, sub: true,
           attrs: `data-animal="${animalId}" data-purpose="${p.id}"`, active: els.purpose.value === String(p.id),
         })).join("");
@@ -585,7 +589,7 @@
           title = "Browse Animals";
           body = animalItems();
         } else if (!purposeId) {
-          title = animal?.name || "";
+          title = purposeHeading(animalId);
           back = `data-back-animal=""`;
           show = `<button type="button" class="nav-show" data-animal="${animalId}">Show all ${escapeHtml(animal?.name || "")}</button>`;
           body = `<li class="nav-empty">Loading...</li>`;
@@ -610,7 +614,7 @@
         render(body);
         if (animalId && menu.id === "menu-animals") {
           try {
-            render(purposeId ? await breedItems(animalId, purposeId) : await purposeItems(animalId));
+            render(purposeId ? await breedItems(animalId, purposeId) : await purposeItems(animalId, { heading: false }));
           } catch {
             render(`<li class="nav-empty">Could not load</li>`);
           }
