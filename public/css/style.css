@@ -433,19 +433,6 @@ body {
   background: white;
 }
 
-#category-chips .species-chip {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1.5px solid transparent;
-  cursor: pointer;
-}
-
-#category-chips .species-chip.active {
-  background: #eff6ff;
-  color: #1e40af;
-  border-color: var(--primary-color);
-}
-
 .meta-icon {
   display: inline-flex;
   flex-shrink: 0;
@@ -876,7 +863,6 @@ body {
 .top-link:hover {
   color: var(--primary-color);
 }
-
 
 .tag {
   display: inline-flex;
@@ -1399,9 +1385,6 @@ body.admin-pending main {
   display: none;
 }
 
-
-
-
 .photo-field-preview {
   flex: none;
   width: 176px;
@@ -1530,7 +1513,6 @@ body.admin-pending main {
   border-bottom: 1px solid rgba(15, 23, 42, 0.06);
   box-shadow: 0 6px 24px -18px rgba(15, 23, 42, 0.45);
 }
-
 
 .nav-menu {
   position: relative;
@@ -1781,35 +1763,3 @@ body.admin-pending main {
   background: #1d4ed8;
 }
 
-.filter-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 6px 5px 12px;
-  border-radius: 9999px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1e40af;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.filter-pill button {
-  width: 20px;
-  height: 20px;
-  border-radius: 9999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #3b82f6;
-}
-
-.filter-pill button:hover {
-  background: #dbeafe;
-  color: #1e3a8a;
-}
-
-.filter-pill button svg {
-  width: 13px;
-  height: 13px;
-}

@@ -65,7 +65,6 @@
             </h1>
           </div>
 
-
           <div class="mt-12 md:mt-20 flex items-center justify-center gap-4">
             <div id="hero-dots" class="hero-dots" role="tablist" aria-label="Hero photos"></div>
           </div>
@@ -89,9 +88,6 @@
               <h2 id="listings-heading" class="text-3xl font-bold text-gray-900">Livestock Listings</h2>
             </div>
           </div>
-
-          <div id="active-filters" class="hidden flex flex-wrap items-center gap-2 mb-4"></div>
-          <div id="category-chips" class="flex flex-wrap gap-2 mb-5"></div>
 
           <div id="listings-container" class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6 mb-6"></div>
           <div id="pagination-container"></div>
@@ -183,7 +179,6 @@
 
         tilesFor = null;
         syncTiles();
-        renderAnimalChips();
       }
 
       function tileHtml({ id, attr, name, subtitle = "", more = false, src, slides = null, alt, active = false }) {
@@ -318,41 +313,6 @@
 
       document.getElementById("tiles-back").addEventListener("click", () => selectAnimal(""));
 
-      // Chips above the listings: the animals, or - once an animal is
-      // chosen - that animal's production purposes.
-      function renderAnimalChips() {
-        paintChips();
-      }
-
-      function paintChips() {
-        const chips = document.getElementById("category-chips");
-        const chip = (value, label, on, extra = "") =>
-          `<button type="button" ${extra} data-value="${escapeHtml(value)}" class="species-chip justify-center px-3 ${on ? "active" : ""}" aria-pressed="${on}"><span>${label}</span></button>`;
-
-        if (!els.animal.value) {
-          chips.innerHTML = [{ id: "", name: "All" }, ...animals]
-            .map((a) => chip(String(a.id), escapeHtml(a.name), String(a.id) === els.animal.value, 'data-kind="animal"'))
-            .join("");
-        } else {
-          const purposes = [...els.purpose.options].filter((o) => o.value);
-          chips.innerHTML =
-            `<button type="button" data-kind="back" class="species-chip justify-center !pl-2 pr-3"><span class="w-4 h-4 inline-flex">${uiIcon("chevronLeft")}</span><span>All animals</span></button>` +
-            purposes.map((o) => chip(o.value, escapeHtml(o.text.replace(/\s\(\d+\)$/, "")), o.value === els.purpose.value, 'data-kind="purpose"')).join("");
-        }
-
-        chips.querySelectorAll("button").forEach((btn) =>
-          btn.addEventListener("click", async () => {
-            const kind = btn.dataset.kind;
-            if (kind === "animal") return selectAnimal(btn.dataset.value);
-            if (kind === "back") return selectAnimal("");
-            els.purpose.value = els.purpose.value === btn.dataset.value ? "" : btn.dataset.value;
-            els.breed.value = "";
-            await refreshOptions();
-            applyFilters({ scroll: false });
-          }),
-        );
-      }
-
       async function selectAnimal(id, { scroll = false } = {}) {
         els.animal.value = id;
         els.purpose.value = "";
@@ -429,9 +389,7 @@
         }
 
         fillSelect(els.location, "Select province", data.locations.map((l) => ({ value: l.value, label: withCount(l.value, l.count) })), els.location.value);
-        paintChips();
         syncTiles();
-        renderActiveFilters();
       }
 
       els.animal.addEventListener("change", () => {
@@ -460,7 +418,6 @@
         const url = `${location.pathname}${params.toString() ? `?${params}` : ""}${scroll ? "#listings" : location.hash}`;
         history.replaceState(null, "", url);
         loadListings(1);
-        paintChips();
         if (scroll) document.getElementById("listings").scrollIntoView({ behavior: "smooth" });
       }
 
@@ -713,29 +670,6 @@
         applyFilters({ scroll: true });
       }
 
-      // Chosen filters, shown above the listings with a remove button each.
-      function renderActiveFilters() {
-        const box = document.getElementById("active-filters");
-        const parts = [["animal", els.animal], ["purpose", els.purpose], ["breed", els.breed], ["location", els.location]]
-          .filter(([, s]) => s.value)
-          .map(([key, s]) => ({ key, text: s.options[s.selectedIndex].text.replace(/\s\(\d+\)$/, "") }));
-        box.classList.toggle("hidden", !parts.length);
-        box.innerHTML = parts.map((p) => `
-          <span class="filter-pill">${escapeHtml(p.text)}
-            <button type="button" data-remove="${p.key}" aria-label="Remove ${escapeHtml(p.text)}">${uiIcon("close")}</button>
-          </span>`).join("") + (parts.length ? `<button type="button" id="clear-all" class="text-sm font-semibold text-blue-600 hover:text-blue-700 px-1">Clear all</button>` : "");
-        box.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", async () => {
-          const key = b.dataset.remove;
-          if (key === "animal") { els.animal.value = ""; els.purpose.value = ""; els.breed.value = ""; }
-          if (key === "purpose") { els.purpose.value = ""; els.breed.value = ""; }
-          if (key === "breed") els.breed.value = "";
-          if (key === "location") els.location.value = "";
-          await refreshOptions();
-          applyFilters({ scroll: false });
-        }));
-        document.getElementById("clear-all")?.addEventListener("click", clearFilters);
-      }
-
       async function clearFilters() {
         Object.values(els).forEach((s) => (s.value = ""));
         await refreshOptions();
@@ -752,7 +686,6 @@
         if (q.category_id) { els.purpose.value = q.category_id; await refreshOptions(); }
         if (q.breed_id) { els.breed.value = q.breed_id; await refreshOptions(); }
         if (q.location) els.location.value = q.location;
-        paintChips();
         await loadListings(1);
         if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
       });
