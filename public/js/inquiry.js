@@ -90,7 +90,7 @@ function openInquiryModal(listing) {
         </div>
 
         <button id="inquiry-submit" type="submit"
-          class="w-full inline-flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-lg hover:bg-blue-700 font-semibold transition disabled:opacity-70 disabled:cursor-wait">
+          class="w-full inline-flex items-center justify-center gap-2 btn-inquire px-5 py-3 rounded-lg font-semibold disabled:opacity-70 disabled:cursor-wait">
           Send Inquiry
         </button>
       </form>

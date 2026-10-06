@@ -1736,3 +1736,21 @@ body.admin-pending main {
   height: 18px;
 }
 
+
+.btn-inquire {
+  background-color: #e5e9ee;
+  color: #3f4a59;
+  border: 1px solid #d3d9e0;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn-inquire:hover:not(:disabled) {
+  background-color: #d8dee5;
+  border-color: #c4ccd5;
+  color: #2f3946;
+}
+
+.btn-inquire .btn-spinner {
+  border-color: rgba(63, 74, 89, 0.25);
+  border-top-color: #3f4a59;
+}

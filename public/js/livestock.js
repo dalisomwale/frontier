@@ -90,7 +90,7 @@ function renderLivestockCard(item) {
           ${typeLine ? `<span class="whitespace-nowrap">${escapeHtml(typeLine)}</span>` : ""}
         </div>
         ${item.description ? `<p class="hidden sm:block text-xs text-gray-600 line-clamp-2 mb-2">${escapeHtml(item.description)}</p>` : ""}
-        <button type="button" class="inquire-btn mt-auto w-full inline-flex items-center justify-center gap-1.5 bg-blue-600 text-white text-xs sm:text-sm font-semibold px-3 py-2 rounded-lg hover:bg-blue-700 transition"
+        <button type="button" class="inquire-btn mt-auto w-full inline-flex items-center justify-center gap-1.5 btn-inquire text-xs sm:text-sm font-semibold px-3 py-2 rounded-lg"
           data-inquire="${item.id}">
           <span class="w-4 h-4 inline-flex">${uiIcon("inquire")}</span> Inquire
         </button>
