@@ -1639,8 +1639,7 @@ body.admin-pending main {
   color: #6b7280;
 }
 
-/* Desktop with a mouse: menus open on hover and cascade to the right. */
-@media (min-width: 1024px) and (hover: hover) {
+@media (min-width: 1024px) {
   .nav-dropdown {
     position: absolute;
     top: 100%;
@@ -1668,8 +1667,7 @@ body.admin-pending main {
   }
 }
 
-/* Phones, tablets and touch screens: one panel that drills down. */
-@media not all and (min-width: 1024px) and (hover: hover) {
+@media (max-width: 1023px) {
   .nav-dropdown {
     position: fixed;
     top: 72px;
@@ -1679,61 +1677,50 @@ body.admin-pending main {
     max-height: calc(100vh - 96px);
     overflow-y: auto;
     border-radius: 14px;
+    box-shadow: 0 18px 40px -16px rgba(15, 23, 42, 0.45);
   }
 
-  @media (min-width: 640px) {
-    .nav-dropdown {
-      left: auto;
-      right: 24px;
-      width: 380px;
-    }
+  .nav-dropdown > .nav-list {
+    box-shadow: none;
   }
 
-  .nav-drill ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  .nav-drill .nav-link {
-    padding: 12px;
+  .nav-link {
+    padding: 11px 12px;
     font-size: 15px;
   }
+
+  .nav-flyout {
+    display: none;
+    padding: 2px 0 6px 14px;
+  }
+
+  .nav-item.is-open > .nav-flyout {
+    display: block;
+  }
+
+  .nav-flyout .nav-list {
+    min-width: 0;
+    background: #f8fafc;
+    border-color: #e9eef4;
+    box-shadow: none;
+  }
+
+  .nav-caret {
+    transition: transform 0.2s;
+  }
+
+  .nav-item.is-open > .nav-link .nav-caret {
+    transform: rotate(90deg);
+    color: #1d4ed8;
+  }
 }
 
-.nav-drill-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 6px 8px;
-  border-bottom: 1px solid #f3f4f6;
-  margin-bottom: 6px;
-}
-
-.nav-drill-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #111827;
-  padding-left: 6px;
-}
-
-.nav-back {
-  width: 34px;
-  height: 34px;
-  border-radius: 9999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #4b5563;
-}
-
-.nav-back:hover {
-  background: #f3f4f6;
-}
-
-.nav-back svg {
-  width: 18px;
-  height: 18px;
+@media (min-width: 640px) and (max-width: 1023px) {
+  .nav-dropdown {
+    left: auto;
+    right: 24px;
+    width: 400px;
+  }
 }
 
 

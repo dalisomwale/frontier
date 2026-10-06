@@ -460,9 +460,6 @@
         );
       }
 
-      // ---------------------------------------------------------------
-      // Header menus: Browse Animals (animal > purpose > breed) and Province
-      // ---------------------------------------------------------------
       const menuCache = { purposes: {}, breeds: {} };
       const getPurposes = (animalId) =>
         (menuCache.purposes[animalId] ??= apiRequest(`/api/categories?animal_id=${encodeURIComponent(animalId)}`).then((r) => r.data));
@@ -470,7 +467,6 @@
         (menuCache.breeds[`${animalId}:${purposeId}`] ??= apiRequest(
           `/api/livestock/filters?animal_id=${encodeURIComponent(animalId)}&category_id=${encodeURIComponent(purposeId)}`,
         ).then((r) => r.data.breeds));
-      const flyoutMode = () => window.matchMedia("(min-width: 1024px) and (hover: hover)").matches;
       const menus = [...document.querySelectorAll(".nav-menu")];
 
       function navLink({ label, count, attrs = "", sub = false, active = false }) {
@@ -479,7 +475,7 @@
             <span class="nav-label">${escapeHtml(label)}</span>
             ${sub ? `<span class="nav-caret">${uiIcon("chevronRight")}</span>` : ""}
           </button>
-          ${sub && flyoutMode() ? `<div class="nav-flyout" data-sub></div>` : ""}
+          ${sub ? `<div class="nav-flyout" data-sub></div>` : ""}
         </li>`;
       }
 
@@ -534,8 +530,6 @@
         }).join("");
       }
 
-      // Desktop: cascading fly-out menus, filled in as they are hovered.
-      // Opens one fly-out and closes its siblings (and anything under them).
       function toggleFlyout(item) {
         const willOpen = !item.classList.contains("is-open");
         item.parentElement.querySelectorAll(":scope > .nav-item.is-open").forEach((sib) => {
@@ -565,58 +559,12 @@
         }
       }
 
-      // Phones and tablets: one panel that drills down level by level.
-      async function drill(menu, level = {}) {
-        const panel = menu.querySelector(".nav-dropdown");
-        const { animalId, purposeId } = level;
-        const animal = animals.find((a) => String(a.id) === String(animalId));
-        let title = "";
-        let body = "";
-        let back = "";
-        if (menu.id === "menu-province") {
-          title = "Province";
-          body = provinceItems();
-        } else if (!animalId) {
-          title = "Browse Animals";
-          body = animalItems();
-        } else if (!purposeId) {
-          title = purposeHeading(animalId);
-          back = `data-back-animal=""`;
-          body = `<li class="nav-empty">Loading...</li>`;
-        } else {
-          title = await breedHeading(animalId, purposeId);
-          back = `data-back-animal="${animalId}"`;
-          body = `<li class="nav-empty">Loading...</li>`;
-        }
-        const render = (items) => {
-          panel.innerHTML = `<div class="nav-list nav-drill">
-            <div class="nav-drill-head">
-              ${back ? `<button type="button" class="nav-back" ${back} aria-label="Back">${uiIcon("chevronLeft")}</button>` : ""}
-              <p class="nav-drill-title">${escapeHtml(title)}</p>
-            </div>
-            <ul>${items}</ul>
-          </div>`;
-        };
-        render(body);
-        if (animalId && menu.id === "menu-animals") {
-          try {
-            render(purposeId ? await breedItems(animalId, purposeId, { heading: false }) : await purposeItems(animalId, { heading: false }));
-          } catch {
-            render(`<li class="nav-empty">Could not load</li>`);
-          }
-        }
-      }
-
       function openMenu(menu) {
         menus.forEach((m) => m !== menu && closeMenu(m));
         menu.classList.add("open");
         menu.querySelector(".nav-menu-btn").setAttribute("aria-expanded", "true");
-        const panel = menu.querySelector(".nav-dropdown");
-        if (flyoutMode()) {
-          panel.innerHTML = `<ul class="nav-list">${menu.id === "menu-province" ? provinceItems() : animalItems()}</ul>`;
-        } else {
-          drill(menu);
-        }
+        menu.querySelector(".nav-dropdown").innerHTML =
+          `<ul class="nav-list">${menu.id === "menu-province" ? provinceItems() : animalItems()}</ul>`;
       }
 
       function closeMenu(menu) {
@@ -630,18 +578,13 @@
         const panel = menu.querySelector(".nav-dropdown");
         btn.addEventListener("click", () => (menu.classList.contains("open") ? closeMenu(menu) : openMenu(menu)));
         panel.addEventListener("click", (e) => {
-          const backBtn = e.target.closest(".nav-back");
-          if (backBtn) return drill(menu, backBtn.dataset.backAnimal ? { animalId: backBtn.dataset.backAnimal } : {});
           const link = e.target.closest(".nav-link");
           if (!link) return;
           const d = link.dataset;
           if (d.province !== undefined) return pickProvince(d.province);
           if (d.breed) return pickAnimal(d.animal, d.purpose, d.breed);
-          // Animal or purpose: show its listings straight away and open the
-          // next level, keeping the menu open.
           pickAnimal(d.animal, d.purpose, null, { close: false });
-          if (flyoutMode()) return toggleFlyout(link.closest(".nav-item"));
-          drill(menu, d.purpose ? { animalId: d.animal, purposeId: d.purpose } : { animalId: d.animal });
+          toggleFlyout(link.closest(".nav-item"));
         });
       });
 
