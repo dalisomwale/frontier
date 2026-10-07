@@ -2613,3 +2613,96 @@ body.admin-pending main {
   border-top-right-radius: 4px;
   background: #eef2ff;
 }
+
+.chat-split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.chat-col {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: none;
+  flex-direction: column;
+}
+
+.chat-split[data-showing="customer"] .chat-col[data-col="customer"],
+.chat-split[data-showing="seller"] .chat-col[data-col="seller"] {
+  display: flex;
+}
+
+.chat-col-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.inbox-avatar-seller {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.chat-switch {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.chat-switch button {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.chat-switch button.active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: #fff;
+}
+
+.chat-switch-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 4px;
+  border-radius: 9999px;
+  background: #16a34a;
+  vertical-align: middle;
+}
+
+@media (min-width: 1280px) {
+  .chat-switch {
+    display: none;
+  }
+
+  .chat-split .chat-col {
+    display: flex;
+  }
+
+  .chat-col + .chat-col {
+    border-left: 1px solid #e5e7eb;
+  }
+}
+
+@media (max-width: 639px) {
+  .chat-head {
+    flex-wrap: wrap;
+  }
+
+  .chat-head-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

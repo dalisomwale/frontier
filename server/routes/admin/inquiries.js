@@ -117,28 +117,19 @@ router.patch("/:id", async (req, res, next) => {
   }
 });
 
-// Frontier's reply in the conversation. It goes to the customer by email and,
-// when the listing has a seller, to the seller's dashboard and email. The
-// seller never receives the customer's name, phone or email. Replying marks
-// the inquiry as contacted.
+// Frontier's reply to the customer, sent by email. Replying marks the
+// inquiry as contacted. Messages to the seller go through /ask.
 router.post("/:id/reply", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
     const message = text(req.body.message, 3000);
     if (!message) throw badRequest(message === undefined ? "The message must be 3000 characters or fewer." : "Please write a reply.");
     const [[row]] = await pool.query(
-      `SELECT i.id, i.full_name, i.email AS customer_email, i.livestock_id, i.livestock_title, i.seller_id,
-         l.status AS livestock_status, s.name, s.email, s.status,
-         s.password_hash IS NOT NULL AND s.account_status = 'approved' AS has_account
-       FROM inquiries i LEFT JOIN sellers s ON s.id = i.seller_id
-       LEFT JOIN livestock l ON l.id = i.livestock_id WHERE i.id = ?`,
+      `SELECT i.id, i.full_name, i.email AS customer_email, i.livestock_id, i.livestock_title, l.status AS livestock_status
+       FROM inquiries i LEFT JOIN livestock l ON l.id = i.livestock_id WHERE i.id = ?`,
       [id],
     );
     if (!row) throw notFound("Inquiry not found.");
-    const hasSeller = Boolean(row.seller_id && row.name);
-    const sellerAccount = hasSeller && Boolean(row.has_account) && row.status === "active";
-    const toSeller = hasSeller && (sellerAccount || Boolean(row.email));
-
     const listingUrl = row.livestock_id && row.livestock_status === "published" ? appUrl(`/listing.html?id=${row.livestock_id}`) : null;
     const customer = await sendEmail({
       to: row.customer_email,
@@ -148,41 +139,12 @@ router.post("/:id/reply", async (req, res, next) => {
       rows: [["Listing", row.livestock_title]],
       button: listingUrl ? { label: "View the listing", url: listingUrl } : null,
     });
-    let seller = { sent: false };
-    if (toSeller && row.email) {
-      seller = await sendEmail({
-        to: row.email,
-        subject: `Message from Frontier: ${row.livestock_title}`,
-        heading: "A message about your livestock",
-        paragraphs: [`Hi ${row.name},`, `Frontier has a message for you about "${row.livestock_title}":`, message],
-        button: sellerAccount ? { label: "Reply in your dashboard", url: appUrl("/seller/?tab=messages") } : null,
-      });
-    }
-
     await pool.query(
-      `INSERT INTO inquiry_messages (inquiry_id, sender, body, to_customer, to_seller, customer_emailed, seller_emailed)
-       VALUES (?, 'admin', ?, 1, ?, ?, ?)`,
-      [id, message, toSeller ? 1 : 0, customer.sent ? 1 : 0, seller.sent ? 1 : 0],
+      `INSERT INTO inquiry_messages (inquiry_id, sender, body, to_customer, customer_emailed) VALUES (?, 'admin', ?, 1, ?)`,
+      [id, message, customer.sent ? 1 : 0],
     );
-    await pool.query(
-      `UPDATE inquiries SET status = IF(status = 'resolved', status, 'contacted'),
-         forwarded_at = IF(?, COALESCE(forwarded_at, NOW()), forwarded_at),
-         forward_message = IF(?, ?, forward_message),
-         seller_seen_at = IF(?, NULL, seller_seen_at)
-       WHERE id = ?`,
-      [toSeller ? 1 : 0, toSeller ? 1 : 0, message, toSeller ? 1 : 0, id],
-    );
-    if (sellerAccount) {
-      await notifySeller(row.seller_id, { type: "message", title: `New message about ${row.livestock_title}`, body: message, link: "/seller/?tab=messages" });
-    }
-    res.json({
-      success: true,
-      customer_emailed: customer.sent,
-      customer_error: customer.sent ? null : customer.error,
-      to_seller: toSeller,
-      seller_in_dashboard: sellerAccount,
-      seller_emailed: seller.sent,
-    });
+    await pool.query("UPDATE inquiries SET status = IF(status = 'resolved', status, 'contacted') WHERE id = ?", [id]);
+    res.json({ success: true, customer_emailed: customer.sent, customer_error: customer.sent ? null : customer.error });
   } catch (error) {
     next(error);
   }
