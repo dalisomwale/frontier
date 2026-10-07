@@ -276,7 +276,7 @@
         }
 
         const animal = animals.find((a) => String(a.id) === String(animalId));
-        heading.textContent = animal ? `Production purpose for ${animal.name}` : "Production purposes";
+        heading.textContent = "Filter by Production purpose";
         back.classList.remove("hidden");
         back.classList.add("inline-flex");
         let purposes = [];
@@ -495,7 +495,7 @@
       })).join("");
 
       const purposeHeading = (animalId) =>
-        `Production purpose for ${animals.find((a) => String(a.id) === String(animalId))?.name || ""}`;
+        "Filter by Production purpose";
 
       async function purposeItems(animalId, { heading = true } = {}) {
         const list = await getPurposes(animalId);
