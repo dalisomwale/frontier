@@ -223,6 +223,13 @@ app.use((err, req, res, next) => {
       ...(err.errors ? { errors: err.errors } : {}),
     });
   }
+  if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(err.code)) {
+    console.error("Database out of date:", err.message, "- run: npm run db:setup");
+    return res.status(500).json({
+      success: false,
+      message: "The database needs updating. On the server run: npm run db:setup, then restart the app.",
+    });
+  }
   if (err.status === 404 || err.statusCode === 404) {
     return res.status(404).json({ success: false, message: "Not found" });
   }
@@ -230,7 +237,25 @@ app.use((err, req, res, next) => {
   return res.status(500).json({ success: false, message: "Something went wrong. Please try again." });
 });
 
+// Tables added by later updates are created at startup if missing, so a
+// deploy that forgot "npm run db:setup" still works. Column changes still
+// need db:setup.
+const LATE_TABLES = ["seller_password_resets", "seller_sessions", "seller_notifications", "inquiry_messages"];
+async function ensureLateTables() {
+  const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");
+  for (const table of LATE_TABLES) {
+    const match = schema.match(new RegExp(`CREATE TABLE IF NOT EXISTS ${table} \\([\\s\\S]*?\\) ENGINE=[^;]*;`));
+    if (!match) continue;
+    try {
+      await pool.query(match[0]);
+    } catch (error) {
+      console.error(`Could not create table ${table}: ${error.message}. Run: npm run db:setup`);
+    }
+  }
+}
+
 if (require.main === module) {
+  ensureLateTables();
   const server = app.listen(PORT, () => {
     console.log("\nFrontier Marketplace");
     console.log(`Running on http://localhost:${PORT}  (${process.env.NODE_ENV || "development"})`);
