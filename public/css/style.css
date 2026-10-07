@@ -2563,3 +2563,53 @@ body.admin-pending main {
 .chat-send-btn:disabled {
   opacity: 0.6;
 }
+
+.chat-inquiry {
+  width: min(92%, 560px);
+  max-width: none;
+}
+
+.chat-listing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid #eef0f3;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.chat-listing-thumb {
+  flex-shrink: 0;
+  width: 56px;
+  height: 42px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #eff6ff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-listing-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chat-ask {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.chat-ask .chat-input {
+  min-height: 52px;
+}
+
+.chat-sellerq {
+  border: 1px solid #c7d2fe;
+  border-top-right-radius: 4px;
+  background: #eef2ff;
+}

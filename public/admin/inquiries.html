@@ -181,12 +181,34 @@
         ].filter(Boolean).join(" · ");
         const timeline = [
           `<div class="chat-day">${formatDate(i.created_at)}</div>`,
-          bubble({ side: "left", tone: "customer", who: `${escapeHtml(i.full_name)} <span class="font-normal text-gray-500">via the website</span>`, text: i.message, time: shortTime(i.created_at) }),
+          `<div class="chat-row">
+            <div class="chat-bubble chat-customer chat-inquiry">
+              <p class="chat-who">${escapeHtml(i.full_name)} <span class="font-normal text-gray-500">via the website</span></p>
+              <p class="chat-text">${escapeHtml(i.message)}</p>
+              <p class="chat-time">${shortTime(i.created_at)}</p>
+              <div class="chat-listing">
+                <span class="chat-listing-thumb">${i.cover_thumb ? `<img src="${escapeHtml(i.cover_thumb)}" alt="">` : livestockFallbackMedia("w-6 h-6")}</span>
+                <span class="min-w-0">
+                  <span class="block text-sm font-semibold text-gray-900 truncate">${listingLink}</span>
+                  <span class="block text-xs text-gray-500 truncate">${hasSeller ? escapeHtml(i.seller_business_name || sellerName) : i.seller_name ? `${escapeHtml(i.seller_name)} (removed)` : "Frontier's stock"}</span>
+                </span>
+              </div>
+              ${hasSeller ? `
+                <div class="chat-ask">
+                  <label for="ask-message" class="block text-xs font-semibold text-gray-700 mb-1">Ask ${escapeHtml(i.seller_business_name || sellerName)}</label>
+                  <textarea id="ask-message" rows="2" maxlength="3000" class="chat-input" placeholder="Write your question for the seller">${escapeHtml(i.messages && i.messages.some((m) => m.to_seller && !m.to_customer) ? "" : i.message)}</textarea>
+                  <div class="flex flex-wrap items-center justify-between gap-2 mt-2">
+                    <span class="text-xs text-gray-500">${canSend ? `Goes to the seller only, ${hasAccount ? "in their dashboard" : ""}${hasAccount && i.seller_email ? " and " : ""}${i.seller_email ? "by email" : ""}.` : "No account or email: ask on WhatsApp or by phone."}</span>
+                    ${canSend ? `<button type="button" data-ask class="chat-send-btn !py-1.5 !text-sm">Ask seller</button>` : ""}
+                  </div>
+                </div>` : ""}
+            </div>
+          </div>`,
           i.email_status === "failed"
             ? `<div class="chat-note chat-note-warn">Notification email failed${i.email_error ? `: ${escapeHtml(i.email_error)}` : ""} <button type="button" data-resend class="font-semibold underline ml-1">Resend</button></div>`
             : "",
           ...(i.messages || []).map((m) => m.sender === "admin"
-            ? bubble({ side: "right", tone: "admin", who: `Frontier to the customer${m.to_seller ? ` and ${escapeHtml(sellerName || "the seller")}` : ""}`, text: m.body, time: shortTime(m.created_at), foot: adminFoot(m) })
+            ? bubble({ side: "right", tone: m.to_customer ? "admin" : "sellerq", who: m.to_customer ? `Frontier to the customer${m.to_seller ? ` and ${escapeHtml(sellerName || "the seller")}` : ""}` : `Frontier to ${escapeHtml(sellerName || "the seller")} only`, text: m.body, time: shortTime(m.created_at), foot: adminFoot(m) })
             : bubble({ side: "left", tone: "seller", who: `${escapeHtml(sellerName || "Seller")} <span class="font-normal text-gray-500">seller</span>`, text: m.body, time: shortTime(m.created_at) })),
         ].join("");
 
@@ -345,6 +367,23 @@
           }
         });
 
+        const ask = document.getElementById("ask-message");
+        chat.querySelector("[data-ask]")?.addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          const message = ask.value.trim();
+          if (!message) return ask.focus();
+          btn.disabled = true;
+          try {
+            const res = await adminApi(`/api/admin/inquiries/${i.id}/ask`, { method: "POST", body: { message } });
+            showNotification(res.in_dashboard ? `Sent to the seller${res.emailed ? " and emailed" : ""}.` : res.emailed ? "Emailed to the seller." : "Saved, but the email could not be sent.", res.in_dashboard || res.emailed ? "success" : "warning");
+            refreshRow({ id: i.id, status: i.status === "new" ? "in_progress" : i.status });
+            loadCounts();
+            openInquiry(i.id);
+          } catch (error) {
+            showNotification(error.message, "error");
+            btn.disabled = false;
+          }
+        });
         const input = document.getElementById("reply-message");
         chat.querySelector("[data-reply]").addEventListener("click", async (e) => {
           const btn = e.currentTarget;

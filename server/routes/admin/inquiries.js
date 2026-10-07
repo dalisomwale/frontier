@@ -73,7 +73,10 @@ router.get("/:id", async (req, res, next) => {
     const [rows] = await pool.query(
       `SELECT i.*, s.name AS seller_current_name, s.business_name AS seller_business_name,
          s.phone AS seller_phone, s.email AS seller_email, s.status AS seller_status,
-         s.account_status AS seller_account_status, l.status AS livestock_status FROM inquiries i
+         s.account_status AS seller_account_status, l.status AS livestock_status,
+         (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = i.livestock_id
+            ORDER BY li.sort_order, li.id LIMIT 1) AS cover_thumb
+       FROM inquiries i
        LEFT JOIN livestock l ON l.id = i.livestock_id
        LEFT JOIN sellers s ON s.id = i.seller_id WHERE i.id = ?`,
       [positiveInt(req.params.id)],
@@ -180,6 +183,55 @@ router.post("/:id/reply", async (req, res, next) => {
       seller_in_dashboard: sellerAccount,
       seller_emailed: seller.sent,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// A question for the seller only (dashboard and email). The customer doesn't
+// get it, and the seller never sees the customer's details.
+router.post("/:id/ask", async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id);
+    const message = text(req.body.message, 3000);
+    if (!message) throw badRequest(message === undefined ? "The message must be 3000 characters or fewer." : "Please write your question for the seller.");
+    const [[row]] = await pool.query(
+      `SELECT i.id, i.livestock_title, i.seller_id, s.name, s.email, s.status,
+         s.password_hash IS NOT NULL AND s.account_status = 'approved' AS has_account
+       FROM inquiries i LEFT JOIN sellers s ON s.id = i.seller_id WHERE i.id = ?`,
+      [id],
+    );
+    if (!row) throw notFound("Inquiry not found.");
+    if (!row.seller_id || !row.name) throw badRequest("This inquiry is for Frontier's stock, so there is no seller to ask.");
+    const hasAccount = Boolean(row.has_account) && row.status === "active";
+    if (!hasAccount && !row.email) {
+      throw badRequest("This seller has no account or email address. Ask them on WhatsApp or by phone instead.");
+    }
+    let emailed = false;
+    if (row.email) {
+      const result = await sendEmail({
+        to: row.email,
+        subject: `Question from Frontier: ${row.livestock_title}`,
+        heading: "A question about your livestock",
+        paragraphs: [`Hi ${row.name},`, `Frontier has a question about "${row.livestock_title}":`, message],
+        button: hasAccount ? { label: "Reply in your dashboard", url: appUrl("/seller/?tab=messages") } : null,
+      });
+      emailed = result.sent;
+    }
+    await pool.query(
+      `INSERT INTO inquiry_messages (inquiry_id, sender, body, to_customer, to_seller, seller_emailed)
+       VALUES (?, 'admin', ?, 0, 1, ?)`,
+      [id, message, emailed ? 1 : 0],
+    );
+    await pool.query(
+      `UPDATE inquiries SET forwarded_at = COALESCE(forwarded_at, NOW()), forward_message = ?, seller_seen_at = NULL,
+         status = IF(status = 'new', 'in_progress', status) WHERE id = ?`,
+      [message, id],
+    );
+    if (hasAccount) {
+      await notifySeller(row.seller_id, { type: "message", title: `Question about ${row.livestock_title}`, body: message, link: "/seller/?tab=messages" });
+    }
+    res.json({ success: true, in_dashboard: hasAccount, emailed });
   } catch (error) {
     next(error);
   }
