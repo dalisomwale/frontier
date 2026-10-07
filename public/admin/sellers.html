@@ -44,7 +44,7 @@
     <script>
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
 
-      const TABS = [{ value: "", label: "All", key: "all" }, { value: "pending", label: "Awaiting approval", key: "pending" }, { value: "active", label: "Active", key: "active" }, { value: "inactive", label: "Inactive", key: "inactive" }];
+      const TABS = [{ value: "", label: "All", key: "all" }, { value: "pending", label: "Awaiting approval", key: "pending" }, { value: "active", label: "Approved", key: "active" }, { value: "inactive", label: "Deactivated", key: "inactive" }];
       const state = { status: "", q: "" };
       let rows = [];
 
@@ -112,13 +112,48 @@
         bindRows(list);
       }
 
+      function sellerState(s) {
+        if (s.status === "inactive") return "inactive";
+        if (s.account_status === "pending" || s.account_status === "rejected") return s.account_status;
+        return "approved";
+      }
+
+      function stateSelect(s) {
+        const current = sellerState(s);
+        const options = [
+          ...(current === "pending" ? [{ value: "pending", label: "Awaiting approval" }] : []),
+          { value: "approved", label: "Approved" },
+          ...(s.account_status ? [{ value: "rejected", label: "Rejected" }] : []),
+          { value: "inactive", label: "Deactivated" },
+        ];
+        return `<select class="pill-select" data-state="${s.id}" data-value="${current}" aria-label="Seller status">
+          ${options.map((o) => `<option value="${o.value}" ${o.value === current ? "selected" : ""}>${o.label}</option>`).join("")}
+        </select>`;
+      }
+
+      async function changeState(s, next, after) {
+        const current = sellerState(s);
+        if (next === current) return true;
+        try {
+          if (next === "rejected") return reviewAccount(s, "reject", after);
+          if (next === "approved" && (s.account_status === "pending" || s.account_status === "rejected")) return reviewAccount(s, "approve", after);
+          const ok = await confirmAction(next === "inactive"
+            ? { title: `Deactivate ${s.name}?`, message: s.account_status ? "They'll be signed out and can't sign in. Their existing listings stay as they are." : "They won't be offered when adding new listings. Their existing listings stay as they are.", confirmText: "Deactivate", variant: "danger" }
+            : { title: `Reactivate ${s.name}?`, message: s.account_status ? "They'll be able to sign in again." : "They'll be available to choose when adding listings.", confirmText: "Reactivate" });
+          if (!ok) return false;
+          await adminApi(`/api/admin/sellers/${s.id}/status`, { method: "PATCH", body: { status: next === "inactive" ? "inactive" : "active" } });
+          showNotification(`${s.name} ${next === "inactive" ? "deactivated" : "reactivated"}.`, "success");
+          load();
+          if (after) after();
+          return true;
+        } catch (error) {
+          showNotification(error.message, "error");
+          return false;
+        }
+      }
+
       function actionsHtml(s) {
-        const review = s.account_status === "pending"
-          ? `<button type="button" data-approve="${s.id}" class="text-sm font-semibold text-green-700 hover:text-green-800 px-2 py-1">Approve</button>
-             <button type="button" data-reject="${s.id}" class="text-sm font-medium text-red-600 hover:text-red-700 px-2 py-1">Reject</button>`
-          : "";
-        return `${review}
-          <button type="button" data-toggle="${s.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${s.status === "active" ? "Deactivate" : "Activate"}</button>
+        return `
           <button type="button" data-edit="${s.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="Edit"><span class="w-4 h-4">${uiIcon("edit")}</span></button>
           <button type="button" data-delete="${s.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-red-600" title="Delete"><span class="w-4 h-4">${uiIcon("trash")}</span></button>`;
       }
@@ -149,7 +184,7 @@
             <td class="hidden sm:table-cell text-center">
               ${inquiries ? `<span class="font-semibold text-gray-900">${inquiries}</span>${fresh ? `<span class="block text-xs font-semibold text-red-600">${fresh} new</span>` : ""}` : `<span class="text-gray-400">0</span>`}
             </td>
-            <td><div class="flex flex-col items-start gap-1">${s.account_status && s.account_status !== "approved" ? accountPill(s) : sellerStatusPill(s.status)}</div></td>
+            <td data-stop>${stateSelect(s)}</td>
             <td class="text-right whitespace-nowrap hidden sm:table-cell" data-stop>${actionsHtml(s)}</td>
           </tr>`;
       }
@@ -160,10 +195,11 @@
         root.querySelectorAll("[data-stop]").forEach((el) => el.addEventListener("click", (e) => e.stopPropagation()));
         root.querySelectorAll("[data-open]").forEach((row) => row.addEventListener("click", () => openSeller(row.dataset.open)));
         root.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openEditor(find(b.dataset.edit))));
-        root.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", () => toggleSeller(find(b.dataset.toggle))));
+        root.querySelectorAll("[data-state]").forEach((sel) => sel.addEventListener("change", async () => {
+          const done = await changeState(find(sel.dataset.state), sel.value);
+          if (!done) sel.value = sel.dataset.value;
+        }));
         root.querySelectorAll("[data-delete]").forEach((b) => b.addEventListener("click", () => deleteSeller(find(b.dataset.delete))));
-        root.querySelectorAll("[data-approve]").forEach((b) => b.addEventListener("click", () => reviewAccount(find(b.dataset.approve), "approve")));
-        root.querySelectorAll("[data-reject]").forEach((b) => b.addEventListener("click", () => reviewAccount(find(b.dataset.reject), "reject")));
       }
 
       async function reviewAccount(s, action, after) {
@@ -174,11 +210,14 @@
         };
         if (action === "approve") {
           const ok = await confirmAction({ title: `Approve ${s.name}?`, message: "They'll be able to sign in and submit listings. Every listing still comes to you for review before it goes live.", confirmText: "Approve" });
-          if (!ok) return;
+          if (!ok) return false;
           try {
             done(await adminApi(`/api/admin/sellers/${s.id}/account`, { method: "PATCH", body: { action } }));
-          } catch (error) { showNotification(error.message, "error"); }
-          return;
+            return true;
+          } catch (error) {
+            showNotification(error.message, "error");
+            return false;
+          }
         }
         openFormModal({
           title: `Reject ${s.name}?`,
@@ -190,6 +229,7 @@
             done(await adminApi(`/api/admin/sellers/${s.id}/account`, { method: "PATCH", body: { action, note: formValues(form).note } }));
           },
         });
+        return false;
       }
 
       async function toggleSeller(s, after) {

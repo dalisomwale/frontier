@@ -18,7 +18,6 @@
     <main class="max-w-lg mx-auto px-4 py-8 sm:py-12">
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-8">
         <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Sell on Frontier Marketplace</h1>
-        <p class="text-sm text-gray-500 mt-1">Create a seller account. Our team checks every new account and every listing before it goes live.</p>
 
         <form id="register-form" class="space-y-4 mt-6" novalidate>
           <div id="form-alert" class="hidden alert alert-error text-sm mb-0" role="alert"></div>
@@ -36,7 +35,7 @@
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label for="phone" class="field-label">Phone / WhatsApp <span class="text-red-500">*</span></label>
+            <label for="phone" class="field-label">WhatsApp Number <span class="text-red-500">*</span></label>
             <input id="phone" name="phone" type="tel" class="field-input" autocomplete="tel" required maxlength="30" placeholder="0977 123 456" />
             
             <p class="field-error hidden" data-error-for="phone"></p>
@@ -96,7 +95,7 @@
         const v = Object.fromEntries(new FormData(form).entries());
         const errors = {};
         if (!v.name.trim()) errors.name = "Your name is required.";
-        if (!v.phone.trim()) errors.phone = "Phone number is required.";
+        if (!v.phone.trim()) errors.phone = "WhatsApp number is required.";
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email.trim())) errors.email = "Please enter a valid email address.";
         if (!v.province) errors.province = "Please choose your province.";
         if (v.password.length < 8) errors.password = "Password must be at least 8 characters.";

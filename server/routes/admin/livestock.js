@@ -2,6 +2,7 @@ const express = require("express");
 const pool = require("../../db");
 const { uploadImages, saveImage, deleteImageFiles, MAX_FILES } = require("../../middleware/upload");
 const { sendEmail, appUrl } = require("../../services/mailer");
+const { notifySeller } = require("../../services/notifications");
 const { positiveInt, text, oneOf, badRequest, notFound, PROVINCES, isAllBreedsPurpose } = require("../../lib/validate");
 
 const router = express.Router();
@@ -343,13 +344,19 @@ router.patch("/:id/status", async (req, res, next) => {
   try {
     const status = oneOf(req.body.status, STATUSES);
     if (!status) throw badRequest("Status must be published or unpublished.");
-    const [result] = await pool.query(
-      `UPDATE livestock SET ${PUBLISHED_AT_SQL}, status = ?,
-         review_status = IF(? = 'published', 'approved', review_status),
-         review_note = IF(? = 'published', NULL, review_note) WHERE id = ?`,
-      [status, status, status, status, positiveInt(req.params.id)],
+    const id = positiveInt(req.params.id);
+    const [[before]] = await pool.query("SELECT title, status, seller_id FROM livestock WHERE id = ?", [id]);
+    if (!before) throw notFound("Livestock listing not found.");
+    // Choosing a status is the admin's decision, so it also settles any review.
+    await pool.query(
+      `UPDATE livestock SET ${PUBLISHED_AT_SQL}, status = ?, review_status = 'approved', review_note = NULL WHERE id = ?`,
+      [status, status, id],
     );
-    if (!result.affectedRows) throw notFound("Livestock listing not found.");
+    if (before.status !== status) {
+      await notifySeller(before.seller_id, status === "published"
+        ? { type: "listing", title: `Your listing is live: ${before.title}`, link: "/seller/" }
+        : { type: "listing", title: `Your listing was taken off the website: ${before.title}`, body: "Contact Frontier if you have questions.", link: "/seller/" });
+    }
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -378,9 +385,11 @@ router.delete("/:id", async (req, res, next) => {
       "SELECT image_path, thumb_path FROM livestock_images WHERE livestock_id = ?",
       [id],
     );
+    const [[listing]] = await pool.query("SELECT title, seller_id FROM livestock WHERE id = ?", [id]);
     // Images cascade in the DB; inquiries keep their copied title (FK SET NULL).
     const [result] = await pool.query("DELETE FROM livestock WHERE id = ?", [id]);
     if (!result.affectedRows) throw notFound("Livestock listing not found.");
+    await notifySeller(listing.seller_id, { type: "listing", title: `Your listing was removed: ${listing.title}`, body: "Contact Frontier if you have questions.", link: "/seller/" });
     images.forEach((row) => deleteImageFiles(row.image_path, row.thumb_path));
     res.json({ success: true });
   } catch (error) {
@@ -399,7 +408,7 @@ router.post("/:id/review", async (req, res, next) => {
     if (note === undefined) throw badRequest("The note must be 500 characters or fewer.");
     if (action === "reject" && !note) throw badRequest("Please say what the seller needs to change.");
     const [[row]] = await pool.query(
-      `SELECT l.id, l.title, s.email AS seller_email, s.name AS seller_name, s.password_hash IS NOT NULL AS has_account
+      `SELECT l.id, l.title, l.seller_id, s.email AS seller_email, s.name AS seller_name, s.password_hash IS NOT NULL AS has_account
        FROM livestock l LEFT JOIN sellers s ON s.id = l.seller_id WHERE l.id = ?`,
       [id],
     );
@@ -417,6 +426,9 @@ router.post("/:id/review", async (req, res, next) => {
         [note, id],
       );
     }
+    await notifySeller(row.seller_id, action === "approve"
+      ? { type: "listing", title: `Your listing is live: ${row.title}`, body: note || null, link: "/seller/" }
+      : { type: "listing", title: `Changes needed: ${row.title}`, body: note, link: "/seller/" });
     let emailed = false;
     if (row.seller_email && row.has_account) {
       const result = await sendEmail({

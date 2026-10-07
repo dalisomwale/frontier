@@ -5,6 +5,7 @@ const express = require("express");
 const pool = require("../../db");
 const { positiveInt, text, isEmail, isPhone, oneOf, badRequest, notFound, HttpError, PROVINCES } = require("../../lib/validate");
 const { sendEmail, appUrl } = require("../../services/mailer");
+const { notifySeller, disconnectSeller } = require("../../services/notifications");
 
 const router = express.Router();
 const STATUSES = ["active", "inactive"];
@@ -55,11 +56,11 @@ router.get("/", async (req, res, next) => {
   try {
     const where = ["1 = 1"];
     const params = [];
+    // "active" means approved: active, and either added by an admin or an
+    // approved account.
     const status = oneOf(req.query.status, STATUSES);
-    if (status) {
-      where.push("s.status = ?");
-      params.push(status);
-    }
+    if (status === "active") where.push("s.status = 'active' AND (s.account_status IS NULL OR s.account_status = 'approved')");
+    else if (status) where.push("s.status = 'inactive'");
     const account = oneOf(req.query.account, ["pending", "approved", "rejected"]);
     if (account) {
       where.push("s.account_status = ?");
@@ -77,7 +78,7 @@ router.get("/", async (req, res, next) => {
       params,
     );
     const [[summary]] = await pool.query(
-      `SELECT COUNT(*) AS total, COALESCE(SUM(status = 'active'), 0) AS active, COALESCE(SUM(status = 'inactive'), 0) AS inactive,
+      `SELECT COUNT(*) AS total, COALESCE(SUM(status = 'active' AND (account_status IS NULL OR account_status = 'approved')), 0) AS active, COALESCE(SUM(status = 'inactive'), 0) AS inactive,
          COALESCE(SUM(account_status = 'pending'), 0) AS pending
        FROM sellers`,
     );
@@ -160,8 +161,10 @@ router.patch("/:id/status", async (req, res, next) => {
   try {
     const status = oneOf(req.body.status, STATUSES);
     if (!status) throw badRequest("Status must be active or inactive.");
-    const [result] = await pool.query("UPDATE sellers SET status = ? WHERE id = ?", [status, positiveInt(req.params.id)]);
+    const id = positiveInt(req.params.id);
+    const [result] = await pool.query("UPDATE sellers SET status = ? WHERE id = ?", [status, id]);
     if (!result.affectedRows) throw notFound("Seller not found.");
+    if (status === "inactive") disconnectSeller(id);
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -191,6 +194,9 @@ router.patch("/:id/account", async (req, res, next) => {
     } else {
       await pool.query("UPDATE sellers SET account_status = 'rejected', account_note = ? WHERE id = ?", [note, id]);
     }
+    await notifySeller(id, action === "approve"
+      ? { type: "account", title: "Your seller account is approved", body: "You can now add your livestock. Each listing is checked before it goes live.", link: "/seller/" }
+      : { type: "account", title: "Your seller account was not approved", body: note || "Please contact Frontier if you have questions.", link: "/seller/" });
     const result = await sendEmail({
       to: seller.email,
       subject: action === "approve" ? "Your seller account is approved" : "About your seller account",

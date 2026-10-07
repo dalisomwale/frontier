@@ -2,6 +2,7 @@ const express = require("express");
 const pool = require("../../db");
 const { positiveInt, text, oneOf, badRequest, notFound } = require("../../lib/validate");
 const { sendInquiryNotification, sendEmail, appUrl } = require("../../services/mailer");
+const { notifySeller } = require("../../services/notifications");
 
 const router = express.Router();
 const STATUSES = ["new", "contacted", "in_progress", "resolved"];
@@ -133,6 +134,9 @@ router.post("/:id/forward", async (req, res, next) => {
          status = IF(status = 'new', 'in_progress', status) WHERE id = ?`,
       [message, id],
     );
+    if (hasAccount) {
+      await notifySeller(row.seller_id, { type: "message", title: `New message about ${row.livestock_title}`, body: message, link: "/seller/?tab=messages" });
+    }
     let emailed = false;
     if (row.email) {
       const result = await sendEmail({

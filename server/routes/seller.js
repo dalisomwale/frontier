@@ -11,6 +11,7 @@ const { uploadImages, deleteImageFiles } = require("../middleware/upload");
 const { sendEmail, appUrl, recipients } = require("../services/mailer");
 const { positiveInt, text, isEmail, isPhone, badRequest, notFound, HttpError, PROVINCES } = require("../lib/validate");
 const { helpers } = require("./admin/livestock");
+const { subscribe, unreadCount } = require("../services/notifications");
 
 const router = express.Router();
 const DUMMY_HASH = bcrypt.hashSync("frontier-seller-timing-guard", 12);
@@ -82,8 +83,8 @@ function profilePayload(body) {
   if (!name) errors.name = name === undefined ? "Name must be 120 characters or fewer." : "Your name is required.";
   else if (name.length < 2) errors.name = "Please enter your full name.";
   if (businessName === undefined) errors.business_name = "Farm or business name must be 150 characters or fewer.";
-  if (!phone) errors.phone = "Phone number is required.";
-  else if (!isPhone(phone)) errors.phone = "Please enter a valid phone number, e.g. 0977 123 456.";
+  if (!phone) errors.phone = "WhatsApp number is required.";
+  else if (!isPhone(phone)) errors.phone = "Please enter a valid WhatsApp number, e.g. 0977 123 456.";
   if (!email || !isEmail(email)) errors.email = "Please enter a valid email address.";
   if (!province) errors.province = "Please choose your province.";
   else if (!PROVINCES.includes(province)) errors.province = "Please choose one of Zambia's 10 provinces.";
@@ -565,6 +566,42 @@ router.post("/messages/:id/reply", requireSeller, async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+router.get("/notifications", requireSeller, async (req, res, next) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, type, title, body, link, read_at, created_at FROM seller_notifications
+       WHERE seller_id = ? ORDER BY created_at DESC, id DESC LIMIT 30`,
+      [req.seller.id],
+    );
+    res.json({ success: true, data: rows, unread: await unreadCount(req.seller.id) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/notifications/read", requireSeller, async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids.map((v) => positiveInt(v)).filter(Boolean).slice(0, 100) : null;
+    if (ids && ids.length) {
+      await pool.query("UPDATE seller_notifications SET read_at = NOW() WHERE seller_id = ? AND read_at IS NULL AND id IN (?)", [req.seller.id, ids]);
+    } else {
+      await pool.query("UPDATE seller_notifications SET read_at = NOW() WHERE seller_id = ? AND read_at IS NULL", [req.seller.id]);
+    }
+    res.json({ success: true, unread: await unreadCount(req.seller.id) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Live updates for an open dashboard (Server-Sent Events).
+router.get("/notifications/stream", requireSeller, (req, res) => {
+  subscribe(req.seller.id, req, res);
 });
 
 module.exports = router;

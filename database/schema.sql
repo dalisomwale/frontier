@@ -232,3 +232,19 @@ CREATE TABLE IF NOT EXISTS seller_sessions (
   data        MEDIUMTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
   PRIMARY KEY (session_id)
 ) ENGINE=InnoDB;
+
+-- seller_notifications: in-app notices for seller accounts (account
+-- approved, listing approved or sent back, new message from Frontier).
+CREATE TABLE IF NOT EXISTS seller_notifications (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  seller_id   INT UNSIGNED NOT NULL,
+  type        VARCHAR(40) NOT NULL,
+  title       VARCHAR(200) NOT NULL,
+  body        VARCHAR(1000) NULL,
+  link        VARCHAR(255) NULL,
+  read_at     DATETIME NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_seller_notifications_seller FOREIGN KEY (seller_id)
+    REFERENCES sellers(id) ON DELETE CASCADE,
+  INDEX idx_seller_notifications (seller_id, read_at, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -222,7 +222,7 @@
         const live = item.status === "published";
 
         const body = `
-          ${id ? `<div class="alert alert-info text-sm mb-0">${live ? "Saving changes takes this listing off the website until our team approves it again." : "Saving sends this listing to our team for review."}</div>` : `<div class="alert alert-info text-sm mb-0">Our team checks every listing before it goes live. You'll get an email when it's approved.</div>`}
+          ${id ? `<div class="alert alert-info text-sm mb-0">${live ? "Saving changes takes this listing off the website until our team approves it again." : "Saving sends this listing to our team for review."}</div>` : ""}
           ${field({ name: "title", label: "Title", value: item.title, required: true, placeholder: "e.g. 10 Boran heifers, in calf", attrs: 'maxlength="200"' })}
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             ${field({ name: "animal_id", label: "Category", value: animalId, required: true, options: animalOptions() })}
@@ -418,7 +418,7 @@
           ${field({ name: "name", label: "Full name", value: seller.name, required: true, attrs: 'maxlength="120" autocomplete="name"' })}
           ${field({ name: "business_name", label: "Farm or business name", value: seller.business_name, attrs: 'maxlength="150" autocomplete="organization"' })}
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            ${field({ name: "phone", label: "Phone / WhatsApp", type: "tel", value: seller.phone, required: true, attrs: 'maxlength="30" autocomplete="tel"' })}
+            ${field({ name: "phone", label: "WhatsApp Number", type: "tel", value: seller.phone, required: true, attrs: 'maxlength="30" autocomplete="tel"' })}
             ${field({ name: "email", label: "Email", type: "email", value: seller.email, required: true, attrs: 'maxlength="255" autocomplete="email"' })}
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -452,8 +452,8 @@
           seller = res.data;
           showFieldErrors(form, {});
           showNotification("Details saved.", "success");
-          document.getElementById("seller-header").innerHTML = sellerPageHeader(seller);
-          bindHeader();
+          const nameEl = document.getElementById("header-seller-name");
+          if (nameEl) nameEl.textContent = seller.business_name || seller.name;
         } catch (error) {
           showFieldErrors(form, error);
           alertBox.className = "alert alert-error text-sm mb-0";
@@ -477,6 +477,18 @@
         }
       });
 
+      async function refreshAfterNotice(notice) {
+        try {
+          if (notice.type === "account") {
+            seller = (await sellerApi("/api/seller/auth/me")).data;
+            renderBanner();
+          }
+          await Promise.all([loadSummary(), loadListings()]);
+          if (notice.type === "message" && !document.getElementById("tab-messages").hidden) await loadMessages();
+        } catch {
+        }
+      }
+
       function bindHeader() {
         document.querySelectorAll("[data-seller-logout]").forEach((b) => b.addEventListener("click", sellerLogout));
       }
@@ -488,6 +500,8 @@
         setSellerHint(true);
         document.getElementById("seller-header").innerHTML = sellerPageHeader(seller);
         bindHeader();
+        initSellerNotifications({ onNotification: refreshAfterNotice });
+        window.addEventListener("seller:navigate", (e) => setTab(e.detail.tab === "messages" || e.detail.tab === "profile" ? e.detail.tab : "listings"));
         document.getElementById("welcome-line").textContent = `Welcome, ${seller.name}`;
         document.getElementById("seller-main").hidden = false;
         renderBanner();

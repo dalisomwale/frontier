@@ -119,23 +119,24 @@
         </select>`;
       }
 
-      function reviewHtml(l) {
-        if (l.review_status === "pending") {
-          return `<div class="flex flex-col items-start gap-1.5">
-            <span class="status-pill st-pending" title="Submitted ${l.submitted_at ? formatDate(l.submitted_at) : ""}">In review</span>
-            <div class="flex gap-1.5">
-              <button type="button" data-review="approve" data-id="${l.id}" data-title="${escapeHtml(l.title)}" class="text-xs font-semibold px-2 py-1 rounded-md bg-green-600 text-white hover:bg-green-700">Approve</button>
-              <button type="button" data-review="reject" data-id="${l.id}" data-title="${escapeHtml(l.title)}" class="text-xs font-semibold px-2 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Request changes</button>
-            </div>
-          </div>`;
-        }
-        if (l.review_status === "rejected") {
-          return `<div class="flex flex-col items-start gap-1.5">
-            <span class="status-pill st-rejected" title="${escapeHtml(l.review_note || "")}">Changes requested</span>
-            <span class="text-xs text-gray-500">Waiting for the seller</span>
-          </div>`;
-        }
-        return pillSelect("status", l, STATUS_OPTIONS, l.status);
+      function listingState(l) {
+        if (l.review_status === "pending") return "review";
+        if (l.review_status === "rejected") return "changes";
+        return l.status;
+      }
+
+      function stateSelect(l) {
+        const current = listingState(l);
+        const options = [
+          ...(current === "review" ? [{ value: "review", label: "In review" }] : []),
+          { value: "published", label: "Published" },
+          { value: "unpublished", label: "Unpublished" },
+          ...(l.seller_id ? [{ value: "changes", label: "Changes requested" }] : []),
+        ];
+        const tip = current === "changes" && l.review_note ? ` title="${escapeHtml(l.review_note)}"` : current === "review" && l.submitted_at ? ` title="Submitted ${formatDate(l.submitted_at)}"` : "";
+        return `<select class="pill-select" data-kind="state" data-id="${l.id}" data-title="${escapeHtml(l.title)}" data-value="${current}" aria-label="Listing status"${tip}>
+          ${options.map((o) => `<option value="${o.value}" ${o.value === current ? "selected" : ""}>${o.label}</option>`).join("")}
+        </select>`;
       }
 
       function actionsHtml(l) {
@@ -170,7 +171,7 @@
             <td class="hidden xl:table-cell text-gray-600">${escapeHtml(l.location)}</td>
             <td class="hidden sm:table-cell text-center">${l.inquiry_count ? `<a class="text-blue-600 font-semibold hover:underline" href="/admin/inquiries.html?q=${encodeURIComponent(l.title)}">${l.inquiry_count}</a>` : `<span class="text-gray-400">0</span>`}</td>
             <td class="hidden md:table-cell whitespace-nowrap">${l.status === "published" && l.published_at ? `<span class="text-gray-700">${formatDateShort(l.published_at)}</span>` : `<span class="text-xs text-gray-400">Not published</span>`}</td>
-            <td>${reviewHtml(l)}</td>
+            <td>${stateSelect(l)}</td>
             <td class="hidden sm:table-cell">${pillSelect("verification", l, VERIFICATION_OPTIONS, l.verification || "unverified")}</td>
             <td class="text-right whitespace-nowrap hidden sm:table-cell">${actionsHtml(l)}</td>
           </tr>`;
@@ -178,12 +179,20 @@
 
       function bindRowActions(root) {
         root.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openEditor(b.dataset.edit)));
-        root.querySelectorAll("[data-review]").forEach((b) => b.addEventListener("click", () => reviewListing(b.dataset.id, b.dataset.review, b.dataset.title)));
-        root.querySelectorAll(".pill-select").forEach((sel) =>
+        root.querySelectorAll('.pill-select[data-kind="state"]').forEach((sel) => sel.addEventListener("change", async () => {
+          const current = sel.dataset.value;
+          const value = sel.value;
+          let done = false;
+          if (value === "changes") done = await reviewListing(sel.dataset.id, "reject", sel.dataset.title);
+          else if (value === "published" && (current === "review" || current === "changes")) done = await reviewListing(sel.dataset.id, "approve", sel.dataset.title);
+          else done = await setStatus(sel, value);
+          if (!done) sel.value = current;
+        }));
+        root.querySelectorAll('.pill-select[data-kind="verification"]').forEach((sel) =>
           sel.addEventListener("change", async () => {
             const value = sel.value;
             const title = sel.dataset.title;
-            const isStatus = sel.dataset.kind === "status";
+            const isStatus = false;
             const confirm = isStatus
               ? value === "published"
                 ? { title: "Publish this listing?", message: `"${title}" will be visible on the website.`, confirmText: "Publish" }
@@ -232,6 +241,26 @@
         );
       }
 
+      async function setStatus(sel, value) {
+        const title = sel.dataset.title;
+        const fromReview = sel.dataset.value === "review" || sel.dataset.value === "changes";
+        const ok = await confirmAction(value === "published"
+          ? { title: "Publish this listing?", message: `"${title}" will be visible on the website.`, confirmText: "Publish" }
+          : { title: fromReview ? "Keep this listing unpublished?" : "Unpublish this listing?", message: fromReview ? `"${title}" will leave the review queue and stay hidden from the website.` : `"${title}" will be hidden from the website.`, confirmText: "Unpublish", variant: "danger" });
+        if (!ok) return false;
+        sel.disabled = true;
+        try {
+          await adminApi(`/api/admin/livestock/${sel.dataset.id}/status`, { method: "PATCH", body: { status: value } });
+          showNotification(value === "published" ? "Listing published - it's now live on the website." : "Listing unpublished - it's hidden from the website.", "success");
+          loadList();
+          return true;
+        } catch (error) {
+          showNotification(error.message, "error");
+          sel.disabled = false;
+          return false;
+        }
+      }
+
       async function reviewListing(id, action, title, after) {
         const done = (res) => {
           showNotification(`${action === "approve" ? "Approved and published" : "Changes requested"}.${res.emailed ? " The seller has been emailed." : ""}`, "success");
@@ -240,17 +269,20 @@
         };
         if (action === "approve") {
           const ok = await confirmAction({ title: "Approve this listing?", message: `"${title}" will be marked verified and published on the website.`, confirmText: "Approve and publish" });
-          if (!ok) return;
+          if (!ok) return false;
           try {
             done(await adminApi(`/api/admin/livestock/${id}/review`, { method: "POST", body: { action } }));
-          } catch (error) { showNotification(error.message, "error"); }
-          return;
+            return true;
+          } catch (error) {
+            showNotification(error.message, "error");
+            return false;
+          }
         }
         openFormModal({
           title: "Request changes",
           submitText: "Send to seller",
           body: `
-            <p class="text-sm text-gray-600">"${escapeHtml(title)}" stays hidden. The seller sees your note in their dashboard and by email.</p>
+            <p class="text-sm text-gray-600">"${escapeHtml(title)}" is hidden from the website until the seller updates it. They see your note in their dashboard and by email.</p>
             ${field({ name: "note", label: "What needs to change?", type: "textarea", rows: 4, required: true, placeholder: "e.g. Please add a clear photo of the animals and the age.", attrs: 'maxlength="500"' })}`,
           async onSubmit(form) {
             const note = formValues(form).note.trim();
@@ -262,6 +294,7 @@
             done(await adminApi(`/api/admin/livestock/${id}/review`, { method: "POST", body: { action, note } }));
           },
         });
+        return false;
       }
 
       const label = (row) => row.name + (row.status === "disabled" ? " (disabled)" : "");
