@@ -485,14 +485,26 @@ router.post("/listings/:id/resubmit", requireSeller, requireApproved, async (req
 const MESSAGE_FIELDS = `i.id, i.livestock_id, i.livestock_title, i.forwarded_at, i.forward_message,
   i.seller_reply, i.seller_replied_at, i.seller_seen_at`;
 
+async function withThreads(rows) {
+  if (!rows.length) return rows;
+  const [messages] = await pool.query(
+    `SELECT id, inquiry_id, sender, body, created_at FROM inquiry_messages
+     WHERE inquiry_id IN (?) AND (to_seller = 1 OR sender = 'seller') ORDER BY created_at, id`,
+    [rows.map((r) => r.id)],
+  );
+  return rows.map((r) => ({ ...r, messages: messages.filter((m) => m.inquiry_id === r.id).map(({ inquiry_id, ...m }) => m) }));
+}
+
 router.get("/messages", requireSeller, async (req, res, next) => {
   try {
     const [rows] = await pool.query(
       `SELECT ${MESSAGE_FIELDS} FROM inquiries i
-       WHERE i.seller_id = ? AND i.forwarded_at IS NOT NULL ORDER BY i.forwarded_at DESC, i.id DESC LIMIT 200`,
+       WHERE i.seller_id = ? AND i.forwarded_at IS NOT NULL
+       ORDER BY GREATEST(COALESCE((SELECT MAX(m.created_at) FROM inquiry_messages m WHERE m.inquiry_id = i.id), i.forwarded_at), i.forwarded_at) DESC, i.id DESC
+       LIMIT 200`,
       [req.seller.id],
     );
-    res.json({ success: true, data: rows });
+    res.json({ success: true, data: await withThreads(rows) });
   } catch (error) {
     next(error);
   }
@@ -511,7 +523,7 @@ router.post("/messages/:id/seen", requireSeller, async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
     await ownMessage(id, req.seller.id);
-    await pool.query("UPDATE inquiries SET seller_seen_at = COALESCE(seller_seen_at, NOW()) WHERE id = ?", [id]);
+    await pool.query("UPDATE inquiries SET seller_seen_at = NOW() WHERE id = ?", [id]);
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -524,6 +536,7 @@ router.post("/messages/:id/reply", requireSeller, async (req, res, next) => {
     const message = await ownMessage(id, req.seller.id);
     const reply = text(req.body.reply, 2000);
     if (!reply) throw badRequest(reply === undefined ? "Your reply must be 2000 characters or fewer." : "Please write a reply.");
+    await pool.query("INSERT INTO inquiry_messages (inquiry_id, sender, body) VALUES (?, 'seller', ?)", [id, reply]);
     await pool.query(
       `UPDATE inquiries SET seller_reply = ?, seller_replied_at = NOW(), seller_seen_at = COALESCE(seller_seen_at, NOW())
        WHERE id = ?`,
@@ -531,12 +544,12 @@ router.post("/messages/:id/reply", requireSeller, async (req, res, next) => {
     );
     notifyAdmins(
       `Seller replied: ${message.livestock_title}`,
-      "A seller replied to a forwarded inquiry",
+      "A seller replied",
       [`${sellerLabel(req.seller)} replied about "${message.livestock_title}":`, reply],
       [["Seller phone", req.seller.phone]],
       `/admin/inquiries.html?id=${id}`,
     );
-    res.json({ success: true, data: await ownMessage(id, req.seller.id) });
+    res.json({ success: true, data: (await withThreads([await ownMessage(id, req.seller.id)]))[0] });
   } catch (error) {
     next(error);
   }

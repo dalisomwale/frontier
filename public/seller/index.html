@@ -353,25 +353,27 @@
       }
 
       function messageCard(m) {
+        const thread = (m.messages || []).map((x) => x.sender === "seller"
+          ? `<div class="chat-row chat-right"><div class="chat-bubble chat-admin"><p class="chat-who">You</p><p class="chat-text">${escapeHtml(x.body)}</p><p class="chat-time">${formatDate(x.created_at)}</p></div></div>`
+          : `<div class="chat-row"><div class="chat-bubble chat-customer"><p class="chat-who">Frontier</p><p class="chat-text">${escapeHtml(x.body)}</p><p class="chat-time">${formatDate(x.created_at)}</p></div></div>`).join("");
         return `
-          <article class="bg-white rounded-xl border ${m.seller_seen_at ? "border-gray-100" : "border-blue-200"} shadow-sm p-4">
-            <div class="flex flex-wrap items-start justify-between gap-2">
+          <article class="bg-white rounded-xl border ${m.seller_seen_at ? "border-gray-100" : "border-blue-200"} shadow-sm overflow-hidden">
+            <div class="flex flex-wrap items-start justify-between gap-2 px-4 pt-4 pb-3">
               <div>
                 <p class="text-xs text-gray-500">About</p>
                 <h3 class="font-semibold text-gray-900">${m.livestock_id ? `<a href="/listing.html?id=${m.livestock_id}" target="_blank" class="hover:underline">${escapeHtml(m.livestock_title)}</a>` : escapeHtml(m.livestock_title)}</h3>
               </div>
-              <span class="text-xs text-gray-500">${formatDate(m.forwarded_at)}</span>
+              ${m.seller_seen_at ? "" : `<span class="status-pill st-new">New</span>`}
             </div>
-            <div class="mt-3 text-sm rounded-lg bg-gray-50 px-3 py-2 whitespace-pre-wrap"><strong class="block text-xs text-gray-500 mb-1">Frontier</strong>${escapeHtml(m.forward_message)}</div>
-            ${m.seller_reply ? `
-              <div class="mt-2 text-sm rounded-lg bg-blue-50 px-3 py-2 whitespace-pre-wrap"><strong class="block text-xs text-gray-500 mb-1">Your reply · ${formatDate(m.seller_replied_at)}</strong>${escapeHtml(m.seller_reply)}</div>` : ""}
-            <form data-reply="${m.id}" class="mt-3 space-y-2" novalidate>
+            <div class="flex flex-col gap-2 px-4 py-3 bg-gray-50 border-y border-gray-100">${thread}</div>
+            <form data-reply="${m.id}" class="p-4 flex flex-col sm:flex-row gap-2 sm:items-end" novalidate>
               <label class="sr-only" for="reply-${m.id}">Reply</label>
-              <textarea id="reply-${m.id}" name="reply" rows="2" maxlength="2000" class="field-input" placeholder="${m.seller_reply ? "Change your reply" : "Reply to Frontier"}"></textarea>
-              <button type="submit" class="seller-action">Send reply</button>
+              <textarea id="reply-${m.id}" name="reply" rows="2" maxlength="2000" class="chat-input flex-1" placeholder="Reply to Frontier"></textarea>
+              <button type="submit" class="chat-send-btn self-end h-10">Send</button>
             </form>
           </article>`;
       }
+
 
       async function loadMessages() {
         const box = document.getElementById("tab-messages");
@@ -400,6 +402,7 @@
         const unread = messages.filter((m) => !m.seller_seen_at);
         if (unread.length && !document.getElementById("tab-messages").hidden) {
           await Promise.all(unread.map((m) => sellerApi(`/api/seller/messages/${m.id}/seen`, { method: "POST" }).catch(() => {})));
+          box.querySelectorAll(".st-new").forEach((el) => el.remove());
           loadSummary();
         }
       }

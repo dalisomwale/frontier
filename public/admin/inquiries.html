@@ -82,23 +82,12 @@
 
       function listItem(i) {
         const unread = i.status === "new" && !i.is_archived;
-        const seller = i.seller_name ? escapeHtml(i.seller_current_name || i.seller_name) : "Frontier's stock";
-        const thread = i.seller_replied_at ? `<span class="text-green-700 font-semibold">Seller replied</span>` : i.forwarded_at ? "Sent to seller" : "";
         return `
           <button type="button" class="inbox-item ${unread ? "is-unread" : ""} ${String(state.selected) === String(i.id) ? "is-active" : ""}" data-open="${i.id}">
             <span class="inbox-avatar">${initials(i.full_name)}</span>
-            <span class="min-w-0 flex-1">
-              <span class="flex items-baseline justify-between gap-2">
-                <span class="inbox-name truncate">${escapeHtml(i.full_name)}</span>
-                <span class="text-xs text-gray-400 flex-shrink-0">${shortTime(i.created_at)}</span>
-              </span>
-              <span class="block text-xs text-blue-700 truncate">${escapeHtml(i.livestock_title)}</span>
-              <span class="block text-sm text-gray-600 truncate">${escapeHtml(i.message)}</span>
-              <span class="flex items-center gap-2 mt-1 text-xs text-gray-500 min-w-0">
-                ${statusPill(i.status, statusLabel(i.status))}
-                ${i.email_status === "failed" ? `<span class="status-pill st-failed">Email failed</span>` : ""}
-                <span class="truncate">${thread || seller}</span>
-              </span>
+            <span class="min-w-0 flex-1 self-center">
+              <span class="inbox-name block truncate">${escapeHtml(i.full_name)}</span>
+              <span class="block text-xs text-gray-500 mt-0.5">${formatDate(i.created_at)}</span>
             </span>
             ${unread ? `<span class="inbox-unread-dot" aria-label="New"></span>` : ""}
           </button>`;
@@ -160,10 +149,6 @@
         placeholder();
       }
 
-      function defaultForwardMessage(i) {
-        return `A buyer is interested in your listing "${i.livestock_title}".\n\nTheir message:\n"${i.message}"\n\nIs it still available? Please reply with any details we should share with the buyer.`;
-      }
-
       function bubble({ side, tone, who, text, time, foot = "" }) {
         return `
           <div class="chat-row ${side === "right" ? "chat-right" : ""}">
@@ -189,36 +174,34 @@
         const iconLink = (href, icon, label, tone, extra = "") =>
           `<a href="${href}" ${extra} class="chat-icon-btn" title="${label}" aria-label="${label}"><span class="w-[18px] h-[18px] block ${tone}">${uiIcon(icon)}</span></a>`;
 
+        const seenAt = i.seller_seen_at ? new Date(i.seller_seen_at) : null;
+        const adminFoot = (m) => [
+          m.to_customer ? (m.customer_emailed ? "Emailed to customer" : "Customer email not sent") : "",
+          m.to_seller ? (hasAccount ? (seenAt && seenAt >= new Date(m.created_at) ? "Seen by seller" : "Sent to seller") : m.seller_emailed ? "Emailed to seller" : "Seller email not sent") : "",
+        ].filter(Boolean).join(" · ");
         const timeline = [
           `<div class="chat-day">${formatDate(i.created_at)}</div>`,
           bubble({ side: "left", tone: "customer", who: `${escapeHtml(i.full_name)} <span class="font-normal text-gray-500">via the website</span>`, text: i.message, time: shortTime(i.created_at) }),
           i.email_status === "failed"
             ? `<div class="chat-note chat-note-warn">Notification email failed${i.email_error ? `: ${escapeHtml(i.email_error)}` : ""} <button type="button" data-resend class="font-semibold underline ml-1">Resend</button></div>`
-            : i.email_status === "sent" ? `<div class="chat-note">Emailed to the team</div>` : "",
-          i.forwarded_at ? bubble({ side: "right", tone: "admin", who: `Frontier to ${escapeHtml(sellerName || "seller")}`, text: i.forward_message, time: shortTime(i.forwarded_at),
-            foot: i.seller_seen_at ? "Seen" : hasAccount ? "Not seen yet" : "Sent by email" }) : "",
-          i.seller_reply ? bubble({ side: "left", tone: "seller", who: `${escapeHtml(sellerName || "Seller")} <span class="font-normal text-gray-500">seller</span>`, text: i.seller_reply, time: shortTime(i.seller_replied_at) }) : "",
+            : "",
+          ...(i.messages || []).map((m) => m.sender === "admin"
+            ? bubble({ side: "right", tone: "admin", who: `Frontier to the customer${m.to_seller ? ` and ${escapeHtml(sellerName || "the seller")}` : ""}`, text: m.body, time: shortTime(m.created_at), foot: adminFoot(m) })
+            : bubble({ side: "left", tone: "seller", who: `${escapeHtml(sellerName || "Seller")} <span class="font-normal text-gray-500">seller</span>`, text: m.body, time: shortTime(m.created_at) })),
         ].join("");
 
-        const composer = hasSeller ? `
+        const sendsTo = canSend
+          ? `Sends to ${escapeHtml(i.full_name)} by email and to ${escapeHtml(sellerName)}${hasAccount ? " in their dashboard" : ""}${hasAccount && i.seller_email ? " and" : ""}${i.seller_email ? " by email" : ""}. The seller doesn't see the customer's contact details.`
+          : hasSeller
+            ? `Sends to ${escapeHtml(i.full_name)} by email. ${escapeHtml(sellerName)} has no account or email, so contact them on WhatsApp or by phone.`
+            : `Sends to ${escapeHtml(i.full_name)} by email.`;
+        const composer = `
           <div class="chat-composer">
-            <p class="text-xs text-gray-500 mb-1.5">Message ${escapeHtml(sellerName)}. The customer's name, phone and email are not shared, so check the text doesn't include them.</p>
-            <textarea id="forward-message" rows="3" maxlength="3000" class="chat-input" placeholder="Write a message to the seller">${escapeHtml(i.forwarded_at ? "" : defaultForwardMessage(i))}</textarea>
+            <textarea id="reply-message" rows="2" maxlength="3000" class="chat-input" placeholder="Write a reply"></textarea>
             <div class="flex flex-wrap items-center gap-2 mt-2">
-              ${sellerPhone ? `<button type="button" data-forward-whatsapp class="chat-alt-btn"><span class="w-4 h-4 text-green-600">${uiIcon("inquire")}</span>WhatsApp</button>` : ""}
-              ${i.seller_email ? `<button type="button" data-forward-email class="chat-alt-btn"><span class="w-4 h-4 text-blue-600">${uiIcon("mail")}</span>Email app</button>` : ""}
-              ${sellerPhone ? `<a href="tel:${tel(sellerPhone)}" class="chat-alt-btn"><span class="w-4 h-4 text-blue-600">${uiIcon("phone")}</span>Call</a>` : ""}
-              ${canSend
-                ? `<button type="button" data-forward class="chat-send-btn ml-auto">${hasAccount ? "Send to seller" : "Send by email"}</button>`
-                : `<span class="ml-auto text-xs text-amber-700">No account or email: use WhatsApp or call.</span>`}
-            </div>
-          </div>` : `
-          <div class="chat-composer">
-            <p class="text-sm text-gray-600">${i.seller_name ? "The seller for this listing has been removed." : "This inquiry is for Frontier's stock."} Reply to the customer directly:</p>
-            <div class="flex flex-wrap gap-2 mt-2">
-              <a href="https://wa.me/${whatsappNumber(i.phone)}" target="_blank" rel="noopener" class="chat-alt-btn"><span class="w-4 h-4 text-green-600">${uiIcon("inquire")}</span>WhatsApp</a>
-              <a href="mailto:${escapeHtml(i.email)}?subject=${mailSubject}" class="chat-alt-btn"><span class="w-4 h-4 text-blue-600">${uiIcon("mail")}</span>Email</a>
-              <a href="tel:${tel(i.phone)}" class="chat-alt-btn"><span class="w-4 h-4 text-blue-600">${uiIcon("phone")}</span>Call</a>
+              <p class="text-xs text-gray-500 flex-1 min-w-[200px]">${sendsTo}</p>
+              ${hasSeller && sellerPhone ? `<a href="https://wa.me/${whatsappNumber(sellerPhone)}" target="_blank" rel="noopener" class="chat-alt-btn"><span class="w-4 h-4 text-green-600">${uiIcon("inquire")}</span>WhatsApp seller</a>` : ""}
+              <button type="button" data-reply class="chat-send-btn">Send reply</button>
             </div>
           </div>`;
 
@@ -362,18 +345,18 @@
           }
         });
 
-        const text = () => document.getElementById("forward-message")?.value.trim() || "";
-        chat.querySelector("[data-forward]")?.addEventListener("click", async (e) => {
+        const input = document.getElementById("reply-message");
+        chat.querySelector("[data-reply]").addEventListener("click", async (e) => {
           const btn = e.currentTarget;
-          const message = text();
-          if (!message) return showNotification("Please write a message for the seller.", "warning");
+          const message = input.value.trim();
+          if (!message) return input.focus();
           btn.disabled = true;
           try {
-            const res = await adminApi(`/api/admin/inquiries/${i.id}/forward`, { method: "POST", body: { message } });
-            showNotification(res.in_dashboard
-              ? `Sent to the seller${res.emailed ? " and emailed" : ""}.`
-              : res.emailed ? "Emailed to the seller." : "Saved, but the email could not be sent.", res.in_dashboard || res.emailed ? "success" : "warning");
-            refreshRow({ id: i.id, forwarded_at: new Date().toISOString(), status: i.status === "new" ? "in_progress" : i.status });
+            const res = await adminApi(`/api/admin/inquiries/${i.id}/reply`, { method: "POST", body: { message } });
+            const parts = [res.customer_emailed ? "emailed to the customer" : "customer email not sent"];
+            if (res.to_seller) parts.push(res.seller_in_dashboard ? "sent to the seller" : res.seller_emailed ? "emailed to the seller" : "seller email not sent");
+            showNotification(`Reply ${parts.join(", ")}.`, res.customer_emailed ? "success" : "warning");
+            refreshRow({ id: i.id, status: i.status === "resolved" ? "resolved" : "contacted" });
             loadCounts();
             openInquiry(i.id);
           } catch (error) {
@@ -381,14 +364,8 @@
             btn.disabled = false;
           }
         });
-        chat.querySelector("[data-forward-whatsapp]")?.addEventListener("click", () => {
-          window.open(`https://wa.me/${whatsappNumber(i.seller_phone)}?text=${encodeURIComponent(text())}`, "_blank", "noopener");
-        });
-        chat.querySelector("[data-forward-email]")?.addEventListener("click", () => {
-          window.location.href = `mailto:${i.seller_email}?subject=${encodeURIComponent(`Customer interest: ${i.livestock_title}`)}&body=${encodeURIComponent(text())}`;
-        });
-        document.getElementById("forward-message")?.addEventListener("keydown", (e) => {
-          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) chat.querySelector("[data-forward]")?.click();
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) chat.querySelector("[data-reply]").click();
         });
       }
 

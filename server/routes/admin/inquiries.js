@@ -79,7 +79,12 @@ router.get("/:id", async (req, res, next) => {
       [positiveInt(req.params.id)],
     );
     if (!rows.length) throw notFound("Inquiry not found.");
-    res.json({ success: true, data: rows[0] });
+    const [messages] = await pool.query(
+      `SELECT id, sender, body, to_customer, to_seller, customer_emailed, seller_emailed, created_at
+       FROM inquiry_messages WHERE inquiry_id = ? ORDER BY created_at, id`,
+      [rows[0].id],
+    );
+    res.json({ success: true, data: { ...rows[0], messages } });
   } catch (error) {
     next(error);
   }
@@ -109,46 +114,72 @@ router.patch("/:id", async (req, res, next) => {
   }
 });
 
-// Passes an inquiry on to the listing's seller: a message written by the
-// admin, without the customer's contact details. Sellers with an account see
-// it in their dashboard; anyone with an email address is also emailed.
-router.post("/:id/forward", async (req, res, next) => {
+// Frontier's reply in the conversation. It goes to the customer by email and,
+// when the listing has a seller, to the seller's dashboard and email. The
+// seller never receives the customer's name, phone or email. Replying marks
+// the inquiry as contacted.
+router.post("/:id/reply", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
     const message = text(req.body.message, 3000);
-    if (!message) throw badRequest(message === undefined ? "The message must be 3000 characters or fewer." : "Please write a message for the seller.");
+    if (!message) throw badRequest(message === undefined ? "The message must be 3000 characters or fewer." : "Please write a reply.");
     const [[row]] = await pool.query(
-      `SELECT i.id, i.livestock_title, i.seller_id, s.name, s.email, s.status,
+      `SELECT i.id, i.full_name, i.email AS customer_email, i.livestock_id, i.livestock_title, i.seller_id,
+         l.status AS livestock_status, s.name, s.email, s.status,
          s.password_hash IS NOT NULL AND s.account_status = 'approved' AS has_account
-       FROM inquiries i LEFT JOIN sellers s ON s.id = i.seller_id WHERE i.id = ?`,
+       FROM inquiries i LEFT JOIN sellers s ON s.id = i.seller_id
+       LEFT JOIN livestock l ON l.id = i.livestock_id WHERE i.id = ?`,
       [id],
     );
     if (!row) throw notFound("Inquiry not found.");
-    if (!row.seller_id || !row.name) throw badRequest("This inquiry is for Frontier's stock, so there is no seller to forward it to.");
-    const hasAccount = Boolean(row.has_account) && row.status === "active";
-    if (!hasAccount && !row.email) {
-      throw badRequest("This seller has no account or email address. Contact them on WhatsApp or by phone instead.");
+    const hasSeller = Boolean(row.seller_id && row.name);
+    const sellerAccount = hasSeller && Boolean(row.has_account) && row.status === "active";
+    const toSeller = hasSeller && (sellerAccount || Boolean(row.email));
+
+    const listingUrl = row.livestock_id && row.livestock_status === "published" ? appUrl(`/listing.html?id=${row.livestock_id}`) : null;
+    const customer = await sendEmail({
+      to: row.customer_email,
+      subject: `Re: your inquiry about ${row.livestock_title}`,
+      heading: "A reply to your inquiry",
+      paragraphs: [`Hi ${row.full_name},`, message, "Frontier Marketplace"],
+      rows: [["Listing", row.livestock_title]],
+      button: listingUrl ? { label: "View the listing", url: listingUrl } : null,
+    });
+    let seller = { sent: false };
+    if (toSeller && row.email) {
+      seller = await sendEmail({
+        to: row.email,
+        subject: `Message from Frontier: ${row.livestock_title}`,
+        heading: "A message about your livestock",
+        paragraphs: [`Hi ${row.name},`, `Frontier has a message for you about "${row.livestock_title}":`, message],
+        button: sellerAccount ? { label: "Reply in your dashboard", url: appUrl("/seller/?tab=messages") } : null,
+      });
     }
+
     await pool.query(
-      `UPDATE inquiries SET forwarded_at = NOW(), forward_message = ?, seller_seen_at = NULL,
-         status = IF(status = 'new', 'in_progress', status) WHERE id = ?`,
-      [message, id],
+      `INSERT INTO inquiry_messages (inquiry_id, sender, body, to_customer, to_seller, customer_emailed, seller_emailed)
+       VALUES (?, 'admin', ?, 1, ?, ?, ?)`,
+      [id, message, toSeller ? 1 : 0, customer.sent ? 1 : 0, seller.sent ? 1 : 0],
     );
-    if (hasAccount) {
+    await pool.query(
+      `UPDATE inquiries SET status = IF(status = 'resolved', status, 'contacted'),
+         forwarded_at = IF(?, COALESCE(forwarded_at, NOW()), forwarded_at),
+         forward_message = IF(?, ?, forward_message),
+         seller_seen_at = IF(?, NULL, seller_seen_at)
+       WHERE id = ?`,
+      [toSeller ? 1 : 0, toSeller ? 1 : 0, message, toSeller ? 1 : 0, id],
+    );
+    if (sellerAccount) {
       await notifySeller(row.seller_id, { type: "message", title: `New message about ${row.livestock_title}`, body: message, link: "/seller/?tab=messages" });
     }
-    let emailed = false;
-    if (row.email) {
-      const result = await sendEmail({
-        to: row.email,
-        subject: `Customer interest: ${row.livestock_title}`,
-        heading: "A customer is interested in your livestock",
-        paragraphs: [`Hi ${row.name},`, `Frontier has a message for you about "${row.livestock_title}":`, message],
-        button: hasAccount ? { label: "Reply in your dashboard", url: appUrl("/seller/?tab=messages") } : null,
-      });
-      emailed = result.sent;
-    }
-    res.json({ success: true, emailed, in_dashboard: hasAccount });
+    res.json({
+      success: true,
+      customer_emailed: customer.sent,
+      customer_error: customer.sent ? null : customer.error,
+      to_seller: toSeller,
+      seller_in_dashboard: sellerAccount,
+      seller_emailed: seller.sent,
+    });
   } catch (error) {
     next(error);
   }

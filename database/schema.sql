@@ -248,3 +248,21 @@ CREATE TABLE IF NOT EXISTS seller_notifications (
     REFERENCES sellers(id) ON DELETE CASCADE,
   INDEX idx_seller_notifications (seller_id, read_at, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- inquiry_messages: the conversation on an inquiry. Frontier's replies go to
+-- the customer by email and to the seller (dashboard and email); sellers
+-- reply to Frontier only. Sellers never see the customer's details.
+CREATE TABLE IF NOT EXISTS inquiry_messages (
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  inquiry_id       INT UNSIGNED NOT NULL,
+  sender           ENUM('admin', 'seller') NOT NULL,
+  body             TEXT NOT NULL,
+  to_customer      TINYINT(1) NOT NULL DEFAULT 0,
+  to_seller        TINYINT(1) NOT NULL DEFAULT 0,
+  customer_emailed TINYINT(1) NOT NULL DEFAULT 0,
+  seller_emailed   TINYINT(1) NOT NULL DEFAULT 0,
+  created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_inquiry_messages_inquiry FOREIGN KEY (inquiry_id)
+    REFERENCES inquiries(id) ON DELETE CASCADE,
+  INDEX idx_inquiry_messages (inquiry_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

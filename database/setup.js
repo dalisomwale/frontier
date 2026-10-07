@@ -248,6 +248,19 @@ async function main() {
     ["seller_replied_at", "DATETIME NULL AFTER seller_reply"],
     ["seller_seen_at", "DATETIME NULL AFTER seller_replied_at"],
   ], "inquiries can now be forwarded to sellers");
+  // Messages sent before conversations existed become the first entries.
+  const [[{ threads }]] = await conn.query("SELECT COUNT(*) AS threads FROM inquiry_messages");
+  if (!Number(threads)) {
+    const [moved] = await conn.query(
+      `INSERT INTO inquiry_messages (inquiry_id, sender, body, to_seller, created_at)
+       SELECT id, 'admin', forward_message, 1, forwarded_at FROM inquiries WHERE forward_message IS NOT NULL`,
+    );
+    await conn.query(
+      `INSERT INTO inquiry_messages (inquiry_id, sender, body, created_at)
+       SELECT id, 'seller', seller_reply, seller_replied_at FROM inquiries WHERE seller_reply IS NOT NULL`,
+    );
+    if (moved.affectedRows) console.log("  earlier seller messages moved into conversations");
+  }
   for (const [index, column] of [["idx_sellers_email", "email"], ["idx_sellers_account", "account_status"]]) {
     const [found] = await conn.query(
       "SELECT 1 FROM information_schema.statistics WHERE table_schema = ? AND table_name = 'sellers' AND index_name = ?",
