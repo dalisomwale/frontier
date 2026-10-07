@@ -2706,3 +2706,50 @@ body.admin-pending main {
     justify-content: flex-end;
   }
 }
+
+.chat-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.chat-composer-row .chat-input {
+  flex: 1;
+  min-height: 42px;
+  max-height: 140px;
+  resize: none;
+  border-radius: 21px;
+  padding: 10px 16px;
+  line-height: 1.4;
+}
+
+.chat-composer-row .chat-send-btn {
+  height: 42px;
+  flex-shrink: 0;
+}
+
+.chat-admin {
+  background: #3d5a80;
+}
+
+.chat-admin .chat-who,
+.chat-admin .chat-who span {
+  color: #dbe4ef;
+}
+
+.chat-admin .chat-time {
+  color: #b9c7d8;
+}
+
+.chat-send-btn {
+  background: #3d5a80;
+}
+
+.chat-send-btn:hover {
+  background: #2f4866;
+}
+
+.chat-switch button.active {
+  background: #3d5a80;
+  border-color: #3d5a80;
+}

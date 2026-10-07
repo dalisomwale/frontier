@@ -171,8 +171,6 @@
         const listingLink = i.livestock_id && i.livestock_status === "published"
           ? `<a href="/listing.html?id=${i.livestock_id}" target="_blank" rel="noopener" class="hover:underline">${escapeHtml(i.livestock_title)}</a>`
           : `${escapeHtml(i.livestock_title)} <span class="text-gray-400 font-normal">${i.livestock_id ? "(unpublished)" : "(listing deleted)"}</span>`;
-        const iconLink = (href, icon, label, tone, extra = "") =>
-          `<a href="${href}" ${extra} class="chat-icon-btn" title="${label}" aria-label="${label}"><span class="w-[18px] h-[18px] block ${tone}">${uiIcon(icon)}</span></a>`;
         const messages = i.messages || [];
         const seenAt = i.seller_seen_at ? new Date(i.seller_seen_at) : null;
 
@@ -203,19 +201,11 @@
                 <p class="font-semibold text-gray-900 truncate">${escapeHtml(i.full_name)}</p>
                 <p class="text-xs text-gray-500 truncate">${escapeHtml(i.phone)} · ${escapeHtml(i.email)}</p>
               </div>
-              <div class="flex items-center flex-shrink-0">
-                ${iconLink(`tel:${tel(i.phone)}`, "phone", "Call customer", "text-blue-600")}
-                ${iconLink(`https://wa.me/${whatsappNumber(i.phone)}`, "inquire", "WhatsApp customer", "text-green-600", 'target="_blank" rel="noopener"')}
-                ${iconLink(`mailto:${escapeHtml(i.email)}?subject=${mailSubject}`, "mail", "Email customer", "text-blue-600")}
-              </div>
             </div>
             <div class="chat-body" data-body>${customerThread}</div>
-            <div class="chat-composer">
-              <textarea id="customer-message" rows="2" maxlength="3000" class="chat-input" placeholder="Reply to ${escapeHtml(i.full_name)}"></textarea>
-              <div class="flex items-center gap-2 mt-2">
-                <p class="text-xs text-gray-500 flex-1">Emailed to the customer.</p>
-                <button type="button" data-send-customer class="chat-send-btn">Send</button>
-              </div>
+            <div class="chat-composer chat-composer-row">
+              <textarea id="customer-message" rows="1" maxlength="3000" class="chat-input" placeholder="Reply to ${escapeHtml(i.full_name)}"></textarea>
+              <button type="button" data-send-customer class="chat-send-btn">Send</button>
             </div>
           </div>`;
 
@@ -228,20 +218,14 @@
                 <a href="/admin/sellers.html?id=${i.seller_id}" class="block font-semibold text-gray-900 truncate hover:text-blue-700">${escapeHtml(sellerName)}</a>
                 <p class="text-xs text-gray-500 truncate">${escapeHtml(sellerPhone)}${i.seller_email ? ` · ${escapeHtml(i.seller_email)}` : ""}</p>
               </div>
-              <div class="flex items-center flex-shrink-0">
-                ${sellerPhone ? iconLink(`tel:${tel(sellerPhone)}`, "phone", "Call seller", "text-blue-600") : ""}
-                ${sellerPhone ? iconLink(`https://wa.me/${whatsappNumber(sellerPhone)}`, "inquire", "WhatsApp seller", "text-green-600", 'target="_blank" rel="noopener"') : ""}
-                ${i.seller_email ? iconLink(`mailto:${escapeHtml(i.seller_email)}?subject=${encodeURIComponent(`About ${i.livestock_title}`)}`, "mail", "Email seller", "text-blue-600") : ""}
-              </div>
             </div>
             <div class="chat-body" data-body>${sellerThread}</div>
-            <div class="chat-composer">
-              <textarea id="seller-message" rows="2" maxlength="3000" class="chat-input" placeholder="Message ${escapeHtml(sellerName)}">${escapeHtml(sellerMessages.length ? "" : i.message)}</textarea>
-              <div class="flex items-center gap-2 mt-2">
-                <p class="text-xs text-gray-500 flex-1">${canSend ? `${hasAccount ? "Their dashboard" : ""}${hasAccount && i.seller_email ? " and email" : i.seller_email ? "Email" : ""}. Customer details are never shared.` : "No account or email: use WhatsApp or call."}</p>
-                ${canSend ? `<button type="button" data-send-seller class="chat-send-btn">Send</button>` : ""}
-              </div>
-            </div>
+            ${canSend ? `
+            <div class="chat-composer chat-composer-row">
+              <textarea id="seller-message" rows="1" maxlength="3000" class="chat-input" placeholder="Message ${escapeHtml(sellerName)}">${escapeHtml(sellerMessages.length ? "" : i.message)}</textarea>
+              <button type="button" data-send-seller class="chat-send-btn">Send</button>
+            </div>` : `
+            <div class="chat-composer"><p class="text-xs text-amber-700">This seller has no account or email. Contact them on WhatsApp or by phone: ${escapeHtml(sellerPhone)}</p></div>`}
           </div>` : `
           <div class="chat-col" data-col="seller">
             <div class="inbox-placeholder">
@@ -416,6 +400,12 @@
         [[customerInput, customerBtn], [sellerInput, sellerBtn]].forEach(([input, btn]) => input?.addEventListener("keydown", (e) => {
           if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) btn?.click();
         }));
+        [customerInput, sellerInput].forEach((input) => {
+          if (!input) return;
+          const grow = () => { input.style.height = "auto"; input.style.height = `${Math.min(input.scrollHeight + 2, 140)}px`; };
+          input.addEventListener("input", grow);
+          grow();
+        });
       }
 
       document.getElementById("tab-select").addEventListener("change", (e) => { state.tab = e.target.value; loadList(1); });
