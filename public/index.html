@@ -75,7 +75,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="mb-6">
             <button type="button" id="tiles-back" class="hidden mb-2 items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"><span class="w-4 h-4" data-icon="chevronLeft"></span>All animals</button>
-            <h2 id="categories-heading" class="text-xl sm:text-2xl font-bold text-gray-900">Browse by Animal</h2>
+            <h2 id="categories-heading" class="text-xl sm:text-2xl font-bold text-gray-900">Browse by Category</h2>
           </div>
           <div id="animal-tiles" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div>
         </div>
@@ -241,7 +241,7 @@
         const back = document.getElementById("tiles-back");
 
         if (!animalId) {
-          heading.textContent = "Browse by Animal";
+          heading.textContent = "Browse by Category";
           back.classList.add("hidden");
           back.classList.remove("inline-flex");
           if (!animals.length) {
