@@ -44,7 +44,7 @@ function openInquiryModal(listing) {
           </div>
           <div class="min-w-0">
             <p class="text-xs font-semibold uppercase tracking-wide text-blue-600">Inquiry About</p>
-            <h2 id="inquiry-title" class="text-base sm:text-lg font-bold text-gray-900 leading-snug line-clamp-2">${escapeHtml(listing.title)}</h2>
+            <h2 id="inquiry-title" class="text-base font-bold text-gray-900 leading-snug line-clamp-2">${escapeHtml(listing.title)}</h2>
             ${subtitle ? `<p class="text-xs text-gray-500 mt-0.5">${escapeHtml(subtitle)}</p>` : ""}
           </div>
         </div>
@@ -183,7 +183,7 @@ function openInquiryModal(listing) {
         <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
           <span class="w-8 h-8">${uiIcon("check")}</span>
         </div>
-        <h2 class="text-xl font-bold text-gray-900 mb-2">Your inquiry has been sent successfully.</h2>
+        <h2 class="text-lg font-bold text-gray-900 mb-2">Your inquiry has been sent successfully.</h2>
         <p class="text-sm text-gray-600 mb-6">We'll be in touch shortly.</p>
         <button type="button" data-close class="w-full sm:w-auto bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 font-semibold">Done</button>
       </div>`;

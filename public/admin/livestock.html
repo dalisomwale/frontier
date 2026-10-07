@@ -20,7 +20,7 @@
     <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 class="text-3xl font-bold text-gray-900">Manage Livestock</h1>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Manage Livestock</h1>
         </div>
         <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
           <span class="w-5 h-5" data-icon="plus"></span> Add Livestock
@@ -137,7 +137,7 @@
             <td class="hidden md:table-cell">${l.breed_name ? `<span class="text-gray-700">${escapeHtml(l.breed_name)}</span>` : `<span class="text-xs text-gray-400">Not specified</span>`}</td>
             <td class="hidden lg:table-cell">${l.seller_id
               ? `<a href="/admin/sellers.html?id=${l.seller_id}" class="text-blue-700 font-medium hover:underline" title="${escapeHtml(l.seller_name)}">${escapeHtml(l.seller_business_name || l.seller_name)}</a>`
-              : `<span class="text-xs text-gray-500">Frontier's stock</span>`}</td>
+              : `<span class="text-xs text-gray-500 whitespace-nowrap">Frontier's stock</span>`}</td>
             <td class="hidden xl:table-cell text-gray-600">${escapeHtml(l.location)}</td>
             <td class="hidden sm:table-cell text-center">${l.inquiry_count ? `<a class="text-blue-600 font-semibold hover:underline" href="/admin/inquiries.html?q=${encodeURIComponent(l.title)}">${l.inquiry_count}</a>` : `<span class="text-gray-400">0</span>`}</td>
             <td class="hidden md:table-cell whitespace-nowrap">${l.status === "published" && l.published_at ? `<span class="text-gray-700">${formatDateShort(l.published_at)}</span>` : `<span class="text-xs text-gray-400">Not published</span>`}</td>

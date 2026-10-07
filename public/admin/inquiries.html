@@ -19,7 +19,7 @@
 
     <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-900">Inquiries</h1>
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Inquiries</h1>
       </div>
 
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
@@ -176,7 +176,7 @@
             <div class="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100">
               <div>
                 <p class="text-xs font-semibold uppercase tracking-wide text-blue-600">Inquiry #${i.id}</p>
-                <h2 id="inq-title" class="text-xl font-bold text-gray-900">${escapeHtml(i.full_name)}</h2>
+                <h2 id="inq-title" class="text-lg font-bold text-gray-900">${escapeHtml(i.full_name)}</h2>
                 <p class="text-sm text-gray-500">${escapeHtml(formatDate(i.created_at))}</p>
               </div>
               <button type="button" data-close class="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100" aria-label="Close"><span class="w-5 h-5">${uiIcon("close")}</span></button>

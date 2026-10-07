@@ -20,7 +20,7 @@
     <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 class="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Dashboard Overview</h1>
           <p id="greeting" class="text-gray-500 mt-1"></p>
         </div>
       </div>
@@ -30,7 +30,7 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section class="bg-white rounded-xl border border-gray-100 shadow-sm">
           <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h2 class="text-lg font-bold text-gray-900">Recent Inquiries</h2>
+            <h2 class="text-base font-bold text-gray-900">Recent Inquiries</h2>
             <a href="/admin/inquiries.html" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
           </div>
           <div id="recent-inquiries"></div>
@@ -38,7 +38,7 @@
 
         <section class="bg-white rounded-xl border border-gray-100 shadow-sm">
           <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h2 class="text-lg font-bold text-gray-900">Recent Livestock</h2>
+            <h2 class="text-base font-bold text-gray-900">Recent Livestock</h2>
             <a href="/admin/livestock.html" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
           </div>
           <div id="recent-livestock"></div>
@@ -68,7 +68,7 @@
             <span class="stat-tile-icon ${t.tint}">${uiIcon(t.icon)}</span>
             <div class="min-w-0">
               <p class="text-gray-600 text-xs sm:text-sm font-medium leading-tight">${t.label}</p>
-              <p class="text-2xl sm:text-3xl font-bold ${t.key === "new_inquiries" && stats[t.key] ? "text-red-600" : "text-gray-900"}">${stats[t.key].toLocaleString()}</p>
+              <p class="text-xl sm:text-2xl font-bold ${t.key === "new_inquiries" && stats[t.key] ? "text-red-600" : "text-gray-900"}">${stats[t.key].toLocaleString()}</p>
             </div>
           </a>`).join("");
       }

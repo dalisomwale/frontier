@@ -60,7 +60,7 @@
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="max-w-4xl">
-            <h1 id="hero-heading" class="text-4xl md:text-6xl font-bold leading-tight text-balance">
+            <h1 id="hero-heading" class="text-3xl md:text-5xl font-bold leading-tight text-balance">
               Trade on Zambia's No.1 <span class="hero-accent">Livestock Marketplace</span>
             </h1>
           </div>
@@ -75,7 +75,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="mb-6">
             <button type="button" id="tiles-back" class="hidden mb-2 items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"><span class="w-4 h-4" data-icon="chevronLeft"></span>All animals</button>
-            <h2 id="categories-heading" class="text-3xl font-bold text-gray-900">Browse by Animal</h2>
+            <h2 id="categories-heading" class="text-xl sm:text-2xl font-bold text-gray-900">Browse by Animal</h2>
           </div>
           <div id="animal-tiles" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div>
         </div>
@@ -85,7 +85,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex flex-wrap items-end justify-between gap-2 mb-4">
             <div>
-              <h2 id="listings-heading" class="text-3xl font-bold text-gray-900">Livestock Listings</h2>
+              <h2 id="listings-heading" class="text-xl sm:text-2xl font-bold text-gray-900">Livestock Listings</h2>
             </div>
           </div>
 
@@ -193,7 +193,7 @@
             ${media}
             <div class="absolute inset-x-0 bottom-0 p-5">
               <div class="flex items-end justify-between gap-3">
-                <h3 class="text-2xl font-bold">${escapeHtml(name)}</h3>
+                <h3 class="text-xl font-bold">${escapeHtml(name)}</h3>
                 ${more ? `<span class="inline-flex items-center gap-1 text-sm font-semibold whitespace-nowrap pb-1 group-hover:translate-x-1 transition">See more <span class="w-4 h-4">${uiIcon("chevronRight")}</span></span>` : ""}
               </div>
               ${subtitle ? `<p class="text-sm text-blue-100 mt-1 line-clamp-2">${escapeHtml(subtitle)}</p>` : ""}
