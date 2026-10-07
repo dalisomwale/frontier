@@ -17,22 +17,24 @@
     <div id="app-sidebar"></div>
     <div id="admin-topbar"></div>
 
-    <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div class="mb-6">
-        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Inquiries</h1>
-      </div>
-
-      <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
-        <div class="flex flex-col lg:flex-row lg:items-center gap-3 p-4 border-b border-gray-100">
-          <div class="seg" id="tabs"></div>
-          <select id="seller-filter" class="field-input !py-2 !text-sm lg:!w-48 lg:ml-auto" aria-label="Filter by seller"><option value="">All sellers</option><option value="none">Frontier's stock</option></select>
-          <div class="relative lg:w-72">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
-            <input id="search" type="search" placeholder="Search name, phone, email, listing" class="field-input !py-2 !pl-9 !text-sm" />
+    <main class="app-content-shifted inbox-main">
+      <div class="inbox-shell" id="inbox">
+        <aside class="inbox-list-pane">
+          <div class="inbox-list-head">
+            <div class="flex items-center justify-between gap-2">
+              <h1 class="text-lg font-bold text-gray-900">Inquiries</h1>
+              <select id="tab-select" class="inbox-select" aria-label="Show inquiries"></select>
+            </div>
+            <div class="relative mt-3">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+              <input id="search" type="search" placeholder="Search name, phone, email, listing" class="field-input !py-2 !pl-9 !text-sm" />
+            </div>
+            <select id="seller-filter" class="field-input !py-2 !text-sm mt-2" aria-label="Filter by seller"><option value="">All sellers</option><option value="none">Frontier's stock</option></select>
           </div>
-        </div>
-        <div id="list" class="overflow-x-auto"></div>
-        <div id="pagination" class="pb-4"></div>
+          <div id="list" class="inbox-list"></div>
+        </aside>
+
+        <section class="inbox-chat-pane" id="chat" aria-live="polite"></section>
       </div>
     </main>
 
@@ -48,22 +50,68 @@
         { value: "resolved", label: "Resolved" },
       ];
       const TABS = [{ value: "", label: "All" }, ...STATUSES, { value: "archived", label: "Archived" }];
-      const state = { tab: "", q: "", seller: "", page: 1 };
+      const state = { tab: "", q: "", seller: "", page: 1, pages: 1, rows: [], selected: null };
       const statusLabel = (s) => STATUSES.find((x) => x.value === s)?.label || s;
+      const inbox = document.getElementById("inbox");
+      const chat = document.getElementById("chat");
+
+      function whatsappNumber(phone) {
+        let d = phone.replace(/\D/g, "");
+        if (phone.trim().startsWith("+")) return d;
+        if (d.startsWith("0")) d = "260" + d.slice(1);
+        return d;
+      }
+
+      const initials = (name) => escapeHtml(String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase());
+
+      function shortTime(value) {
+        const d = new Date(value);
+        const now = new Date();
+        if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+        if (now - d < 6 * 86400000) return d.toLocaleDateString("en-GB", { weekday: "short" });
+        return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+      }
 
       function renderTabs(summary = {}) {
         const total = STATUSES.reduce((n, s) => n + (summary[s.value] || 0), 0);
-        document.getElementById("tabs").innerHTML = TABS.map((t) => {
+        document.getElementById("tab-select").innerHTML = TABS.map((t) => {
           const count = t.value === "" ? total : summary[t.value];
-          return `<button type="button" data-tab="${t.value}" class="${t.value === state.tab ? "active" : ""}">${t.label}${count !== undefined ? `<span class="count">${count}</span>` : ""}</button>`;
+          return `<option value="${t.value}" ${t.value === state.tab ? "selected" : ""}>${t.label}${count !== undefined ? ` (${count})` : ""}</option>`;
         }).join("");
-        document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => { state.tab = b.dataset.tab; loadList(1); }));
       }
 
-      async function loadList(page = state.page) {
+      function listItem(i) {
+        const unread = i.status === "new" && !i.is_archived;
+        const seller = i.seller_name ? escapeHtml(i.seller_current_name || i.seller_name) : "Frontier's stock";
+        const thread = i.seller_replied_at ? `<span class="text-green-700 font-semibold">Seller replied</span>` : i.forwarded_at ? "Sent to seller" : "";
+        return `
+          <button type="button" class="inbox-item ${unread ? "is-unread" : ""} ${String(state.selected) === String(i.id) ? "is-active" : ""}" data-open="${i.id}">
+            <span class="inbox-avatar">${initials(i.full_name)}</span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-baseline justify-between gap-2">
+                <span class="inbox-name truncate">${escapeHtml(i.full_name)}</span>
+                <span class="text-xs text-gray-400 flex-shrink-0">${shortTime(i.created_at)}</span>
+              </span>
+              <span class="block text-xs text-blue-700 truncate">${escapeHtml(i.livestock_title)}</span>
+              <span class="block text-sm text-gray-600 truncate">${escapeHtml(i.message)}</span>
+              <span class="flex items-center gap-2 mt-1 text-xs text-gray-500 min-w-0">
+                ${statusPill(i.status, statusLabel(i.status))}
+                ${i.email_status === "failed" ? `<span class="status-pill st-failed">Email failed</span>` : ""}
+                <span class="truncate">${thread || seller}</span>
+              </span>
+            </span>
+            ${unread ? `<span class="inbox-unread-dot" aria-label="New"></span>` : ""}
+          </button>`;
+      }
+
+      function bindListItem(el) {
+        el.addEventListener("click", () => openInquiry(el.dataset.open));
+      }
+
+      async function loadList(page = 1, { append = false } = {}) {
         state.page = page;
         const list = document.getElementById("list");
-        const params = new URLSearchParams({ page, limit: 20 });
+        const params = new URLSearchParams({ page, limit: 30 });
         if (state.tab === "archived") params.set("archived", "1");
         else if (state.tab) params.set("status", state.tab);
         if (state.q) params.set("q", state.q);
@@ -77,221 +125,200 @@
         }
         renderTabs(res.summary);
         setNewInquiryBadge(res.summary.new);
+        state.pages = res.pagination.total;
+        state.rows = append ? [...state.rows, ...res.data] : res.data;
 
-        if (!res.data.length) {
-          renderEmptyState(list, state.q || state.tab || state.seller
+        if (!state.rows.length) {
+          return renderEmptyState(list, state.q || state.tab || state.seller
             ? { title: "No inquiries here", message: state.q ? "No inquiries match your search." : state.seller ? "No inquiries for this seller." : "No inquiries with this status.", icon: "inbox" }
-            : { title: "No inquiries yet", message: "When visitors click Inquire on a listing, their details will appear here and be emailed to the team.", icon: "inbox" });
-        } else {
-          list.innerHTML = `
-            <table class="admin-table">
-              <thead><tr>
-                <th>Customer</th><th class="hidden md:table-cell">Livestock</th><th class="hidden xl:table-cell">Message</th>
-                <th class="hidden sm:table-cell">Date</th><th>Status</th>
-              </tr></thead>
-              <tbody>${res.data.map((i) => `
-                <tr class="cursor-pointer ${i.status === "new" && !i.is_archived ? "font-semibold" : ""}" data-open="${i.id}">
-                  <td>
-                    <div class="min-w-[160px]">
-                      <p class="text-gray-900">${escapeHtml(i.full_name)}</p>
-                      <p class="text-xs text-gray-500 font-normal">${escapeHtml(i.phone)}<br>${escapeHtml(i.email)}</p>
-                      <p class="text-xs text-gray-500 font-normal md:hidden mt-0.5">${escapeHtml(i.livestock_title)}</p>
-                      ${i.seller_name ? `<p class="text-xs text-blue-700 font-normal md:hidden">Seller: ${escapeHtml(i.seller_current_name || i.seller_name)}</p>` : ""}
-                    </div>
-                  </td>
-                  <td class="hidden md:table-cell font-normal">
-                    <p class="text-gray-900 line-clamp-1">${escapeHtml(i.livestock_title)}</p>
-                    <p class="text-xs text-gray-500">${escapeHtml([i.animal_name, i.category_name, i.breed_name].filter(Boolean).join(", "))}</p>
-                    ${i.seller_name ? `<p class="text-xs text-blue-700 mt-0.5">Seller: ${escapeHtml(i.seller_current_name || i.seller_name)}</p>` : ""}
-                    ${i.seller_replied_at ? `<p class="text-xs font-semibold text-green-700 mt-0.5">Seller replied</p>` : i.forwarded_at ? `<p class="text-xs text-gray-500 mt-0.5">Forwarded to seller</p>` : ""}
-                  </td>
-                  <td class="hidden xl:table-cell font-normal text-gray-600 max-w-xs"><p class="line-clamp-2 text-sm">${escapeHtml(i.message)}</p></td>
-                  <td class="hidden sm:table-cell font-normal text-gray-500 text-sm whitespace-nowrap" title="${escapeHtml(formatDate(i.created_at))}">${timeAgo(i.created_at)}</td>
-                  <td class="whitespace-nowrap">
-                    ${statusPill(i.status, statusLabel(i.status))}
-                    ${i.email_status === "failed" ? `<span class="status-pill st-failed ml-1" title="Notification email failed">Email failed</span>` : ""}
-                  </td>
-                </tr>`).join("")}</tbody>
-            </table>`;
-          list.querySelectorAll("[data-open]").forEach((row) => row.addEventListener("click", () => openInquiry(row.dataset.open)));
+            : { title: "No inquiries yet", message: "When visitors contact a seller from a listing, their messages appear here.", icon: "inbox" });
         }
-        const pag = document.getElementById("pagination");
-        pag.innerHTML = "";
-        if (res.pagination.total > 1) pag.appendChild(createPagination(res.pagination.current, res.pagination.total, loadList));
+        list.innerHTML = state.rows.map(listItem).join("") +
+          (state.page < state.pages ? `<div class="p-3"><button type="button" id="load-more" class="w-full text-sm font-medium text-blue-700 py-2 rounded-lg hover:bg-blue-50">Load more</button></div>` : "");
+        list.querySelectorAll("[data-open]").forEach(bindListItem);
+        document.getElementById("load-more")?.addEventListener("click", () => loadList(state.page + 1, { append: true }));
       }
 
-      function whatsappNumber(phone) {
-        let d = phone.replace(/\D/g, "");
-        if (phone.trim().startsWith("+")) return d;
-        if (d.startsWith("0")) d = "260" + d.slice(1);
-        return d;
+      function markActive() {
+        document.querySelectorAll("#list [data-open]").forEach((b) => b.classList.toggle("is-active", b.dataset.open === String(state.selected)));
       }
 
-      function sellerPanel(i) {
-        if (!i.seller_name) {
-          return `<div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-            <span class="font-semibold text-gray-900">Seller:</span> Frontier's stock</div>`;
-        }
-        if (!i.seller_id) {
-          return `<div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-            <span class="font-semibold text-gray-900">Seller:</span> ${escapeHtml(i.seller_name)} <span class="text-gray-400">(seller since removed)</span></div>`;
-        }
-        const name = i.seller_current_name || i.seller_name;
-        const phone = i.seller_phone || "";
-        return `
-          <div class="rounded-lg border border-blue-100 bg-blue-50/60 p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div class="min-w-0">
-                <p class="text-xs font-semibold uppercase tracking-wide text-blue-700">Seller for this inquiry</p>
-                <a href="/admin/sellers.html?id=${i.seller_id}" class="text-base font-bold text-gray-900 hover:text-blue-700">${escapeHtml(name)}</a>
-                ${i.seller_business_name ? `<p class="text-sm text-gray-600">${escapeHtml(i.seller_business_name)}</p>` : ""}
-                <p class="text-sm text-gray-700 mt-1">${escapeHtml(phone)}${i.seller_email ? ` <span class="text-gray-400">|</span> <span class="break-all">${escapeHtml(i.seller_email)}</span>` : ""}</p>
-                ${i.seller_status === "inactive" ? `<p class="text-xs text-amber-700 mt-1">This seller is marked inactive.</p>` : ""}
-              </div>
-              ${phone ? `
-                <div class="flex gap-2 flex-shrink-0">
-                  <a href="tel:${escapeHtml(phone.replace(/[^\d+]/g, ""))}" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-blue-500 text-sm font-medium text-gray-700"><span class="w-4 h-4 text-blue-600">${uiIcon("phone")}</span>Call seller</a>
-                  <a href="https://wa.me/${whatsappNumber(phone)}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-green-500 text-sm font-medium text-gray-700"><span class="w-4 h-4 text-green-600">${uiIcon("inquire")}</span>WhatsApp</a>
-                </div>` : ""}
-            </div>
+      function placeholder() {
+        chat.innerHTML = `
+          <div class="inbox-placeholder">
+            <span class="w-12 h-12 text-gray-300 block">${uiIcon("inbox")}</span>
+            <p class="font-semibold text-gray-700 mt-3">Select an inquiry</p>
+            <p class="text-sm text-gray-500 mt-1">The conversation with the customer and the seller shows here.</p>
           </div>`;
+      }
+
+      function closeChat() {
+        state.selected = null;
+        inbox.classList.remove("has-selection");
+        history.replaceState(null, "", location.pathname);
+        markActive();
+        placeholder();
       }
 
       function defaultForwardMessage(i) {
         return `A buyer is interested in your listing "${i.livestock_title}".\n\nTheir message:\n"${i.message}"\n\nIs it still available? Please reply with any details we should share with the buyer.`;
       }
 
-      function forwardPanel(i) {
-        if (!i.seller_id) return "";
-        const hasAccount = i.seller_account_status === "approved" && i.seller_status === "active";
-        const phone = i.seller_phone || "";
-        const sendLabel = hasAccount ? (i.seller_email ? "Send to dashboard and email" : "Send to seller's dashboard") : "Send by email";
-        const canSend = hasAccount || i.seller_email;
+      function bubble({ side, tone, who, text, time, foot = "" }) {
         return `
-          <section class="rounded-lg border border-gray-200 p-4 space-y-3">
-            <div>
-              <h3 class="font-bold text-gray-900">Contact the seller</h3>
-              <p class="text-xs text-gray-500">The customer's name, phone and email are not shared. Check the message below doesn't include them either.</p>
+          <div class="chat-row ${side === "right" ? "chat-right" : ""}">
+            <div class="chat-bubble chat-${tone}">
+              <p class="chat-who">${who}</p>
+              <p class="chat-text">${escapeHtml(text)}</p>
+              <p class="chat-time">${time}${foot ? ` · ${foot}` : ""}</p>
             </div>
-            ${i.forwarded_at ? `
-              <div class="rounded-lg bg-gray-50 px-3 py-2 text-sm">
-                <p class="text-xs text-gray-500 mb-1">Sent ${formatDate(i.forwarded_at)}${i.seller_seen_at ? `, seen ${timeAgo(i.seller_seen_at)}` : hasAccount ? ", not seen yet" : ""}</p>
-                <p class="whitespace-pre-wrap text-gray-800">${escapeHtml(i.forward_message)}</p>
-              </div>` : ""}
-            ${i.seller_reply ? `
-              <div class="rounded-lg bg-green-50 border border-green-100 px-3 py-2 text-sm">
-                <p class="text-xs text-green-800 font-semibold mb-1">Seller replied ${formatDate(i.seller_replied_at)}</p>
-                <p class="whitespace-pre-wrap text-gray-800">${escapeHtml(i.seller_reply)}</p>
-              </div>` : ""}
-            <div>
-              <label for="forward-message" class="field-label">${i.forwarded_at ? "New message to the seller" : "Message to the seller"}</label>
-              <textarea id="forward-message" rows="6" maxlength="3000" class="field-input text-sm">${escapeHtml(defaultForwardMessage(i))}</textarea>
+          </div>`;
+      }
+
+      function renderChat(i) {
+        const sellerName = i.seller_current_name || i.seller_name;
+        const hasSeller = Boolean(i.seller_id && sellerName);
+        const hasAccount = i.seller_account_status === "approved" && i.seller_status === "active";
+        const canSend = hasSeller && (hasAccount || i.seller_email);
+        const sellerPhone = i.seller_phone || "";
+        const tel = (p) => escapeHtml(p.replace(/[^\d+]/g, ""));
+        const mailSubject = encodeURIComponent(`Your inquiry about ${i.livestock_title} - Frontier Marketplace`);
+        const listingLink = i.livestock_id && i.livestock_status === "published"
+          ? `<a href="/listing.html?id=${i.livestock_id}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">${escapeHtml(i.livestock_title)}</a>`
+          : `${escapeHtml(i.livestock_title)} <span class="text-gray-400">${i.livestock_id ? "(unpublished)" : "(listing deleted)"}</span>`;
+        const iconLink = (href, icon, label, tone, extra = "") =>
+          `<a href="${href}" ${extra} class="chat-icon-btn" title="${label}" aria-label="${label}"><span class="w-[18px] h-[18px] block ${tone}">${uiIcon(icon)}</span></a>`;
+
+        const timeline = [
+          `<div class="chat-day">${formatDate(i.created_at)}</div>`,
+          bubble({ side: "left", tone: "customer", who: `${escapeHtml(i.full_name)} <span class="font-normal text-gray-500">via the website</span>`, text: i.message, time: shortTime(i.created_at) }),
+          i.email_status === "failed"
+            ? `<div class="chat-note chat-note-warn">Notification email failed${i.email_error ? `: ${escapeHtml(i.email_error)}` : ""} <button type="button" data-resend class="font-semibold underline ml-1">Resend</button></div>`
+            : i.email_status === "sent" ? `<div class="chat-note">Emailed to the team</div>` : "",
+          i.forwarded_at ? bubble({ side: "right", tone: "admin", who: `Frontier to ${escapeHtml(sellerName || "seller")}`, text: i.forward_message, time: shortTime(i.forwarded_at),
+            foot: i.seller_seen_at ? "Seen" : hasAccount ? "Not seen yet" : "Sent by email" }) : "",
+          i.seller_reply ? bubble({ side: "left", tone: "seller", who: `${escapeHtml(sellerName || "Seller")} <span class="font-normal text-gray-500">seller</span>`, text: i.seller_reply, time: shortTime(i.seller_replied_at) }) : "",
+        ].join("");
+
+        const composer = hasSeller ? `
+          <div class="chat-composer">
+            <p class="text-xs text-gray-500 mb-1.5">Message ${escapeHtml(sellerName)}. The customer's name, phone and email are not shared, so check the text doesn't include them.</p>
+            <textarea id="forward-message" rows="3" maxlength="3000" class="chat-input" placeholder="Write a message to the seller">${escapeHtml(i.forwarded_at ? "" : defaultForwardMessage(i))}</textarea>
+            <div class="flex flex-wrap items-center gap-2 mt-2">
+              ${sellerPhone ? `<button type="button" data-forward-whatsapp class="chat-alt-btn"><span class="w-4 h-4 text-green-600">${uiIcon("inquire")}</span>WhatsApp</button>` : ""}
+              ${i.seller_email ? `<button type="button" data-forward-email class="chat-alt-btn"><span class="w-4 h-4 text-blue-600">${uiIcon("mail")}</span>Email app</button>` : ""}
+              ${sellerPhone ? `<a href="tel:${tel(sellerPhone)}" class="chat-alt-btn"><span class="w-4 h-4 text-blue-600">${uiIcon("phone")}</span>Call</a>` : ""}
+              ${canSend
+                ? `<button type="button" data-forward class="chat-send-btn ml-auto">${hasAccount ? "Send to seller" : "Send by email"}</button>`
+                : `<span class="ml-auto text-xs text-amber-700">No account or email: use WhatsApp or call.</span>`}
             </div>
-            <div class="flex flex-wrap gap-2">
-              ${canSend ? `<button type="button" data-forward class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm font-semibold">${sendLabel}</button>` : ""}
-              ${phone ? `<button type="button" data-forward-whatsapp class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-green-500 text-sm font-medium text-gray-700"><span class="w-4 h-4 text-green-600">${uiIcon("inquire")}</span>WhatsApp message</button>` : ""}
-              ${i.seller_email ? `<button type="button" data-forward-email class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-blue-500 text-sm font-medium text-gray-700"><span class="w-4 h-4 text-blue-600">${uiIcon("mail")}</span>Open in email app</button>` : ""}
+          </div>` : `
+          <div class="chat-composer">
+            <p class="text-sm text-gray-600">${i.seller_name ? "The seller for this listing has been removed." : "This inquiry is for Frontier's stock."} Reply to the customer directly:</p>
+            <div class="flex flex-wrap gap-2 mt-2">
+              <a href="https://wa.me/${whatsappNumber(i.phone)}" target="_blank" rel="noopener" class="chat-alt-btn"><span class="w-4 h-4 text-green-600">${uiIcon("inquire")}</span>WhatsApp</a>
+              <a href="mailto:${escapeHtml(i.email)}?subject=${mailSubject}" class="chat-alt-btn"><span class="w-4 h-4 text-blue-600">${uiIcon("mail")}</span>Email</a>
+              <a href="tel:${tel(i.phone)}" class="chat-alt-btn"><span class="w-4 h-4 text-blue-600">${uiIcon("phone")}</span>Call</a>
             </div>
-            ${!canSend ? `<p class="text-xs text-amber-700">This seller has no account or email address, so send the message on WhatsApp or call them.</p>` : ""}
-          </section>`;
+          </div>`;
+
+        chat.innerHTML = `
+          <header class="chat-head">
+            <button type="button" data-back class="chat-back" aria-label="Back to inquiries"><span class="w-5 h-5 block">${uiIcon("chevronRight")}</span></button>
+            <span class="inbox-avatar">${initials(i.full_name)}</span>
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-gray-900 truncate">${escapeHtml(i.full_name)}</p>
+              <p class="text-xs text-gray-500 truncate">${escapeHtml(i.phone)} · ${escapeHtml(i.email)}</p>
+            </div>
+            <div class="flex items-center gap-1 flex-shrink-0">
+              ${iconLink(`tel:${tel(i.phone)}`, "phone", "Call customer", "text-blue-600")}
+              ${iconLink(`https://wa.me/${whatsappNumber(i.phone)}`, "inquire", "WhatsApp customer", "text-green-600", 'target="_blank" rel="noopener"')}
+              ${iconLink(`mailto:${escapeHtml(i.email)}?subject=${mailSubject}`, "mail", "Email customer", "text-blue-600")}
+            </div>
+          </header>
+
+          <div class="chat-meta">
+            <div class="min-w-0">
+              <p class="text-sm text-gray-900 truncate">${listingLink}</p>
+              <p class="text-xs text-gray-500 truncate">${escapeHtml([i.animal_name, i.category_name, i.breed_name].filter(Boolean).join(", "))}${hasSeller
+                ? ` · Seller: <a href="/admin/sellers.html?id=${i.seller_id}" class="text-blue-700 hover:underline">${escapeHtml(sellerName)}</a>${sellerPhone ? ` (${escapeHtml(sellerPhone)})` : ""}`
+                : i.seller_name ? ` · Seller: ${escapeHtml(i.seller_name)} (removed)` : " · Frontier's stock"}</p>
+            </div>
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+              <select id="status-select" class="pill-select" data-value="${i.status}" aria-label="Inquiry status">
+                ${STATUSES.map((s) => `<option value="${s.value}" ${s.value === i.status ? "selected" : ""}>${s.label}</option>`).join("")}
+              </select>
+              <button type="button" data-archive class="chat-icon-btn" title="${i.is_archived ? "Restore from archive" : "Archive"}" aria-label="${i.is_archived ? "Restore from archive" : "Archive"}"><span class="w-[18px] h-[18px] block text-gray-500">${uiIcon("archive")}</span></button>
+              <button type="button" data-delete class="chat-icon-btn" title="Delete" aria-label="Delete"><span class="w-[18px] h-[18px] block text-red-500">${uiIcon("trash")}</span></button>
+            </div>
+          </div>
+
+          <div class="chat-body" id="chat-body">${timeline}</div>
+          ${composer}`;
+
+        const body = document.getElementById("chat-body");
+        body.scrollTop = body.scrollHeight;
+        bindChat(i);
       }
 
       async function openInquiry(id) {
-        let i;
+        state.selected = String(id);
+        inbox.classList.add("has-selection");
+        markActive();
+        history.replaceState(null, "", `${location.pathname}?id=${id}`);
+        chat.innerHTML = `<div class="inbox-placeholder"><span class="btn-spinner chat-spinner"></span></div>`;
         try {
-          i = (await adminApi(`/api/admin/inquiries/${id}`)).data;
+          const i = (await adminApi(`/api/admin/inquiries/${id}`)).data;
+          if (state.selected !== String(id)) return;
+          renderChat(i);
         } catch (error) {
-          return showNotification(error.message, "error");
+          showNotification(error.message, "error");
+          closeChat();
         }
+      }
 
-        const backdrop = document.createElement("div");
-        backdrop.className = "modal-backdrop";
-        const mailSubject = encodeURIComponent(`Your inquiry about ${i.livestock_title} - Frontier Marketplace`);
-        const listingLink = i.livestock_id && i.livestock_status === "published"
-          ? `<a href="/listing.html?id=${i.livestock_id}" target="_blank" rel="noopener" class="text-blue-600 hover:underline">${escapeHtml(i.livestock_title)}</a>`
-          : `${escapeHtml(i.livestock_title)} ${i.livestock_id ? '<span class="text-xs text-gray-400">(unpublished)</span>' : '<span class="text-xs text-gray-400">(listing deleted)</span>'}`;
+      function refreshRow(change) {
+        const idx = state.rows.findIndex((r) => String(r.id) === String(change.id));
+        if (idx < 0) return;
+        state.rows[idx] = { ...state.rows[idx], ...change };
+        const el = document.querySelector(`#list [data-open="${change.id}"]`);
+        if (!el) return;
+        el.outerHTML = listItem(state.rows[idx]);
+        bindListItem(document.querySelector(`#list [data-open="${change.id}"]`));
+      }
 
-        backdrop.innerHTML = `
-          <div class="modal-panel modal-wide" role="dialog" aria-modal="true" aria-labelledby="inq-title">
-            <div class="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-wide text-blue-600">Inquiry #${i.id}</p>
-                <h2 id="inq-title" class="text-lg font-bold text-gray-900">${escapeHtml(i.full_name)}</h2>
-                <p class="text-sm text-gray-500">${escapeHtml(formatDate(i.created_at))}</p>
-              </div>
-              <button type="button" data-close class="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100" aria-label="Close"><span class="w-5 h-5">${uiIcon("close")}</span></button>
-            </div>
-            <div class="p-5 space-y-5">
-              ${i.email_status === "failed" ? `
-                <div class="alert alert-warning text-sm mb-0 flex flex-wrap items-center justify-between gap-2">
-                  <span>The notification email for this inquiry failed${i.email_error ? `: ${escapeHtml(i.email_error)}` : "."}</span>
-                  <button type="button" data-resend class="font-semibold underline">Resend email</button>
-                </div>` : ""}
+      async function loadCounts() {
+        try {
+          const res = await adminApi("/api/admin/inquiries?limit=1");
+          renderTabs(res.summary);
+          setNewInquiryBadge(res.summary.new);
+        } catch {
+        }
+      }
 
-              <div class="grid grid-cols-3 gap-2">
-                <a href="tel:${escapeHtml(i.phone.replace(/[^\d+]/g, ""))}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-blue-600">${uiIcon("phone")}</span>Call</a>
-                <a href="https://wa.me/${whatsappNumber(i.phone)}" target="_blank" rel="noopener" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-green-500 hover:bg-green-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-green-600">${uiIcon("inquire")}</span>WhatsApp</a>
-                <a href="mailto:${escapeHtml(i.email)}?subject=${mailSubject}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-blue-600">${uiIcon("mail")}</span>Email</a>
-              </div>
+      function bindChat(i) {
+        chat.querySelector("[data-back]").addEventListener("click", closeChat);
 
-              <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                <div><dt class="text-gray-500">Phone</dt><dd class="font-semibold text-gray-900">${escapeHtml(i.phone)}</dd></div>
-                <div><dt class="text-gray-500">Email</dt><dd class="font-semibold text-gray-900 break-all">${escapeHtml(i.email)}</dd></div>
-                <div><dt class="text-gray-500">Livestock</dt><dd class="font-semibold text-gray-900">${listingLink}</dd></div>
-                <div><dt class="text-gray-500">Category / Purpose / Breed</dt><dd class="font-semibold text-gray-900">${escapeHtml([i.animal_name, i.category_name, i.breed_name].filter(Boolean).join(", ") || "-")}</dd></div>
-              </dl>
+        const statusSel = document.getElementById("status-select");
+        statusSel.addEventListener("change", async () => {
+          const value = statusSel.value;
+          statusSel.disabled = true;
+          try {
+            await adminApi(`/api/admin/inquiries/${i.id}`, { method: "PATCH", body: { status: value } });
+            i.status = value;
+            statusSel.dataset.value = value;
+            refreshRow({ id: i.id, status: value });
+            showNotification(`Marked as ${statusLabel(value)}.`, "success");
+            loadCounts();
+          } catch (error) {
+            statusSel.value = i.status;
+            showNotification(error.message, "error");
+          } finally {
+            statusSel.disabled = false;
+          }
+        });
 
-              ${sellerPanel(i)}
-
-              <div>
-                <p class="text-sm text-gray-500 mb-1">Message</p>
-                <div class="bg-gray-50 border border-gray-100 rounded-lg p-4 text-gray-800 whitespace-pre-line">${escapeHtml(i.message)}</div>
-              </div>
-
-              ${forwardPanel(i)}
-
-              <div>
-                <p class="field-label">Status</p>
-                <div class="seg" id="status-seg">
-                  ${STATUSES.map((s) => `<button type="button" data-status="${s.value}" class="${s.value === i.status ? "active" : ""}">${s.label}</button>`).join("")}
-                </div>
-              </div>
-            </div>
-            <div class="flex flex-wrap justify-between gap-3 px-5 py-4 border-t border-gray-100">
-              <button type="button" data-delete class="inline-flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-700"><span class="w-4 h-4">${uiIcon("trash")}</span>Delete</button>
-              <button type="button" data-archive class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium text-sm"><span class="w-4 h-4">${uiIcon("archive")}</span>${i.is_archived ? "Restore from archive" : "Archive"}</button>
-            </div>
-          </div>`;
-        document.body.appendChild(backdrop);
-        document.body.classList.add("modal-open");
-
-        let changed = false;
-        const close = () => {
-          document.removeEventListener("keydown", onKey);
-          backdrop.remove();
-          document.body.classList.remove("modal-open");
-          if (getQueryParams().id) history.replaceState(null, "", location.pathname);
-          if (changed) loadList();
-        };
-        const onKey = (e) => { if (e.key === "Escape" && !document.querySelector("[aria-labelledby=confirm-action-title]")) close(); };
-        document.addEventListener("keydown", onKey);
-        backdrop.querySelector("[data-close]").addEventListener("click", close);
-        backdrop.addEventListener("mousedown", (e) => { if (e.target === backdrop) close(); });
-
-        backdrop.querySelectorAll("#status-seg button").forEach((b) =>
-          b.addEventListener("click", async () => {
-            try {
-              await adminApi(`/api/admin/inquiries/${i.id}`, { method: "PATCH", body: { status: b.dataset.status } });
-              backdrop.querySelectorAll("#status-seg button").forEach((x) => x.classList.toggle("active", x === b));
-              i.status = b.dataset.status;
-              changed = true;
-              showNotification(`Marked as ${statusLabel(b.dataset.status)}.`, "success");
-            } catch (error) {
-              showNotification(error.message, "error");
-            }
-          }),
-        );
-        backdrop.querySelector("[data-archive]").addEventListener("click", async () => {
+        chat.querySelector("[data-archive]").addEventListener("click", async () => {
           const ok = await confirmAction(i.is_archived
             ? { title: "Restore this inquiry?", message: "It will move back to the inbox.", confirmText: "Restore" }
             : { title: "Archive this inquiry?", message: "It will move out of the inbox. You can find it under Archived.", confirmText: "Archive" });
@@ -299,81 +326,87 @@
           try {
             await adminApi(`/api/admin/inquiries/${i.id}`, { method: "PATCH", body: { is_archived: !i.is_archived } });
             showNotification(i.is_archived ? "Inquiry restored." : "Inquiry archived.", "success");
-            changed = true;
-            close();
+            closeChat();
+            loadList(1);
           } catch (error) {
             showNotification(error.message, "error");
           }
         });
-        backdrop.querySelector("[data-delete]").addEventListener("click", async () => {
+
+        chat.querySelector("[data-delete]").addEventListener("click", async () => {
           if (!(await confirmAction({ title: "Delete this inquiry?", message: "This permanently removes it. Archive it instead if you may need it later.", confirmText: "Delete", variant: "danger" }))) return;
           try {
             await adminApi(`/api/admin/inquiries/${i.id}`, { method: "DELETE" });
             showNotification("Inquiry deleted.", "success");
-            changed = true;
-            close();
+            closeChat();
+            loadList(1);
           } catch (error) {
             showNotification(error.message, "error");
           }
         });
-        const forwardText = () => backdrop.querySelector("#forward-message").value.trim();
-        backdrop.querySelector("[data-forward]")?.addEventListener("click", async (e) => {
+
+        chat.querySelector("[data-resend]")?.addEventListener("click", async (e) => {
           const btn = e.currentTarget;
-          const message = forwardText();
+          if (!(await confirmAction({ title: "Resend the email?", message: "The notification for this inquiry will be emailed to the team again.", confirmText: "Resend" }))) return;
+          btn.disabled = true;
+          btn.textContent = "Sending…";
+          try {
+            await adminApi(`/api/admin/inquiries/${i.id}/resend-email`, { method: "POST" });
+            showNotification("Notification email sent.", "success");
+            refreshRow({ id: i.id, email_status: "sent" });
+            openInquiry(i.id);
+          } catch (error) {
+            showNotification(error.message, "error");
+            btn.disabled = false;
+            btn.textContent = "Resend";
+          }
+        });
+
+        const text = () => document.getElementById("forward-message")?.value.trim() || "";
+        chat.querySelector("[data-forward]")?.addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          const message = text();
           if (!message) return showNotification("Please write a message for the seller.", "warning");
-          if (!(await confirmAction({ title: "Send this to the seller?", message: "They'll see your message without the customer's contact details.", confirmText: "Send" }))) return;
           btn.disabled = true;
           try {
             const res = await adminApi(`/api/admin/inquiries/${i.id}/forward`, { method: "POST", body: { message } });
             showNotification(res.in_dashboard
-              ? `Sent to the seller's dashboard${res.emailed ? " and email" : ""}.`
+              ? `Sent to the seller${res.emailed ? " and emailed" : ""}.`
               : res.emailed ? "Emailed to the seller." : "Saved, but the email could not be sent.", res.in_dashboard || res.emailed ? "success" : "warning");
-            changed = true;
-            close();
+            refreshRow({ id: i.id, forwarded_at: new Date().toISOString(), status: i.status === "new" ? "in_progress" : i.status });
+            loadCounts();
             openInquiry(i.id);
           } catch (error) {
             showNotification(error.message, "error");
             btn.disabled = false;
           }
         });
-        backdrop.querySelector("[data-forward-whatsapp]")?.addEventListener("click", () => {
-          window.open(`https://wa.me/${whatsappNumber(i.seller_phone)}?text=${encodeURIComponent(forwardText())}`, "_blank", "noopener");
+        chat.querySelector("[data-forward-whatsapp]")?.addEventListener("click", () => {
+          window.open(`https://wa.me/${whatsappNumber(i.seller_phone)}?text=${encodeURIComponent(text())}`, "_blank", "noopener");
         });
-        backdrop.querySelector("[data-forward-email]")?.addEventListener("click", () => {
-          const subject = encodeURIComponent(`Customer interest: ${i.livestock_title}`);
-          window.location.href = `mailto:${i.seller_email}?subject=${subject}&body=${encodeURIComponent(forwardText())}`;
+        chat.querySelector("[data-forward-email]")?.addEventListener("click", () => {
+          window.location.href = `mailto:${i.seller_email}?subject=${encodeURIComponent(`Customer interest: ${i.livestock_title}`)}&body=${encodeURIComponent(text())}`;
         });
-        backdrop.querySelector("[data-resend]")?.addEventListener("click", async (e) => {
-          if (!(await confirmAction({ title: "Resend the email?", message: "The notification for this inquiry will be emailed to both inboxes again.", confirmText: "Resend" }))) return;
-          e.target.disabled = true;
-          e.target.textContent = "Sending…";
-          try {
-            await adminApi(`/api/admin/inquiries/${i.id}/resend-email`, { method: "POST" });
-            showNotification("Notification email sent.", "success");
-            e.target.closest(".alert").remove();
-            changed = true;
-          } catch (error) {
-            showNotification(error.message, "error");
-            e.target.disabled = false;
-            e.target.textContent = "Resend email";
-          }
+        document.getElementById("forward-message")?.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) chat.querySelector("[data-forward]")?.click();
         });
       }
 
+      document.getElementById("tab-select").addEventListener("change", (e) => { state.tab = e.target.value; loadList(1); });
       let searchTimer;
       document.getElementById("search").addEventListener("input", (e) => {
         clearTimeout(searchTimer);
         searchTimer = setTimeout(() => { state.q = e.target.value.trim(); loadList(1); }, 300);
       });
-
       document.getElementById("seller-filter").addEventListener("change", (e) => { state.seller = e.target.value; loadList(1); });
 
       (async () => {
+        placeholder();
         await initAdminPage("inquiries");
         const q = getQueryParams();
         try {
           const sellers = (await adminApi("/api/admin/sellers")).data;
-          document.getElementById("seller-filter").innerHTML += sellers.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+          document.getElementById("seller-filter").innerHTML += sellers.map((s) => `<option value="${s.id}">${escapeHtml(s.business_name || s.name)}</option>`).join("");
         } catch {}
         if (q.seller_id) { state.seller = q.seller_id; document.getElementById("seller-filter").value = q.seller_id; }
         if (q.status) state.tab = q.status;
@@ -381,6 +414,7 @@
         renderTabs();
         await loadList(1);
         if (q.id) openInquiry(q.id);
+        else if (window.matchMedia("(min-width: 1024px)").matches && state.rows.length) openInquiry(state.rows[0].id);
       })();
     </script>
   </body>

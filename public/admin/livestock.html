@@ -389,7 +389,7 @@
                 help: item.location && !ZAMBIA_PROVINCES.includes(item.location) ? `Previously "${item.location}" - choose its province.` : "",
                 options: [{ value: "", label: "Select province" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
           </div>
-          ${field({ name: "description", label: "Description", type: "textarea", value: item.description, rows: 5, attrs: 'maxlength="5000"' })}
+          ${field({ name: "description", label: "Description", type: "textarea", value: item.description, rows: 3, attrs: 'maxlength="5000"' })}
 
           <div>
             <div class="flex items-baseline justify-between mb-2">
@@ -417,6 +417,7 @@
             const purposeSelect = form.elements.category_id;
             const breedSelect = form.elements.breed_id;
             const typeSelect = form.elements.livestock_type;
+            bindWordLimit(form.elements.description);
             animalSelect.addEventListener("change", () => {
               purposeSelect.innerHTML = optionsHtml(purposeOptions(animalSelect.value));
               breedSelect.innerHTML = optionsHtml(breedOptions(""));
@@ -486,6 +487,7 @@
             if (!v.animal_id) errors.animal_id = "Please choose a category.";
             if (!v.category_id) errors.category_id = "Please choose a production purpose.";
             if (!v.location) errors.location = "Please choose a province.";
+            if (countWords(v.description) > MAX_DESCRIPTION_WORDS) errors.description = `Description must be ${MAX_DESCRIPTION_WORDS} words or fewer.`;
             if (Object.keys(errors).length) {
               const e = new Error("Please correct the highlighted fields.");
               e.errors = errors;

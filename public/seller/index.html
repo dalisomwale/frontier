@@ -134,9 +134,8 @@
               ${st.key === "rejected" && l.review_note ? `<div class="mt-2 text-sm rounded-lg bg-red-50 text-red-800 px-3 py-2"><strong>Frontier:</strong> ${escapeHtml(l.review_note)}</div>` : ""}
               <div class="flex flex-wrap gap-2 mt-3">
                 ${approved() ? `<button type="button" data-edit="${l.id}" class="seller-action">Edit</button>` : ""}
-                ${st.key === "published" ? `<a href="/listing.html?id=${l.id}" target="_blank" class="seller-action">View</a><button type="button" data-hide="${l.id}" class="seller-action">Hide</button>` : ""}
+                ${st.key === "published" ? `<a href="/listing.html?id=${l.id}" target="_blank" class="seller-action">View</a>` : ""}
                 ${approved() && st.key === "unpublished" ? `<button type="button" data-resubmit="${l.id}" class="seller-action">Submit for review</button>` : ""}
-                <button type="button" data-delete="${l.id}" class="seller-action seller-action-danger">Delete</button>
               </div>
             </div>
           </article>`;
@@ -156,17 +155,8 @@
         }
         box.innerHTML = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${listings.map(listingCard).join("")}</div>`;
         box.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openEditor(b.dataset.edit)));
-        box.querySelectorAll("[data-hide]").forEach((b) => b.addEventListener("click", async () => {
-          if (!(await confirmAction({ title: "Hide this listing?", message: "It will be taken off the website. To show it again you'll need to submit it for review.", confirmText: "Hide" }))) return;
-          await runAction(() => sellerApi(`/api/seller/listings/${b.dataset.hide}/hide`, { method: "POST" }), "Listing hidden.");
-        }));
         box.querySelectorAll("[data-resubmit]").forEach((b) => b.addEventListener("click", async () => {
           await runAction(() => sellerApi(`/api/seller/listings/${b.dataset.resubmit}/resubmit`, { method: "POST" }), "Sent for review.");
-        }));
-        box.querySelectorAll("[data-delete]").forEach((b) => b.addEventListener("click", async () => {
-          const l = listings.find((x) => String(x.id) === b.dataset.delete);
-          if (!(await confirmAction({ title: "Delete this listing?", message: `"${l.title}" and its photos will be deleted permanently.`, confirmText: "Delete", variant: "danger" }))) return;
-          await runAction(() => sellerApi(`/api/seller/listings/${b.dataset.delete}`, { method: "DELETE" }), "Listing deleted.");
         }));
       }
 
@@ -222,7 +212,7 @@
         const live = item.status === "published";
 
         const body = `
-          ${id ? `<div class="alert alert-info text-sm mb-0">${live ? "Saving changes takes this listing off the website until our team approves it again." : "Saving sends this listing to our team for review."}</div>` : ""}
+          ${id ? `<div class="alert alert-info text-sm mb-0">${live ? "Saving changes made for this listing will be on the website when our team approves it." : "Saving sends this listing to our team for review."}</div>` : ""}
           ${field({ name: "title", label: "Title", value: item.title, required: true, placeholder: "e.g. 10 Boran heifers, in calf", attrs: 'maxlength="200"' })}
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             ${field({ name: "animal_id", label: "Category", value: animalId, required: true, options: animalOptions() })}
@@ -236,7 +226,7 @@
           </div>
           ${field({ name: "location", label: "Province", value: item.location || seller.province || "", required: true,
               options: [{ value: "", label: "Select province" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
-          ${field({ name: "description", label: "Description", type: "textarea", value: item.description, rows: 5,
+          ${field({ name: "description", label: "Description", type: "textarea", value: item.description, rows: 3,
               placeholder: "Condition, vaccinations, feeding, price guide, anything a buyer should know", attrs: 'maxlength="5000"' })}
           <div>
             <div class="flex items-baseline justify-between mb-2">
@@ -259,6 +249,7 @@
             const purposeSelect = form.elements.category_id;
             const breedSelect = form.elements.breed_id;
             const typeSelect = form.elements.livestock_type;
+            bindWordLimit(form.elements.description);
             animalSelect.addEventListener("change", () => {
               purposeSelect.innerHTML = optionsHtml(purposeOptions(animalSelect.value));
               breedSelect.innerHTML = optionsHtml(breedOptions(""));
@@ -328,6 +319,7 @@
             if (!v.animal_id) errors.animal_id = "Please choose a category.";
             if (!v.category_id) errors.category_id = "Please choose a production purpose.";
             if (!v.location) errors.location = "Please choose a province.";
+            if (countWords(v.description) > MAX_DESCRIPTION_WORDS) errors.description = `Description must be ${MAX_DESCRIPTION_WORDS} words or fewer.`;
             if (!photos.length) errors.images = "Please add at least one photo of the animals.";
             if (Object.keys(errors).length) {
               const e = new Error("Please correct the highlighted fields.");

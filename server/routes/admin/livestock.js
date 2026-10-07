@@ -15,6 +15,8 @@ const VERIFICATIONS = ["unverified", "verified"];
 const PUBLISHED_AT_SQL =
   "published_at = CASE WHEN ? = 'published' THEN IF(status = 'published' AND published_at IS NOT NULL, published_at, NOW()) ELSE NULL END";
 const MAX_PAGE_SIZE = 50;
+const MAX_DESCRIPTION_WORDS = 50;
+const countWords = (value) => (String(value).trim().match(/\S+/g) || []).length;
 
 // Validates the listing fields and checks the hierarchy is consistent: the
 // production purpose belongs to the chosen animal and the breed belongs to
@@ -46,6 +48,8 @@ async function payload(body) {
   if (!location) errors.location = "Please choose a province.";
   else if (!PROVINCES.includes(location)) errors.location = "Please choose one of Zambia's 10 provinces.";
   if (description === undefined) errors.description = "Description must be 5000 characters or fewer.";
+  else if (description && countWords(description) > MAX_DESCRIPTION_WORDS)
+    errors.description = `Description must be ${MAX_DESCRIPTION_WORDS} words or fewer (it has ${countWords(description)}).`;
   if (type === undefined) errors.livestock_type = "Type must be 40 characters or fewer.";
   if (!status) errors.status = "Invalid status.";
   if (verification === null || verification === "") errors.verification = "Invalid verification status.";

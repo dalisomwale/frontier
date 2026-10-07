@@ -175,6 +175,26 @@ function field({ name, label, type = "text", value = "", required = false, place
   </div>`;
 }
 
+const MAX_DESCRIPTION_WORDS = 50;
+
+function countWords(value) {
+  return (String(value || "").trim().match(/\S+/g) || []).length;
+}
+
+function bindWordLimit(textarea, max = MAX_DESCRIPTION_WORDS) {
+  if (!textarea) return;
+  const hint = document.createElement("p");
+  hint.className = "text-xs mt-1";
+  textarea.insertAdjacentElement("afterend", hint);
+  const update = () => {
+    const n = countWords(textarea.value);
+    hint.textContent = `${n} / ${max} words`;
+    hint.className = `text-xs mt-1 ${n > max ? "text-red-600 font-semibold" : "text-gray-500"}`;
+  };
+  textarea.addEventListener("input", update);
+  update();
+}
+
 function formValues(form) {
   return Object.fromEntries(new FormData(form).entries());
 }

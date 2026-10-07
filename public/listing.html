@@ -44,11 +44,6 @@
             <div id="gallery-dots" class="gallery-dots"></div>
           </div>
           <div id="gallery-thumbs" class="gallery-thumbs" aria-label="Photo gallery"></div>
-
-          <section id="description-section" class="hidden bg-white rounded-lg shadow-sm border border-gray-100 p-5 mt-6">
-            <h2 class="text-base font-semibold text-gray-900 mb-2">Description</h2>
-            <div id="listing-description" class="text-gray-700 leading-relaxed whitespace-pre-line"></div>
-          </section>
         </div>
 
         <div class="lg:col-span-1">
@@ -62,6 +57,10 @@
             <div id="listing-attributes" class="mb-6 hidden">
               <h3 class="text-base font-semibold text-gray-900 mb-3">Details</h3>
               <dl id="attribute-list" class="space-y-2"></dl>
+              <div id="description-section" class="hidden mt-4 pt-4 border-t border-gray-200">
+                <p class="text-sm text-gray-500 mb-1">Description</p>
+                <p id="listing-description" class="text-sm text-gray-800 leading-relaxed whitespace-pre-line"></p>
+              </div>
             </div>
 
             <button id="inquire-btn" type="button" disabled
@@ -121,7 +120,7 @@
               <dd class="text-sm font-semibold text-gray-900 text-right">${escapeHtml(value)}</dd>
             </div>`)
           .join("");
-        document.getElementById("listing-attributes").classList.toggle("hidden", !rows.length);
+        document.getElementById("listing-attributes").classList.toggle("hidden", !rows.length && !item.description);
       }
 
       function formatAge(months) {

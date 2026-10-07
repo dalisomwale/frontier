@@ -459,19 +459,6 @@ router.put("/listings/:id", requireSeller, requireApproved, uploadImages, async 
   }
 });
 
-// Takes a live listing off the website (sold, no longer available). To bring
-// it back, the seller submits it for review again.
-router.post("/listings/:id/hide", requireSeller, async (req, res, next) => {
-  try {
-    const id = positiveInt(req.params.id);
-    await ownListing(pool, id, req.seller.id);
-    await pool.query("UPDATE livestock SET status = 'unpublished', published_at = NULL WHERE id = ? AND seller_id = ?", [id, req.seller.id]);
-    res.json({ success: true, data: sellerView(await helpers.loadOne(id)) });
-  } catch (error) {
-    next(error);
-  }
-});
-
 router.post("/listings/:id/resubmit", requireSeller, requireApproved, async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
@@ -485,19 +472,6 @@ router.post("/listings/:id/resubmit", requireSeller, requireApproved, async (req
     );
     listingNotice(req.seller, listing, true);
     res.json({ success: true, data: sellerView(await helpers.loadOne(id)) });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.delete("/listings/:id", requireSeller, async (req, res, next) => {
-  try {
-    const id = positiveInt(req.params.id);
-    await ownListing(pool, id, req.seller.id);
-    const [images] = await pool.query("SELECT image_path, thumb_path FROM livestock_images WHERE livestock_id = ?", [id]);
-    await pool.query("DELETE FROM livestock WHERE id = ? AND seller_id = ?", [id, req.seller.id]);
-    images.forEach((row) => deleteImageFiles(row.image_path, row.thumb_path));
-    res.json({ success: true });
   } catch (error) {
     next(error);
   }
