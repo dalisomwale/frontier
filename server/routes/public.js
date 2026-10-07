@@ -31,7 +31,21 @@ function readFilters(query) {
     purpose: positiveInt(query.category_id),
     breed: positiveInt(query.breed_id),
     location: text(query.location, 150) || null,
+    q: text(query.q, 100) || null,
   };
+}
+
+const SEARCH_FIELDS = ["l.title", "l.description", "l.livestock_type", "l.location", "a.name", "c.name", "b.name"];
+
+function searchWords(q) {
+  if (!q) return [];
+  return q
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => w.replace(/[^\p{L}\p{N}.'-]/gu, ""))
+    .filter(Boolean)
+    .slice(0, 6)
+    .map((w) => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w).slice(0, 40));
 }
 
 function buildWhere(filters, upTo = "location") {
@@ -56,6 +70,11 @@ function buildWhere(filters, upTo = "location") {
     where.push("l.location = ?");
     params.push(filters.location);
   }
+  searchWords(filters.q).forEach((word) => {
+    const like = `%${word.replace(/[\\%_]/g, "\\$&")}%`;
+    where.push(`(${SEARCH_FIELDS.map((f) => `${f} LIKE ?`).join(" OR ")})`);
+    params.push(...SEARCH_FIELDS.map(() => like));
+  });
   return { sql: where.join(" AND "), params };
 }
 

@@ -21,15 +21,15 @@
   <body class="bg-gray-50">
     <nav id="page-topnav" class="site-header sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center gap-3 h-16 lg:h-[72px]">
+        <div class="flex flex-wrap md:flex-nowrap items-center gap-x-3 gap-y-2 py-2 md:py-0 md:h-16 lg:h-[72px]">
           <a href="/" class="flex items-center gap-3 flex-shrink-0" aria-label="Frontier Marketplace home">
             <div class="brand-mark-full">
               <img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
             </div>
-            <span class="hidden sm:block lg:hidden xl:block font-bold text-gray-900">Frontier Marketplace</span>
+            <span class="hidden sm:block md:hidden xl:block font-bold text-gray-900">Frontier Marketplace</span>
           </a>
 
-          <div class="flex items-center gap-1 ml-auto lg:ml-8">
+          <div class="flex items-center gap-1 ml-auto md:ml-2 lg:ml-6">
             <div class="nav-menu" id="menu-animals">
               <button type="button" class="nav-menu-btn" aria-haspopup="true" aria-expanded="false">
                 Browse Categories <span class="nav-menu-caret" data-icon="chevronRight"></span>
@@ -43,6 +43,15 @@
               <div class="nav-dropdown"></div>
             </div>
           </div>
+
+          <form id="site-search" class="site-search" role="search" autocomplete="off">
+            <span class="site-search-icon" data-icon="search"></span>
+            <input id="search-input" type="search" name="q" maxlength="100" enterkeyhint="search"
+              placeholder="Search livestock, breeds, provinces" aria-label="Search livestock listings"
+              aria-controls="search-results" aria-expanded="false">
+            <button type="button" id="search-clear" class="site-search-clear" aria-label="Clear search" hidden><span class="w-4 h-4" data-icon="close"></span></button>
+            <div id="search-results" class="search-results" hidden></div>
+          </form>
 
           <div hidden aria-hidden="true">
             <select id="filter-animal"><option value="" disabled hidden selected></option></select>
@@ -71,7 +80,7 @@
         </div>
       </section>
 
-      <section id="categories" class="py-12 bg-white" style="scroll-margin-top: 96px" aria-labelledby="categories-heading">
+      <section id="categories" class="anchor-section py-12 bg-white" aria-labelledby="categories-heading">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="mb-6">
             <button type="button" id="tiles-back" class="hidden mb-2 items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"><span class="w-4 h-4" data-icon="chevronLeft"></span>All animals</button>
@@ -81,7 +90,7 @@
         </div>
       </section>
 
-      <section id="listings" class="bg-gray-50 py-10 border-t border-gray-100" style="scroll-margin-top: 96px" aria-labelledby="listings-heading">
+      <section id="listings" class="anchor-section bg-gray-50 py-10 border-t border-gray-100" aria-labelledby="listings-heading">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex flex-wrap items-end justify-between gap-2 mb-4">
             <div>
@@ -408,6 +417,7 @@
         if (els.purpose.value) params.set("category_id", els.purpose.value);
         if (els.breed.value) params.set("breed_id", els.breed.value);
         if (els.location.value) params.set("location", els.location.value);
+        if (searchQuery) params.set("q", searchQuery);
         return params;
       }
 
@@ -422,6 +432,7 @@
 
       async function loadListings(page = 1) {
         const container = document.getElementById("listings-container");
+        document.getElementById("listings-heading").textContent = searchQuery ? `Results for "${searchQuery}"` : "Livestock Listings";
         renderSkeletonCards(container, 6);
         const params = currentFilters();
         params.set("page", page);
@@ -432,7 +443,7 @@
           if (!res.data.length) {
             const filtered = [...currentFilters().keys()].length > 0;
             renderEmptyState(container, filtered
-              ? { title: "No livestock matches these filters", message: "", icon: "search",
+              ? { title: searchQuery ? `No livestock matches "${searchQuery}"` : "No livestock matches these filters", message: "", icon: "search",
                   action: `<button type="button" onclick="clearFilters()" class="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-700">Clear all filters</button>` }
               : { title: "No livestock listed yet", message: "Please check back soon.", icon: "cattle" });
           } else {
@@ -562,8 +573,12 @@
         menus.forEach((m) => m !== menu && closeMenu(m));
         menu.classList.add("open");
         menu.querySelector(".nav-menu-btn").setAttribute("aria-expanded", "true");
-        menu.querySelector(".nav-dropdown").innerHTML =
-          `<ul class="nav-list">${menu.id === "menu-province" ? provinceItems() : animalItems()}</ul>`;
+        const panel = menu.querySelector(".nav-dropdown");
+        panel.innerHTML = `<ul class="nav-list">${menu.id === "menu-province" ? provinceItems() : animalItems()}</ul>`;
+        panel.style.top = window.innerWidth < 1024
+          ? `${Math.round(document.getElementById("page-topnav").getBoundingClientRect().bottom) + 6}px`
+          : "";
+        hideSearchResults();
       }
 
       function closeMenu(menu) {
@@ -610,8 +625,94 @@
         applyFilters({ scroll: true });
       }
 
+      let searchQuery = "";
+      const searchForm = document.getElementById("site-search");
+      const searchInput = document.getElementById("search-input");
+      const searchResults = document.getElementById("search-results");
+      const searchClear = document.getElementById("search-clear");
+      let searchTimer;
+      let searchRequest = 0;
+
+      function setSearch(value) {
+        searchQuery = value.trim();
+        searchInput.value = searchQuery;
+        searchClear.hidden = !searchInput.value;
+      }
+
+      function hideSearchResults() {
+        searchResults.hidden = true;
+        searchInput.setAttribute("aria-expanded", "false");
+      }
+
+      async function showSuggestions() {
+        const term = searchInput.value.trim();
+        if (term.length < 2) return hideSearchResults();
+        const request = ++searchRequest;
+        let res;
+        try {
+          res = await apiRequest(`/api/livestock?q=${encodeURIComponent(term)}&limit=6`);
+        } catch {
+          return hideSearchResults();
+        }
+        if (request !== searchRequest || searchInput.value.trim() !== term) return;
+        const total = res.pagination.totalItems;
+        searchResults.innerHTML = res.data.length
+          ? `<ul>${res.data.map((l) => `
+              <li><a href="${listingUrl(l.id)}" class="search-result">
+                <span class="search-thumb">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" loading="lazy">` : livestockFallbackMedia("w-5 h-5")}</span>
+                <span class="min-w-0">
+                  <span class="block font-semibold text-gray-900 truncate">${escapeHtml(l.title)}</span>
+                  <span class="block text-xs text-gray-500 truncate">${escapeHtml([l.breed_name || l.animal_name, l.category_name, l.location].filter(Boolean).join(", "))}</span>
+                </span>
+              </a></li>`).join("")}</ul>
+             <button type="submit" class="search-all">See all ${total} result${total === 1 ? "" : "s"} for "${escapeHtml(term)}"</button>`
+          : `<p class="search-empty">No listings match "${escapeHtml(term)}"</p>`;
+        searchResults.hidden = false;
+        searchInput.setAttribute("aria-expanded", "true");
+      }
+
+      searchInput.addEventListener("input", () => {
+        searchClear.hidden = !searchInput.value;
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(showSuggestions, 220);
+      });
+      searchInput.addEventListener("focus", () => { if (searchInput.value.trim().length >= 2) showSuggestions(); });
+      searchInput.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") { hideSearchResults(); searchInput.blur(); }
+        if (e.key === "ArrowDown") { const first = searchResults.querySelector("a"); if (first && !searchResults.hidden) { e.preventDefault(); first.focus(); } }
+      });
+      searchResults.addEventListener("keydown", (e) => {
+        const links = [...searchResults.querySelectorAll("a, .search-all")];
+        const i = links.indexOf(document.activeElement);
+        if (e.key === "ArrowDown" && i < links.length - 1) { e.preventDefault(); links[i + 1].focus(); }
+        if (e.key === "ArrowUp") { e.preventDefault(); (i > 0 ? links[i - 1] : searchInput).focus(); }
+        if (e.key === "Escape") { hideSearchResults(); searchInput.focus(); }
+      });
+      searchClear.addEventListener("click", () => {
+        const hadSearch = Boolean(searchQuery);
+        setSearch("");
+        hideSearchResults();
+        searchInput.focus();
+        if (hadSearch) applyFilters({ scroll: false });
+      });
+      searchForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const term = searchInput.value.trim();
+        if (!term) return;
+        clearTimeout(searchTimer);
+        hideSearchResults();
+        searchInput.blur();
+        closeMenus();
+        Object.values(els).forEach((s) => (s.value = ""));
+        setSearch(term);
+        await refreshOptions();
+        applyFilters({ scroll: true });
+      });
+      document.addEventListener("click", (e) => { if (!searchForm.contains(e.target)) hideSearchResults(); });
+
       async function clearFilters() {
         Object.values(els).forEach((s) => (s.value = ""));
+        setSearch("");
         await refreshOptions();
         applyFilters({ scroll: false });
       }
@@ -626,6 +727,7 @@
         if (q.category_id) { els.purpose.value = q.category_id; await refreshOptions(); }
         if (q.breed_id) { els.breed.value = q.breed_id; await refreshOptions(); }
         if (q.location) els.location.value = q.location;
+        if (q.q) setSearch(q.q);
         await loadListings(1);
         if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
       });

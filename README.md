@@ -133,6 +133,8 @@ Photos are resized in the browser before upload (good on mobile data). The serve
 
 The homepage filter cascades, and every option comes from the database:
 
+**Search:** the header search box matches every word typed against listing titles, descriptions, types, provinces, animals, purposes and breeds (`GET /api/livestock?q=`), shows the top matches as you type, and Enter shows all results in the listings.
+
 **Animal Category → Production Purpose → Breed → Province**
 
 - No dropdown offers an "All …" option; each shows a prompt (e.g. *Select breed*) until something is picked, and **Clear all filters** resets them.
