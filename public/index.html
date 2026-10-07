@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Frontier Marketplace - Sourcing Livestock Across Zambia, Made Easy</title>
+    <title>Frontier Marketplace - Zambia's Number One Livestock Marketplace</title>
     <meta
       name="description"
       content="Cattle, goats, sheep, pigs and poultry for sale across Zambia from Frontier Farms & Consult."
@@ -61,7 +61,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="max-w-4xl">
             <h1 id="hero-heading" class="text-4xl md:text-6xl font-bold leading-tight text-balance">
-              Sourcing Livestock Across Zambia, <span class="hero-accent">Made Easy</span>
+              Zambia's Number One <span class="hero-accent">Livestock Marketplace</span>
             </h1>
           </div>
 
@@ -127,18 +127,17 @@
       function initHero() {
         const host = document.getElementById("hero-slides");
         const dots = document.getElementById("hero-dots");
-        const width = viewportImageWidth();
         let index = 0;
         let timer;
 
         host.innerHTML = HERO_PHOTOS.map((p) => `<div class="hero-slide" role="img" aria-label="${escapeHtml(p.alt)}"></div>`).join("");
-        dots.innerHTML = HERO_PHOTOS.map((p, i) => `<button type="button" aria-label="Show photo ${i + 1}: ${escapeHtml(p.place)}"></button>`).join("");
+        dots.innerHTML = HERO_PHOTOS.map((p, i) => `<button type="button" aria-label="Show photo ${i + 1}: ${escapeHtml(p.label)}"></button>`).join("");
         const slides = host.querySelectorAll(".hero-slide");
         const dotBtns = dots.querySelectorAll("button");
 
         function load(i) {
           if (slides[i].dataset.loaded) return;
-          const url = unsplashUrl(HERO_PHOTOS[i].id, width);
+          const url = HERO_PHOTOS[i].src;
           const img = new Image();
           img.onload = () => {
             slides[i].style.backgroundImage = `url("${url}")`;

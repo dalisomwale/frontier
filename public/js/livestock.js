@@ -1,44 +1,13 @@
 
 const HERO_PHOTOS = [
-  {
-    id: "photo-1771172032297-7c42b11af31d",
-    alt: "A brown and white calf resting in green grass in Kabwe, Zambia",
-    place: "Kabwe, Zambia",
-    author: "Mwandwe Chileshe",
-    page: "https://unsplash.com/photos/a-brown-and-white-calf-rests-in-green-grass-_q4s7f6JTTU",
-  },
-  {
-    id: "photo-1735837844277-e1206881f9c9",
-    alt: "A herd of cattle beside water in Kenya's Great Rift Valley",
-    place: "Great Rift Valley, Kenya",
-    author: "Sweder Breet",
-    page: "https://unsplash.com/photos/a-herd-of-cattle-standing-next-to-a-body-of-water-Cjbb9aeHeD8",
-  },
-  {
-    id: "photo-1763231228595-12e443569896",
-    alt: "A farmer milking a white cow in a field in Osun, Nigeria",
-    place: "Osun, Nigeria",
-    author: "Fahd Aminu",
-    page: "https://unsplash.com/photos/man-milking-a-white-cow-in-a-field-NQg7R0euxyc",
-  },
-  {
-    id: "photo-1713289590437-65e4db863617",
-    alt: "A herd of cattle walking down a dirt road in Senegal",
-    place: "Senegal",
-    author: "Carlos Torres",
-    page: "https://unsplash.com/photos/a-herd-of-cattle-walking-down-a-dirt-road-QS_0VPaTpco",
-  },
-  {
-    id: "photo-1782944597444-c5406882e171",
-    alt: "Cattle walking in single file along a dry path through tall reeds",
-    place: "Mauritania",
-    author: "Baptiste Riethmann",
-    page: "https://unsplash.com/photos/cattle-walking-along-a-dry-path-with-tall-reeds-6WIV4VXsRA4",
-  },
+  { src: "/images/hero/hero-1.webp", alt: "Jersey cows feeding at a trough under a shed", label: "Jersey cows" },
+  { src: "/images/hero/hero-2.webp", alt: "A Brahman bull standing in a paddock", label: "Brahman bull" },
+  { src: "/images/hero/hero-3.webp", alt: "Brahman cattle in a paddock", label: "Brahman cattle" },
+  { src: "/images/hero/hero-4.webp", alt: "Holstein-Friesian cows feeding at a trough under a shed", label: "Holstein-Friesian cows" },
 ];
 
 const ANIMAL_PHOTOS = {
-  cattle: { src: () => unsplashUrl(HERO_PHOTOS[1].id, 900, 675), alt: HERO_PHOTOS[1].alt },
+  cattle: { src: () => unsplashUrl("photo-1735837844277-e1206881f9c9", 900, 675), alt: "A herd of cattle beside water" },
   goats: { src: () => "/images/livestock/goat.webp", alt: "A brown goat looking at the camera" },
   sheep: { src: () => "/images/livestock/sheep.webp", alt: "Sheep grazing" },
   pigs: { src: () => "/images/livestock/pig.webp", alt: "A pig on a farm" },

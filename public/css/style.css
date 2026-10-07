@@ -1788,3 +1788,9 @@ body.admin-pending main {
   border-color: rgba(63, 74, 89, 0.25);
   border-top-color: #3f4a59;
 }
+
+@media (max-width: 639px) {
+  .hero-accent {
+    white-space: normal;
+  }
+}
