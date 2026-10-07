@@ -15,7 +15,9 @@ router.get("/", async (req, res, next) => {
         (SELECT COUNT(*) FROM breeds) AS breeds,
         (SELECT COUNT(*) FROM inquiries WHERE is_archived = 0) AS total_inquiries,
         (SELECT COUNT(*) FROM inquiries WHERE is_archived = 0 AND status = 'new') AS new_inquiries,
-        (SELECT COUNT(*) FROM inquiries WHERE is_archived = 0 AND email_status = 'failed') AS failed_emails
+        (SELECT COUNT(*) FROM inquiries WHERE is_archived = 0 AND email_status = 'failed') AS failed_emails,
+        (SELECT COUNT(*) FROM livestock WHERE review_status = 'pending') AS pending_listings,
+        (SELECT COUNT(*) FROM sellers WHERE account_status = 'pending') AS pending_sellers
     `);
 
     const [recentLivestock] = await pool.query(`

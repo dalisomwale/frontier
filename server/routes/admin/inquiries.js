@@ -1,7 +1,7 @@
 const express = require("express");
 const pool = require("../../db");
 const { positiveInt, text, oneOf, badRequest, notFound } = require("../../lib/validate");
-const { sendInquiryNotification } = require("../../services/mailer");
+const { sendInquiryNotification, sendEmail, appUrl } = require("../../services/mailer");
 
 const router = express.Router();
 const STATUSES = ["new", "contacted", "in_progress", "resolved"];
@@ -36,7 +36,8 @@ router.get("/", async (req, res, next) => {
 
     const [rows] = await pool.query(
       `SELECT i.*, s.name AS seller_current_name, s.business_name AS seller_business_name,
-         s.phone AS seller_phone, s.email AS seller_email, s.status AS seller_status
+         s.phone AS seller_phone, s.email AS seller_email, s.status AS seller_status,
+         s.account_status AS seller_account_status
        FROM inquiries i LEFT JOIN sellers s ON s.id = i.seller_id WHERE ${condition}
        ORDER BY i.created_at DESC, i.id DESC LIMIT ? OFFSET ?`,
       [...params, limit, (page - 1) * limit],
@@ -70,7 +71,8 @@ router.get("/:id", async (req, res, next) => {
   try {
     const [rows] = await pool.query(
       `SELECT i.*, s.name AS seller_current_name, s.business_name AS seller_business_name,
-         s.phone AS seller_phone, s.email AS seller_email, s.status AS seller_status, l.status AS livestock_status FROM inquiries i
+         s.phone AS seller_phone, s.email AS seller_email, s.status AS seller_status,
+         s.account_status AS seller_account_status, l.status AS livestock_status FROM inquiries i
        LEFT JOIN livestock l ON l.id = i.livestock_id
        LEFT JOIN sellers s ON s.id = i.seller_id WHERE i.id = ?`,
       [positiveInt(req.params.id)],
@@ -101,6 +103,48 @@ router.patch("/:id", async (req, res, next) => {
     const [result] = await pool.query(`UPDATE inquiries SET ${fields.join(", ")} WHERE id = ?`, [...params, id]);
     if (!result.affectedRows) throw notFound("Inquiry not found.");
     res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Passes an inquiry on to the listing's seller: a message written by the
+// admin, without the customer's contact details. Sellers with an account see
+// it in their dashboard; anyone with an email address is also emailed.
+router.post("/:id/forward", async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id);
+    const message = text(req.body.message, 3000);
+    if (!message) throw badRequest(message === undefined ? "The message must be 3000 characters or fewer." : "Please write a message for the seller.");
+    const [[row]] = await pool.query(
+      `SELECT i.id, i.livestock_title, i.seller_id, s.name, s.email, s.status,
+         s.password_hash IS NOT NULL AND s.account_status = 'approved' AS has_account
+       FROM inquiries i LEFT JOIN sellers s ON s.id = i.seller_id WHERE i.id = ?`,
+      [id],
+    );
+    if (!row) throw notFound("Inquiry not found.");
+    if (!row.seller_id || !row.name) throw badRequest("This inquiry is for Frontier's stock, so there is no seller to forward it to.");
+    const hasAccount = Boolean(row.has_account) && row.status === "active";
+    if (!hasAccount && !row.email) {
+      throw badRequest("This seller has no account or email address. Contact them on WhatsApp or by phone instead.");
+    }
+    await pool.query(
+      `UPDATE inquiries SET forwarded_at = NOW(), forward_message = ?, seller_seen_at = NULL,
+         status = IF(status = 'new', 'in_progress', status) WHERE id = ?`,
+      [message, id],
+    );
+    let emailed = false;
+    if (row.email) {
+      const result = await sendEmail({
+        to: row.email,
+        subject: `Customer interest: ${row.livestock_title}`,
+        heading: "A customer is interested in your livestock",
+        paragraphs: [`Hi ${row.name},`, `Frontier has a message for you about "${row.livestock_title}":`, message],
+        button: hasAccount ? { label: "Reply in your dashboard", url: appUrl("/seller/?tab=messages") } : null,
+      });
+      emailed = result.sent;
+    }
+    res.json({ success: true, emailed, in_dashboard: hasAccount });
   } catch (error) {
     next(error);
   }

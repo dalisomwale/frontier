@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>My Dashboard - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/seller.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div id="seller-header"></div>
+
+    <main id="seller-main" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8" hidden>
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">My Dashboard</h1>
+          <p id="welcome-line" class="text-sm text-gray-500"></p>
+        </div>
+        <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
+          <span class="w-5 h-5" data-icon="plus"></span> Add Listing
+        </button>
+      </div>
+
+      <div id="account-banner"></div>
+
+      <div id="stats" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6"></div>
+
+      <div class="seg mb-4" id="tabs" role="tablist">
+        <button type="button" data-tab="listings" class="active">My Listings</button>
+        <button type="button" data-tab="messages">Messages <span id="unread-badge" class="count"></span></button>
+        <button type="button" data-tab="profile">Profile</button>
+      </div>
+
+      <section id="tab-listings"></section>
+      <section id="tab-messages" hidden></section>
+      <section id="tab-profile" hidden>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <form id="profile-form" class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4" novalidate>
+            <h2 class="font-semibold text-gray-900">Your details</h2>
+            <div data-alert class="hidden alert text-sm mb-0" role="alert"></div>
+            <div data-fields class="space-y-4"></div>
+            <button type="submit" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold">Save details</button>
+          </form>
+          <form id="password-form" class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4 self-start" novalidate>
+            <h2 class="font-semibold text-gray-900">Change password</h2>
+            <div data-alert class="hidden alert text-sm mb-0" role="alert"></div>
+            <div>
+              <label for="current_password" class="field-label">Current password</label>
+              <div class="relative">
+                <input id="current_password" name="current_password" type="password" class="field-input pr-12" autocomplete="current-password" />
+                <button type="button" data-toggle-password="current_password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+              </div>
+            </div>
+            <div>
+              <label for="new_password" class="field-label">New password</label>
+              <div class="relative">
+                <input id="new_password" name="new_password" type="password" class="field-input pr-12" autocomplete="new-password" />
+                <button type="button" data-toggle-password="new_password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">At least 8 characters.</p>
+            </div>
+            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold">Update password</button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const MAX_PHOTOS = 10;
+      let seller = null;
+      let taxonomy = { animals: [], purposes: [], breeds: [] };
+      let listings = [];
+      let messages = [];
+
+      const approved = () => seller?.account_status === "approved";
+
+      function renderBanner() {
+        const box = document.getElementById("account-banner");
+        if (seller.account_status === "pending") {
+          box.innerHTML = `<div class="alert alert-warning text-sm mb-5"><strong>Your account is waiting for approval.</strong> Our team will check your details and email you. You can add listings once you're approved.</div>`;
+        } else if (seller.account_status === "rejected") {
+          box.innerHTML = `<div class="alert alert-error text-sm mb-5"><strong>Your seller account was not approved.</strong> ${seller.account_note ? escapeHtml(seller.account_note) + " " : ""}Please contact Frontier if you have questions.</div>`;
+        } else {
+          box.innerHTML = "";
+        }
+        const add = document.getElementById("add-btn");
+        add.disabled = !approved();
+        add.title = approved() ? "" : "Available once your account is approved";
+      }
+
+      async function loadSummary() {
+        const { data } = await sellerApi("/api/seller/summary");
+        const stat = (label, value, tone = "") => `
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <div class="text-xs text-gray-500">${label}</div>
+            <div class="text-xl font-bold ${tone || "text-gray-900"} mt-1">${value}</div>
+          </div>`;
+        document.getElementById("stats").innerHTML =
+          stat("Live", data.listings.live, data.listings.live ? "text-green-700" : "") +
+          stat("In review", data.listings.in_review, data.listings.in_review ? "text-amber-700" : "") +
+          stat("Changes needed", data.listings.changes_needed, data.listings.changes_needed ? "text-red-700" : "") +
+          stat("Unread messages", data.messages.unread, data.messages.unread ? "text-blue-700" : "");
+        document.getElementById("unread-badge").textContent = data.messages.unread ? data.messages.unread : "";
+      }
+
+      const stateHelp = {
+        pending: "Our team is checking this listing. It will go live once approved.",
+        rejected: "Please update this listing and save it to send it for review again.",
+        published: "Visible on the website.",
+        unpublished: "Not on the website. Submit it for review to bring it back.",
+      };
+
+      function listingCard(l) {
+        const st = sellerState(l);
+        const detail = [l.breed_name, l.category_name, l.animal_name].filter(Boolean).join(" · ");
+        return `
+          <article class="bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 flex gap-3 sm:gap-4">
+            <div class="w-24 h-20 sm:w-32 sm:h-24 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+              ${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : ""}
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-start justify-between gap-2">
+                <h3 class="font-semibold text-gray-900 leading-snug">${escapeHtml(l.title)}</h3>
+                ${statusPill(st.key, st.label)}
+              </div>
+              <p class="text-xs text-gray-500 mt-0.5">${escapeHtml(detail)} · ${escapeHtml(l.location)} · Qty ${Number(l.quantity)}</p>
+              <p class="text-xs text-gray-500 mt-1">${escapeHtml(stateHelp[st.key])}${st.key === "published" && l.published_at ? ` Since ${formatDateShort(l.published_at)}.` : ""}</p>
+              ${st.key === "rejected" && l.review_note ? `<div class="mt-2 text-sm rounded-lg bg-red-50 text-red-800 px-3 py-2"><strong>Frontier:</strong> ${escapeHtml(l.review_note)}</div>` : ""}
+              <div class="flex flex-wrap gap-2 mt-3">
+                ${approved() ? `<button type="button" data-edit="${l.id}" class="seller-action">Edit</button>` : ""}
+                ${st.key === "published" ? `<a href="/listing.html?id=${l.id}" target="_blank" class="seller-action">View</a><button type="button" data-hide="${l.id}" class="seller-action">Hide</button>` : ""}
+                ${approved() && st.key === "unpublished" ? `<button type="button" data-resubmit="${l.id}" class="seller-action">Submit for review</button>` : ""}
+                <button type="button" data-delete="${l.id}" class="seller-action seller-action-danger">Delete</button>
+              </div>
+            </div>
+          </article>`;
+      }
+
+      async function loadListings() {
+        const box = document.getElementById("tab-listings");
+        listings = (await sellerApi("/api/seller/listings")).data;
+        if (!listings.length) {
+          box.innerHTML = `<div class="bg-white rounded-xl border border-gray-100 shadow-sm"><div class="empty-state">
+            <p class="font-semibold text-gray-800">No listings yet</p>
+            <p class="text-sm mt-1">${approved() ? "Add your first listing. Our team will review it before it goes live." : "You can add listings once your account is approved."}</p>
+            ${approved() ? `<button type="button" data-add class="mt-4 inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold">Add Listing</button>` : ""}
+          </div></div>`;
+          box.querySelector("[data-add]")?.addEventListener("click", () => openEditor());
+          return;
+        }
+        box.innerHTML = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${listings.map(listingCard).join("")}</div>`;
+        box.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openEditor(b.dataset.edit)));
+        box.querySelectorAll("[data-hide]").forEach((b) => b.addEventListener("click", async () => {
+          if (!(await confirmAction({ title: "Hide this listing?", message: "It will be taken off the website. To show it again you'll need to submit it for review.", confirmText: "Hide" }))) return;
+          await runAction(() => sellerApi(`/api/seller/listings/${b.dataset.hide}/hide`, { method: "POST" }), "Listing hidden.");
+        }));
+        box.querySelectorAll("[data-resubmit]").forEach((b) => b.addEventListener("click", async () => {
+          await runAction(() => sellerApi(`/api/seller/listings/${b.dataset.resubmit}/resubmit`, { method: "POST" }), "Sent for review.");
+        }));
+        box.querySelectorAll("[data-delete]").forEach((b) => b.addEventListener("click", async () => {
+          const l = listings.find((x) => String(x.id) === b.dataset.delete);
+          if (!(await confirmAction({ title: "Delete this listing?", message: `"${l.title}" and its photos will be deleted permanently.`, confirmText: "Delete", variant: "danger" }))) return;
+          await runAction(() => sellerApi(`/api/seller/listings/${b.dataset.delete}`, { method: "DELETE" }), "Listing deleted.");
+        }));
+      }
+
+      async function runAction(task, message) {
+        try {
+          await task();
+          showNotification(message, "success");
+          await Promise.all([loadListings(), loadSummary()]);
+        } catch (error) {
+          showNotification(error.message, "error");
+        }
+      }
+
+      const optionsHtml = (opts) => opts.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join("");
+
+      function animalOptions() {
+        return [{ value: "", label: "Select category" }, ...taxonomy.animals.map((a) => ({ value: a.id, label: a.name }))];
+      }
+      function purposeOptions(animalId) {
+        const list = taxonomy.purposes.filter((p) => String(p.animal_id) === String(animalId));
+        return [{ value: "", label: animalId ? "Select purpose" : "Select a category first" }, ...list.map((p) => ({ value: p.id, label: p.name }))];
+      }
+      function breedOptions(purposeId) {
+        const purpose = taxonomy.purposes.find((p) => String(p.id) === String(purposeId));
+        let list = [];
+        if (purpose && isAllBreedsPurpose(purpose.name)) {
+          list = taxonomy.breeds.filter((b) => String(b.animal_id) === String(purpose.animal_id))
+            .map((b) => ({ value: b.id, label: String(b.category_id) === String(purpose.id) ? b.name : `${b.name} (${b.category_name})` }));
+        } else if (purpose) {
+          list = taxonomy.breeds.filter((b) => String(b.category_id) === String(purpose.id)).map((b) => ({ value: b.id, label: b.name }));
+        }
+        return [{ value: "", label: purposeId ? (list.length ? "Select breed" : "No breeds listed") : "Select a purpose first" }, ...list];
+      }
+      function typeOptions(animalId, selected) {
+        const animal = taxonomy.animals.find((a) => String(a.id) === String(animalId));
+        const list = livestockTypesFor(animal?.name);
+        const values = selected && !list.includes(selected) ? [...list, selected] : list;
+        return [{ value: "", label: "Not specified" }, ...values.map((t) => ({ value: t, label: t }))];
+      }
+
+      async function openEditor(id) {
+        let item = {};
+        if (id) {
+          try {
+            item = (await sellerApi(`/api/seller/listings/${id}`)).data;
+          } catch (error) {
+            return showNotification(error.message, "error");
+          }
+        }
+        const photos = (item.images || []).map((im) => ({ id: im.id, src: im.thumb_path || im.image_path }));
+        const removed = [];
+        const animalId = item.animal_id ?? "";
+        const live = item.status === "published";
+
+        const body = `
+          ${id ? `<div class="alert alert-info text-sm mb-0">${live ? "Saving changes takes this listing off the website until our team approves it again." : "Saving sends this listing to our team for review."}</div>` : `<div class="alert alert-info text-sm mb-0">Our team checks every listing before it goes live. You'll get an email when it's approved.</div>`}
+          ${field({ name: "title", label: "Title", value: item.title, required: true, placeholder: "e.g. 10 Boran heifers, in calf", attrs: 'maxlength="200"' })}
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            ${field({ name: "animal_id", label: "Category", value: animalId, required: true, options: animalOptions() })}
+            ${field({ name: "category_id", label: "Production Purpose", value: item.category_id, required: true, options: purposeOptions(animalId) })}
+            ${field({ name: "breed_id", label: "Breed", value: item.breed_id, options: breedOptions(item.category_id) })}
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            ${field({ name: "livestock_type", label: "Type", value: item.livestock_type, options: typeOptions(animalId, item.livestock_type) })}
+            ${field({ name: "quantity", label: "Quantity", type: "number", value: item.quantity ?? 1, attrs: 'min="1" step="1" inputmode="numeric"' })}
+            ${field({ name: "age_months", label: "Age (months)", type: "number", value: item.age_months, attrs: 'min="0" max="600" step="1" inputmode="numeric"' })}
+          </div>
+          ${field({ name: "location", label: "Province", value: item.location || seller.province || "", required: true,
+              options: [{ value: "", label: "Select province" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
+          ${field({ name: "description", label: "Description", type: "textarea", value: item.description, rows: 5,
+              placeholder: "Condition, vaccinations, feeding, price guide, anything a buyer should know", attrs: 'maxlength="5000"' })}
+          <div>
+            <div class="flex items-baseline justify-between mb-2">
+              <span class="field-label !mb-0">Photos <span class="text-red-500">*</span></span>
+              <span id="photo-count" class="text-xs text-gray-500"></span>
+            </div>
+            <div id="photo-grid" class="photo-grid"></div>
+            <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple class="hidden">
+            <p class="text-xs text-gray-500 mt-2">Up to ${MAX_PHOTOS} clear photos. The first one is the cover.</p>
+            <p class="field-error hidden" data-error-for="images"></p>
+          </div>`;
+
+        openFormModal({
+          title: id ? "Edit Listing" : "Add Listing",
+          submitText: id ? "Save and send for review" : "Submit for review",
+          wide: true,
+          body,
+          onOpen(form) {
+            const animalSelect = form.elements.animal_id;
+            const purposeSelect = form.elements.category_id;
+            const breedSelect = form.elements.breed_id;
+            const typeSelect = form.elements.livestock_type;
+            animalSelect.addEventListener("change", () => {
+              purposeSelect.innerHTML = optionsHtml(purposeOptions(animalSelect.value));
+              breedSelect.innerHTML = optionsHtml(breedOptions(""));
+              typeSelect.innerHTML = optionsHtml(typeOptions(animalSelect.value));
+            });
+            purposeSelect.addEventListener("change", () => {
+              breedSelect.innerHTML = optionsHtml(breedOptions(purposeSelect.value));
+            });
+
+            const grid = form.querySelector("#photo-grid");
+            const input = form.querySelector("#photo-input");
+            const renderPhotos = () => {
+              form.querySelector("#photo-count").textContent = `${photos.length} / ${MAX_PHOTOS}`;
+              grid.innerHTML = photos.map((p, i) => `
+                <div class="photo-item ${i === 0 ? "is-cover" : ""}">
+                  <img src="${escapeHtml(p.src)}" alt="Photo ${i + 1}">
+                  ${i === 0 ? '<span class="cover-badge">Cover</span>' : ""}
+                  <div class="photo-actions">
+                    ${i === 0 ? "<span></span>" : `<button type="button" data-cover="${i}">Make cover</button>`}
+                    <button type="button" data-remove="${i}" aria-label="Remove photo">Remove</button>
+                  </div>
+                </div>`).join("") +
+                (photos.length < MAX_PHOTOS
+                  ? `<label class="photo-drop" for="photo-input" tabindex="0">${uiIcon("camera")}<span>Add photos</span></label>`
+                  : "");
+              grid.querySelectorAll("[data-cover]").forEach((b) => b.addEventListener("click", () => {
+                photos.unshift(photos.splice(Number(b.dataset.cover), 1)[0]);
+                form.dispatchEvent(new Event("input"));
+                renderPhotos();
+              }));
+              grid.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", async () => {
+                if (photos[Number(b.dataset.remove)]?.id && !(await confirmRemovePhoto())) return;
+                const [p] = photos.splice(Number(b.dataset.remove), 1);
+                if (p.id) removed.push(p.id);
+                if (p.url) URL.revokeObjectURL(p.url);
+                form.dispatchEvent(new Event("input"));
+                renderPhotos();
+              }));
+              const drop = grid.querySelector(".photo-drop");
+              if (drop) {
+                drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+                ["dragover", "dragenter"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("dragover"); }));
+                ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, () => drop.classList.remove("dragover")));
+                drop.addEventListener("drop", (e) => { e.preventDefault(); addFiles(e.dataTransfer.files); });
+              }
+            };
+            const addFiles = async (fileList) => {
+              const files = [...fileList].filter((f) => /^image\/(jpeg|png|webp)$/.test(f.type));
+              if (files.length < fileList.length) showNotification("Only JPEG, PNG and WebP photos can be added.", "warning");
+              const room = MAX_PHOTOS - photos.length;
+              if (files.length > room) showNotification(`Only ${room} more photo${room === 1 ? "" : "s"} can be added.`, "warning");
+              for (const f of files.slice(0, room)) {
+                const file = await shrinkImage(f);
+                const url = URL.createObjectURL(file);
+                photos.push({ file, src: url, url });
+              }
+              form.dispatchEvent(new Event("input"));
+              renderPhotos();
+            };
+            input.addEventListener("change", () => { addFiles(input.files); input.value = ""; });
+            renderPhotos();
+          },
+          async onSubmit(form) {
+            const v = formValues(form);
+            const errors = {};
+            if (!v.title.trim()) errors.title = "Title is required.";
+            if (!v.animal_id) errors.animal_id = "Please choose a category.";
+            if (!v.category_id) errors.category_id = "Please choose a production purpose.";
+            if (!v.location) errors.location = "Please choose a province.";
+            if (!photos.length) errors.images = "Please add at least one photo of the animals.";
+            if (Object.keys(errors).length) {
+              const e = new Error("Please correct the highlighted fields.");
+              e.errors = errors;
+              throw e;
+            }
+
+            const fd = new FormData();
+            for (const key of ["title", "animal_id", "category_id", "breed_id", "livestock_type", "quantity", "age_months", "location", "description"]) fd.append(key, v[key] ?? "");
+            fd.append("remove_image_ids", JSON.stringify(removed));
+            fd.append("image_order", JSON.stringify(photos.filter((p) => p.id).map((p) => p.id)));
+            const newPhotos = photos.filter((p) => p.file);
+            newPhotos.forEach((p) => fd.append("images", p.file, p.file.name));
+
+            const res = await sellerApi(id ? `/api/seller/listings/${id}` : "/api/seller/listings", { method: id ? "PUT" : "POST", body: fd });
+
+            if (photos[0]?.file && res.data.images.length > 1) {
+              const firstNewIndex = res.data.images.length - newPhotos.length;
+              const coverId = res.data.images[firstNewIndex].id;
+              const order = [coverId, ...res.data.images.filter((im) => im.id !== coverId).map((im) => im.id)];
+              const fd2 = new FormData();
+              for (const key of ["title", "animal_id", "category_id", "breed_id", "livestock_type", "quantity", "age_months", "location", "description"]) fd2.append(key, res.data[key] ?? "");
+              fd2.append("image_order", JSON.stringify(order));
+              await sellerApi(`/api/seller/listings/${res.data.id}`, { method: "PUT", body: fd2 });
+            }
+            photos.forEach((p) => p.url && URL.revokeObjectURL(p.url));
+            showNotification("Sent for review. We'll email you when it's approved.", "success");
+            await Promise.all([loadListings(), loadSummary()]);
+          },
+        });
+      }
+
+      function messageCard(m) {
+        return `
+          <article class="bg-white rounded-xl border ${m.seller_seen_at ? "border-gray-100" : "border-blue-200"} shadow-sm p-4">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p class="text-xs text-gray-500">About</p>
+                <h3 class="font-semibold text-gray-900">${m.livestock_id ? `<a href="/listing.html?id=${m.livestock_id}" target="_blank" class="hover:underline">${escapeHtml(m.livestock_title)}</a>` : escapeHtml(m.livestock_title)}</h3>
+              </div>
+              <span class="text-xs text-gray-500">${formatDate(m.forwarded_at)}</span>
+            </div>
+            <div class="mt-3 text-sm rounded-lg bg-gray-50 px-3 py-2 whitespace-pre-wrap"><strong class="block text-xs text-gray-500 mb-1">Frontier</strong>${escapeHtml(m.forward_message)}</div>
+            ${m.seller_reply ? `
+              <div class="mt-2 text-sm rounded-lg bg-blue-50 px-3 py-2 whitespace-pre-wrap"><strong class="block text-xs text-gray-500 mb-1">Your reply · ${formatDate(m.seller_replied_at)}</strong>${escapeHtml(m.seller_reply)}</div>` : ""}
+            <form data-reply="${m.id}" class="mt-3 space-y-2" novalidate>
+              <label class="sr-only" for="reply-${m.id}">Reply</label>
+              <textarea id="reply-${m.id}" name="reply" rows="2" maxlength="2000" class="field-input" placeholder="${m.seller_reply ? "Change your reply" : "Reply to Frontier"}"></textarea>
+              <button type="submit" class="seller-action">Send reply</button>
+            </form>
+          </article>`;
+      }
+
+      async function loadMessages() {
+        const box = document.getElementById("tab-messages");
+        messages = (await sellerApi("/api/seller/messages")).data;
+        if (!messages.length) {
+          box.innerHTML = `<div class="bg-white rounded-xl border border-gray-100 shadow-sm"><div class="empty-state">
+            <p class="font-semibold text-gray-800">No messages yet</p>
+            <p class="text-sm mt-1">When a buyer is interested in your livestock, Frontier will pass the details on here and by email.</p>
+          </div></div>`;
+          return;
+        }
+        box.innerHTML = `<div class="space-y-3">${messages.map(messageCard).join("")}</div>`;
+        box.querySelectorAll("[data-reply]").forEach((form) => form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const reply = form.reply.value.trim();
+          if (!reply) return form.reply.focus();
+          try {
+            await withBusy(form.querySelector("button"), "Sending…", () =>
+              sellerApi(`/api/seller/messages/${form.dataset.reply}/reply`, { method: "POST", body: { reply } }));
+            showNotification("Reply sent to Frontier.", "success");
+            await loadMessages();
+          } catch (error) {
+            showNotification(error.message, "error");
+          }
+        }));
+        const unread = messages.filter((m) => !m.seller_seen_at);
+        if (unread.length && !document.getElementById("tab-messages").hidden) {
+          await Promise.all(unread.map((m) => sellerApi(`/api/seller/messages/${m.id}/seen`, { method: "POST" }).catch(() => {})));
+          loadSummary();
+        }
+      }
+
+      function renderProfile() {
+        const form = document.getElementById("profile-form");
+        form.querySelector("[data-fields]").innerHTML = `
+          ${field({ name: "name", label: "Full name", value: seller.name, required: true, attrs: 'maxlength="120" autocomplete="name"' })}
+          ${field({ name: "business_name", label: "Farm or business name", value: seller.business_name, attrs: 'maxlength="150" autocomplete="organization"' })}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            ${field({ name: "phone", label: "Phone / WhatsApp", type: "tel", value: seller.phone, required: true, attrs: 'maxlength="30" autocomplete="tel"' })}
+            ${field({ name: "email", label: "Email", type: "email", value: seller.email, required: true, attrs: 'maxlength="255" autocomplete="email"' })}
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            ${field({ name: "province", label: "Province", value: seller.province, required: true, options: [{ value: "", label: "Select province" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
+            ${field({ name: "address", label: "Town / farm location", value: seller.address, attrs: 'maxlength="255"' })}
+          </div>`;
+      }
+
+      function setTab(name) {
+        document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+        ["listings", "messages", "profile"].forEach((t) => (document.getElementById(`tab-${t}`).hidden = t !== name));
+        const url = new URL(location.href);
+        if (name === "listings") url.searchParams.delete("tab");
+        else url.searchParams.set("tab", name);
+        url.searchParams.delete("welcome");
+        history.replaceState(null, "", url);
+        if (name === "messages") loadMessages().catch((e) => showNotification(e.message, "error"));
+      }
+
+      document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
+      document.getElementById("add-btn").addEventListener("click", () => openEditor());
+
+      document.getElementById("profile-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const alertBox = form.querySelector("[data-alert]");
+        alertBox.classList.add("hidden");
+        try {
+          const res = await withBusy(form.querySelector("[type=submit]"), "Saving…", () =>
+            sellerApi("/api/seller/me", { method: "PUT", body: formValues(form) }));
+          seller = res.data;
+          showFieldErrors(form, {});
+          showNotification("Details saved.", "success");
+          document.getElementById("seller-header").innerHTML = sellerPageHeader(seller);
+          bindHeader();
+        } catch (error) {
+          showFieldErrors(form, error);
+          alertBox.className = "alert alert-error text-sm mb-0";
+          alertBox.textContent = error.message;
+        }
+      });
+
+      document.getElementById("password-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const alertBox = form.querySelector("[data-alert]");
+        try {
+          await withBusy(form.querySelector("[type=submit]"), "Saving…", () =>
+            sellerApi("/api/seller/me/password", { method: "PATCH", body: formValues(form) }));
+          form.reset();
+          alertBox.className = "alert alert-success text-sm mb-0";
+          alertBox.textContent = "Password updated.";
+        } catch (error) {
+          alertBox.className = "alert alert-error text-sm mb-0";
+          alertBox.textContent = error.message;
+        }
+      });
+
+      function bindHeader() {
+        document.querySelectorAll("[data-seller-logout]").forEach((b) => b.addEventListener("click", sellerLogout));
+      }
+
+      (async () => {
+        document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+        bindPasswordToggles();
+        seller = (await sellerApi("/api/seller/auth/me")).data;
+        setSellerHint(true);
+        document.getElementById("seller-header").innerHTML = sellerPageHeader(seller);
+        bindHeader();
+        document.getElementById("welcome-line").textContent = `Welcome, ${seller.name}`;
+        document.getElementById("seller-main").hidden = false;
+        renderBanner();
+        renderProfile();
+        const [tax] = await Promise.all([sellerApi("/api/seller/taxonomy"), loadSummary(), loadListings()]);
+        taxonomy = tax.data;
+        const tab = getQueryParams().tab;
+        if (tab === "messages" || tab === "profile") setTab(tab);
+      })().catch((error) => showNotification(error.message, "error"));
+    </script>
+  </body>
+</html>

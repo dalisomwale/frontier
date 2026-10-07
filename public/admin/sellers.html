@@ -44,7 +44,7 @@
     <script>
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
 
-      const TABS = [{ value: "", label: "All", key: "all" }, { value: "active", label: "Active", key: "active" }, { value: "inactive", label: "Inactive", key: "inactive" }];
+      const TABS = [{ value: "", label: "All", key: "all" }, { value: "pending", label: "Awaiting approval", key: "pending" }, { value: "active", label: "Active", key: "active" }, { value: "inactive", label: "Inactive", key: "inactive" }];
       const state = { status: "", q: "" };
       let rows = [];
 
@@ -55,6 +55,12 @@
         if (phone.trim().startsWith("+")) return d;
         if (d.startsWith("0")) d = "260" + d.slice(1);
         return d;
+      }
+
+      const ACCOUNT_LABELS = { pending: "Awaiting approval", approved: "Approved", rejected: "Not approved" };
+
+      function accountPill(s) {
+        return s.account_status ? `<span class="status-pill st-${escapeHtml(s.account_status)}">${ACCOUNT_LABELS[s.account_status]}</span>` : "";
       }
 
       function sellerStatusPill(status) {
@@ -72,7 +78,8 @@
       async function load() {
         const list = document.getElementById("list");
         const params = new URLSearchParams();
-        if (state.status) params.set("status", state.status);
+        if (state.status === "pending") params.set("account", "pending");
+        else if (state.status) params.set("status", state.status);
         if (state.q) params.set("q", state.q);
         let res;
         try {
@@ -84,6 +91,9 @@
         renderTabs(res.summary);
 
         if (!rows.length) {
+          if (state.status === "pending" && !state.q) {
+            return renderEmptyState(list, { title: "No sellers waiting for approval", message: "Sellers who register on the website appear here.", icon: "check" });
+          }
           return renderEmptyState(list, state.q || state.status
             ? { title: "No matching sellers", message: "Try a different search or filter.", icon: "search" }
             : { title: "No sellers yet", message: "Add the farmers and suppliers whose livestock you list.", icon: "users",
@@ -103,7 +113,11 @@
       }
 
       function actionsHtml(s) {
-        return `
+        const review = s.account_status === "pending"
+          ? `<button type="button" data-approve="${s.id}" class="text-sm font-semibold text-green-700 hover:text-green-800 px-2 py-1">Approve</button>
+             <button type="button" data-reject="${s.id}" class="text-sm font-medium text-red-600 hover:text-red-700 px-2 py-1">Reject</button>`
+          : "";
+        return `${review}
           <button type="button" data-toggle="${s.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${s.status === "active" ? "Deactivate" : "Activate"}</button>
           <button type="button" data-edit="${s.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="Edit"><span class="w-4 h-4">${uiIcon("edit")}</span></button>
           <button type="button" data-delete="${s.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-red-600" title="Delete"><span class="w-4 h-4">${uiIcon("trash")}</span></button>`;
@@ -119,6 +133,7 @@
               <div class="min-w-[180px]">
                 <p class="font-semibold text-gray-900">${escapeHtml(s.name)}</p>
                 ${s.business_name ? `<p class="text-xs text-gray-500">${escapeHtml(s.business_name)}</p>` : ""}
+                ${s.account_status ? `<p class="text-xs text-gray-500 mt-0.5">Registered online${Number(s.pending_count) ? `, <span class="font-semibold text-amber-700">${Number(s.pending_count)} listing${Number(s.pending_count) === 1 ? "" : "s"} in review</span>` : ""}</p>` : ""}
                 <p class="text-xs text-gray-500 md:hidden">${escapeHtml(s.phone)}</p>
                 <div class="sm:hidden -ml-2 mt-1" data-stop>${actionsHtml(s)}</div>
               </div>
@@ -134,7 +149,7 @@
             <td class="hidden sm:table-cell text-center">
               ${inquiries ? `<span class="font-semibold text-gray-900">${inquiries}</span>${fresh ? `<span class="block text-xs font-semibold text-red-600">${fresh} new</span>` : ""}` : `<span class="text-gray-400">0</span>`}
             </td>
-            <td>${sellerStatusPill(s.status)}</td>
+            <td><div class="flex flex-col items-start gap-1">${s.account_status && s.account_status !== "approved" ? accountPill(s) : sellerStatusPill(s.status)}</div></td>
             <td class="text-right whitespace-nowrap hidden sm:table-cell" data-stop>${actionsHtml(s)}</td>
           </tr>`;
       }
@@ -147,6 +162,34 @@
         root.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openEditor(find(b.dataset.edit))));
         root.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", () => toggleSeller(find(b.dataset.toggle))));
         root.querySelectorAll("[data-delete]").forEach((b) => b.addEventListener("click", () => deleteSeller(find(b.dataset.delete))));
+        root.querySelectorAll("[data-approve]").forEach((b) => b.addEventListener("click", () => reviewAccount(find(b.dataset.approve), "approve")));
+        root.querySelectorAll("[data-reject]").forEach((b) => b.addEventListener("click", () => reviewAccount(find(b.dataset.reject), "reject")));
+      }
+
+      async function reviewAccount(s, action, after) {
+        const done = (res) => {
+          showNotification(`${s.name} ${action === "approve" ? "approved" : "not approved"}.${res.emailed ? " They've been emailed." : ""}`, "success");
+          load();
+          if (after) after();
+        };
+        if (action === "approve") {
+          const ok = await confirmAction({ title: `Approve ${s.name}?`, message: "They'll be able to sign in and submit listings. Every listing still comes to you for review before it goes live.", confirmText: "Approve" });
+          if (!ok) return;
+          try {
+            done(await adminApi(`/api/admin/sellers/${s.id}/account`, { method: "PATCH", body: { action } }));
+          } catch (error) { showNotification(error.message, "error"); }
+          return;
+        }
+        openFormModal({
+          title: `Reject ${s.name}?`,
+          submitText: "Reject account",
+          body: `
+            <p class="text-sm text-gray-600">They won't be able to submit listings. We'll email them to let them know.</p>
+            ${field({ name: "note", label: "Reason (included in the email)", type: "textarea", rows: 3, placeholder: "e.g. We couldn't confirm your farm details. Please call us on ...", attrs: 'maxlength="500"' })}`,
+          async onSubmit(form) {
+            done(await adminApi(`/api/admin/sellers/${s.id}/account`, { method: "PATCH", body: { action, note: formValues(form).note } }));
+          },
+        });
       }
 
       async function toggleSeller(s, after) {
@@ -246,7 +289,9 @@
               <p class="text-xs text-gray-500 truncate">${escapeHtml([l.breed_name, l.location].filter(Boolean).join(", "))}</p>
             </div>
             <div class="flex flex-col items-end gap-1 flex-shrink-0 text-xs">
-              <span class="status-pill ${l.status === "published" ? "st-published" : "st-unpublished"}">${l.status === "published" ? "Published" : "Unpublished"}</span>
+              ${l.review_status === "pending" ? `<span class="status-pill st-pending">In review</span>`
+                : l.review_status === "rejected" ? `<span class="status-pill st-rejected">Changes requested</span>`
+                : `<span class="status-pill ${l.status === "published" ? "st-published" : "st-unpublished"}">${l.status === "published" ? "Published" : "Unpublished"}</span>`}
               <span class="${l.verification === "verified" ? "text-blue-700" : "text-amber-700"} font-semibold">${l.verification === "verified" ? "Verified" : "Unverified"}</span>
             </div>
           </a>`).join("");
@@ -277,12 +322,27 @@
                 <div class="flex items-center gap-2">
                   <h2 id="seller-title" class="text-lg font-bold text-gray-900 truncate">${escapeHtml(s.name)}</h2>
                   ${sellerStatusPill(s.status)}
+                  ${accountPill(s)}
                 </div>
                 ${s.business_name ? `<p class="text-sm text-gray-500">${escapeHtml(s.business_name)}</p>` : ""}
               </div>
               <button type="button" data-close class="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 flex-shrink-0" aria-label="Close"><span class="w-5 h-5">${uiIcon("close")}</span></button>
             </div>
             <div class="p-5 space-y-5">
+              ${s.account_status ? `
+                <div class="rounded-lg border ${s.account_status === "pending" ? "border-amber-200 bg-amber-50" : s.account_status === "rejected" ? "border-red-200 bg-red-50" : "border-gray-200 bg-gray-50"} p-4 text-sm">
+                  <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p class="font-semibold text-gray-900">${s.account_status === "pending" ? "Registered online, waiting for your approval" : s.account_status === "rejected" ? "Account not approved" : "Seller account approved"}</p>
+                      <p class="text-gray-600 mt-0.5">Registered ${formatDateShort(s.created_at)}${s.approved_at ? `, approved ${formatDateShort(s.approved_at)}` : ""}${s.last_login_at ? `, last signed in ${timeAgo(s.last_login_at)}` : ""}</p>
+                      ${s.account_note ? `<p class="text-gray-700 mt-1">Note: ${escapeHtml(s.account_note)}</p>` : ""}
+                    </div>
+                    <div class="flex gap-2">
+                      ${s.account_status !== "approved" ? `<button type="button" data-account="approve" class="px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 font-semibold">Approve</button>` : ""}
+                      ${s.account_status !== "rejected" ? `<button type="button" data-account="reject" class="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium">${s.account_status === "approved" ? "Revoke" : "Reject"}</button>` : ""}
+                    </div>
+                  </div>
+                </div>` : ""}
               <div class="grid ${s.email ? "grid-cols-3" : "grid-cols-2"} gap-2">
                 <a href="tel:${escapeHtml(s.phone.replace(/[^\d+]/g, ""))}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-blue-600">${uiIcon("phone")}</span>Call</a>
                 <a href="https://wa.me/${whatsappNumber(s.phone)}" target="_blank" rel="noopener" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-green-500 hover:bg-green-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-green-600">${uiIcon("inquire")}</span>WhatsApp</a>
@@ -363,6 +423,7 @@
         backdrop.querySelector("[data-edit]").addEventListener("click", () => openEditor(s, reopen));
         backdrop.querySelector("[data-toggle]").addEventListener("click", () => toggleSeller(s, reopen));
         backdrop.querySelector("[data-delete]").addEventListener("click", () => deleteSeller(s, close));
+        backdrop.querySelectorAll("[data-account]").forEach((b) => b.addEventListener("click", () => reviewAccount(s, b.dataset.account, reopen)));
       }
 
       let searchTimer;
@@ -377,6 +438,7 @@
         renderTabs();
         await load();
         const q = getQueryParams();
+        if (q.account === "pending") document.querySelector('#tabs [data-tab="pending"]')?.click();
         if (q.id) openSeller(q.id);
         if (q.new) openEditor();
       })();

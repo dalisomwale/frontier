@@ -225,7 +225,58 @@ async function sendInquiryNotificationSafe(inquiry) {
   }
 }
 
+function appUrl(path = "/") {
+  const base = (process.env.APP_URL || "").replace(/\/+$/, "");
+  return base ? `${base}${path}` : path;
+}
+
+// A short branded email: a heading, a few paragraphs and an optional button.
+function buildSimpleEmail({ heading, paragraphs = [], rows = [], button = null }) {
+  const text = [
+    heading,
+    "",
+    ...paragraphs,
+    ...(rows.length ? ["", ...rows.map(([label, value]) => `${label}: ${value}`)] : []),
+    ...(button ? ["", `${button.label}: ${button.url}`] : []),
+  ].join("\n");
+  const html = `<!doctype html>
+<html><body style="margin:0;background:#f3f4f6;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;padding:24px 12px;">
+    <div style="background:#0b2a5e;color:#fff;border-radius:12px 12px 0 0;padding:18px 20px;">
+      <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#93c5fd;">Frontier Marketplace</div>
+      <div style="font-size:20px;font-weight:700;margin-top:4px;">${escapeHtml(heading)}</div>
+    </div>
+    <div style="background:#fff;border-radius:0 0 12px 12px;padding:18px 20px;color:#111827;font-size:14px;line-height:1.55;">
+      ${paragraphs.map((p) => `<p style="margin:0 0 12px;white-space:pre-wrap;">${escapeHtml(p)}</p>`).join("")}
+      ${rows.length ? `<table role="presentation" style="width:100%;border-collapse:collapse;margin:4px 0 12px;">${rows
+        .map(([label, value]) => `<tr><td style="padding:6px 0;color:#6b7280;width:130px;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:6px 0;white-space:pre-wrap;">${escapeHtml(value)}</td></tr>`)
+        .join("")}</table>` : ""}
+      ${button ? `<a href="${escapeHtml(button.url)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;font-size:14px;">${escapeHtml(button.label)}</a>` : ""}
+    </div>
+  </div>
+</body></html>`;
+  return { text, html };
+}
+
+// Sends one email. Never throws: account and listing notices must not break
+// the action that triggered them, so failures are logged and reported.
+async function sendEmail({ to, subject, ...content }) {
+  const list = (Array.isArray(to) ? to : [to]).filter(Boolean);
+  if (!list.length) return { sent: false, error: "No recipient" };
+  if (!emailConfig().configured) return { sent: false, error: "Email is not set up" };
+  try {
+    const { text, html } = buildSimpleEmail(content);
+    await getTransporter().sendMail({ from: emailConfig().from, to: list.join(", "), subject, text, html });
+    return { sent: true };
+  } catch (error) {
+    console.error(`Email "${subject}" failed:`, error.message);
+    return { sent: false, error: friendlyEmailError(error) };
+  }
+}
+
 module.exports = {
+  sendEmail,
+  appUrl,
   sendInquiryNotification: sendInquiryNotificationSafe,
   buildInquiryEmail,
   recipients,

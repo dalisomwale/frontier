@@ -13,6 +13,7 @@ const { emailConfig } = require("./services/mailer");
 const publicRoutes = require("./routes/public");
 const inquiryRoutes = require("./routes/inquiries");
 const adminRoutes = require("./routes/admin");
+const sellerRoutes = require("./routes/seller");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -71,6 +72,10 @@ const limiter = (max, windowMinutes = 15) =>
 
 app.use("/api", limiter(300));
 app.use("/api/admin/auth/login", limiter(10));
+app.use("/api/seller/auth/login", limiter(10));
+app.use("/api/seller/auth/register", limiter(5, 60));
+app.use("/api/seller/auth/forgot", limiter(5, 60));
+app.use("/api/seller/auth/reset", limiter(10, 60));
 app.post("/api/inquiries", limiter(8, 60));
 
 app.use(express.json({ limit: "100kb" }));
@@ -109,15 +114,47 @@ app.use(
   }),
 );
 
+// Seller sessions: a separate cookie, scoped to the seller API. They need
+// their own store, as express-session sets the store's cookie options.
+const SELLER_COOKIE = "frontier.seller";
+const sellerSessionStore = new MySQLStore(
+  {
+    createDatabaseTable: true,
+    clearExpired: true,
+    checkExpirationInterval: 15 * 60 * 1000,
+    schema: { tableName: "seller_sessions" },
+  },
+  pool,
+);
+app.set("sellerCookieName", SELLER_COOKIE);
+app.use(
+  "/api/seller",
+  session({
+    name: SELLER_COOKIE,
+    secret: process.env.SESSION_SECRET || "development-only-change-this-secret",
+    store: sellerSessionStore,
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,
+    cookie: {
+      path: "/api/seller",
+      secure: isProduction,
+      httpOnly: true,
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    },
+  }),
+);
+
 // ---------------------------------------------------------------------------
 // v1 pages that no longer exist (public accounts, selling, messaging) send
 // visitors somewhere sensible instead of a 404.
 // ---------------------------------------------------------------------------
 const RETIRED_PAGES = {
   "/marketplace.html": "/#listings",
-  "/login.html": "/",
-  "/register.html": "/",
-  "/dashboard.html": "/",
+  "/login.html": "/seller/login.html",
+  "/register.html": "/seller/register.html",
+  "/dashboard.html": "/seller/",
   "/messages.html": "/",
   "/profile.html": "/",
   "/seller.html": "/",
@@ -153,6 +190,7 @@ app.get("/api/health", async (req, res) => {
 app.use("/api", publicRoutes);
 app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/seller", sellerRoutes);
 
 // ---------------------------------------------------------------------------
 // 404 + errors
@@ -207,6 +245,7 @@ if (require.main === module) {
     console.log("\nShutting down...");
     server.close(() => {
       sessionStore.close().catch(() => {});
+      sellerSessionStore.close().catch(() => {});
       pool.end().finally(() => process.exit(0));
     });
   };

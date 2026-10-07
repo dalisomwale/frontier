@@ -4,14 +4,16 @@ An admin-managed livestock discovery and inquiry platform for **Frontier Farms &
 
 Visitors **browse → filter → view livestock → inquire**, with no account needed. Every inquiry is saved to the database and emailed to the marketplace team. Administrators manage livestock, photos, animals, production purposes, breeds and inquiries from a secure dashboard.
 
+Farmers can also **register as sellers** (header → Register). Frontier approves each account, then reviews every listing a seller submits before it goes live. Customer inquiries still come to Frontier first; the team passes them on to the seller without the customer's contact details.
+
 ---
 
 ## What changed from v1
 
 | v1 | v2 |
 |---|---|
-| Public registration, login, profiles, seller & user dashboards | **Removed.** Only administrators have accounts. |
-| Anyone could create listings ("Sell") | **Only admins** create, edit, publish and delete listings |
+| Public registration, login, profiles, seller & user dashboards | Replaced by **seller accounts** that Frontier approves, with listing review. Buyers need no account. |
+| Anyone could create listings ("Sell") | Admins create listings, and approved sellers submit them. **Only admins** publish. |
 | Buy and Message buttons, real-time chat (Socket.IO) | **One "Inquire" button** → inquiry form → database + email |
 | Species filter (Cattle, Goats, Sheep…) with free-text breed/location and price/weight/health filters | **Cascading dropdowns:** Animal Category → Production Purpose → Breed → Province (Zambia's 10 provinces). Price, weight and health filters removed. |
 | Hero: generic pasture slideshow | Photographic hero of **real African cattle photography** (Zambia, Kenya, Nigeria, Senegal, Mauritania) |
@@ -119,13 +121,33 @@ SMTP credentials are only read on the server from `.env`. Nothing about email re
 | Page | What it does |
 |---|---|
 | **Dashboard** | Live counts from the database: total, published and unpublished livestock, animals, purposes, breeds, total and new inquiries. Also recent inquiries, recent livestock, and a failed-email warning. |
-| **Livestock** | Add/edit/delete listings; set each one Published/Unpublished and Verified/Unverified from dropdowns (the publish date is recorded automatically); and upload up to 10 photos (remove, set cover). Animal → Purpose → Breed dropdowns, and a Type list that fits the animal (Bull/Cow…, Buck/Doe…, Hen/Pullet…). Filter by status/animal and search. |
-| **Inquiries** | Tabs for New, Contacted, In Progress, Resolved and Archived, plus search. Each inquiry has one-tap Call / WhatsApp / Email, a status changer, archive/restore, delete, and resend email. Links in notification emails open the inquiry directly. |
+| **Livestock** | **Pending review** lists what sellers have submitted or changed: **Approve** (verified and published, seller emailed) or **Request changes** with a note the seller sees. Add/edit/delete listings; set each one Published/Unpublished and Verified/Unverified from dropdowns (the publish date is recorded automatically); and upload up to 10 photos (remove, set cover). Animal → Purpose → Breed dropdowns, and a Type list that fits the animal (Bull/Cow…, Buck/Doe…, Hen/Pullet…). Filter by status/animal and search. |
+| **Inquiries** | Tabs for New, Contacted, In Progress, Resolved and Archived, plus search. Each inquiry has one-tap Call / WhatsApp / Email, a status changer, archive/restore, delete, and resend email. **Contact the seller** sends the seller a message written by the admin (prefilled from the inquiry) to their seller dashboard and email, or opens it in WhatsApp or the email app. The customer's name, phone and email are never sent. The seller's reply shows on the inquiry. Links in notification emails open the inquiry directly. |
 | **Categories & Purposes** | Add, edit, enable/disable and delete animal categories (Cattle, Goats, Sheep, Pigs, Poultry…) and each animal's production purposes, with photos set in the Add and Edit forms: one **photo** per animal (upload / replace / remove) and up to **8 photos** per production purpose (add, remove, make first), shown on their tiles on the website. New items are added at the end. Disabling hides it and its listings from the website. |
 | **Breeds** | Add, edit, enable/disable and delete breeds, each assigned to one animal's production purpose. A breed in use can't be deleted or moved, so the public filter stays accurate. |
-| **Sellers** | Add, edit, activate/deactivate and delete the farmers and suppliers whose livestock is listed (name, farm/business, phone, email, province, address, private notes). Each seller's page shows their listings and every inquiry about them, with call/WhatsApp/email shortcuts. Listings pick a seller in the Livestock form; inquiries record the seller and the notification email names them. A seller with listings can't be deleted. Sellers are admin-only: visitors never see them, and every inquiry still comes to Frontier. |
+| **Sellers** | Sellers who register on the website appear under **Awaiting approval**: approve them (they can then submit listings) or reject them with a note. Both send the seller an email. Admins can also add, edit, activate/deactivate and delete the farmers and suppliers whose livestock is listed (name, farm/business, phone, email, province, address, private notes). Each seller's page shows their listings and every inquiry about them, with call/WhatsApp/email shortcuts. Listings pick a seller in the Livestock form; inquiries record the seller and the notification email names them. A seller with listings can't be deleted. Sellers are admin-only: visitors never see them, and every inquiry still comes to Frontier. |
 
 Photos are resized in the browser before upload (good on mobile data). The server then stores an optimised WebP (max 1600px) plus a 640px card thumbnail, typically 100–300 KB instead of several MB.
+
+---
+
+## Seller accounts
+
+| Page | What it does |
+|---|---|
+| `/seller/register.html` | Name, farm/business, phone, email, province, town and password. The account starts as *awaiting approval* and the admins are emailed. |
+| `/seller/login.html`, `forgot.html`, `reset.html` | Sign in; reset a forgotten password by email (link valid for 1 hour, single use). |
+| `/seller/` | **My Listings**: add, edit, hide and delete listings, with their status (*In review*, *Changes needed* with Frontier's note, *Live*, *Hidden*). A new listing needs at least one photo. Any edit takes a live listing off the website until it is approved again. **Messages**: inquiries Frontier has passed on, with a reply box. **Profile**: details and password. |
+
+Rules enforced by the server (`server/routes/seller.js`, mounted at `/api/seller`):
+
+- Sellers can only see and change their own listings and messages.
+- Only approved, active accounts can submit listings; a deactivated seller is signed out.
+- Sellers can't set a listing's status, verification or seller. Every submission is unpublished and *pending* until an admin approves it.
+- Messages never include the customer's name, phone, email or original message.
+- Seller sessions use their own cookie (`frontier.seller`, path `/api/seller`, 7 days) and store (`seller_sessions`), separate from admin sessions. State-changing requests need the `X-Frontier-Seller: 1` header. Register, login and password reset are rate limited.
+
+Emails to sellers (approval, listing approved or changes needed, forwarded inquiries, password reset) use the same SMTP settings and `APP_URL` for links.
 
 ---
 

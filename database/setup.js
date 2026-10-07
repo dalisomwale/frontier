@@ -217,6 +217,52 @@ async function main() {
     console.log("  inquiries now record the seller");
   }
 
+  // Seller accounts (self-registration), listing review and inquiry
+  // forwarding.
+  const addColumns = async (table, columns, message) => {
+    let added = false;
+    for (const [name, definition] of columns) {
+      if (!(await columnExists(conn, table, name))) {
+        await conn.query(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
+        added = true;
+      }
+    }
+    if (added) console.log(`  ${message}`);
+  };
+  await addColumns("sellers", [
+    ["password_hash", "VARCHAR(255) NULL AFTER status"],
+    ["account_status", "ENUM('pending', 'approved', 'rejected') NULL AFTER password_hash"],
+    ["account_note", "VARCHAR(500) NULL AFTER account_status"],
+    ["approved_at", "DATETIME NULL AFTER account_note"],
+    ["last_login_at", "DATETIME NULL AFTER approved_at"],
+  ], "sellers can now register and sign in");
+  await addColumns("livestock", [
+    ["review_status", "ENUM('approved', 'pending', 'rejected') NOT NULL DEFAULT 'approved' AFTER seller_id"],
+    ["review_note", "VARCHAR(500) NULL AFTER review_status"],
+    ["submitted_at", "DATETIME NULL AFTER review_note"],
+  ], "listings can now be submitted for review");
+  await addColumns("inquiries", [
+    ["forwarded_at", "DATETIME NULL AFTER seller_name"],
+    ["forward_message", "TEXT NULL AFTER forwarded_at"],
+    ["seller_reply", "TEXT NULL AFTER forward_message"],
+    ["seller_replied_at", "DATETIME NULL AFTER seller_reply"],
+    ["seller_seen_at", "DATETIME NULL AFTER seller_replied_at"],
+  ], "inquiries can now be forwarded to sellers");
+  for (const [index, column] of [["idx_sellers_email", "email"], ["idx_sellers_account", "account_status"]]) {
+    const [found] = await conn.query(
+      "SELECT 1 FROM information_schema.statistics WHERE table_schema = ? AND table_name = 'sellers' AND index_name = ?",
+      [DB_NAME, index],
+    );
+    if (!found.length) await conn.query(`ALTER TABLE sellers ADD INDEX ${index} (${column})`);
+  }
+  {
+    const [found] = await conn.query(
+      "SELECT 1 FROM information_schema.statistics WHERE table_schema = ? AND table_name = 'livestock' AND index_name = 'idx_livestock_review'",
+      [DB_NAME],
+    );
+    if (!found.length) await conn.query("ALTER TABLE livestock ADD INDEX idx_livestock_review (review_status)");
+  }
+
   // Photos for animal categories and production purposes (shown as tiles on
   // the website, uploaded in Admin > Animals & Purposes).
   for (const table of ["animals", "categories"]) {

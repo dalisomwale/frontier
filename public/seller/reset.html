@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Choose a New Password - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/seller.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div id="seller-header"></div>
+
+    <main class="max-w-sm mx-auto px-4 py-10 sm:py-16">
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
+        <h1 class="text-xl font-bold text-gray-900">Choose a new password</h1>
+        <form id="reset-form" class="space-y-4 mt-6" novalidate>
+          <div id="form-alert" class="hidden alert alert-error text-sm mb-0" role="alert"></div>
+          <div>
+            <label for="password" class="field-label">New password <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
+              <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">At least 8 characters.</p>
+            <p class="field-error hidden" data-error-for="password"></p>
+          </div>
+          <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Save password</button>
+        </form>
+        <p class="text-sm text-gray-600 text-center mt-6"><a href="/seller/forgot.html" class="text-blue-700 font-medium hover:underline">Send a new link</a></p>
+      </div>
+    </main>
+
+    <script>
+      document.getElementById("seller-header").innerHTML = sellerPageHeader(null);
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      bindPasswordToggles();
+      const form = document.getElementById("reset-form");
+      const alertBox = document.getElementById("form-alert");
+      const token = getQueryParams().token || "";
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        alertBox.classList.add("hidden");
+        if (form.password.value.length < 8) return showFieldErrors(form, { errors: { password: "Password must be at least 8 characters." } });
+        try {
+          await withBusy(document.getElementById("submit-btn"), "Saving…", () =>
+            sellerApi("/api/seller/auth/reset", { method: "POST", body: { token, password: form.password.value } }));
+          window.location.href = "/seller/login.html?reset=1";
+        } catch (error) {
+          alertBox.textContent = error.message;
+          alertBox.classList.remove("hidden");
+        }
+      });
+    </script>
+  </body>
+</html>

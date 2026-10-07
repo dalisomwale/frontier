@@ -230,3 +230,32 @@ function footerYear() {
   if (el) el.textContent = new Date().getFullYear();
 }
 document.addEventListener("DOMContentLoaded", footerYear);
+
+const SELLER_HINT_KEY = "frontier.seller";
+
+function setSellerHint(signedIn) {
+  try {
+    if (signedIn) localStorage.setItem(SELLER_HINT_KEY, "1");
+    else localStorage.removeItem(SELLER_HINT_KEY);
+  } catch {
+  }
+}
+
+async function initSellerLink() {
+  const link = document.getElementById("seller-link");
+  if (!link) return;
+  let hinted = false;
+  try {
+    hinted = localStorage.getItem(SELLER_HINT_KEY) === "1";
+  } catch {
+  }
+  if (!hinted) return;
+  try {
+    const res = await fetch("/api/seller/auth/me", { credentials: "same-origin" });
+    if (!res.ok) return setSellerHint(false);
+    link.href = "/seller/";
+    link.textContent = "My Dashboard";
+  } catch {
+  }
+}
+document.addEventListener("DOMContentLoaded", initSellerLink);

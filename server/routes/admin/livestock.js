@@ -1,6 +1,7 @@
 const express = require("express");
 const pool = require("../../db");
 const { uploadImages, saveImage, deleteImageFiles, MAX_FILES } = require("../../middleware/upload");
+const { sendEmail, appUrl } = require("../../services/mailer");
 const { positiveInt, text, oneOf, badRequest, notFound, PROVINCES, isAllBreedsPurpose } = require("../../lib/validate");
 
 const router = express.Router();
@@ -127,10 +128,52 @@ async function storeImages(conn, livestockId, files) {
   return saved;
 }
 
+// Photo edits sent with a listing form: photos to remove
+// ("remove_image_ids") and a new order ("image_order", the first is the cover).
+function parsePhotoChanges(body) {
+  try {
+    return {
+      removeIds: JSON.parse(body.remove_image_ids || "[]").map(Number).filter(Number.isSafeInteger),
+      order: JSON.parse(body.image_order || "[]").map(Number).filter(Number.isSafeInteger),
+    };
+  } catch {
+    throw badRequest("Invalid photo changes.");
+  }
+}
+
+// Applies removals, reordering and new uploads inside the caller's
+// transaction. Returns the files to delete once the transaction commits.
+async function applyPhotoChanges(conn, id, { removeIds, order }, files) {
+  const filesToDelete = [];
+  if (removeIds.length) {
+    const [old] = await conn.query(
+      "SELECT id, image_path, thumb_path FROM livestock_images WHERE livestock_id = ? AND id IN (?)",
+      [id, removeIds],
+    );
+    if (old.length) {
+      await conn.query("DELETE FROM livestock_images WHERE livestock_id = ? AND id IN (?)", [
+        id,
+        old.map((row) => row.id),
+      ]);
+      old.forEach((row) => filesToDelete.push(row.image_path, row.thumb_path));
+    }
+  }
+  for (const [index, imageId] of order.entries()) {
+    await conn.query("UPDATE livestock_images SET sort_order = ? WHERE id = ? AND livestock_id = ?", [
+      index,
+      imageId,
+      id,
+    ]);
+  }
+  await storeImages(conn, id, files);
+  return filesToDelete;
+}
+
 async function loadOne(id) {
   const [rows] = await pool.query(
     `SELECT l.*, c.animal_id, a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
-       s.name AS seller_name, s.business_name AS seller_business_name, s.phone AS seller_phone, s.status AS seller_status
+       s.name AS seller_name, s.business_name AS seller_business_name, s.phone AS seller_phone, s.status AS seller_status,
+       s.account_status AS seller_account_status
      FROM livestock l JOIN categories c ON c.id = l.category_id
      JOIN animals a ON a.id = c.animal_id
      LEFT JOIN breeds b ON b.id = l.breed_id
@@ -163,6 +206,11 @@ router.get("/", async (req, res, next) => {
     const categoryId = positiveInt(req.query.category_id);
     const sellerId = req.query.seller_id === "none" ? "none" : positiveInt(req.query.seller_id);
     const q = text(req.query.q, 100);
+    const review = oneOf(req.query.review, ["pending", "rejected", "approved"]);
+    if (review) {
+      where.push("l.review_status = ?");
+      params.push(review);
+    }
     if (sellerId === "none") where.push("l.seller_id IS NULL");
     else if (sellerId) {
       where.push("l.seller_id = ?");
@@ -188,7 +236,8 @@ router.get("/", async (req, res, next) => {
     const condition = where.join(" AND ");
 
     const [rows] = await pool.query(
-      `SELECT l.id, l.title, l.status, l.published_at, l.verification, l.location, l.livestock_type, l.quantity,
+      `SELECT l.id, l.title, l.status, l.published_at, l.verification, l.review_status, l.review_note, l.submitted_at,
+         l.location, l.livestock_type, l.quantity,
          l.created_at, l.updated_at, a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
          l.seller_id, s.name AS seller_name, s.business_name AS seller_business_name,
          (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = l.id
@@ -209,9 +258,11 @@ router.get("/", async (req, res, next) => {
        LEFT JOIN sellers s ON s.id = l.seller_id WHERE ${condition}`,
       params,
     );
+    const [[{ pending }]] = await pool.query("SELECT COUNT(*) AS pending FROM livestock WHERE review_status = 'pending'");
     res.json({
       success: true,
       data: rows,
+      summary: { pending: Number(pending) },
       pagination: { current: page, total: Math.max(1, Math.ceil(total / limit)), totalItems: Number(total) },
     });
   } catch (error) {
@@ -262,47 +313,21 @@ router.put("/:id", uploadImages, async (req, res, next) => {
     const [exists] = await conn.query("SELECT id FROM livestock WHERE id = ?", [id]);
     if (!exists.length) throw notFound("Livestock listing not found.");
     const p = await payload(req.body);
-
-    let removeIds = [];
-    let order = [];
-    try {
-      removeIds = JSON.parse(req.body.remove_image_ids || "[]").map(Number).filter(Number.isSafeInteger);
-      order = JSON.parse(req.body.image_order || "[]").map(Number).filter(Number.isSafeInteger);
-    } catch {
-      throw badRequest("Invalid photo changes.");
-    }
+    const photoChanges = parsePhotoChanges(req.body);
 
     await conn.beginTransaction();
     await conn.query(
       `UPDATE livestock SET title = ?, category_id = ?, breed_id = ?, livestock_type = ?, quantity = ?,
          age_months = ?, location = ?, description = ?, ${PUBLISHED_AT_SQL}, status = ?,
          verification = COALESCE(?, verification),
-         seller_id = IF(?, ?, seller_id) WHERE id = ?`,
+         seller_id = IF(?, ?, seller_id),
+         review_status = IF(? = 'published', 'approved', review_status),
+         review_note = IF(? = 'published', NULL, review_note) WHERE id = ?`,
       [p.title, p.category_id, p.breed_id, p.livestock_type, p.quantity, p.age_months,
         p.location, p.description, p.status, p.status, p.verification ?? null,
-        p.seller_given ? 1 : 0, p.seller_id, id],
+        p.seller_given ? 1 : 0, p.seller_id, p.status, p.status, id],
     );
-
-    if (removeIds.length) {
-      const [old] = await conn.query(
-        "SELECT id, image_path, thumb_path FROM livestock_images WHERE livestock_id = ? AND id IN (?)",
-        [id, removeIds],
-      );
-      if (old.length) {
-        await conn.query("DELETE FROM livestock_images WHERE livestock_id = ? AND id IN (?)", [
-          id,
-          old.map((row) => row.id),
-        ]);
-        old.forEach((row) => filesToDelete.push(row.image_path, row.thumb_path));
-      }
-    }
-    for (const [index, imageId] of order.entries()) {
-      await conn.query(
-        "UPDATE livestock_images SET sort_order = ? WHERE id = ? AND livestock_id = ?",
-        [index, imageId, id],
-      );
-    }
-    await storeImages(conn, id, req.files);
+    filesToDelete.push(...(await applyPhotoChanges(conn, id, photoChanges, req.files)));
     await conn.commit();
     deleteImageFiles(...filesToDelete);
     res.json({ success: true, data: await loadOne(id) });
@@ -318,11 +343,12 @@ router.patch("/:id/status", async (req, res, next) => {
   try {
     const status = oneOf(req.body.status, STATUSES);
     if (!status) throw badRequest("Status must be published or unpublished.");
-    const [result] = await pool.query(`UPDATE livestock SET ${PUBLISHED_AT_SQL}, status = ? WHERE id = ?`, [
-      status,
-      status,
-      positiveInt(req.params.id),
-    ]);
+    const [result] = await pool.query(
+      `UPDATE livestock SET ${PUBLISHED_AT_SQL}, status = ?,
+         review_status = IF(? = 'published', 'approved', review_status),
+         review_note = IF(? = 'published', NULL, review_note) WHERE id = ?`,
+      [status, status, status, status, positiveInt(req.params.id)],
+    );
     if (!result.affectedRows) throw notFound("Livestock listing not found.");
     res.json({ success: true });
   } catch (error) {
@@ -362,4 +388,53 @@ router.delete("/:id", async (req, res, next) => {
   }
 });
 
+// Review of listings submitted by sellers: approve (verified and published)
+// or send back with a note. The seller is emailed either way.
+router.post("/:id/review", async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id);
+    const action = oneOf(req.body.action, ["approve", "reject"]);
+    if (!action) throw badRequest("Choose approve or reject.");
+    const note = text(req.body.note, 500);
+    if (note === undefined) throw badRequest("The note must be 500 characters or fewer.");
+    if (action === "reject" && !note) throw badRequest("Please say what the seller needs to change.");
+    const [[row]] = await pool.query(
+      `SELECT l.id, l.title, s.email AS seller_email, s.name AS seller_name, s.password_hash IS NOT NULL AS has_account
+       FROM livestock l LEFT JOIN sellers s ON s.id = l.seller_id WHERE l.id = ?`,
+      [id],
+    );
+    if (!row) throw notFound("Livestock listing not found.");
+    if (action === "approve") {
+      await pool.query(
+        `UPDATE livestock SET ${PUBLISHED_AT_SQL}, status = 'published', verification = 'verified',
+           review_status = 'approved', review_note = NULL WHERE id = ?`,
+        ["published", id],
+      );
+    } else {
+      await pool.query(
+        `UPDATE livestock SET published_at = NULL, status = 'unpublished',
+           review_status = 'rejected', review_note = ? WHERE id = ?`,
+        [note, id],
+      );
+    }
+    let emailed = false;
+    if (row.seller_email && row.has_account) {
+      const result = await sendEmail({
+        to: row.seller_email,
+        subject: action === "approve" ? `Your listing is live: ${row.title}` : `Changes needed: ${row.title}`,
+        heading: action === "approve" ? "Your listing is live" : "Your listing needs changes",
+        paragraphs: action === "approve"
+          ? [`Hi ${row.seller_name},`, `"${row.title}" has been approved and is now live on Frontier Marketplace.`, ...(note ? [note] : [])]
+          : [`Hi ${row.seller_name},`, `"${row.title}" was not approved yet. Please update it and submit it again.`, note],
+        button: { label: "Open my dashboard", url: appUrl("/seller/") },
+      });
+      emailed = result.sent;
+    }
+    res.json({ success: true, data: await loadOne(id), emailed });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
+module.exports.helpers = { payload, parsePhotoChanges, applyPhotoChanges, storeImages, loadOne, PUBLISHED_AT_SQL };

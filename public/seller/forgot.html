@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Forgot Password - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/seller.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div id="seller-header"></div>
+
+    <main class="max-w-sm mx-auto px-4 py-10 sm:py-16">
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
+        <h1 class="text-xl font-bold text-gray-900">Forgot your password?</h1>
+        <p class="text-sm text-gray-500 mt-1">Enter your account email and we'll send you a link to choose a new one.</p>
+        <form id="forgot-form" class="space-y-4 mt-6" novalidate>
+          <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
+          <div>
+            <label for="email" class="field-label">Email <span class="text-red-500">*</span></label>
+            <input id="email" name="email" type="email" class="field-input" autocomplete="email" required  />
+            
+            <p class="field-error hidden" data-error-for="email"></p>
+          </div>
+          <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Send reset link</button>
+        </form>
+        <p class="text-sm text-gray-600 text-center mt-6"><a href="/seller/login.html" class="text-blue-700 font-medium hover:underline">Back to sign in</a></p>
+      </div>
+    </main>
+
+    <script>
+      document.getElementById("seller-header").innerHTML = sellerPageHeader(null);
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      bindPasswordToggles();
+      const form = document.getElementById("forgot-form");
+      const alertBox = document.getElementById("form-alert");
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const email = form.email.value.trim();
+        try {
+          const res = await withBusy(document.getElementById("submit-btn"), "Sending…", () =>
+            sellerApi("/api/seller/auth/forgot", { method: "POST", body: { email } }));
+          alertBox.className = "alert alert-success text-sm mb-0";
+          alertBox.textContent = res.message;
+          form.reset();
+        } catch (error) {
+          alertBox.className = "alert alert-error text-sm mb-0";
+          alertBox.textContent = error.message;
+        }
+      });
+    </script>
+  </body>
+</html>

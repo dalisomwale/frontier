@@ -100,10 +100,29 @@ CREATE TABLE IF NOT EXISTS sellers (
   address        VARCHAR(255) NULL,
   notes          TEXT NULL,
   status         ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+  password_hash  VARCHAR(255) NULL,
+  account_status ENUM('pending', 'approved', 'rejected') NULL,
+  account_note   VARCHAR(500) NULL,
+  approved_at    DATETIME NULL,
+  last_login_at  DATETIME NULL,
   created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_sellers_name (name),
-  INDEX idx_sellers_status (status)
+  INDEX idx_sellers_status (status),
+  INDEX idx_sellers_email (email),
+  INDEX idx_sellers_account (account_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS seller_password_resets (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  seller_id   INT UNSIGNED NOT NULL,
+  token_hash  CHAR(64) NOT NULL,
+  expires_at  DATETIME NOT NULL,
+  used_at     DATETIME NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_seller_password_resets_seller FOREIGN KEY (seller_id)
+    REFERENCES sellers(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_resets_token (token_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- livestock: listings, created by administrators only. category_id is the
@@ -123,6 +142,9 @@ CREATE TABLE IF NOT EXISTS livestock (
   published_at    DATETIME NULL,
   verification    ENUM('unverified', 'verified') NOT NULL DEFAULT 'unverified',
   seller_id       INT UNSIGNED NULL,
+  review_status   ENUM('approved', 'pending', 'rejected') NOT NULL DEFAULT 'approved',
+  review_note     VARCHAR(500) NULL,
+  submitted_at    DATETIME NULL,
   created_by      INT UNSIGNED NULL,
   created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -136,6 +158,7 @@ CREATE TABLE IF NOT EXISTS livestock (
     REFERENCES sellers(id) ON DELETE SET NULL,
   INDEX idx_livestock_seller (seller_id),
   INDEX idx_livestock_public (status, category_id, breed_id),
+  INDEX idx_livestock_review (review_status),
   INDEX idx_livestock_location (location),
   INDEX idx_livestock_type (livestock_type),
   INDEX idx_livestock_created (created_at)
@@ -167,6 +190,11 @@ CREATE TABLE IF NOT EXISTS inquiries (
   breed_name       VARCHAR(120) NULL,
   seller_id        INT UNSIGNED NULL,
   seller_name      VARCHAR(150) NULL,
+  forwarded_at     DATETIME NULL,
+  forward_message  TEXT NULL,
+  seller_reply     TEXT NULL,
+  seller_replied_at DATETIME NULL,
+  seller_seen_at   DATETIME NULL,
   full_name        VARCHAR(120) NOT NULL,
   phone            VARCHAR(30) NOT NULL,
   email            VARCHAR(255) NOT NULL,
@@ -191,6 +219,14 @@ CREATE TABLE IF NOT EXISTS inquiries (
 -- The app also creates this on startup; defining it here means a freshly
 -- set-up database always has it.
 CREATE TABLE IF NOT EXISTS admin_sessions (
+  session_id  VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  expires     INT UNSIGNED NOT NULL,
+  data        MEDIUMTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+  PRIMARY KEY (session_id)
+) ENGINE=InnoDB;
+
+-- seller_sessions: signed-in seller accounts, kept apart from admin sessions.
+CREATE TABLE IF NOT EXISTS seller_sessions (
   session_id  VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   expires     INT UNSIGNED NOT NULL,
   data        MEDIUMTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,

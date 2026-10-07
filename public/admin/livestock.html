@@ -33,6 +33,7 @@
             <button type="button" data-status="" class="active">All</button>
             <button type="button" data-status="published">Published</button>
             <button type="button" data-status="unpublished">Unpublished</button>
+            <button type="button" data-status="review">Pending review<span id="review-count" class="count"></span></button>
           </div>
           <div class="flex flex-col sm:flex-row gap-3 md:ml-auto">
             <select id="seller-filter" class="field-input !py-2 !text-sm sm:!w-44" aria-label="Filter by seller"><option value="">All sellers</option><option value="none">Frontier's stock</option></select>
@@ -64,7 +65,8 @@
         state.page = page;
         const list = document.getElementById("list");
         const params = new URLSearchParams({ page, limit: 20 });
-        if (state.status) params.set("status", state.status);
+        if (state.status === "review") params.set("review", "pending");
+        else if (state.status) params.set("status", state.status);
         if (state.animal) params.set("animal_id", state.animal);
         if (state.seller) params.set("seller_id", state.seller);
         if (state.q) params.set("q", state.q);
@@ -76,7 +78,15 @@
           return renderEmptyState(list, { title: "Could not load livestock", message: error.message, icon: "alert" });
         }
 
+        const reviewCount = document.getElementById("review-count");
+        reviewCount.textContent = res.summary?.pending ? res.summary.pending : "";
+
         if (!res.data.length) {
+          if (state.status === "review") {
+            renderEmptyState(list, { title: "Nothing waiting for review", message: "Listings that sellers submit or change will appear here.", icon: "check" });
+            document.getElementById("pagination").innerHTML = "";
+            return;
+          }
           const filtered = state.status || state.animal || state.seller || state.q;
           renderEmptyState(list, filtered
             ? { title: "No matching livestock", message: "Try a different filter or search.", icon: "search" }
@@ -107,6 +117,25 @@
         return `<select class="pill-select" data-kind="${kind}" data-id="${l.id}" data-title="${escapeHtml(l.title)}" data-value="${value}" aria-label="${kind === "status" ? "Listing status" : "Verification"}">
           ${options.map((o) => `<option value="${o.value}" ${o.value === value ? "selected" : ""}>${o.label}</option>`).join("")}
         </select>`;
+      }
+
+      function reviewHtml(l) {
+        if (l.review_status === "pending") {
+          return `<div class="flex flex-col items-start gap-1.5">
+            <span class="status-pill st-pending" title="Submitted ${l.submitted_at ? formatDate(l.submitted_at) : ""}">In review</span>
+            <div class="flex gap-1.5">
+              <button type="button" data-review="approve" data-id="${l.id}" data-title="${escapeHtml(l.title)}" class="text-xs font-semibold px-2 py-1 rounded-md bg-green-600 text-white hover:bg-green-700">Approve</button>
+              <button type="button" data-review="reject" data-id="${l.id}" data-title="${escapeHtml(l.title)}" class="text-xs font-semibold px-2 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Request changes</button>
+            </div>
+          </div>`;
+        }
+        if (l.review_status === "rejected") {
+          return `<div class="flex flex-col items-start gap-1.5">
+            <span class="status-pill st-rejected" title="${escapeHtml(l.review_note || "")}">Changes requested</span>
+            <span class="text-xs text-gray-500">Waiting for the seller</span>
+          </div>`;
+        }
+        return pillSelect("status", l, STATUS_OPTIONS, l.status);
       }
 
       function actionsHtml(l) {
@@ -141,7 +170,7 @@
             <td class="hidden xl:table-cell text-gray-600">${escapeHtml(l.location)}</td>
             <td class="hidden sm:table-cell text-center">${l.inquiry_count ? `<a class="text-blue-600 font-semibold hover:underline" href="/admin/inquiries.html?q=${encodeURIComponent(l.title)}">${l.inquiry_count}</a>` : `<span class="text-gray-400">0</span>`}</td>
             <td class="hidden md:table-cell whitespace-nowrap">${l.status === "published" && l.published_at ? `<span class="text-gray-700">${formatDateShort(l.published_at)}</span>` : `<span class="text-xs text-gray-400">Not published</span>`}</td>
-            <td>${pillSelect("status", l, STATUS_OPTIONS, l.status)}</td>
+            <td>${reviewHtml(l)}</td>
             <td class="hidden sm:table-cell">${pillSelect("verification", l, VERIFICATION_OPTIONS, l.verification || "unverified")}</td>
             <td class="text-right whitespace-nowrap hidden sm:table-cell">${actionsHtml(l)}</td>
           </tr>`;
@@ -149,6 +178,7 @@
 
       function bindRowActions(root) {
         root.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openEditor(b.dataset.edit)));
+        root.querySelectorAll("[data-review]").forEach((b) => b.addEventListener("click", () => reviewListing(b.dataset.id, b.dataset.review, b.dataset.title)));
         root.querySelectorAll(".pill-select").forEach((sel) =>
           sel.addEventListener("change", async () => {
             const value = sel.value;
@@ -200,6 +230,38 @@
             }
           }),
         );
+      }
+
+      async function reviewListing(id, action, title, after) {
+        const done = (res) => {
+          showNotification(`${action === "approve" ? "Approved and published" : "Changes requested"}.${res.emailed ? " The seller has been emailed." : ""}`, "success");
+          loadList();
+          if (after) after();
+        };
+        if (action === "approve") {
+          const ok = await confirmAction({ title: "Approve this listing?", message: `"${title}" will be marked verified and published on the website.`, confirmText: "Approve and publish" });
+          if (!ok) return;
+          try {
+            done(await adminApi(`/api/admin/livestock/${id}/review`, { method: "POST", body: { action } }));
+          } catch (error) { showNotification(error.message, "error"); }
+          return;
+        }
+        openFormModal({
+          title: "Request changes",
+          submitText: "Send to seller",
+          body: `
+            <p class="text-sm text-gray-600">"${escapeHtml(title)}" stays hidden. The seller sees your note in their dashboard and by email.</p>
+            ${field({ name: "note", label: "What needs to change?", type: "textarea", rows: 4, required: true, placeholder: "e.g. Please add a clear photo of the animals and the age.", attrs: 'maxlength="500"' })}`,
+          async onSubmit(form) {
+            const note = formValues(form).note.trim();
+            if (!note) {
+              const e = new Error("Please say what the seller needs to change.");
+              e.errors = { note: "Required." };
+              throw e;
+            }
+            done(await adminApi(`/api/admin/livestock/${id}/review`, { method: "POST", body: { action, note } }));
+          },
+        });
       }
 
       const label = (row) => row.name + (row.status === "disabled" ? " (disabled)" : "");
@@ -269,7 +331,13 @@
         const animalId = item.animal_id ?? "";
         const sellerId = id ? item.seller_id ?? "" : getQueryParams().seller_id || "";
 
+        const reviewNotice = item.review_status === "pending"
+          ? `<div class="alert alert-warning text-sm mb-0">Submitted by ${escapeHtml(item.seller_business_name || item.seller_name || "a seller")}${item.submitted_at ? ` on ${formatDate(item.submitted_at)}` : ""} and waiting for review. Setting the status to Published approves it.</div>`
+          : item.review_status === "rejected"
+            ? `<div class="alert alert-error text-sm mb-0">Changes requested: ${escapeHtml(item.review_note || "")}</div>`
+            : "";
         const body = `
+          ${reviewNotice}
           ${field({ name: "title", label: "Title", value: item.title, required: true, attrs: 'maxlength="200"' })}
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             ${field({ name: "animal_id", label: "Category", value: animalId, required: true, options: animalOptions(animalId) })}
@@ -447,7 +515,8 @@
 
         const q = getQueryParams();
         if (q.seller_id) { state.seller = q.seller_id; document.getElementById("seller-filter").value = q.seller_id; }
-        if (q.status) document.querySelector(`#status-tabs [data-status="${q.status}"]`)?.click();
+        if (q.review === "pending") document.querySelector('#status-tabs [data-status="review"]')?.click();
+        else if (q.status) document.querySelector(`#status-tabs [data-status="${q.status}"]`)?.click();
         else await loadList(1);
         if (q.new) openEditor();
         if (q.edit) openEditor(q.edit);

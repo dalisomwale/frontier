@@ -4,6 +4,7 @@
 const express = require("express");
 const pool = require("../../db");
 const { positiveInt, text, isEmail, isPhone, oneOf, badRequest, notFound, HttpError, PROVINCES } = require("../../lib/validate");
+const { sendEmail, appUrl } = require("../../services/mailer");
 
 const router = express.Router();
 const STATUSES = ["active", "inactive"];
@@ -39,7 +40,12 @@ function payload(body) {
   return { name, business_name: businessName, phone, email, province, address, notes, status };
 }
 
+// Never select password_hash.
+const COLUMNS = `s.id, s.name, s.business_name, s.phone, s.email, s.province, s.address, s.notes, s.status,
+  s.account_status, s.account_note, s.approved_at, s.last_login_at, s.created_at, s.updated_at`;
+
 const COUNTS = `
+  (SELECT COUNT(*) FROM livestock l WHERE l.seller_id = s.id AND l.review_status = 'pending') AS pending_count,
   (SELECT COUNT(*) FROM livestock l WHERE l.seller_id = s.id) AS listing_count,
   (SELECT COUNT(*) FROM livestock l WHERE l.seller_id = s.id AND l.status = 'published') AS published_count,
   (SELECT COUNT(*) FROM inquiries i WHERE i.seller_id = s.id) AS inquiry_count,
@@ -54,6 +60,11 @@ router.get("/", async (req, res, next) => {
       where.push("s.status = ?");
       params.push(status);
     }
+    const account = oneOf(req.query.account, ["pending", "approved", "rejected"]);
+    if (account) {
+      where.push("s.account_status = ?");
+      params.push(account);
+    }
     const q = text(req.query.q, 100);
     if (q) {
       const like = `%${q.replace(/[\\%_]/g, "\\$&")}%`;
@@ -61,17 +72,24 @@ router.get("/", async (req, res, next) => {
       params.push(like, like, like, like, like);
     }
     const [rows] = await pool.query(
-      `SELECT s.*, ${COUNTS} FROM sellers s WHERE ${where.join(" AND ")} ORDER BY s.name, s.id`,
+      `SELECT ${COLUMNS}, ${COUNTS} FROM sellers s WHERE ${where.join(" AND ")}
+       ORDER BY s.account_status = 'pending' DESC, s.name, s.id`,
       params,
     );
     const [[summary]] = await pool.query(
-      `SELECT COUNT(*) AS total, COALESCE(SUM(status = 'active'), 0) AS active, COALESCE(SUM(status = 'inactive'), 0) AS inactive
+      `SELECT COUNT(*) AS total, COALESCE(SUM(status = 'active'), 0) AS active, COALESCE(SUM(status = 'inactive'), 0) AS inactive,
+         COALESCE(SUM(account_status = 'pending'), 0) AS pending
        FROM sellers`,
     );
     res.json({
       success: true,
       data: rows,
-      summary: { all: Number(summary.total), active: Number(summary.active), inactive: Number(summary.inactive) },
+      summary: {
+        all: Number(summary.total),
+        active: Number(summary.active),
+        inactive: Number(summary.inactive),
+        pending: Number(summary.pending),
+      },
     });
   } catch (error) {
     next(error);
@@ -81,10 +99,10 @@ router.get("/", async (req, res, next) => {
 router.get("/:id", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
-    const [rows] = await pool.query(`SELECT s.*, ${COUNTS} FROM sellers s WHERE s.id = ?`, [id]);
+    const [rows] = await pool.query(`SELECT ${COLUMNS}, ${COUNTS} FROM sellers s WHERE s.id = ?`, [id]);
     if (!rows.length) throw notFound("Seller not found.");
     const [listings] = await pool.query(
-      `SELECT l.id, l.title, l.status, l.verification, l.published_at, l.location, l.livestock_type, l.quantity,
+      `SELECT l.id, l.title, l.status, l.review_status, l.review_note, l.verification, l.published_at, l.location, l.livestock_type, l.quantity,
          a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
          (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = l.id
             ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path,
@@ -114,7 +132,7 @@ router.post("/", async (req, res, next) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [p.name, p.business_name, p.phone, p.email, p.province, p.address, p.notes, p.status],
     );
-    const [rows] = await pool.query("SELECT * FROM sellers WHERE id = ?", [result.insertId]);
+    const [rows] = await pool.query(`SELECT ${COLUMNS} FROM sellers s WHERE s.id = ?`, [result.insertId]);
     res.status(201).json({ success: true, data: rows[0] });
   } catch (error) {
     next(error);
@@ -131,7 +149,7 @@ router.put("/:id", async (req, res, next) => {
       [p.name, p.business_name, p.phone, p.email, p.province, p.address, p.notes, p.status, id],
     );
     if (!result.affectedRows) throw notFound("Seller not found.");
-    const [rows] = await pool.query("SELECT * FROM sellers WHERE id = ?", [id]);
+    const [rows] = await pool.query(`SELECT ${COLUMNS} FROM sellers s WHERE s.id = ?`, [id]);
     res.json({ success: true, data: rows[0] });
   } catch (error) {
     next(error);
@@ -145,6 +163,45 @@ router.patch("/:id/status", async (req, res, next) => {
     const [result] = await pool.query("UPDATE sellers SET status = ? WHERE id = ?", [status, positiveInt(req.params.id)]);
     if (!result.affectedRows) throw notFound("Seller not found.");
     res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Approve or reject a seller who registered on the website. The seller is
+// emailed either way.
+router.patch("/:id/account", async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id);
+    const action = oneOf(req.body.action, ["approve", "reject"]);
+    if (!action) throw badRequest("Choose approve or reject.");
+    const note = text(req.body.note, 500);
+    if (note === undefined) throw badRequest("The note must be 500 characters or fewer.");
+    const [[seller]] = await pool.query(
+      "SELECT id, name, email, account_status FROM sellers WHERE id = ? AND password_hash IS NOT NULL",
+      [id],
+    );
+    if (!seller) throw notFound("This seller has no account to approve.");
+    if (action === "approve") {
+      await pool.query(
+        `UPDATE sellers SET account_status = 'approved', account_note = NULL, status = 'active',
+           approved_at = COALESCE(approved_at, NOW()) WHERE id = ?`,
+        [id],
+      );
+    } else {
+      await pool.query("UPDATE sellers SET account_status = 'rejected', account_note = ? WHERE id = ?", [note, id]);
+    }
+    const result = await sendEmail({
+      to: seller.email,
+      subject: action === "approve" ? "Your seller account is approved" : "About your seller account",
+      heading: action === "approve" ? "You can start selling" : "Your seller account was not approved",
+      paragraphs: action === "approve"
+        ? [`Hi ${seller.name},`, "Your Frontier Marketplace seller account has been approved. You can now add your livestock. Each listing is checked by our team before it goes live."]
+        : [`Hi ${seller.name},`, "Thank you for registering. We could not approve your seller account at this time.", ...(note ? [note] : []), "Reply to this email or call us if you have questions."],
+      button: { label: action === "approve" ? "Add your first listing" : "Open my account", url: appUrl("/seller/") },
+    });
+    const [rows] = await pool.query(`SELECT ${COLUMNS}, ${COUNTS} FROM sellers s WHERE s.id = ?`, [id]);
+    res.json({ success: true, data: rows[0], emailed: result.sent });
   } catch (error) {
     next(error);
   }

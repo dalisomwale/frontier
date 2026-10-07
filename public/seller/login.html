@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Seller Sign in - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/seller.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div id="seller-header"></div>
+
+    <main class="max-w-sm mx-auto px-4 py-10 sm:py-16">
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
+        <h1 class="text-xl font-bold text-gray-900">Seller sign in</h1>
+        <p class="text-sm text-gray-500 mt-1">Manage your listings and messages.</p>
+        <form id="login-form" class="space-y-4 mt-6" novalidate>
+          <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
+          <div>
+            <label for="email" class="field-label">Email <span class="text-red-500">*</span></label>
+            <input id="email" name="email" type="email" class="field-input" autocomplete="username" required  />
+            
+            <p class="field-error hidden" data-error-for="email"></p>
+          </div>
+          <div>
+            <label for="password" class="field-label">Password <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="current-password" required />
+              <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+            </div>
+            
+            <p class="field-error hidden" data-error-for="password"></p>
+          </div>
+          <div class="text-right -mt-2"><a href="/seller/forgot.html" class="text-sm text-blue-700 hover:underline">Forgot password?</a></div>
+          <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Sign in</button>
+        </form>
+        <p class="text-sm text-gray-600 text-center mt-6">New seller? <a href="/seller/register.html" class="text-blue-700 font-medium hover:underline">Register</a></p>
+      </div>
+    </main>
+
+    <script>
+      document.getElementById("seller-header").innerHTML = sellerPageHeader(null);
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      bindPasswordToggles();
+      const form = document.getElementById("login-form");
+      const alertBox = document.getElementById("form-alert");
+      const showAlert = (message, kind = "error") => {
+        alertBox.className = `alert alert-${kind} text-sm mb-0`;
+        alertBox.textContent = message;
+      };
+      if (getQueryParams().reset) showAlert("Password updated. You can now sign in.", "success");
+
+      sellerApi("/api/seller/auth/me").then(() => (window.location.href = safeNext())).catch(() => form.email.focus());
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const email = form.email.value.trim();
+        const password = form.password.value;
+        if (!email || !password) return showAlert("Please enter your email and password.");
+        try {
+          await withBusy(document.getElementById("submit-btn"), "Signing in…", () =>
+            sellerApi("/api/seller/auth/login", { method: "POST", body: { email, password } }));
+          setSellerHint(true);
+          window.location.href = safeNext();
+        } catch (error) {
+          showAlert(error.message);
+          form.password.value = "";
+          form.password.focus();
+        }
+      });
+    </script>
+  </body>
+</html>

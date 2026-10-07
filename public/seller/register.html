@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Register as a Seller - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/seller.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div id="seller-header"></div>
+
+    <main class="max-w-lg mx-auto px-4 py-8 sm:py-12">
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-8">
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Sell on Frontier Marketplace</h1>
+        <p class="text-sm text-gray-500 mt-1">Create a seller account. Our team checks every new account and every listing before it goes live.</p>
+
+        <form id="register-form" class="space-y-4 mt-6" novalidate>
+          <div id="form-alert" class="hidden alert alert-error text-sm mb-0" role="alert"></div>
+          <div>
+            <label for="name" class="field-label">Full name <span class="text-red-500">*</span></label>
+            <input id="name" name="name" type="text" class="field-input" autocomplete="name" required maxlength="120" />
+            
+            <p class="field-error hidden" data-error-for="name"></p>
+          </div>
+          <div>
+            <label for="business_name" class="field-label">Farm or business name</label>
+            <input id="business_name" name="business_name" type="text" class="field-input" autocomplete="organization"  maxlength="150" />
+            
+            <p class="field-error hidden" data-error-for="business_name"></p>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="phone" class="field-label">Phone / WhatsApp <span class="text-red-500">*</span></label>
+            <input id="phone" name="phone" type="tel" class="field-input" autocomplete="tel" required maxlength="30" placeholder="0977 123 456" />
+            
+            <p class="field-error hidden" data-error-for="phone"></p>
+          </div>
+          <div>
+            <label for="email" class="field-label">Email <span class="text-red-500">*</span></label>
+            <input id="email" name="email" type="email" class="field-input" autocomplete="email" required maxlength="255" />
+            
+            <p class="field-error hidden" data-error-for="email"></p>
+          </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="province" class="field-label">Province <span class="text-red-500">*</span></label>
+              <select id="province" name="province" class="field-input" required></select>
+              <p class="field-error hidden" data-error-for="province"></p>
+            </div>
+          <div>
+            <label for="address" class="field-label">Town / farm location</label>
+            <input id="address" name="address" type="text" class="field-input" autocomplete="address-level2"  maxlength="255" />
+            
+            <p class="field-error hidden" data-error-for="address"></p>
+          </div>
+          </div>
+          <div>
+            <label for="password" class="field-label">Password <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
+              <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">At least 8 characters.</p>
+            <p class="field-error hidden" data-error-for="password"></p>
+          </div>
+          <label class="flex items-start gap-2 text-sm text-gray-600">
+            <input id="agree" type="checkbox" class="mt-1" required />
+            <span>I agree to the <a href="/terms.html" target="_blank" class="text-blue-700 hover:underline">Terms of Service</a> and <a href="/privacy.html" target="_blank" class="text-blue-700 hover:underline">Privacy Policy</a>.</span>
+          </label>
+          <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Create account</button>
+        </form>
+        <p class="text-sm text-gray-600 text-center mt-6">Already have an account? <a href="/seller/login.html" class="text-blue-700 font-medium hover:underline">Sign in</a></p>
+      </div>
+    </main>
+
+    <script>
+      document.getElementById("seller-header").innerHTML = sellerPageHeader(null);
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      bindPasswordToggles();
+      const form = document.getElementById("register-form");
+      const alertBox = document.getElementById("form-alert");
+      form.province.innerHTML = `<option value="">Select province</option>` + ZAMBIA_PROVINCES.map((p) => `<option>${p}</option>`).join("");
+
+      sellerApi("/api/seller/auth/me").then(() => (window.location.href = "/seller/")).catch(() => {});
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        alertBox.classList.add("hidden");
+        const v = Object.fromEntries(new FormData(form).entries());
+        const errors = {};
+        if (!v.name.trim()) errors.name = "Your name is required.";
+        if (!v.phone.trim()) errors.phone = "Phone number is required.";
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email.trim())) errors.email = "Please enter a valid email address.";
+        if (!v.province) errors.province = "Please choose your province.";
+        if (v.password.length < 8) errors.password = "Password must be at least 8 characters.";
+        if (Object.keys(errors).length) return showFieldErrors(form, { errors });
+        if (!document.getElementById("agree").checked) {
+          alertBox.textContent = "Please agree to the Terms of Service and Privacy Policy.";
+          return alertBox.classList.remove("hidden");
+        }
+        showFieldErrors(form, {});
+        try {
+          await withBusy(document.getElementById("submit-btn"), "Creating account…", () =>
+            sellerApi("/api/seller/auth/register", { method: "POST", body: v }));
+          setSellerHint(true);
+          window.location.href = "/seller/?welcome=1";
+        } catch (error) {
+          showFieldErrors(form, error);
+          alertBox.textContent = error.message;
+          alertBox.classList.remove("hidden");
+        }
+      });
+    </script>
+  </body>
+</html>
