@@ -27,7 +27,6 @@
           <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed" hidden>
             <span class="w-5 h-5" data-icon="plus"></span> Add Listing
           </button>
-          <div id="bell-mount"></div>
         </div>
       </div>
 
@@ -54,7 +53,17 @@
       </section>
 
       <section id="tab-listings" hidden></section>
-      <section id="tab-messages" hidden></section>
+      <section id="tab-messages" hidden>
+        <div class="inbox-shell seller-inbox" id="seller-inbox">
+          <aside class="inbox-list-pane"><div id="msg-list" class="inbox-list"></div></aside>
+          <section class="inbox-chat-pane" id="msg-chat"></section>
+        </div>
+      </section>
+      <section id="tab-notifications" hidden>
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div id="notifications-list"></div>
+        </div>
+      </section>
       <section id="tab-profile" hidden>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <form id="profile-form" class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4" novalidate>
@@ -372,59 +381,126 @@
         });
       }
 
-      function messageCard(m) {
-        const thread = (m.messages || []).map((x) => x.sender === "seller"
-          ? `<div class="chat-row chat-right"><div class="chat-bubble chat-admin"><p class="chat-who">You</p><p class="chat-text">${escapeHtml(x.body)}</p><p class="chat-time">${formatDate(x.created_at)}</p></div></div>`
-          : `<div class="chat-row"><div class="chat-bubble chat-customer"><p class="chat-who">Frontier</p><p class="chat-text">${escapeHtml(x.body)}</p><p class="chat-time">${formatDate(x.created_at)}</p></div></div>`).join("");
-        return `
-          <article class="bg-white rounded-xl border ${m.seller_seen_at ? "border-gray-100" : "border-blue-200"} shadow-sm overflow-hidden">
-            <div class="flex flex-wrap items-start justify-between gap-2 px-4 pt-4 pb-3">
-              <div>
-                <p class="text-xs text-gray-500">About</p>
-                <h3 class="font-semibold text-gray-900">${m.livestock_id ? `<a href="/listing.html?id=${m.livestock_id}" target="_blank" class="hover:underline">${escapeHtml(m.livestock_title)}</a>` : escapeHtml(m.livestock_title)}</h3>
-              </div>
-              ${m.seller_seen_at ? "" : `<span class="status-pill st-new">New</span>`}
-            </div>
-            <div class="flex flex-col gap-2 px-4 py-3 bg-gray-50 border-y border-gray-100">${thread}</div>
-            <form data-reply="${m.id}" class="p-4 flex flex-col sm:flex-row gap-2 sm:items-end" novalidate>
-              <label class="sr-only" for="reply-${m.id}">Reply</label>
-              <textarea id="reply-${m.id}" name="reply" rows="2" maxlength="2000" class="chat-input flex-1" placeholder="Reply to Frontier"></textarea>
-              <button type="submit" class="chat-send-btn self-end h-10">Send</button>
-            </form>
-          </article>`;
+      let selectedMsg = null;
+
+      function shortTime(value) {
+        const d = new Date(value);
+        const now = new Date();
+        if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+        if (now - d < 6 * 86400000) return d.toLocaleDateString("en-GB", { weekday: "short" });
+        return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
       }
 
+      const lastOf = (m) => (m.messages || [])[(m.messages || []).length - 1];
+      const thumbHtml = (m, cls = "msg-thumb") => `<span class="${cls}">${m.cover_thumb ? `<img src="${escapeHtml(m.cover_thumb)}" alt="">` : livestockFallbackMedia("w-5 h-5")}</span>`;
 
-      async function loadMessages() {
-        const box = document.getElementById("tab-messages");
-        messages = (await sellerApi("/api/seller/messages")).data;
-        if (!messages.length) {
-          box.innerHTML = `<div class="bg-white rounded-xl border border-gray-100 shadow-sm"><div class="empty-state">
-            <p class="font-semibold text-gray-800">No messages yet</p>
-            <p class="text-sm mt-1">When a buyer is interested in your livestock, Frontier will pass the details on here and by email.</p>
-          </div></div>`;
-          return;
-        }
-        box.innerHTML = `<div class="space-y-3">${messages.map(messageCard).join("")}</div>`;
-        box.querySelectorAll("[data-reply]").forEach((form) => form.addEventListener("submit", async (e) => {
+      function msgListItem(m) {
+        const last = lastOf(m);
+        const unread = !m.seller_seen_at;
+        return `
+          <button type="button" class="inbox-item ${unread ? "is-unread" : ""} ${String(selectedMsg) === String(m.id) ? "is-active" : ""}" data-msg="${m.id}">
+            ${thumbHtml(m)}
+            <span class="min-w-0 flex-1">
+              <span class="flex items-baseline justify-between gap-2">
+                <span class="inbox-name truncate">${escapeHtml(m.livestock_title)}</span>
+                <span class="text-xs text-gray-400 flex-shrink-0">${last ? shortTime(last.created_at) : ""}</span>
+              </span>
+              <span class="block text-sm text-gray-600 truncate">${last ? `${last.sender === "seller" ? "You: " : ""}${escapeHtml(last.body)}` : ""}</span>
+            </span>
+            ${unread ? `<span class="inbox-unread-dot" aria-label="New"></span>` : ""}
+          </button>`;
+      }
+
+      function renderMsgList() {
+        const list = document.getElementById("msg-list");
+        list.innerHTML = messages.map(msgListItem).join("");
+        list.querySelectorAll("[data-msg]").forEach((b) => b.addEventListener("click", () => openConversation(b.dataset.msg)));
+      }
+
+      function msgPlaceholder() {
+        document.getElementById("msg-chat").innerHTML = `
+          <div class="inbox-placeholder">
+            <span class="w-12 h-12 text-gray-300 block">${uiIcon("inbox")}</span>
+            <p class="font-semibold text-gray-700 mt-3">Select a conversation</p>
+          </div>`;
+      }
+
+      async function openConversation(id) {
+        const m = messages.find((x) => String(x.id) === String(id));
+        if (!m) return;
+        selectedMsg = String(id);
+        document.getElementById("seller-inbox").classList.add("has-selection");
+        const chat = document.getElementById("msg-chat");
+        const bubble = (x) => x.sender === "seller"
+          ? `<div class="chat-row chat-right"><div class="chat-bubble chat-admin"><p class="chat-text">${escapeHtml(x.body)}</p><p class="chat-time">${shortTime(x.created_at)}</p></div></div>`
+          : `<div class="chat-row"><div class="chat-bubble chat-customer"><p class="chat-who">Frontier</p><p class="chat-text">${escapeHtml(x.body)}</p><p class="chat-time">${shortTime(x.created_at)}</p></div></div>`;
+        chat.innerHTML = `
+          <header class="chat-head">
+            <button type="button" data-back class="chat-back" aria-label="Back to messages"><span class="w-5 h-5 block">${uiIcon("chevronRight")}</span></button>
+            ${thumbHtml(m, "chat-listing-thumb")}
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-gray-900 truncate">${m.livestock_id ? `<a href="/listing.html?id=${m.livestock_id}" target="_blank" class="hover:underline">${escapeHtml(m.livestock_title)}</a>` : escapeHtml(m.livestock_title)}</p>
+              <p class="text-xs text-gray-500">Conversation with Frontier</p>
+            </div>
+          </header>
+          <div class="chat-body" id="msg-body">
+            ${(m.messages || []).length ? `<div class="chat-day">${formatDateShort(m.messages[0].created_at)}</div>` : ""}
+            ${(m.messages || []).map(bubble).join("")}
+          </div>
+          <form class="chat-composer chat-composer-row" id="msg-form" novalidate>
+            <textarea name="reply" rows="1" maxlength="2000" class="chat-input" placeholder="Reply to Frontier" aria-label="Reply to Frontier"></textarea>
+            <button type="submit" class="chat-send-btn">Send</button>
+          </form>`;
+        const body = document.getElementById("msg-body");
+        body.scrollTop = body.scrollHeight;
+        renderMsgList();
+        chat.querySelector("[data-back]").addEventListener("click", () => {
+          selectedMsg = null;
+          document.getElementById("seller-inbox").classList.remove("has-selection");
+          renderMsgList();
+          msgPlaceholder();
+        });
+        const form = document.getElementById("msg-form");
+        const input = form.reply;
+        const grow = () => { input.style.height = "auto"; input.style.height = `${Math.min(input.scrollHeight + 2, 140)}px`; };
+        input.addEventListener("input", grow);
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) form.requestSubmit(); });
+        form.addEventListener("submit", async (e) => {
           e.preventDefault();
-          const reply = form.reply.value.trim();
-          if (!reply) return form.reply.focus();
+          const reply = input.value.trim();
+          if (!reply) return input.focus();
+          const btn = form.querySelector("button");
+          btn.disabled = true;
           try {
-            await withBusy(form.querySelector("button"), "Sending…", () =>
-              sellerApi(`/api/seller/messages/${form.dataset.reply}/reply`, { method: "POST", body: { reply } }));
-            showNotification("Reply sent to Frontier.", "success");
-            await loadMessages();
+            const res = await sellerApi(`/api/seller/messages/${m.id}/reply`, { method: "POST", body: { reply } });
+            Object.assign(m, res.data);
+            messages = [m, ...messages.filter((x) => x !== m)];
+            openConversation(m.id);
           } catch (error) {
             showNotification(error.message, "error");
+            btn.disabled = false;
           }
-        }));
-        const unread = messages.filter((m) => !m.seller_seen_at);
-        if (unread.length && !document.getElementById("tab-messages").hidden) {
-          await Promise.all(unread.map((m) => sellerApi(`/api/seller/messages/${m.id}/seen`, { method: "POST" }).catch(() => {})));
-          box.querySelectorAll(".st-new").forEach((el) => el.remove());
-          loadSummary();
+        });
+        if (!m.seller_seen_at) {
+          m.seller_seen_at = new Date().toISOString();
+          renderMsgList();
+          sellerApi(`/api/seller/messages/${m.id}/seen`, { method: "POST" }).then(() => loadSummary()).catch(() => {});
         }
+      }
+
+      async function loadMessages() {
+        const box = document.getElementById("seller-inbox");
+        messages = (await sellerApi("/api/seller/messages")).data;
+        if (!messages.length) {
+          box.classList.remove("has-selection");
+          document.getElementById("msg-list").innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">No messages yet</p><p class="text-sm mt-1">When a buyer is interested in your livestock, Frontier will message you here and by email.</p></div>`;
+          msgPlaceholder();
+          return;
+        }
+        renderMsgList();
+        if (selectedMsg && messages.some((m) => String(m.id) === selectedMsg)) openConversation(selectedMsg);
+        else if (window.matchMedia("(min-width: 1024px)").matches) openConversation(messages[0].id);
+        else msgPlaceholder();
       }
 
       function renderProfile() {
@@ -442,7 +518,7 @@
           </div>`;
       }
 
-      const TAB_TITLES = { overview: "Dashboard Overview", listings: "My Listings", messages: "Messages", profile: "Profile" };
+      const TAB_TITLES = { overview: "Dashboard Overview", listings: "My Listings", messages: "Messages", notifications: "Notifications", profile: "Profile" };
 
       function setTab(name) {
         if (!TAB_TITLES[name]) name = "overview";
@@ -459,6 +535,10 @@
         window.scrollTo({ top: 0 });
         if (name === "messages") loadMessages().catch((e) => showNotification(e.message, "error"));
         if (name === "overview") loadOverview().catch(() => {});
+        if (name === "notifications") {
+          sellerNotifications.render();
+          setTimeout(() => sellerNotifications.markAllRead(), 1500);
+        }
       }
 
       document.addEventListener("click", (e) => {
@@ -560,7 +640,6 @@
         seller = (await sellerApi("/api/seller/auth/me")).data;
         setSellerHint(true);
         renderSellerShell(seller);
-        document.getElementById("bell-mount").innerHTML = notifBellHtml();
         initSellerNotifications({ onNotification: refreshAfterNotice });
         window.addEventListener("seller:navigate", (e) => setTab(e.detail.tab || "overview"));
         const hour = new Date().getHours();

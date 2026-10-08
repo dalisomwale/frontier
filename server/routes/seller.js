@@ -483,7 +483,9 @@ router.post("/listings/:id/resubmit", requireSeller, requireApproved, async (req
 // ---------------------------------------------------------------------------
 
 const MESSAGE_FIELDS = `i.id, i.livestock_id, i.livestock_title, i.forwarded_at, i.forward_message,
-  i.seller_reply, i.seller_replied_at, i.seller_seen_at`;
+  i.seller_reply, i.seller_replied_at, i.seller_seen_at,
+  (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = i.livestock_id
+     ORDER BY li.sort_order, li.id LIMIT 1) AS cover_thumb`;
 
 async function withThreads(rows) {
   if (!rows.length) return rows;

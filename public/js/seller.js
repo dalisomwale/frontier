@@ -100,84 +100,83 @@ async function withBusy(button, busyText, task) {
   }),
 );
 
-function initSellerNotifications({ onNotification } = {}) {
-  const btn = document.getElementById("notif-btn");
-  const panel = document.getElementById("notif-panel");
-  const list = document.getElementById("notif-list");
-  const count = document.getElementById("notif-count");
-  if (!btn) return;
-  let items = [];
+function setBadge(selector, count) {
+  document.querySelectorAll(selector).forEach((el) => {
+    el.textContent = count > 99 ? "99+" : String(count);
+    el.classList.toggle("hidden", !count);
+    el.classList.toggle("inline-flex", Boolean(count));
+  });
+}
 
-  const setCount = (n) => {
-    count.hidden = !n;
-    count.textContent = n > 9 ? "9+" : String(n);
+const sellerNotifications = {
+  items: [],
+  unread: 0,
+  onNotification: null,
+
+  setCount(n) {
+    this.unread = n;
+    setBadge("[data-notif-badge]", n);
     document.title = `${n ? `(${n}) ` : ""}My Dashboard - Frontier Marketplace`;
-  };
+  },
 
-  const render = () => {
-    list.innerHTML = items.length
-      ? items.map((n) => `
+  render() {
+    const list = document.getElementById("notifications-list");
+    if (!list) return;
+    list.innerHTML = this.items.length
+      ? this.items.map((n) => `
           <a href="${escapeHtml(n.link || "/seller/")}" data-notif="${n.id}" class="notif-item ${n.read_at ? "" : "is-unread"}">
             <span class="notif-dot" aria-hidden="true"></span>
-            <span class="min-w-0">
-              <span class="block text-sm font-medium text-gray-900">${escapeHtml(n.title)}</span>
-              ${n.body ? `<span class="block text-xs text-gray-600 mt-0.5 line-clamp-2">${escapeHtml(n.body)}</span>` : ""}
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-semibold text-gray-900">${escapeHtml(n.title)}</span>
+              ${n.body ? `<span class="block text-sm text-gray-600 mt-0.5 line-clamp-2">${escapeHtml(n.body)}</span>` : ""}
               <span class="block text-xs text-gray-400 mt-1">${timeAgo(n.created_at)}</span>
             </span>
           </a>`).join("")
-      : `<p class="px-4 py-6 text-sm text-gray-500 text-center">No notifications yet.</p>`;
-    list.querySelectorAll("[data-notif]").forEach((a) => a.addEventListener("click", async (e) => {
+      : `<div class="empty-state"><p class="font-semibold text-gray-800">No notifications yet</p><p class="text-sm mt-1">Updates about your account, listings and messages appear here.</p></div>`;
+    list.querySelectorAll("[data-notif]").forEach((a) => a.addEventListener("click", (e) => {
       const target = new URL(a.href, location.origin);
-      const n = items.find((x) => String(x.id) === a.dataset.notif);
-      if (n && !n.read_at) {
-        n.read_at = new Date().toISOString();
-        sellerApi("/api/seller/notifications/read", { method: "POST", body: { ids: [n.id] } }).then((r) => setCount(r.unread)).catch(() => {});
-      }
       if (target.pathname === location.pathname) {
         e.preventDefault();
-        close();
         history.replaceState(null, "", target.pathname + target.search);
         window.dispatchEvent(new CustomEvent("seller:navigate", { detail: Object.fromEntries(target.searchParams) }));
       }
     }));
-  };
+  },
 
-  const load = async () => {
+  async load() {
     try {
       const res = await sellerApi("/api/seller/notifications");
-      items = res.data;
-      setCount(res.unread);
-      render();
+      this.items = res.data;
+      this.setCount(res.unread);
+      this.render();
     } catch {
     }
-  };
+  },
 
-  const open = () => { panel.hidden = false; btn.setAttribute("aria-expanded", "true"); render(); };
-  const close = () => { panel.hidden = true; btn.setAttribute("aria-expanded", "false"); };
-  btn.addEventListener("click", () => (panel.hidden ? open() : close()));
-  document.addEventListener("click", (e) => { if (!e.composedPath().includes(document.getElementById("notif-wrap"))) close(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
-  document.getElementById("notif-read-all").addEventListener("click", async () => {
+  async markAllRead() {
+    if (!this.unread) return;
     try {
       const res = await sellerApi("/api/seller/notifications/read", { method: "POST", body: {} });
-      items.forEach((n) => (n.read_at = n.read_at || new Date().toISOString()));
-      setCount(res.unread);
-      render();
+      this.setCount(res.unread);
     } catch {
     }
-  });
+  },
+};
 
-  load();
+function initSellerNotifications({ onNotification } = {}) {
+  const n = sellerNotifications;
+  n.onNotification = onNotification;
+  n.load();
   if (window.EventSource) {
     const stream = new EventSource("/api/seller/notifications/stream");
-    stream.addEventListener("ready", (e) => setCount(JSON.parse(e.data).unread));
+    stream.addEventListener("ready", (e) => n.setCount(JSON.parse(e.data).unread));
     stream.addEventListener("notification", (e) => {
       const { notification, unread } = JSON.parse(e.data);
-      items = [notification, ...items.filter((n) => n.id !== notification.id)].slice(0, 30);
-      setCount(unread);
-      render();
+      n.items = [notification, ...n.items.filter((x) => x.id !== notification.id)].slice(0, 30);
+      n.setCount(unread);
+      n.render();
       showNotification(notification.title, "info");
-      if (onNotification) onNotification(notification);
+      if (n.onNotification) n.onNotification(notification);
     });
     stream.addEventListener("signed-out", () => {
       stream.close();
@@ -185,7 +184,7 @@ function initSellerNotifications({ onNotification } = {}) {
       window.location.href = "/seller/login.html";
     });
   }
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) n.load(); });
 }
 
 function notifBellHtml() {
@@ -206,7 +205,8 @@ function notifBellHtml() {
 const SELLER_NAV = [
   { key: "overview", icon: "dashboard", label: "Dashboard", short: "Overview" },
   { key: "listings", icon: "listings", label: "My Listings", short: "Listings" },
-  { key: "messages", icon: "inbox", label: "Messages", short: "Messages", badge: true },
+  { key: "messages", icon: "inbox", label: "Messages", short: "Messages", badge: "unread" },
+  { key: "notifications", icon: "bell", label: "Notifications", short: "Alerts", badge: "notif" },
   { key: "profile", icon: "users", label: "Profile", short: "Profile" },
 ];
 
@@ -226,7 +226,7 @@ function renderSellerShell(seller) {
     <nav class="app-sidebar-nav">
       ${SELLER_NAV.map((item) => `<a href="${sellerTabHref(item.key)}" data-tab-link="${item.key}">
         ${uiIcon(item.icon)}<span>${item.label}</span>
-        ${item.badge ? '<span data-unread-badge class="nav-badge hidden">0</span>' : ""}
+        ${item.badge ? `<span data-${item.badge}-badge class="nav-badge hidden">0</span>` : ""}
       </a>`).join("")}
       <a href="/" target="_blank" rel="noopener">${uiIcon("external")}<span>View Website</span></a>
     </nav>
@@ -253,7 +253,7 @@ function renderSellerShell(seller) {
   bottom.classList.add("app-bottom-nav");
   bottom.dataset.variant = "admin";
   bottom.innerHTML = SELLER_NAV.map((item) => `<a href="${sellerTabHref(item.key)}" data-tab-link="${item.key}">
-    <span class="relative inline-flex">${uiIcon(item.icon)}${item.badge ? '<span data-unread-badge class="hidden absolute -top-1.5 -right-2.5 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full items-center justify-center leading-none">0</span>' : ""}</span><span>${item.short}</span></a>`).join("");
+    <span class="relative inline-flex">${uiIcon(item.icon)}${item.badge ? `<span data-${item.badge}-badge class="hidden absolute -top-1.5 -right-2.5 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full items-center justify-center leading-none">0</span>` : ""}</span><span>${item.short}</span></a>`).join("");
 
   document.querySelectorAll("[data-seller-logout]").forEach((b) => b.addEventListener("click", sellerLogout));
 }
@@ -269,9 +269,5 @@ function setSellerNavActive(key) {
 }
 
 function setUnreadBadge(count) {
-  document.querySelectorAll("[data-unread-badge]").forEach((el) => {
-    el.textContent = count > 99 ? "99+" : String(count);
-    el.classList.toggle("hidden", !count);
-    el.classList.toggle("inline-flex", Boolean(count));
-  });
+  setBadge("[data-unread-badge]", count);
 }
