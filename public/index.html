@@ -619,7 +619,7 @@
         await refreshOptions();
         if (purposeId) { els.purpose.value = purposeId; await refreshOptions(); }
         if (breedId) { els.breed.value = breedId; await refreshOptions(); }
-        applyFilters({ scroll: close });
+        applyFilters({ scroll: true });
       }
 
       async function pickProvince(value) {
