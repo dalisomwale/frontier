@@ -1701,7 +1701,7 @@ body.admin-pending main {
 
   .nav-dropdown > .nav-list {
     position: relative;
-    width: calc(100% / 3);
+    width: 50%;
     min-width: 0;
     padding: 4px;
     border-radius: 12px 0 0 12px;
@@ -3198,5 +3198,67 @@ body.admin-pending main {
 @media (max-width: 639px) {
   .hero-x-text {
     font-size: 14px;
+  }
+}
+
+.listing-breed {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.listing-breed select {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 38px;
+  padding: 0 34px 0 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 9999px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  cursor: pointer;
+  max-width: 240px;
+}
+
+.listing-breed select:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.listing-breed .listing-breed-caret {
+  position: absolute;
+  right: 12px;
+  width: 14px;
+  height: 14px;
+  color: #6b7280;
+  pointer-events: none;
+  transform: rotate(90deg);
+}
+
+.listing-breed.has-value select {
+  border-color: #1f2937;
+}
+
+.listing-breed[hidden] {
+  display: none;
+}
+
+.listing-breed {
+  flex-shrink: 0;
+}
+
+@media (max-width: 639px) {
+  .listing-breed select {
+    height: 34px;
+    font-size: 13px;
+    padding: 0 30px 0 12px;
+    max-width: 38vw;
+  }
+
+  .listing-breed .listing-breed-caret {
+    right: 10px;
   }
 }

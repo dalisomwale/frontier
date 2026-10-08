@@ -93,10 +93,13 @@
 
       <section id="listings" class="anchor-section bg-gray-50 py-10 border-t border-gray-100" aria-labelledby="listings-heading">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="flex flex-wrap items-end justify-between gap-2 mb-4">
-            <div>
-              <h2 id="listings-heading" class="text-xl sm:text-2xl font-bold text-gray-900">Livestock Listings</h2>
-            </div>
+          <div class="flex items-center justify-between gap-3 mb-4">
+            <h2 id="listings-heading" class="min-w-0 truncate text-xl sm:text-2xl font-bold text-gray-900">Livestock Listings</h2>
+            <label class="listing-breed" id="breed-filter-wrap" hidden>
+              <span class="sr-only">Filter by breed</span>
+              <select id="breed-filter"></select>
+              <span class="listing-breed-caret" data-icon="chevronRight"></span>
+            </label>
           </div>
 
           <div id="listings-container" class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6 mb-6"></div>
@@ -367,6 +370,27 @@
 
       const withCount = (name, count) => `${name}${count ? ` (${count})` : ""}`;
 
+      function renderBreedFilter(breeds) {
+        const wrap = document.getElementById("breed-filter-wrap");
+        const select = document.getElementById("breed-filter");
+        if (!els.purpose.value || !breeds.length) {
+          wrap.hidden = true;
+          select.innerHTML = "";
+          return;
+        }
+        const groups = new Map();
+        breeds.forEach((b) => {
+          const key = b.group_name || "";
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(b);
+        });
+        const option = (b) => `<option value="${b.id}" ${String(b.id) === els.breed.value ? "selected" : ""}>${escapeHtml(b.name)}</option>`;
+        select.innerHTML = `<option value="">Filter by breed</option>` + [...groups.entries()].map(([group, list]) =>
+          group && groups.size > 1 ? `<optgroup label="${escapeHtml(group)}">${list.map(option).join("")}</optgroup>` : list.map(option).join("")).join("");
+        wrap.hidden = false;
+        wrap.classList.toggle("has-value", Boolean(els.breed.value));
+      }
+
       async function refreshOptions() {
         const request = ++optionsRequest;
         const params = new URLSearchParams();
@@ -408,6 +432,7 @@
           );
         }
 
+        renderBreedFilter(data.breeds);
         fillSelect(els.location, "Select province", data.locations.map((l) => ({ value: l.value, label: withCount(l.value, l.count) })), els.location.value);
         syncTiles();
       }
@@ -553,7 +578,7 @@
         const head = heading ? `<li class="nav-heading">${escapeHtml(purposeHeading(animalId))}</li>` : "";
         if (!list.length) return head + `<li class="nav-empty">No production purposes yet</li>`;
         return head + list.map((p) => navLink({
-          label: p.name, count: p.livestock_count, sub: true,
+          label: p.name, count: p.livestock_count,
           attrs: `data-animal="${animalId}" data-purpose="${p.id}"`, active: els.purpose.value === String(p.id),
         })).join("");
       }
@@ -647,7 +672,7 @@
           if (!link) return;
           const d = link.dataset;
           if (d.province !== undefined) return pickProvince(d.province);
-          if (d.breed) return pickAnimal(d.animal, d.purpose, d.breed);
+          if (d.purpose) return pickAnimal(d.animal, d.purpose, null);
           pickAnimal(d.animal, d.purpose, null, { close: false });
           toggleFlyout(link.closest(".nav-item"));
         });
@@ -675,6 +700,12 @@
         await refreshOptions();
         applyFilters({ scroll: true });
       }
+
+      document.getElementById("breed-filter").addEventListener("change", async (e) => {
+        els.breed.value = e.target.value;
+        await refreshOptions();
+        applyFilters({ scroll: false });
+      });
 
       let searchQuery = "";
       const searchForm = document.getElementById("site-search");
