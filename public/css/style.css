@@ -2871,3 +2871,75 @@ body.admin-pending main {
   width: 18px;
   height: 18px;
 }
+
+.hero-full {
+  display: flex;
+  align-items: flex-end;
+  min-height: clamp(420px, 74vh, 760px);
+  background-color: #0b2a5e;
+}
+
+.hero-full::before {
+  background:
+    linear-gradient(0deg, rgba(4, 12, 28, 0.72) 0%, rgba(4, 12, 28, 0.35) 30%, rgba(4, 12, 28, 0) 58%),
+    linear-gradient(90deg, rgba(4, 12, 28, 0.35) 0%, rgba(4, 12, 28, 0) 55%);
+}
+
+.hero-full .hero-slide {
+  background-position: center 45%;
+  transform: scale(1.04);
+}
+
+.hero-full .hero-slide.active {
+  transform: scale(1);
+}
+
+.hero-inner {
+  position: relative;
+  padding-top: 48px;
+  padding-bottom: 44px;
+}
+
+.hero-title {
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.35);
+  letter-spacing: -0.02em;
+}
+
+.hero-dots-corner {
+  position: absolute;
+  right: 16px;
+  bottom: 22px;
+}
+
+@media (min-width: 640px) {
+  .hero-dots-corner {
+    right: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-inner {
+    padding-bottom: 64px;
+  }
+
+  .hero-dots-corner {
+    right: 32px;
+    bottom: 30px;
+  }
+}
+
+@media (max-width: 639px) {
+  .hero-full {
+    min-height: 440px;
+  }
+
+  .hero-inner {
+    padding-bottom: 52px;
+  }
+
+  .hero-dots-corner {
+    left: 16px;
+    right: auto;
+    bottom: 22px;
+  }
+}
