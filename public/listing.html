@@ -42,6 +42,7 @@
             <button type="button" id="gallery-prev" class="gallery-nav gallery-nav-prev hidden" aria-label="Previous photo"></button>
             <button type="button" id="gallery-next" class="gallery-nav gallery-nav-next hidden" aria-label="Next photo"></button>
             <div id="gallery-dots" class="gallery-dots"></div>
+            <div id="gallery-verified"></div>
           </div>
           <div id="gallery-thumbs" class="gallery-thumbs" aria-label="Photo gallery"></div>
         </div>
@@ -141,6 +142,7 @@
         }
         setAttributes(item);
         renderGallery();
+        document.getElementById("gallery-verified").innerHTML = verifiedBadge(item);
 
         const inquire = () => openInquiryModal(item);
         const btn = document.getElementById("inquire-btn");

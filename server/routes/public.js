@@ -244,7 +244,7 @@ router.get("/livestock", async (req, res, next) => {
       `SELECT l.id, l.title, l.location, l.livestock_type, l.quantity, l.description,
          c.animal_id, a.name AS animal_name,
          l.category_id, c.name AS category_name, l.breed_id, b.name AS breed_name,
-         l.created_at,
+         l.created_at, l.verification,
          img.thumb_path, img.image_path
        ${FROM}
        LEFT JOIN livestock_images img ON img.id = (
@@ -287,7 +287,7 @@ router.get("/livestock/:id", async (req, res, next) => {
       `SELECT l.id, l.title, l.location, l.livestock_type, l.quantity, l.age_months,
          l.description, c.animal_id, a.name AS animal_name,
          l.category_id, c.name AS category_name,
-         l.breed_id, b.name AS breed_name, l.created_at, l.updated_at
+         l.breed_id, b.name AS breed_name, l.verification, l.created_at, l.updated_at
        ${FROM} WHERE l.id = ? AND ${VISIBLE}`,
       [id],
     );

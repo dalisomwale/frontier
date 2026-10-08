@@ -42,6 +42,11 @@ function cardImage(item) {
     alt="${escapeHtml(item.title)}" loading="lazy" decoding="async" width="640" height="480">`;
 }
 
+function verifiedBadge(item) {
+  if (item.verification !== "verified") return "";
+  return `<span class="verified-badge" title="Verified by Frontier"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.4 1.8 3-.2.9 2.9 2.5 1.7-1 2.8 1 2.8-2.5 1.7-.9 2.9-3-.2L12 21.5l-2.4-1.8-3 .2-.9-2.9-2.5-1.7 1-2.8-1-2.8 2.5-1.7.9-2.9 3 .2z"/><path d="M8.5 12.2l2.3 2.3 4.7-4.8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Verified</span>`;
+}
+
 function renderLivestockCard(item) {
   const typeLine = [item.livestock_type, item.quantity > 1 ? quantityLabel(item.quantity, item.animal_name) : ""]
     .filter(Boolean)
@@ -49,7 +54,7 @@ function renderLivestockCard(item) {
 
   return `
     <article class="lv-card">
-      <div class="lv-card-media">${cardImage(item)}</div>
+      <div class="lv-card-media">${cardImage(item)}${verifiedBadge(item)}</div>
       <div class="p-2.5 sm:p-3 flex flex-col flex-1">
         <h3 class="text-xs sm:text-sm font-semibold text-gray-900 line-clamp-2 mb-1">
           <a href="${listingUrl(item.id)}" class="lv-card-link">${escapeHtml(item.title)}</a>
