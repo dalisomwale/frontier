@@ -3188,3 +3188,15 @@ body.admin-pending main {
 .verified-badge svg {
   color: #4ade80;
 }
+
+.hero-x-text {
+  margin-top: 14px;
+  font-size: 15px;
+  max-width: 32rem;
+}
+
+@media (max-width: 639px) {
+  .hero-x-text {
+    font-size: 14px;
+  }
+}
