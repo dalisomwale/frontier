@@ -388,11 +388,20 @@ router.get("/listings/:id", requireSeller, async (req, res, next) => {
   }
 });
 
-function listingNotice(seller, listing, edited) {
+// One email per listing change: a follow-up save straight after (e.g. setting
+// the cover photo) doesn't send another.
+const recentNotices = new Map();
+
+function listingNotice(seller, listing, edited, listingId) {
+  const key = String(listingId || listing.title);
+  const last = recentNotices.get(key);
+  if (last && Date.now() - last < 2 * 60 * 1000) return null;
+  recentNotices.set(key, Date.now());
+  if (recentNotices.size > 500) recentNotices.delete(recentNotices.keys().next().value);
   return notifyAdmins(
-    `${edited ? "Listing updated" : "New listing"} for review: ${listing.title}`,
-    edited ? "A seller updated a listing" : "New listing waiting for review",
-    [`${sellerLabel(seller)} ${edited ? "changed" : "submitted"} a listing. It is hidden from the website until you approve it.`],
+    edited ? `Listing updated for review: ${listing.title}` : `Listing added for review: ${listing.title}`,
+    edited ? "A seller updated a listing" : "A seller added a listing",
+    [`${sellerLabel(seller)} ${edited ? "updated" : "added"} a listing. It is hidden from the website until you approve it.`],
     [["Listing", listing.title], ["Seller", sellerLabel(seller)], ["Phone", seller.phone]],
     "/admin/livestock.html?review=pending",
   );
@@ -416,7 +425,7 @@ router.post("/listings", requireSeller, requireApproved, uploadImages, async (re
     );
     await helpers.storeImages(conn, result.insertId, req.files);
     await conn.commit();
-    listingNotice(req.seller, p, false);
+    listingNotice(req.seller, p, false, result.insertId);
     res.status(201).json({ success: true, data: sellerView(await helpers.loadOne(result.insertId)) });
   } catch (error) {
     await conn.rollback().catch(() => {});
@@ -449,7 +458,7 @@ router.put("/listings/:id", requireSeller, requireApproved, uploadImages, async 
     if (!Number(photos)) throw validationError({ images: "Please keep at least one photo of the animals." });
     await conn.commit();
     deleteImageFiles(...filesToDelete);
-    listingNotice(req.seller, p, true);
+    listingNotice(req.seller, p, true, id);
     res.json({ success: true, data: sellerView(await helpers.loadOne(id)) });
   } catch (error) {
     await conn.rollback().catch(() => {});
@@ -470,7 +479,7 @@ router.post("/listings/:id/resubmit", requireSeller, requireApproved, async (req
        WHERE id = ? AND seller_id = ?`,
       [id, req.seller.id],
     );
-    listingNotice(req.seller, listing, true);
+    listingNotice(req.seller, listing, true, id);
     res.json({ success: true, data: sellerView(await helpers.loadOne(id)) });
   } catch (error) {
     next(error);

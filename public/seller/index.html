@@ -369,7 +369,7 @@
 
             const res = await sellerApi(id ? `/api/seller/listings/${id}` : "/api/seller/listings", { method: id ? "PUT" : "POST", body: fd });
 
-            if (photos[0]?.file && res.data.images.length > 1) {
+            if (id && photos[0]?.file && res.data.images.length > 1) {
               const firstNewIndex = res.data.images.length - newPhotos.length;
               const coverId = res.data.images[firstNewIndex].id;
               const order = [coverId, ...res.data.images.filter((im) => im.id !== coverId).map((im) => im.id)];
