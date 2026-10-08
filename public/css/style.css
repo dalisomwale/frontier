@@ -3170,3 +3170,7 @@ body.admin-pending main {
 .site-search-clear {
   z-index: 2;
 }
+
+.hero-x-title {
+  margin-top: 0;
+}
