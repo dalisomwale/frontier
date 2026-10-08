@@ -13,31 +13,47 @@
     <script src="/js/admin.js"></script>
     <script src="/js/seller.js"></script>
   </head>
-  <body class="bg-gray-50 min-h-screen">
-    <div id="seller-header"></div>
+  <body class="bg-gray-50">
+    <div id="app-sidebar"></div>
+    <div id="seller-topbar"></div>
 
-    <main id="seller-main" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8" hidden>
-      <div class="flex flex-wrap items-end justify-between gap-3 mb-5">
+    <main id="seller-main" class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" hidden>
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
-          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">My Dashboard</h1>
-          <p id="welcome-line" class="text-sm text-gray-500"></p>
+          <h1 id="page-title" class="text-xl sm:text-2xl font-bold text-gray-900">Dashboard Overview</h1>
+          <p id="welcome-line" class="text-gray-500 mt-1"></p>
         </div>
-        <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
-          <span class="w-5 h-5" data-icon="plus"></span> Add Listing
-        </button>
+        <div class="flex items-center gap-2">
+          <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed" hidden>
+            <span class="w-5 h-5" data-icon="plus"></span> Add Listing
+          </button>
+          <div id="bell-mount"></div>
+        </div>
       </div>
 
       <div id="account-banner"></div>
 
-      <div id="stats" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6"></div>
+      <section id="tab-overview">
+        <div id="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <section class="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h2 class="text-base font-bold text-gray-900">Recent Messages</h2>
+              <a href="/seller/?tab=messages" data-tab-link="messages" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
+            </div>
+            <div id="recent-messages"></div>
+          </section>
+          <section class="bg-white rounded-xl border border-gray-100 shadow-sm">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h2 class="text-base font-bold text-gray-900">My Listings</h2>
+              <a href="/seller/?tab=listings" data-tab-link="listings" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
+            </div>
+            <div id="recent-listings"></div>
+          </section>
+        </div>
+      </section>
 
-      <div class="seg mb-4" id="tabs" role="tablist">
-        <button type="button" data-tab="listings" class="active">My Listings</button>
-        <button type="button" data-tab="messages">Messages <span id="unread-badge" class="count"></span></button>
-        <button type="button" data-tab="profile">Profile</button>
-      </div>
-
-      <section id="tab-listings"></section>
+      <section id="tab-listings" hidden></section>
       <section id="tab-messages" hidden></section>
       <section id="tab-profile" hidden>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -71,6 +87,8 @@
       </section>
     </main>
 
+    <div id="app-bottom-nav"></div>
+
     <script>
       const MAX_PHOTOS = 10;
       let seller = null;
@@ -96,17 +114,19 @@
 
       async function loadSummary() {
         const { data } = await sellerApi("/api/seller/summary");
-        const stat = (label, value, tone = "") => `
-          <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-            <div class="text-xs text-gray-500">${label}</div>
-            <div class="text-xl font-bold ${tone || "text-gray-900"} mt-1">${value}</div>
-          </div>`;
+        const stat = (label, value, tab, tone = "") => `
+          <a href="/seller/?tab=${tab}" data-tab-link="${tab}" class="stat-tile hover:shadow-md transition !p-4">
+            <div class="min-w-0">
+              <p class="text-gray-600 text-xs sm:text-sm font-medium leading-tight">${label}</p>
+              <p class="text-xl sm:text-2xl font-bold ${tone || "text-gray-900"}">${Number(value).toLocaleString()}</p>
+            </div>
+          </a>`;
         document.getElementById("stats").innerHTML =
-          stat("Live", data.listings.live, data.listings.live ? "text-green-700" : "") +
-          stat("In review", data.listings.in_review, data.listings.in_review ? "text-amber-700" : "") +
-          stat("Changes needed", data.listings.changes_needed, data.listings.changes_needed ? "text-red-700" : "") +
-          stat("Unread messages", data.messages.unread, data.messages.unread ? "text-blue-700" : "");
-        document.getElementById("unread-badge").textContent = data.messages.unread ? data.messages.unread : "";
+          stat("Live", data.listings.live, "listings", data.listings.live ? "text-green-700" : "") +
+          stat("In review", data.listings.in_review, "listings", data.listings.in_review ? "text-amber-700" : "") +
+          stat("Changes needed", data.listings.changes_needed, "listings", data.listings.changes_needed ? "text-red-600" : "") +
+          stat("Unread messages", data.messages.unread, "messages", data.messages.unread ? "text-blue-700" : "");
+        setUnreadBadge(data.messages.unread);
       }
 
       const stateHelp = {
@@ -422,18 +442,69 @@
           </div>`;
       }
 
+      const TAB_TITLES = { overview: "Dashboard Overview", listings: "My Listings", messages: "Messages", profile: "Profile" };
+
       function setTab(name) {
-        document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
-        ["listings", "messages", "profile"].forEach((t) => (document.getElementById(`tab-${t}`).hidden = t !== name));
+        if (!TAB_TITLES[name]) name = "overview";
+        Object.keys(TAB_TITLES).forEach((t) => (document.getElementById(`tab-${t}`).hidden = t !== name));
+        document.getElementById("page-title").textContent = TAB_TITLES[name];
+        document.getElementById("welcome-line").hidden = name !== "overview";
+        document.getElementById("add-btn").hidden = name !== "listings";
+        setSellerNavActive(name);
         const url = new URL(location.href);
-        if (name === "listings") url.searchParams.delete("tab");
+        if (name === "overview") url.searchParams.delete("tab");
         else url.searchParams.set("tab", name);
         url.searchParams.delete("welcome");
         history.replaceState(null, "", url);
+        window.scrollTo({ top: 0 });
         if (name === "messages") loadMessages().catch((e) => showNotification(e.message, "error"));
+        if (name === "overview") loadOverview().catch(() => {});
       }
 
-      document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
+      document.addEventListener("click", (e) => {
+        const link = e.target.closest("[data-tab-link]");
+        if (!link || e.ctrlKey || e.metaKey || e.shiftKey) return;
+        e.preventDefault();
+        setTab(link.dataset.tabLink);
+      });
+
+      async function loadOverview() {
+        const recentListings = document.getElementById("recent-listings");
+        recentListings.innerHTML = listings.length
+          ? listings.slice(0, 5).map((l) => {
+              const st = sellerState(l);
+              return `
+                <a href="/seller/?tab=listings" data-tab-link="listings" class="flex items-center gap-3 px-5 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                  <span class="w-14 h-10 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : ""}</span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block font-semibold text-gray-900 truncate">${escapeHtml(l.title)}</span>
+                    <span class="block text-xs text-gray-500 truncate">${escapeHtml([l.breed_name, l.category_name, l.location].filter(Boolean).join(", "))}</span>
+                  </span>
+                  ${statusPill(st.key, st.label)}
+                </a>`;
+            }).join("")
+          : `<div class="empty-state"><p class="font-semibold text-gray-800">No listings yet</p><p class="text-sm mt-1">${approved() ? "Add your first listing from My Listings." : "You can add listings once your account is approved."}</p></div>`;
+
+        const recentMessages = document.getElementById("recent-messages");
+        const list = (await sellerApi("/api/seller/messages")).data;
+        recentMessages.innerHTML = list.length
+          ? list.slice(0, 5).map((m) => {
+              const last = (m.messages || [])[m.messages.length - 1];
+              return `
+                <a href="/seller/?tab=messages" data-tab-link="messages" class="flex items-start gap-3 px-5 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                  <span class="min-w-0 flex-1">
+                    <span class="block font-semibold text-gray-900 truncate">${escapeHtml(m.livestock_title)}</span>
+                    <span class="block text-sm text-gray-600 truncate">${last ? `${last.sender === "seller" ? "You: " : ""}${escapeHtml(last.body)}` : ""}</span>
+                  </span>
+                  <span class="flex flex-col items-end gap-1 flex-shrink-0">
+                    <span class="text-xs text-gray-400">${last ? timeAgo(last.created_at) : ""}</span>
+                    ${m.seller_seen_at ? "" : `<span class="status-pill st-new">New</span>`}
+                  </span>
+                </a>`;
+            }).join("")
+          : `<div class="empty-state"><p class="font-semibold text-gray-800">No messages yet</p><p class="text-sm mt-1">When a buyer is interested, Frontier will message you here.</p></div>`;
+      }
+
       document.getElementById("add-btn").addEventListener("click", () => openEditor());
 
       document.getElementById("profile-form").addEventListener("submit", async (e) => {
@@ -447,8 +518,6 @@
           seller = res.data;
           showFieldErrors(form, {});
           showNotification("Details saved.", "success");
-          const nameEl = document.getElementById("header-seller-name");
-          if (nameEl) nameEl.textContent = seller.business_name || seller.name;
         } catch (error) {
           showFieldErrors(form, error);
           alertBox.className = "alert alert-error text-sm mb-0";
@@ -480,12 +549,9 @@
           }
           await Promise.all([loadSummary(), loadListings()]);
           if (notice.type === "message" && !document.getElementById("tab-messages").hidden) await loadMessages();
+          if (!document.getElementById("tab-overview").hidden) await loadOverview();
         } catch {
         }
-      }
-
-      function bindHeader() {
-        document.querySelectorAll("[data-seller-logout]").forEach((b) => b.addEventListener("click", sellerLogout));
       }
 
       (async () => {
@@ -493,18 +559,18 @@
         bindPasswordToggles();
         seller = (await sellerApi("/api/seller/auth/me")).data;
         setSellerHint(true);
-        document.getElementById("seller-header").innerHTML = sellerPageHeader(seller);
-        bindHeader();
+        renderSellerShell(seller);
+        document.getElementById("bell-mount").innerHTML = notifBellHtml();
         initSellerNotifications({ onNotification: refreshAfterNotice });
-        window.addEventListener("seller:navigate", (e) => setTab(e.detail.tab === "messages" || e.detail.tab === "profile" ? e.detail.tab : "listings"));
-        document.getElementById("welcome-line").textContent = `Welcome, ${seller.name}`;
+        window.addEventListener("seller:navigate", (e) => setTab(e.detail.tab || "overview"));
+        const hour = new Date().getHours();
+        document.getElementById("welcome-line").textContent = `${hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"}, ${seller.name.split(" ")[0]}.`;
         document.getElementById("seller-main").hidden = false;
         renderBanner();
         renderProfile();
         const [tax] = await Promise.all([sellerApi("/api/seller/taxonomy"), loadSummary(), loadListings()]);
         taxonomy = tax.data;
-        const tab = getQueryParams().tab;
-        if (tab === "messages" || tab === "profile") setTab(tab);
+        setTab(getQueryParams().tab || "overview");
       })().catch((error) => showNotification(error.message, "error"));
     </script>
   </body>

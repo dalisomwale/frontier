@@ -46,18 +46,7 @@ function sellerPageHeader(seller) {
         <div class="ml-auto flex items-center gap-2">
           ${seller ? `<span id="header-seller-name" class="hidden md:inline text-sm text-gray-500 mr-1">${escapeHtml(seller.business_name || seller.name)}</span>` : ""}
           <a href="/" class="hidden sm:inline-flex text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2">View website</a>
-          ${seller ? `<div class="notif-wrap" id="notif-wrap">
-            <button type="button" id="notif-btn" class="notif-btn" aria-label="Notifications" aria-haspopup="true" aria-expanded="false">
-              <span class="w-5 h-5 block">${uiIcon("bell")}</span><span id="notif-count" class="notif-count" hidden></span>
-            </button>
-            <div id="notif-panel" class="notif-panel" hidden>
-              <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                <span class="font-semibold text-gray-900 text-sm">Notifications</span>
-                <button type="button" id="notif-read-all" class="text-xs font-medium text-blue-700 hover:underline">Mark all as read</button>
-              </div>
-              <div id="notif-list" class="notif-list"></div>
-            </div>
-          </div>` : ""}
+          ${seller ? notifBellHtml() : ""}
           ${seller ? `<button type="button" data-seller-logout class="text-sm font-medium px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Logout</button>` : ""}
         </div>
       </div>
@@ -197,4 +186,92 @@ function initSellerNotifications({ onNotification } = {}) {
     });
   }
   document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+}
+
+function notifBellHtml() {
+  return `<div class="notif-wrap" id="notif-wrap">
+    <button type="button" id="notif-btn" class="notif-btn" aria-label="Notifications" aria-haspopup="true" aria-expanded="false">
+      <span class="w-5 h-5 block">${uiIcon("bell")}</span><span id="notif-count" class="notif-count" hidden></span>
+    </button>
+    <div id="notif-panel" class="notif-panel" hidden>
+      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <span class="font-semibold text-gray-900 text-sm">Notifications</span>
+        <button type="button" id="notif-read-all" class="text-xs font-medium text-blue-700 hover:underline">Mark all as read</button>
+      </div>
+      <div id="notif-list" class="notif-list"></div>
+    </div>
+  </div>`;
+}
+
+const SELLER_NAV = [
+  { key: "overview", icon: "dashboard", label: "Dashboard", short: "Overview" },
+  { key: "listings", icon: "listings", label: "My Listings", short: "Listings" },
+  { key: "messages", icon: "inbox", label: "Messages", short: "Messages", badge: true },
+  { key: "profile", icon: "users", label: "Profile", short: "Profile" },
+];
+
+const sellerTabHref = (key) => (key === "overview" ? "/seller/" : `/seller/?tab=${key}`);
+
+function renderSellerShell(seller) {
+  const sidebar = document.getElementById("app-sidebar");
+  sidebar.classList.add("app-sidebar");
+  sidebar.innerHTML = `
+    <div class="app-sidebar-brand">
+      <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div>
+      <div class="min-w-0">
+        <p class="text-white font-semibold text-sm leading-tight">Frontier Marketplace</p>
+        <p class="text-xs" style="color: var(--sidebar-text)">Seller</p>
+      </div>
+    </div>
+    <nav class="app-sidebar-nav">
+      ${SELLER_NAV.map((item) => `<a href="${sellerTabHref(item.key)}" data-tab-link="${item.key}">
+        ${uiIcon(item.icon)}<span>${item.label}</span>
+        ${item.badge ? '<span data-unread-badge class="nav-badge hidden">0</span>' : ""}
+      </a>`).join("")}
+      <a href="/" target="_blank" rel="noopener">${uiIcon("external")}<span>View Website</span></a>
+    </nav>
+    <div class="app-sidebar-footer">
+      <p class="text-xs px-3 pb-2 truncate" style="color: var(--sidebar-text)">Signed in as ${escapeHtml(seller.business_name || seller.name)}</p>
+      <button type="button" data-seller-logout>${uiIcon("logout")}<span>Logout</span></button>
+    </div>`;
+
+  document.getElementById("seller-topbar").innerHTML = `
+    <nav id="page-topnav" class="bg-white border-b border-gray-100 sticky top-0 z-50">
+      <div class="px-4 sm:px-6 h-16 flex justify-between items-center">
+        <a href="/seller/" data-tab-link="overview" class="flex items-center gap-3">
+          <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div>
+          <span class="font-bold text-gray-900">Seller</span>
+        </a>
+        <div class="flex items-center gap-2">
+          <a href="/" target="_blank" rel="noopener" class="hidden sm:inline-flex text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2">View website</a>
+          <button type="button" data-seller-logout class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium text-sm">Logout</button>
+        </div>
+      </div>
+    </nav>`;
+
+  const bottom = document.getElementById("app-bottom-nav");
+  bottom.classList.add("app-bottom-nav");
+  bottom.dataset.variant = "admin";
+  bottom.innerHTML = SELLER_NAV.map((item) => `<a href="${sellerTabHref(item.key)}" data-tab-link="${item.key}">
+    <span class="relative inline-flex">${uiIcon(item.icon)}${item.badge ? '<span data-unread-badge class="hidden absolute -top-1.5 -right-2.5 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full items-center justify-center leading-none">0</span>' : ""}</span><span>${item.short}</span></a>`).join("");
+
+  document.querySelectorAll("[data-seller-logout]").forEach((b) => b.addEventListener("click", sellerLogout));
+}
+
+function setSellerNavActive(key) {
+  document.querySelectorAll("[data-tab-link]").forEach((a) => {
+    if (a.closest("#seller-topbar")) return;
+    const on = a.dataset.tabLink === key;
+    a.classList.toggle("active", on);
+    if (on) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  });
+}
+
+function setUnreadBadge(count) {
+  document.querySelectorAll("[data-unread-badge]").forEach((el) => {
+    el.textContent = count > 99 ? "99+" : String(count);
+    el.classList.toggle("hidden", !count);
+    el.classList.toggle("inline-flex", Boolean(count));
+  });
 }

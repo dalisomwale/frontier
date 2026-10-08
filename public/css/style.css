@@ -3262,3 +3262,18 @@ body.admin-pending main {
     right: 10px;
   }
 }
+
+#bell-mount .notif-btn {
+  width: 42px;
+  height: 42px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+}
+
+#bell-mount .notif-btn:hover {
+  background: #f9fafb;
+}
+
+#add-btn[hidden] {
+  display: none;
+}
