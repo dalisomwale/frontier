@@ -2753,3 +2753,84 @@ body.admin-pending main {
   background: #3d5a80;
   border-color: #3d5a80;
 }
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 32px;
+}
+
+.pager-pages {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pager-btn {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.pager-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pager-btn:hover:not(:disabled):not(.is-current) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.pager-btn.is-current {
+  background: #1f2937;
+  border-color: #1f2937;
+  color: #fff;
+  cursor: default;
+}
+
+.pager-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pager-gap {
+  min-width: 20px;
+  text-align: center;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+@media (max-width: 639px) {
+  .pager {
+    gap: 6px;
+  }
+
+  .pager-pages {
+    gap: 4px;
+  }
+
+  .pager-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 8px;
+    font-size: 13px;
+  }
+
+  .pager-step span {
+    display: none;
+  }
+}
