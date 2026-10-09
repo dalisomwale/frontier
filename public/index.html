@@ -78,7 +78,6 @@
             <p class="hero-x-text">Find cattle, goats, sheep, pigs and poultry from farmers across Zambia, and contact the seller in one step.</p>
           </div>
         </div>
-        <div id="hero-dots" class="hero-dots hero-x-dots" role="tablist" aria-label="Hero photos"></div>
       </section>
 
       <section id="categories" class="anchor-section py-12 bg-white" aria-labelledby="categories-heading">
@@ -150,7 +149,6 @@
 
       function initHero() {
         const host = document.getElementById("hero-slides");
-        const dots = document.getElementById("hero-dots");
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         let index = 0;
         let timer;
@@ -160,9 +158,7 @@
                <video muted playsinline preload="none" poster="${p.src}"><source src="${p.video}" type="video/mp4"><source src="${p.video.replace(/\.mp4$/, ".webm")}" type="video/webm"></video>
              </div>`
           : `<div class="hero-slide" role="img" aria-label="${escapeHtml(p.alt)}"></div>`).join("");
-        dots.innerHTML = HERO_PHOTOS.map((p, i) => `<button type="button" aria-label="Show slide ${i + 1}: ${escapeHtml(p.label)}"></button>`).join("");
         const slides = host.querySelectorAll(".hero-slide");
-        const dotBtns = dots.querySelectorAll("button");
 
         function load(i) {
           const slide = slides[i];
@@ -198,7 +194,6 @@
           load(i);
           load((i + 1) % slides.length);
           slides.forEach((s, n) => s.classList.toggle("active", n === i));
-          dotBtns.forEach((d, n) => d.classList.toggle("active", n === i));
 
           const video = slides[i].querySelector("video");
           if (!video) return schedule(HERO_INTERVAL_MS);
@@ -209,7 +204,6 @@
           if (playing && playing.catch) playing.catch(() => schedule(HERO_INTERVAL_MS));
         }
 
-        dotBtns.forEach((d, n) => d.addEventListener("click", () => show(n)));
         show(0);
       }
 
