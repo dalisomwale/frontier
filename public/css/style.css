@@ -3326,3 +3326,41 @@ body.admin-pending main {
   height: 100%;
   object-fit: cover;
 }
+
+/* Hero copy sits at the bottom centre */
+.hero-x {
+  align-items: flex-end;
+}
+
+.hero-x::before {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 26%),
+    linear-gradient(0deg, rgba(6, 12, 5, 0.82) 0%, rgba(6, 12, 5, 0.5) 30%, rgba(6, 12, 5, 0) 62%);
+}
+
+.hero-x-inner {
+  padding-bottom: 64px;
+}
+
+.hero-x-copy .hero-x-text {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 639px) {
+  .hero-x::before {
+    background:
+      linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0) 28%),
+      linear-gradient(0deg, rgba(6, 12, 5, 0.85) 0%, rgba(6, 12, 5, 0.5) 38%, rgba(6, 12, 5, 0) 70%);
+  }
+
+  .hero-x-inner {
+    padding-bottom: 48px;
+  }
+}
+
+.hero-x-copy {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
