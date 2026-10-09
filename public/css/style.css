@@ -3364,3 +3364,32 @@ body.admin-pending main {
   margin-right: auto;
   text-align: center;
 }
+
+/* Gradient brush swoosh under the hero line */
+.hero-x-copy .hero-x-text {
+  position: relative;
+  padding-bottom: 30px;
+}
+
+.hero-x-copy .hero-x-text::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: min(300px, 72%);
+  height: 24px;
+  transform: translateX(-50%) rotate(-1.5deg);
+  background: url("/images/hero/brush-swoosh.svg") center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+
+@media (max-width: 639px) {
+  .hero-x-copy .hero-x-text {
+    padding-bottom: 26px;
+  }
+
+  .hero-x-copy .hero-x-text::after {
+    width: 220px;
+    height: 20px;
+  }
+}
