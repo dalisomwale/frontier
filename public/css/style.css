@@ -3397,3 +3397,80 @@ body.admin-pending main {
 .hero-x-text {
   text-wrap: balance;
 }
+
+/* Header Login + Register, in the hero's yellow-to-lime palette */
+.header-auth {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.header-login-link,
+.header-auth .header-seller-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 18px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, filter 0.15s;
+}
+
+.header-login-link {
+  color: #166534;
+  border: 1.5px solid #166534;
+  background: transparent;
+}
+
+.header-login-link:hover {
+  background: rgba(22, 101, 52, 0.08);
+}
+
+.header-login-link[hidden] {
+  display: none;
+}
+
+.header-auth .header-seller-link,
+.site-header-home .header-auth .header-seller-link {
+  color: #14532d;
+  background: linear-gradient(90deg, #fde047 0%, #bef264 100%);
+  border: 1.5px solid transparent;
+  box-shadow: 0 2px 10px rgba(190, 242, 100, 0.25);
+}
+
+.header-auth .header-seller-link:hover,
+.site-header-home .header-auth .header-seller-link:hover {
+  background: linear-gradient(90deg, #fde047 0%, #bef264 100%);
+  filter: brightness(1.06);
+  box-shadow: 0 4px 16px rgba(190, 242, 100, 0.4);
+}
+
+/* Over the hero video: light outline so Login reads on the footage */
+.site-header-home.is-transparent .header-login-link {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.75);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.site-header-home.is-transparent .header-login-link:hover {
+  color: #fde047;
+  border-color: #fde047;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 767px) {
+  .header-auth {
+    order: 4;
+    gap: 6px;
+  }
+
+  .header-login-link,
+  .header-auth .header-seller-link {
+    height: 42px;
+    padding: 0 14px;
+  }
+}

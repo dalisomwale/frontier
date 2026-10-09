@@ -255,6 +255,8 @@ async function initSellerLink() {
     if (!res.ok) return setSellerHint(false);
     link.href = "/seller/";
     link.textContent = "My Dashboard";
+    const login = document.getElementById("login-link");
+    if (login) login.hidden = true;
   } catch {
   }
 }
