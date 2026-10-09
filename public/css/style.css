@@ -3393,3 +3393,7 @@ body.admin-pending main {
     height: 20px;
   }
 }
+
+.hero-x-text {
+  text-wrap: balance;
+}
