@@ -1,13 +1,7 @@
 
 const HERO_PHOTOS = [
-  { src: "/images/hero/hero-1.webp", alt: "Jersey cows feeding at a trough under a shed", label: "Jersey cows" },
-  { video: "/images/hero/hero-film-1.mp4", src: "/images/hero/hero-film-1.webp", alt: "Video of a cow grazing in a meadow in the evening light", label: "Cow grazing" },
-  { src: "/images/hero/hero-2.webp", alt: "A Brahman bull standing in a paddock", label: "Brahman bull" },
-  { video: "/images/hero/hero-film-2.mp4", src: "/images/hero/hero-film-2.webp", alt: "Video of two long-horned cattle in a grass field", label: "Long-horned cattle" },
-  { src: "/images/hero/hero-3.webp", alt: "Brahman cattle in a paddock", label: "Brahman cattle" },
-  { video: "/images/hero/hero-film-3.mp4", src: "/images/hero/hero-film-3.webp", alt: "Aerial video of a herd of goats crossing grassland at sunset", label: "Goats at sunset" },
-  { src: "/images/hero/hero-4.webp", alt: "Holstein-Friesian cows feeding at a trough under a shed", label: "Holstein-Friesian cows" },
-  { video: "/images/hero/hero-film-4.mp4", src: "/images/hero/hero-film-4.webp", alt: "Video of cattle grazing on a field in the late afternoon sun", label: "Cattle grazing" },
+  { video: "/images/hero/hero-reel-1.mp4", src: "/images/hero/hero-reel-1.webp", alt: "Video of cattle grazing in a meadow in the evening light", label: "Cattle grazing" },
+  { video: "/images/hero/hero-reel-2.mp4", src: "/images/hero/hero-reel-2.webp", alt: "Video of brown and white cows grazing on a green hillside", label: "Cows on the hillside" },
 ];
 
 const ANIMAL_PHOTOS = {
