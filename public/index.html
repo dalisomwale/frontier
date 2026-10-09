@@ -151,39 +151,66 @@
       function initHero() {
         const host = document.getElementById("hero-slides");
         const dots = document.getElementById("hero-dots");
+        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         let index = 0;
         let timer;
 
-        host.innerHTML = HERO_PHOTOS.map((p) => `<div class="hero-slide" role="img" aria-label="${escapeHtml(p.alt)}"></div>`).join("");
-        dots.innerHTML = HERO_PHOTOS.map((p, i) => `<button type="button" aria-label="Show photo ${i + 1}: ${escapeHtml(p.label)}"></button>`).join("");
+        host.innerHTML = HERO_PHOTOS.map((p) => p.video && !reduceMotion
+          ? `<div class="hero-slide hero-slide-video" role="img" aria-label="${escapeHtml(p.alt)}" style="background-image:url('${p.src}')">
+               <video muted playsinline preload="none" poster="${p.src}"><source src="${p.video}" type="video/mp4"><source src="${p.video.replace(/\.mp4$/, ".webm")}" type="video/webm"></video>
+             </div>`
+          : `<div class="hero-slide" role="img" aria-label="${escapeHtml(p.alt)}"></div>`).join("");
+        dots.innerHTML = HERO_PHOTOS.map((p, i) => `<button type="button" aria-label="Show slide ${i + 1}: ${escapeHtml(p.label)}"></button>`).join("");
         const slides = host.querySelectorAll(".hero-slide");
         const dotBtns = dots.querySelectorAll("button");
 
         function load(i) {
-          if (slides[i].dataset.loaded) return;
+          const slide = slides[i];
+          if (slide.dataset.loaded) return;
+          slide.dataset.loaded = "1";
+          const video = slide.querySelector("video");
+          if (video) {
+            video.preload = "auto";
+            video.load();
+            return;
+          }
           const url = HERO_PHOTOS[i].src;
           const img = new Image();
-          img.onload = () => {
-            slides[i].style.backgroundImage = `url("${url}")`;
-            slides[i].dataset.loaded = "1";
-          };
+          img.onload = () => { slide.style.backgroundImage = `url("${url}")`; };
           img.src = url;
         }
+
+        function next() {
+          show((index + 1) % slides.length);
+        }
+
+        function schedule(ms) {
+          clearTimeout(timer);
+          if (!reduceMotion) timer = setTimeout(next, ms);
+        }
+
         function show(i) {
+          slides.forEach((s, n) => {
+            const v = s.querySelector("video");
+            if (v && n !== i) { v.pause(); v.onended = null; }
+          });
           index = i;
           load(i);
           load((i + 1) % slides.length);
           slides.forEach((s, n) => s.classList.toggle("active", n === i));
           dotBtns.forEach((d, n) => d.classList.toggle("active", n === i));
+
+          const video = slides[i].querySelector("video");
+          if (!video) return schedule(HERO_INTERVAL_MS);
+          schedule(15000);
+          video.currentTime = 0;
+          video.onended = () => next();
+          const playing = video.play();
+          if (playing && playing.catch) playing.catch(() => schedule(HERO_INTERVAL_MS));
         }
-        function start() {
-          clearInterval(timer);
-          if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-          timer = setInterval(() => show((index + 1) % slides.length), HERO_INTERVAL_MS);
-        }
-        dotBtns.forEach((d, n) => d.addEventListener("click", () => { show(n); start(); }));
+
+        dotBtns.forEach((d, n) => d.addEventListener("click", () => show(n)));
         show(0);
-        start();
       }
 
       async function loadAnimals() {

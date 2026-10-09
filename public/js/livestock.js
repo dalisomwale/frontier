@@ -1,8 +1,11 @@
 
 const HERO_PHOTOS = [
   { src: "/images/hero/hero-1.webp", alt: "Jersey cows feeding at a trough under a shed", label: "Jersey cows" },
+  { video: "/images/hero/hero-video-1.mp4", src: "/images/hero/hero-video-1.webp", alt: "Video of Jersey cows feeding at a trough", label: "Jersey cows feeding" },
   { src: "/images/hero/hero-2.webp", alt: "A Brahman bull standing in a paddock", label: "Brahman bull" },
+  { video: "/images/hero/hero-video-2.mp4", src: "/images/hero/hero-video-2.webp", alt: "Video of dairy cows and calves in their pens", label: "Dairy cows and calves" },
   { src: "/images/hero/hero-3.webp", alt: "Brahman cattle in a paddock", label: "Brahman cattle" },
+  { video: "/images/hero/hero-video-3.mp4", src: "/images/hero/hero-video-3.webp", alt: "Video of cows feeding under a shed", label: "Cows at the trough" },
   { src: "/images/hero/hero-4.webp", alt: "Holstein-Friesian cows feeding at a trough under a shed", label: "Holstein-Friesian cows" },
 ];
 
