@@ -186,10 +186,8 @@
         const note = document.querySelector(`[data-detail="${o.id}"] [data-message]`)?.value.trim() || "";
         const confirmText = {
           confirmed: o.seller_id && !o.seller_notified_at ? "The seller is told about the order." : "",
-          paid: o.livestock_id && !o.stock_deducted ? `${o.quantity} will be taken off the listing.` : "",
-          completed: o.livestock_id && !o.stock_deducted ? `${o.quantity} will be taken off the listing.` : "",
           cancelled: o.stock_deducted ? `${o.quantity} will be put back on the listing.` : "",
-        }[value];
+        }[value] || (o.status === "cancelled" && o.livestock_id ? `${o.quantity} will be taken off the listing again.` : "");
         const ok = await confirmAction({
           title: `Mark ${o.reference} as ${statusLabel(value).toLowerCase()}?`,
           message: ["The buyer is emailed about the change.", confirmText, note ? "Your message is included." : ""].filter(Boolean).join(" "),
@@ -252,7 +250,7 @@
                 ["Listing", listingLink],
                 ["Quantity", lot ? `The whole lot (${o.quantity})` : `${o.quantity} × ${kwacha(o.unit_price)}`],
                 ["Total", `<strong>${kwacha(o.total)}</strong>`],
-                ["Stock", o.livestock_id ? (o.stock_deducted ? `Taken off the listing (${o.listing_quantity} left)` : `${o.listing_quantity} on the listing`) : null],
+                ["Stock", o.livestock_id ? (o.stock_deducted ? `Reserved (${o.listing_quantity} left on the listing)` : `Put back (${o.listing_quantity} on the listing)`) : null],
               ])}
             </section>
             <section>

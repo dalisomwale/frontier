@@ -8,9 +8,9 @@ const STATUS_LABELS = {
   completed: "Completed",
   cancelled: "Cancelled",
 };
-// Stock is taken off the listing once an order is paid, and given back if it
-// is cancelled (or moved back) afterwards.
-const STOCK_STATUSES = ["paid", "completed"];
+// Stock comes off the listing when the order is placed, and goes back if the
+// order is cancelled (and off again if it is reopened).
+const STOCK_STATUSES = ["new", "confirmed", "paid", "completed"];
 
 const DELIVERY_LABELS = { collect: "Collect from farm", deliver: "Deliver to me" };
 const PAYMENT_LABELS = { mobile_money: "Mobile money", bank_transfer: "Bank transfer" };

@@ -167,9 +167,10 @@ The same events also appear in the seller dashboard straight away: a bell with a
   Cancelled. Every status change emails the buyer, with any message you type
   (e.g. payment details). The seller is told once, when you first confirm the
   order, without the buyer's details.
-- Stock: marking an order Paid takes the quantity off the listing; a listing
-  with nothing left is unpublished. Cancelling a paid order puts it back
-  (republish the listing yourself if it was sold out).
+- Stock: placing an order takes the quantity off the listing straight away
+  (reserved for that buyer); a listing with nothing left comes off the
+  website. Cancelling the order puts the animals back, and a sold-out listing
+  goes back on the website.
 
 ## Public filtering
 

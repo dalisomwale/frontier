@@ -4,7 +4,7 @@
 // cancelled at any point. The buyer is emailed on every status change (with
 // the admin's message, e.g. payment details). The seller is told once, when
 // the order is first confirmed, without the buyer's details. Stock comes off
-// the listing when the order is paid and goes back if it is cancelled.
+// the listing when the order is placed and goes back if it is cancelled.
 const express = require("express");
 const pool = require("../../db");
 const { sendEmail } = require("../../services/mailer");
@@ -150,7 +150,12 @@ router.patch("/:id", async (req, res, next) => {
         );
       }
     } else if (order.livestock_id && !wantDeducted && order.stock_deducted) {
-      await conn.query("UPDATE livestock SET quantity = quantity + ? WHERE id = ?", [order.quantity, order.livestock_id]);
+      // A listing that sold out (and so came off the website) goes back on.
+      await conn.query(
+        `UPDATE livestock SET status = IF(quantity = 0 AND review_status = 'approved', 'published', status),
+           quantity = quantity + ? WHERE id = ?`,
+        [order.quantity, order.livestock_id],
+      );
     }
 
     const notifySellerNow = changed && order.seller_id && !order.seller_notified_at && ["confirmed", "paid", "completed"].includes(newStatus);

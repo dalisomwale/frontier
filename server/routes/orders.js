@@ -99,17 +99,47 @@ router.post("/", async (req, res, next) => {
       ? (item.seller_business_name ? `${item.seller_name} (${item.seller_business_name})` : item.seller_name)
       : null;
 
-    const [result] = await pool.query(
-      `INSERT INTO orders
-         (livestock_id, livestock_title, seller_id, seller_name, quantity, unit_price, price_unit, total,
-          full_name, phone, email, delivery, delivery_address, payment_method, mobile_operator, payment_phone,
-          payment_bank, payment_account, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [item.id, item.title, item.seller_id, sellerName, quantity, unitPrice, item.price_unit, total,
-        values.full_name, values.phone, values.email, values.delivery, values.delivery_address,
-        values.payment_method, values.mobile_operator, values.payment_phone,
-        values.payment_bank, values.payment_account, req.ip],
-    );
+    // Save the order and take the animals off the listing in one step, so two
+    // buyers can't order the same animals. A listing with nothing left comes
+    // off the website.
+    const conn = await pool.getConnection();
+    let result;
+    let soldOut = false;
+    try {
+      await conn.beginTransaction();
+      const [[current]] = await conn.query("SELECT quantity, status FROM livestock WHERE id = ? FOR UPDATE", [item.id]);
+      if (!current || current.status !== "published" || Number(current.quantity) < 1) {
+        throw notFound("This listing is no longer available.");
+      }
+      if (quantity > Number(current.quantity)) {
+        const error = badRequest(`Only ${current.quantity} available now.`);
+        error.status = 422;
+        error.errors = { quantity: `Only ${current.quantity} available now.` };
+        throw error;
+      }
+      [result] = await conn.query(
+        `INSERT INTO orders
+           (livestock_id, livestock_title, seller_id, seller_name, quantity, unit_price, price_unit, total,
+            full_name, phone, email, delivery, delivery_address, payment_method, mobile_operator, payment_phone,
+            payment_bank, payment_account, stock_deducted, ip_address)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+        [item.id, item.title, item.seller_id, sellerName, quantity, unitPrice, item.price_unit, total,
+          values.full_name, values.phone, values.email, values.delivery, values.delivery_address,
+          values.payment_method, values.mobile_operator, values.payment_phone,
+          values.payment_bank, values.payment_account, req.ip],
+      );
+      soldOut = Number(current.quantity) - quantity === 0;
+      await conn.query(
+        "UPDATE livestock SET quantity = quantity - ?, status = IF(quantity = 0, 'unpublished', status) WHERE id = ?",
+        [quantity, item.id],
+      );
+      await conn.commit();
+    } catch (error) {
+      await conn.rollback().catch(() => {});
+      throw error;
+    } finally {
+      conn.release();
+    }
     const id = result.insertId;
     const reference = orderRef(id);
     const qtyText = lot ? `The whole lot (${headCount(quantity, item.animal_name)})` : headCount(quantity, item.animal_name);
@@ -123,7 +153,12 @@ router.post("/", async (req, res, next) => {
         to: recipients(),
         subject: `New order ${reference}: ${item.title}`,
         heading: `New order ${reference}`,
-        paragraphs: [`${values.full_name} wants to buy ${lot ? "the whole lot" : headCount(quantity, item.animal_name)} from "${item.title}".`],
+        paragraphs: [
+          `${values.full_name} wants to buy ${lot ? "the whole lot" : headCount(quantity, item.animal_name)} from "${item.title}".`,
+          soldOut
+            ? "Nothing is left on the listing, so it has been taken off the website."
+            : "The animals have been taken off the listing. Cancelling the order puts them back.",
+        ],
         rows: [
           ["Listing", item.title],
           ["Seller", sellerName || "Frontier"],
@@ -142,8 +177,8 @@ router.post("/", async (req, res, next) => {
         subject: `Order ${reference} received`,
         heading: `Order ${reference} received`,
         paragraphs: [
-          `Hi ${values.full_name}, thank you for your order.`,
-          "We'll confirm availability with the seller and send payment details to your WhatsApp and email.",
+          `Hi ${values.full_name}, thank you for your order. The animals are now reserved for you.`,
+          `We'll contact you on WhatsApp at ${values.phone} to arrange payment and ${values.delivery === "deliver" ? "delivery" : "collection"}.`,
         ],
         rows: [
           ["Listing", item.title],
