@@ -37,6 +37,12 @@ async function payload(body) {
   const age = body.age_months === "" || body.age_months === undefined || body.age_months === null
     ? null
     : Number.parseInt(body.age_months, 10);
+  // Price is optional ("Price on request"). Accepts "18500", "18,500" or "K 18,500".
+  const priceGiven = body.price !== undefined;
+  const priceText = priceGiven && body.price !== null ? String(body.price).replace(/[\s,]/g, "").replace(/^(k|zmw)/i, "") : "";
+  const price = priceText === "" ? null : Number(priceText);
+  const priceUnit = body.price_unit === undefined || body.price_unit === "" ? "head" : oneOf(body.price_unit, ["head", "lot"]);
+  const negotiable = ["1", "true", "on", "yes"].includes(String(body.price_negotiable ?? "").toLowerCase()) || body.price_negotiable === true;
 
   const errors = {};
   let purposeRow = null;
@@ -56,6 +62,9 @@ async function payload(body) {
   if (!quantity || quantity > 100000) errors.quantity = "Quantity must be a whole number from 1.";
   if (age !== null && (!Number.isSafeInteger(age) || age < 0 || age > 600))
     errors.age_months = "Age must be between 0 and 600 months.";
+  if (price !== null && (!Number.isFinite(price) || price <= 0 || price > 9999999999 || !/^\d+(\.\d{1,2})?$/.test(priceText)))
+    errors.price = "Enter the price in Kwacha, e.g. 18500.";
+  if (!priceUnit) errors.price_unit = "Choose per head or for the lot.";
 
   if (categoryId && !errors.category_id) {
     const [cats] = await pool.query("SELECT id, animal_id, name FROM categories WHERE id = ?", [categoryId]);
@@ -103,6 +112,10 @@ async function payload(body) {
     verification,
     seller_given: sellerGiven,
     seller_id: sellerId,
+    price_given: priceGiven,
+    price,
+    price_unit: priceUnit || "head",
+    price_negotiable: price !== null && negotiable ? 1 : 0,
   };
 }
 
@@ -242,7 +255,7 @@ router.get("/", async (req, res, next) => {
 
     const [rows] = await pool.query(
       `SELECT l.id, l.title, l.status, l.published_at, l.verification, l.review_status, l.review_note, l.submitted_at,
-         l.location, l.livestock_type, l.quantity,
+         l.location, l.livestock_type, l.quantity, l.price, l.price_unit, l.price_negotiable,
          l.created_at, l.updated_at, a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
          l.seller_id, s.name AS seller_name, s.business_name AS seller_business_name,
          (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = l.id
@@ -290,11 +303,11 @@ router.post("/", uploadImages, async (req, res, next) => {
     await conn.beginTransaction();
     const [result] = await conn.query(
       `INSERT INTO livestock
-         (title, category_id, breed_id, livestock_type, quantity, age_months, location, description, status,
-          published_at, verification, seller_id, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, IF(? = 'published', NOW(), NULL), ?, ?, ?)`,
-      [p.title, p.category_id, p.breed_id, p.livestock_type, p.quantity, p.age_months,
-        p.location, p.description, p.status, p.status, p.verification || "unverified", p.seller_id, req.admin.id],
+         (title, category_id, breed_id, livestock_type, quantity, price, price_unit, price_negotiable,
+          age_months, location, description, status, published_at, verification, seller_id, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(? = 'published', NOW(), NULL), ?, ?, ?)`,
+      [p.title, p.category_id, p.breed_id, p.livestock_type, p.quantity, p.price, p.price_unit, p.price_negotiable,
+        p.age_months, p.location, p.description, p.status, p.status, p.verification || "unverified", p.seller_id, req.admin.id],
     );
     await storeImages(conn, result.insertId, req.files);
     await conn.commit();
@@ -326,11 +339,14 @@ router.put("/:id", uploadImages, async (req, res, next) => {
          age_months = ?, location = ?, description = ?, ${PUBLISHED_AT_SQL}, status = ?,
          verification = COALESCE(?, verification),
          seller_id = IF(?, ?, seller_id),
+         price = IF(?, ?, price), price_unit = IF(?, ?, price_unit), price_negotiable = IF(?, ?, price_negotiable),
          review_status = IF(? = 'published', 'approved', review_status),
          review_note = IF(? = 'published', NULL, review_note) WHERE id = ?`,
       [p.title, p.category_id, p.breed_id, p.livestock_type, p.quantity, p.age_months,
         p.location, p.description, p.status, p.status, p.verification ?? null,
-        p.seller_given ? 1 : 0, p.seller_id, p.status, p.status, id],
+        p.seller_given ? 1 : 0, p.seller_id,
+        p.price_given ? 1 : 0, p.price, p.price_given ? 1 : 0, p.price_unit, p.price_given ? 1 : 0, p.price_negotiable,
+        p.status, p.status, id],
     );
     filesToDelete.push(...(await applyPhotoChanges(conn, id, photoChanges, req.files)));
     await conn.commit();

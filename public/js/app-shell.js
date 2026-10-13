@@ -14,6 +14,7 @@ function renderBottomNav(variant = "public") {
           { href: "/admin/index.html", icon: "dashboard", label: "Overview", match: ["/admin/index.html"] },
           { href: "/admin/livestock.html", icon: "listings", label: "Livestock", match: ["/admin/livestock.html"] },
           { href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", match: ["/admin/inquiries.html"], badge: true },
+          { href: "/admin/orders.html", icon: "cart", label: "Orders", match: ["/admin/orders.html"], orderBadge: true },
           { href: "/admin/sellers.html", icon: "users", label: "Sellers", match: ["/admin/sellers.html"] },
           { href: "/admin/breeds.html", icon: "tag", label: "Breeds", match: ["/admin/breeds.html"] },
           { href: "/admin/categories.html", icon: "layers", label: "Categories", match: ["/admin/categories.html"] },
@@ -28,8 +29,9 @@ function renderBottomNav(variant = "public") {
     .map((tab) => {
       const active =
         tab.match.includes(path) && (tab.exactHash === undefined || tab.exactHash === hash);
-      const badge = tab.badge
-        ? `<span data-new-badge class="hidden absolute -top-1.5 -right-2.5 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full items-center justify-center leading-none">0</span>`
+      const badgeAttr = tab.badge ? "data-new-badge" : tab.orderBadge ? "data-order-badge" : "";
+      const badge = badgeAttr
+        ? `<span ${badgeAttr} class="hidden absolute -top-1.5 -right-2.5 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full items-center justify-center leading-none">0</span>`
         : "";
       return `<a href="${tab.href}" class="${active ? "active" : ""}"${active ? ' aria-current="page"' : ""}>
         <span class="relative inline-flex">${uiIcon(tab.icon)}${badge}</span><span>${tab.label}</span></a>`;
@@ -52,6 +54,7 @@ function renderSidebar(active) {
     { key: "dashboard", href: "/admin/index.html", icon: "dashboard", label: "Dashboard" },
     { key: "livestock", href: "/admin/livestock.html", icon: "listings", label: "Livestock" },
     { key: "inquiries", href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", badge: true },
+    { key: "orders", href: "/admin/orders.html", icon: "cart", label: "Orders", orderBadge: true },
     { key: "sellers", href: "/admin/sellers.html", icon: "users", label: "Sellers" },
     { key: "breeds", href: "/admin/breeds.html", icon: "tag", label: "Breeds" },
     { key: "categories", href: "/admin/categories.html", icon: "layers", label: "Categories & Purposes" },
@@ -72,6 +75,7 @@ function renderSidebar(active) {
           (item) => `<a href="${item.href}" class="${item.key === active ? "active" : ""}"${item.external ? ' target="_blank" rel="noopener"' : ""}>
             ${uiIcon(item.icon)}<span>${item.label}</span>
             ${item.badge ? '<span data-new-badge class="nav-badge hidden">0</span>' : ""}
+            ${item.orderBadge ? '<span data-order-badge class="nav-badge hidden">0</span>' : ""}
           </a>`,
         )
         .join("")}
@@ -80,6 +84,14 @@ function renderSidebar(active) {
       <p id="sidebar-admin-name" class="text-xs px-3 pb-2 truncate" style="color: var(--sidebar-text)"></p>
       <button type="button" data-logout>${uiIcon("logout")}<span>Logout</span></button>
     </div>`;
+}
+
+function setNewOrderBadge(count) {
+  document.querySelectorAll("[data-order-badge]").forEach((el) => {
+    el.textContent = count > 99 ? "99+" : String(count);
+    el.classList.toggle("hidden", !count);
+    el.classList.toggle("inline-flex", Boolean(count));
+  });
 }
 
 function setNewInquiryBadge(count) {

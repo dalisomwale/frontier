@@ -362,7 +362,7 @@ router.get("/listings", requireSeller, async (req, res, next) => {
   try {
     const [rows] = await pool.query(
       `SELECT l.id, l.title, l.status, l.review_status, l.review_note, l.verification, l.published_at, l.submitted_at,
-         l.location, l.livestock_type, l.quantity, l.created_at, l.updated_at,
+         l.location, l.livestock_type, l.quantity, l.price, l.price_unit, l.price_negotiable, l.created_at, l.updated_at,
          a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
          (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = l.id
             ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path
@@ -417,11 +417,11 @@ router.post("/listings", requireSeller, requireApproved, uploadImages, async (re
     await conn.beginTransaction();
     const [result] = await conn.query(
       `INSERT INTO livestock
-         (title, category_id, breed_id, livestock_type, quantity, age_months, location, description, status,
-          verification, seller_id, review_status, submitted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unpublished', 'unverified', ?, 'pending', NOW())`,
-      [p.title, p.category_id, p.breed_id, p.livestock_type, p.quantity, p.age_months,
-        p.location, p.description, req.seller.id],
+         (title, category_id, breed_id, livestock_type, quantity, price, price_unit, price_negotiable,
+          age_months, location, description, status, verification, seller_id, review_status, submitted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpublished', 'unverified', ?, 'pending', NOW())`,
+      [p.title, p.category_id, p.breed_id, p.livestock_type, p.quantity, p.price, p.price_unit, p.price_negotiable,
+        p.age_months, p.location, p.description, req.seller.id],
     );
     await helpers.storeImages(conn, result.insertId, req.files);
     await conn.commit();
@@ -448,10 +448,13 @@ router.put("/listings/:id", requireSeller, requireApproved, uploadImages, async 
     await conn.query(
       `UPDATE livestock SET title = ?, category_id = ?, breed_id = ?, livestock_type = ?, quantity = ?,
          age_months = ?, location = ?, description = ?, status = 'unpublished', published_at = NULL,
-         review_status = 'pending', review_note = NULL, submitted_at = NOW()
+         review_status = 'pending', review_note = NULL, submitted_at = NOW(),
+         price = IF(?, ?, price), price_unit = IF(?, ?, price_unit), price_negotiable = IF(?, ?, price_negotiable)
        WHERE id = ? AND seller_id = ?`,
       [p.title, p.category_id, p.breed_id, p.livestock_type, p.quantity, p.age_months,
-        p.location, p.description, id, req.seller.id],
+        p.location, p.description,
+        p.price_given ? 1 : 0, p.price, p.price_given ? 1 : 0, p.price_unit, p.price_given ? 1 : 0, p.price_negotiable,
+        id, req.seller.id],
     );
     const filesToDelete = await helpers.applyPhotoChanges(conn, id, photoChanges, req.files);
     const [[{ photos }]] = await conn.query("SELECT COUNT(*) AS photos FROM livestock_images WHERE livestock_id = ?", [id]);

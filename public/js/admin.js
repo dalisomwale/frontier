@@ -67,6 +67,11 @@ async function refreshNewInquiryBadge() {
     setNewInquiryBadge(res.summary.new);
   } catch {
   }
+  try {
+    const res = await adminApi("/api/admin/orders?limit=1");
+    if (typeof setNewOrderBadge === "function") setNewOrderBadge(res.summary.new);
+  } catch {
+  }
 }
 
 function statusPill(status, label) {
@@ -173,6 +178,38 @@ function field({ name, label, type = "text", value = "", required = false, place
     ${help ? `<p class="text-xs text-gray-500 mt-1">${escapeHtml(help)}</p>` : ""}
     <p class="field-error hidden" data-error-for="${name}"></p>
   </div>`;
+}
+
+// Price fields shared by the admin and seller listing forms. The price is
+// optional: left empty, the website shows "Price on request".
+function plainPrice(value) {
+  if (value === null || value === undefined || value === "") return "";
+  const n = Number(value);
+  return Number.isFinite(n) ? String(Number.isInteger(n) ? n : n.toFixed(2)) : "";
+}
+
+function priceFields(item = {}) {
+  return `<div class="grid grid-cols-2 sm:grid-cols-3 gap-4 items-end">
+    <div class="col-span-2 sm:col-span-1">
+      <label for="f-price" class="field-label">Price (K)</label>
+      <div class="price-input"><span>K</span><input id="f-price" name="price" type="text" inputmode="decimal" class="field-input"
+        value="${escapeHtml(plainPrice(item.price))}" placeholder="Price on request" maxlength="15"></div>
+      <p class="field-error hidden" data-error-for="price"></p>
+    </div>
+    ${field({ name: "price_unit", label: "Priced", value: item.price_unit || "head",
+        options: [{ value: "head", label: "Per head" }, { value: "lot", label: "For the lot" }] })}
+    <label class="switch-row">
+      <input type="checkbox" name="price_negotiable" value="1" ${Number(item.price_negotiable) ? "checked" : ""}>
+      <span class="switch" aria-hidden="true"></span>
+      <span>Negotiable</span>
+    </label>
+  </div>`;
+}
+
+function appendPriceFields(fd, form) {
+  fd.append("price", form.elements.price.value.trim());
+  fd.append("price_unit", form.elements.price_unit.value);
+  fd.append("price_negotiable", form.elements.price_negotiable.checked ? "1" : "0");
 }
 
 const MAX_DESCRIPTION_WORDS = 50;

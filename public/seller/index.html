@@ -253,12 +253,13 @@
             ${field({ name: "quantity", label: "Quantity", type: "number", value: item.quantity ?? 1, attrs: 'min="1" step="1" inputmode="numeric"' })}
             ${field({ name: "age_months", label: "Age (months)", type: "number", value: item.age_months, attrs: 'min="0" max="600" step="1" inputmode="numeric"' })}
           </div>
+          ${priceFields(item)}
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
             ${field({ name: "location", label: "Province", value: item.location || seller.province || "", required: true,
                 options: [{ value: "", label: "Select province" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
             <div class="sm:col-span-2">
               ${field({ name: "description", label: "Description", type: "textarea", value: item.description, rows: 2,
-                  placeholder: "Condition, vaccinations, feeding, price guide, anything a buyer should know", attrs: 'maxlength="5000"' })}
+                  placeholder: "Condition, vaccinations, feeding, anything a buyer should know", attrs: 'maxlength="5000"' })}
             </div>
           </div>
           <div>
@@ -362,6 +363,7 @@
 
             const fd = new FormData();
             for (const key of ["title", "animal_id", "category_id", "breed_id", "livestock_type", "quantity", "age_months", "location", "description"]) fd.append(key, v[key] ?? "");
+            appendPriceFields(fd, form);
             fd.append("remove_image_ids", JSON.stringify(removed));
             fd.append("image_order", JSON.stringify(photos.filter((p) => p.id).map((p) => p.id)));
             const newPhotos = photos.filter((p) => p.file);

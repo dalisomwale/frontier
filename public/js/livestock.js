@@ -45,10 +45,37 @@ function verifiedBadge(item) {
   return `<span class="verified-badge" title="Verified by Frontier"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.4 1.8 3-.2.9 2.9 2.5 1.7-1 2.8 1 2.8-2.5 1.7-.9 2.9-3-.2L12 21.5l-2.4-1.8-3 .2-.9-2.9-2.5-1.7 1-2.8-1-2.8 2.5-1.7.9-2.9 3 .2z"/><path d="M8.5 12.2l2.3 2.3 4.7-4.8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Verified</span>`;
 }
 
+// Prices are optional. "K 18,500" with "per head" / "for the lot".
+function hasPrice(item) {
+  return item.price !== null && item.price !== undefined && item.price !== "" && Number(item.price) > 0;
+}
+
+function kwacha(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  return `K ${n.toLocaleString("en-US", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
+}
+
+function priceUnitLabel(item, short = false) {
+  if (item.price_unit === "lot") return short ? "lot" : "for the lot";
+  const unit = item.animal_name === "Poultry" ? "bird" : "head";
+  return short ? `/ ${unit}` : `per ${unit}`;
+}
+
+function cardPrice(item) {
+  if (!hasPrice(item)) return `<div class="lv-price-row"><span class="lv-price-request">Price on request</span></div>`;
+  return `<div class="lv-price-row">
+    <span class="lv-price">${kwacha(item.price)}</span>
+    <span class="lv-price-unit"><span class="lbl-full">${priceUnitLabel(item)}</span><span class="lbl-short">${priceUnitLabel(item, true)}</span></span>
+    ${Number(item.price_negotiable) ? '<span class="lv-price-tag">Negotiable</span>' : ""}
+  </div>`;
+}
+
 function renderLivestockCard(item) {
   const typeLine = [item.livestock_type, item.quantity > 1 ? quantityLabel(item.quantity, item.animal_name) : ""]
     .filter(Boolean)
     .join(", ");
+  const buyable = hasPrice(item);
 
   return `
     <article class="lv-card">
@@ -62,10 +89,13 @@ function renderLivestockCard(item) {
           ${typeLine ? `<span class="whitespace-nowrap">${escapeHtml(typeLine)}</span>` : ""}
         </div>
         ${item.description ? `<p class="hidden sm:block text-xs text-gray-600 line-clamp-2 mb-2">${escapeHtml(item.description)}</p>` : ""}
-        <button type="button" class="inquire-btn mt-auto w-full inline-flex items-center justify-center gap-1.5 btn-inquire text-xs sm:text-sm font-semibold px-3 py-2 rounded-lg"
-          data-inquire="${item.id}">
-          <span class="w-4 h-4 inline-flex">${uiIcon("inquire")}</span> Contact Seller
-        </button>
+        ${cardPrice(item)}
+        <div class="buy-row mt-auto ${buyable ? "" : "buy-row-single"}">
+          ${buyable ? `<button type="button" class="btn-buy" data-buy="${item.id}">Buy Now</button>` : ""}
+          <button type="button" class="btn-contact btn-inquire" data-inquire="${item.id}">
+            ${buyable ? '<span class="lbl-full">Contact Seller</span><span class="lbl-short">Contact</span>' : "Contact Seller"}
+          </button>
+        </div>
       </div>
     </article>`;
 }
@@ -78,6 +108,14 @@ function bindInquireButtons(container, items) {
       event.stopPropagation();
       const item = byId.get(btn.dataset.inquire);
       if (item) openInquiryModal(item);
+    });
+  });
+  container.querySelectorAll("[data-buy]").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const item = byId.get(btn.dataset.buy);
+      if (item) openBuyModal(item);
     });
   });
 }

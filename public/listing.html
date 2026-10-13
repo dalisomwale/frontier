@@ -12,6 +12,7 @@
     <script src="/js/app-shell.js"></script>
     <script src="/js/livestock.js"></script>
     <script src="/js/inquiry.js"></script>
+    <script src="/js/order.js"></script>
   </head>
   <body class="bg-gray-50">
     <nav id="page-topnav" class="bg-white shadow-md sticky top-0 z-50">
@@ -58,6 +59,26 @@
               </h1>
             </div>
 
+            <div id="buy-box" class="buy-box mb-6">
+              <div id="buy-price" class="buy-price-line"><span class="inline-block h-8 w-40 bg-gray-200 rounded animate-pulse"></span></div>
+              <div id="buy-qty" class="buy-qty hidden">
+                <div>
+                  <p class="text-sm font-semibold text-gray-800">Quantity</p>
+                  <p id="buy-available" class="text-xs text-gray-500"></p>
+                </div>
+                <div class="qty-stepper" role="group" aria-label="Quantity">
+                  <button type="button" data-step="-1" aria-label="Fewer">&minus;</button>
+                  <input id="buy-qty-input" type="number" inputmode="numeric" min="1" value="1" aria-label="Quantity">
+                  <button type="button" data-step="1" aria-label="More">+</button>
+                </div>
+              </div>
+              <div id="buy-total" class="buy-total hidden"><span>Total</span><strong></strong></div>
+              <div id="buy-actions" class="buy-row">
+                <button id="buy-btn" type="button" class="btn-buy btn-lg hidden">Buy Now</button>
+                <button id="inquire-btn" type="button" disabled class="btn-contact btn-inquire btn-lg">Contact Seller</button>
+              </div>
+            </div>
+
             <div id="listing-attributes" class="mb-6 hidden">
               <h3 class="text-base font-semibold text-gray-900 mb-3">Details</h3>
               <dl id="attribute-list" class="space-y-2"></dl>
@@ -67,10 +88,6 @@
               </div>
             </div>
 
-            <button id="inquire-btn" type="button" disabled
-              class="w-full inline-flex items-center justify-center gap-2 btn-inquire px-4 py-3.5 rounded-lg font-semibold text-base disabled:opacity-60">
-              <span class="w-5 h-5" data-icon="inquire"></span> Contact Seller
-            </button>
           </div>
         </div>
       </div>
@@ -92,10 +109,11 @@
       </div>
     </footer>
 
-    <div id="mobile-inquire" class="hidden fixed inset-x-0 bottom-0 z-40 px-4 pt-2 lg:hidden" style="padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px))">
-      <button type="button" class="w-full inline-flex items-center justify-center gap-2 btn-inquire py-3 rounded-lg font-semibold shadow-lg">
-        <span class="w-5 h-5" data-icon="inquire"></span> Contact Seller
-      </button>
+    <div id="mobile-inquire" class="mobile-buy-bar hidden lg:hidden">
+      <div class="buy-row">
+        <button type="button" data-mobile-buy class="btn-buy btn-lg hidden">Buy Now</button>
+        <button type="button" data-mobile-contact class="btn-contact btn-inquire btn-lg">Contact Seller</button>
+      </div>
     </div>
 
     <script>
@@ -147,17 +165,78 @@
         renderGallery();
         document.getElementById("gallery-verified").innerHTML = verifiedBadge(item);
 
+        renderBuyBox(item);
         const inquire = () => openInquiryModal(item);
         const btn = document.getElementById("inquire-btn");
         btn.disabled = false;
         btn.addEventListener("click", inquire);
         const mobile = document.getElementById("mobile-inquire");
         mobile.classList.remove("hidden");
-        mobile.querySelector("button").addEventListener("click", inquire);
+        document.body.classList.add("has-buy-bar");
+        mobile.querySelector("[data-mobile-contact]").addEventListener("click", inquire);
+        const mobileBuy = mobile.querySelector("[data-mobile-buy]");
+        if (hasPrice(item)) {
+          mobileBuy.classList.remove("hidden");
+          mobileBuy.addEventListener("click", buy);
+        } else {
+          mobile.querySelector(".buy-row").classList.add("buy-row-single");
+        }
 
+        // The bar shows whenever the buttons in the buy box aren't fully in view
+        // (below the header and above the bar itself).
         new IntersectionObserver(([entry]) => {
-          mobile.style.visibility = entry.isIntersecting ? "hidden" : "visible";
-        }).observe(btn);
+          mobile.style.visibility = entry.intersectionRatio > 0.98 ? "hidden" : "visible";
+        }, { rootMargin: "-72px 0px -84px 0px", threshold: [0, 0.5, 0.99, 1] }).observe(document.getElementById("buy-actions"));
+      }
+
+      let buyQty = 1;
+      function buy() {
+        openBuyModal(listing, buyQty);
+      }
+
+      function renderBuyBox(item) {
+        const priceBox = document.getElementById("buy-price");
+        const actions = document.getElementById("buy-actions");
+        if (!hasPrice(item)) {
+          priceBox.innerHTML = `<span class="lv-price-request">Price on request</span>`;
+          actions.classList.add("buy-row-single");
+          return;
+        }
+        priceBox.innerHTML = `
+          <span class="buy-price">${kwacha(item.price)}</span>
+          <span class="buy-price-unit">${priceUnitLabel(item)}</span>
+          ${Number(item.price_negotiable) ? '<span class="lv-price-tag">Negotiable</span>' : ""}`;
+        const max = Math.max(1, Number(item.quantity) || 1);
+        const lot = item.price_unit === "lot";
+        const totalBox = document.getElementById("buy-total");
+        const input = document.getElementById("buy-qty-input");
+        const qtyBox = document.getElementById("buy-qty");
+        const update = () => {
+          totalBox.querySelector("strong").textContent = kwacha(lot ? Number(item.price) : Number(item.price) * buyQty);
+          input.value = buyQty;
+          qtyBox.querySelector('[data-step="-1"]').disabled = buyQty <= 1;
+          qtyBox.querySelector('[data-step="1"]').disabled = buyQty >= max;
+        };
+        if (!lot && max > 1) {
+          qtyBox.classList.remove("hidden");
+          totalBox.classList.remove("hidden");
+          input.max = max;
+          document.getElementById("buy-available").textContent = `${quantityLabel(max, item.animal_name)} available`;
+          qtyBox.querySelectorAll("[data-step]").forEach((b) => b.addEventListener("click", () => {
+            buyQty = Math.min(max, Math.max(1, buyQty + Number(b.dataset.step)));
+            update();
+          }));
+          input.addEventListener("input", () => {
+            const n = Number.parseInt(input.value, 10);
+            if (Number.isFinite(n)) buyQty = Math.min(max, Math.max(1, n));
+            totalBox.querySelector("strong").textContent = kwacha(Number(item.price) * buyQty);
+          });
+          input.addEventListener("blur", update);
+          update();
+        }
+        const buyBtn = document.getElementById("buy-btn");
+        buyBtn.classList.remove("hidden");
+        buyBtn.addEventListener("click", buy);
       }
 
       function renderGallery() {
@@ -256,6 +335,7 @@
         }
         renderListing(listing);
         if (getQueryParams().inquire === "1") openInquiryModal(listing);
+        else if (getQueryParams().buy === "1" && hasPrice(listing)) buy();
         loadRelated();
       });
     </script>

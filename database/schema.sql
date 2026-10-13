@@ -135,6 +135,9 @@ CREATE TABLE IF NOT EXISTS livestock (
   breed_id        INT UNSIGNED NULL,
   livestock_type  VARCHAR(40) NULL,
   quantity        INT UNSIGNED NOT NULL DEFAULT 1,
+  price           DECIMAL(12,2) NULL,
+  price_unit      ENUM('head', 'lot') NOT NULL DEFAULT 'head',
+  price_negotiable TINYINT(1) NOT NULL DEFAULT 0,
   age_months      SMALLINT UNSIGNED NULL,
   location        VARCHAR(150) NOT NULL,
   description     TEXT NULL,
@@ -265,4 +268,41 @@ CREATE TABLE IF NOT EXISTS inquiry_messages (
   CONSTRAINT fk_inquiry_messages_inquiry FOREIGN KEY (inquiry_id)
     REFERENCES inquiries(id) ON DELETE CASCADE,
   INDEX idx_inquiry_messages (inquiry_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- orders: "Buy Now" requests from visitors. Nothing is paid on the website:
+-- the team confirms availability with the seller, then sends the buyer
+-- payment details. Listing details and price are copied at the time of the
+-- order so it stays readable if the listing changes later.
+CREATE TABLE IF NOT EXISTS orders (
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  livestock_id     INT UNSIGNED NULL,
+  livestock_title  VARCHAR(200) NOT NULL,
+  seller_id        INT UNSIGNED NULL,
+  seller_name      VARCHAR(150) NULL,
+  quantity         INT UNSIGNED NOT NULL,
+  unit_price       DECIMAL(12,2) NOT NULL,
+  price_unit       ENUM('head', 'lot') NOT NULL DEFAULT 'head',
+  total            DECIMAL(14,2) NOT NULL,
+  full_name        VARCHAR(120) NOT NULL,
+  phone            VARCHAR(30) NOT NULL,
+  email            VARCHAR(255) NOT NULL,
+  delivery         ENUM('collect', 'deliver') NOT NULL DEFAULT 'collect',
+  delivery_address VARCHAR(300) NULL,
+  payment_method   ENUM('mobile_money', 'bank_transfer') NOT NULL DEFAULT 'mobile_money',
+  status           ENUM('new', 'confirmed', 'paid', 'completed', 'cancelled') NOT NULL DEFAULT 'new',
+  stock_deducted   TINYINT(1) NOT NULL DEFAULT 0,
+  seller_notified_at DATETIME NULL,
+  email_status     ENUM('pending', 'sent', 'failed') NOT NULL DEFAULT 'pending',
+  email_error      VARCHAR(500) NULL,
+  ip_address       VARCHAR(45) NULL,
+  created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_orders_livestock FOREIGN KEY (livestock_id)
+    REFERENCES livestock(id) ON DELETE SET NULL,
+  CONSTRAINT fk_orders_seller FOREIGN KEY (seller_id)
+    REFERENCES sellers(id) ON DELETE SET NULL,
+  INDEX idx_orders_status (status, created_at),
+  INDEX idx_orders_livestock (livestock_id),
+  INDEX idx_orders_seller (seller_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

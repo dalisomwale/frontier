@@ -12,6 +12,7 @@ const pool = require("./db");
 const { emailConfig } = require("./services/mailer");
 const publicRoutes = require("./routes/public");
 const inquiryRoutes = require("./routes/inquiries");
+const orderRoutes = require("./routes/orders");
 const adminRoutes = require("./routes/admin");
 const sellerRoutes = require("./routes/seller");
 
@@ -77,6 +78,7 @@ app.use("/api/seller/auth/register", limiter(5, 60));
 app.use("/api/seller/auth/forgot", limiter(5, 60));
 app.use("/api/seller/auth/reset", limiter(10, 60));
 app.post("/api/inquiries", limiter(8, 60));
+app.post("/api/orders", limiter(8, 60));
 
 app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ limit: "100kb", extended: false }));
@@ -189,6 +191,7 @@ app.get("/api/health", async (req, res) => {
 });
 app.use("/api", publicRoutes);
 app.use("/api/inquiries", inquiryRoutes);
+app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/seller", sellerRoutes);
 
@@ -240,8 +243,25 @@ app.use((err, req, res, next) => {
 // Tables added by later updates are created at startup if missing, so a
 // deploy that forgot "npm run db:setup" still works. Column changes still
 // need db:setup.
-const LATE_TABLES = ["seller_password_resets", "seller_sessions", "seller_notifications", "inquiry_messages"];
+const LATE_TABLES = ["seller_password_resets", "seller_sessions", "seller_notifications", "inquiry_messages", "orders"];
+// Columns added by later updates, added at startup when missing.
+const LATE_COLUMNS = [
+  ["livestock", "price", "DECIMAL(12,2) NULL AFTER quantity"],
+  ["livestock", "price_unit", "ENUM('head', 'lot') NOT NULL DEFAULT 'head' AFTER price"],
+  ["livestock", "price_negotiable", "TINYINT(1) NOT NULL DEFAULT 0 AFTER price_unit"],
+];
 async function ensureLateTables() {
+  for (const [table, column, definition] of LATE_COLUMNS) {
+    try {
+      const [found] = await pool.query(
+        "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?",
+        [table, column],
+      );
+      if (!found.length) await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    } catch (error) {
+      console.error(`Could not add ${table}.${column}: ${error.message}. Run: npm run db:setup`);
+    }
+  }
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");
   for (const table of LATE_TABLES) {
     const match = schema.match(new RegExp(`CREATE TABLE IF NOT EXISTS ${table} \\([\\s\\S]*?\\) ENGINE=[^;]*;`));

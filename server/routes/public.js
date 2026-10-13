@@ -242,6 +242,7 @@ router.get("/livestock", async (req, res, next) => {
 
     const [rows] = await pool.query(
       `SELECT l.id, l.title, l.location, l.livestock_type, l.quantity, l.description,
+         l.price, l.price_unit, l.price_negotiable,
          c.animal_id, a.name AS animal_name,
          l.category_id, c.name AS category_name, l.breed_id, b.name AS breed_name,
          l.created_at, l.verification,
@@ -285,6 +286,7 @@ router.get("/livestock/:id", async (req, res, next) => {
 
     const [rows] = await pool.query(
       `SELECT l.id, l.title, l.location, l.livestock_type, l.quantity, l.age_months,
+         l.price, l.price_unit, l.price_negotiable,
          l.description, c.animal_id, a.name AS animal_name,
          l.category_id, c.name AS category_name,
          l.breed_id, b.name AS breed_name, l.verification, l.created_at, l.updated_at

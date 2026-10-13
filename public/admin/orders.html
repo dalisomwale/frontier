@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Orders - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/livestock.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted inbox-main">
+      <div class="inbox-shell" id="inbox">
+        <aside class="inbox-list-pane">
+          <div class="inbox-list-head">
+            <div class="flex items-center justify-between gap-2">
+              <h1 class="text-lg font-bold text-gray-900">Orders</h1>
+              <select id="tab-select" class="inbox-select" aria-label="Show orders"></select>
+            </div>
+            <div class="relative mt-3">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+              <input id="search" type="search" placeholder="Search order, name, phone, listing" class="field-input !py-2 !pl-9 !text-sm" />
+            </div>
+          </div>
+          <div id="list" class="inbox-list"></div>
+        </aside>
+
+        <section class="inbox-chat-pane" id="detail" aria-live="polite"></section>
+      </div>
+    </main>
+
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+
+      const STATUSES = [
+        { value: "new", label: "New" },
+        { value: "confirmed", label: "Awaiting payment" },
+        { value: "paid", label: "Paid" },
+        { value: "completed", label: "Completed" },
+        { value: "cancelled", label: "Cancelled" },
+      ];
+      const TABS = [{ value: "", label: "All" }, ...STATUSES];
+      const DELIVERY = { collect: "Collect from farm", deliver: "Deliver to buyer" };
+      const PAYMENT = { mobile_money: "Mobile money", bank_transfer: "Bank transfer" };
+      const state = { tab: "", q: "", page: 1, pages: 1, rows: [], selected: null };
+      const statusLabel = (s) => STATUSES.find((x) => x.value === s)?.label || s;
+      const inbox = document.getElementById("inbox");
+      const detail = document.getElementById("detail");
+
+      function whatsappNumber(phone) {
+        let d = phone.replace(/\D/g, "");
+        if (phone.trim().startsWith("+")) return d;
+        if (d.startsWith("0")) d = "260" + d.slice(1);
+        return d;
+      }
+
+      function renderTabs(summary = {}) {
+        document.getElementById("tab-select").innerHTML = TABS.map((t) => {
+          const count = t.value === "" ? summary.all : summary[t.value];
+          return `<option value="${t.value}" ${t.value === state.tab ? "selected" : ""}>${t.label}${count !== undefined ? ` (${count})` : ""}</option>`;
+        }).join("");
+      }
+
+      function listItem(o) {
+        const isNew = o.status === "new";
+        return `
+          <button type="button" class="inbox-item order-item ${isNew ? "is-unread" : ""} ${String(state.selected) === String(o.id) ? "is-active" : ""}" data-open="${o.id}">
+            <span class="order-item-thumb">${o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="">` : livestockFallbackMedia("w-6 h-6")}</span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-baseline justify-between gap-2">
+                <span class="inbox-name truncate">${escapeHtml(o.full_name)}</span>
+                <span class="text-sm font-bold text-gray-900 whitespace-nowrap">${kwacha(o.total)}</span>
+              </span>
+              <span class="block text-xs text-gray-500 truncate mt-0.5">${escapeHtml(o.reference)} · ${escapeHtml(o.livestock_title)}</span>
+              <span class="flex items-center justify-between gap-2 mt-1">
+                <span class="order-status order-st-${o.status}">${escapeHtml(statusLabel(o.status))}</span>
+                <span class="text-[11px] text-gray-400">${formatDate(o.created_at)}</span>
+              </span>
+            </span>
+          </button>`;
+      }
+
+      function bindListItem(el) {
+        el.addEventListener("click", () => openOrder(el.dataset.open));
+      }
+
+      async function loadList(page = 1, { append = false } = {}) {
+        state.page = page;
+        const list = document.getElementById("list");
+        const params = new URLSearchParams({ page, limit: 30 });
+        if (state.tab) params.set("status", state.tab);
+        if (state.q) params.set("q", state.q);
+        let res;
+        try {
+          res = await adminApi(`/api/admin/orders?${params}`);
+        } catch (error) {
+          return renderEmptyState(list, { title: "Could not load orders", message: error.message, icon: "alert" });
+        }
+        renderTabs(res.summary);
+        setNewOrderBadge(res.summary.new);
+        state.pages = res.pagination.total;
+        state.rows = append ? [...state.rows, ...res.data] : res.data;
+        if (!state.rows.length) {
+          return renderEmptyState(list, state.q || state.tab
+            ? { title: "No orders here", message: state.q ? "No orders match your search." : "No orders with this status.", icon: "inbox" }
+            : { title: "No orders yet", message: "When buyers press Buy Now on a listing, their orders appear here.", icon: "inbox" });
+        }
+        list.innerHTML = state.rows.map(listItem).join("") +
+          (state.page < state.pages ? `<div class="p-3"><button type="button" id="load-more" class="w-full text-sm font-medium text-blue-700 py-2 rounded-lg hover:bg-blue-50">Load more</button></div>` : "");
+        list.querySelectorAll("[data-open]").forEach(bindListItem);
+        document.getElementById("load-more")?.addEventListener("click", () => loadList(state.page + 1, { append: true }));
+      }
+
+      function markActive() {
+        document.querySelectorAll("#list [data-open]").forEach((b) => b.classList.toggle("is-active", b.dataset.open === String(state.selected)));
+      }
+
+      function placeholder() {
+        detail.innerHTML = `
+          <div class="inbox-placeholder">
+            <span class="w-12 h-12 text-gray-300 block">${uiIcon("inbox")}</span>
+            <p class="font-semibold text-gray-700 mt-3">Select an order</p>
+          </div>`;
+      }
+
+      function closeDetail() {
+        state.selected = null;
+        inbox.classList.remove("has-selection");
+        history.replaceState(null, "", location.pathname);
+        markActive();
+        placeholder();
+      }
+
+      function rows(pairs) {
+        return `<dl class="order-dl">${pairs.filter(([, v]) => v !== null && v !== undefined && v !== "")
+          .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>`;
+      }
+
+      function renderDetail(o) {
+        const lot = o.price_unit === "lot";
+        const tel = (p) => escapeHtml(String(p || "").replace(/[^\d+]/g, ""));
+        const listingLink = o.livestock_id && o.listing_status === "published"
+          ? `<a href="/listing.html?id=${o.livestock_id}" target="_blank" rel="noopener" class="hover:underline">${escapeHtml(o.livestock_title)}</a>`
+          : `${escapeHtml(o.livestock_title)} <span class="text-gray-400 font-normal">${o.livestock_id ? "(not on the website)" : "(listing deleted)"}</span>`;
+        const stockNote = o.livestock_id
+          ? (o.stock_deducted ? `Taken off the listing (${o.listing_quantity} left)` : `${o.listing_quantity} on the listing`)
+          : "";
+
+        detail.innerHTML = `
+          <header class="chat-head">
+            <button type="button" data-back class="chat-back" aria-label="Back to orders"><span class="w-5 h-5 block">${uiIcon("chevronRight")}</span></button>
+            <span class="chat-listing-thumb">${o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="">` : livestockFallbackMedia("w-6 h-6")}</span>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-gray-900 truncate">${escapeHtml(o.reference)} · ${listingLink}</p>
+              <p class="text-xs text-gray-500 truncate">${formatDate(o.created_at)}</p>
+            </div>
+            <div class="chat-head-actions flex items-center gap-1.5 flex-shrink-0">
+              <select id="status-select" class="pill-select order-pill" data-value="${o.status}" aria-label="Order status">
+                ${STATUSES.map((s) => `<option value="${s.value}" ${s.value === o.status ? "selected" : ""}>${s.label}</option>`).join("")}
+              </select>
+            </div>
+          </header>
+
+          <div class="order-body">
+            <div class="order-total-card">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Total</p>
+                <p class="order-big-total">${kwacha(o.total)}</p>
+              </div>
+              <p class="text-sm text-gray-600 text-right">${lot ? `The whole lot (${o.quantity})` : `${o.quantity} × ${kwacha(o.unit_price)}`}</p>
+            </div>
+
+            <div class="order-grid">
+              <section class="order-card">
+                <h3>Buyer</h3>
+                <p class="font-semibold text-gray-900">${escapeHtml(o.full_name)}</p>
+                <div class="order-contact">
+                  <a href="https://wa.me/${whatsappNumber(o.phone)}" target="_blank" rel="noopener">WhatsApp ${escapeHtml(o.phone)}</a>
+                  <a href="tel:${tel(o.phone)}">Call</a>
+                  <a href="mailto:${escapeHtml(o.email)}?subject=${encodeURIComponent(`Order ${o.reference} - Frontier Marketplace`)}">${escapeHtml(o.email)}</a>
+                </div>
+              </section>
+
+              <section class="order-card">
+                <h3>Delivery and payment</h3>
+                ${rows([
+                  ["Delivery", escapeHtml(DELIVERY[o.delivery])],
+                  ["Address", o.delivery === "deliver" ? escapeHtml(o.delivery_address) : null],
+                  ["Payment", escapeHtml(PAYMENT[o.payment_method])],
+                ])}
+              </section>
+
+              <section class="order-card">
+                <h3>Seller</h3>
+                ${o.seller_id
+                  ? `<a href="/admin/sellers.html?id=${o.seller_id}" class="font-semibold text-gray-900 hover:text-blue-700">${escapeHtml(o.seller_name || "Seller")}</a>
+                     ${rows([["Phone", o.seller_phone ? `<a href="tel:${tel(o.seller_phone)}" class="hover:underline">${escapeHtml(o.seller_phone)}</a>` : null],
+                             ["Told about it", o.seller_notified_at ? formatDate(o.seller_notified_at) : "When you confirm the order"]])}`
+                  : `<p class="text-sm text-gray-600">${o.seller_name ? `${escapeHtml(o.seller_name)} (removed)` : "Frontier's stock"}</p>`}
+              </section>
+
+              <section class="order-card">
+                <h3>Stock</h3>
+                ${rows([["Listing", stockNote || "Listing deleted"], ["Emailed to team", o.email_status === "sent" ? "Yes" : o.email_status === "failed" ? `No${o.email_error ? ` (${escapeHtml(o.email_error)})` : ""}` : "Pending"]])}
+              </section>
+            </div>
+          </div>
+
+          <div class="chat-composer chat-composer-row">
+            <textarea id="buyer-message" rows="1" maxlength="2000" class="chat-input" placeholder="Message ${escapeHtml(o.full_name)}, e.g. payment details"></textarea>
+            <button type="button" data-send class="chat-send-btn">Send</button>
+          </div>`;
+
+        bindDetail(o);
+      }
+
+      async function openOrder(id) {
+        state.selected = String(id);
+        inbox.classList.add("has-selection");
+        markActive();
+        history.replaceState(null, "", `${location.pathname}?id=${id}`);
+        detail.innerHTML = `<div class="inbox-placeholder"><span class="btn-spinner chat-spinner"></span></div>`;
+        try {
+          const o = (await adminApi(`/api/admin/orders/${id}`)).data;
+          if (state.selected !== String(id)) return;
+          renderDetail(o);
+        } catch (error) {
+          showNotification(error.message, "error");
+          closeDetail();
+        }
+      }
+
+      function refreshRow(order) {
+        const idx = state.rows.findIndex((r) => String(r.id) === String(order.id));
+        if (idx < 0) return;
+        state.rows[idx] = { ...state.rows[idx], ...order };
+        const el = document.querySelector(`#list [data-open="${order.id}"]`);
+        if (!el) return;
+        el.outerHTML = listItem(state.rows[idx]);
+        bindListItem(document.querySelector(`#list [data-open="${order.id}"]`));
+      }
+
+      async function loadCounts() {
+        try {
+          const res = await adminApi("/api/admin/orders?limit=1");
+          renderTabs(res.summary);
+          setNewOrderBadge(res.summary.new);
+        } catch {
+        }
+      }
+
+      async function update(o, body) {
+        const res = await adminApi(`/api/admin/orders/${o.id}`, { method: "PATCH", body });
+        showNotification(res.message, res.message.includes("not sent") ? "warning" : "success");
+        refreshRow(res.data);
+        renderDetail(res.data);
+        loadCounts();
+      }
+
+      function bindDetail(o) {
+        detail.querySelector("[data-back]").addEventListener("click", closeDetail);
+        const input = document.getElementById("buyer-message");
+        const sendBtn = detail.querySelector("[data-send]");
+
+        const statusSel = document.getElementById("status-select");
+        statusSel.addEventListener("change", async () => {
+          const value = statusSel.value;
+          const confirmText = {
+            confirmed: "The buyer is emailed that the order is confirmed, and the seller is told about the order.",
+            paid: o.livestock_id ? `${o.quantity} will be taken off the listing.` : "",
+            completed: o.livestock_id && !o.stock_deducted ? `${o.quantity} will be taken off the listing.` : "",
+            cancelled: o.stock_deducted ? `${o.quantity} will be put back on the listing.` : "",
+          }[value];
+          const ok = await confirmAction({
+            title: `Mark as ${statusLabel(value).toLowerCase()}?`,
+            message: [confirmText, "The buyer is emailed about the change.", input.value.trim() ? "Your message is included." : ""].filter(Boolean).join(" "),
+            confirmText: `Mark ${statusLabel(value).toLowerCase()}`,
+            variant: value === "cancelled" ? "danger" : undefined,
+          });
+          if (!ok) { statusSel.value = o.status; return; }
+          statusSel.disabled = true;
+          try {
+            await update(o, { status: value, message: input.value.trim() || undefined });
+          } catch (error) {
+            statusSel.value = o.status;
+            statusSel.disabled = false;
+            showNotification(error.message, "error");
+          }
+        });
+
+        sendBtn.addEventListener("click", async () => {
+          const message = input.value.trim();
+          if (!message) return input.focus();
+          sendBtn.disabled = true;
+          try {
+            await update(o, { message });
+          } catch (error) {
+            showNotification(error.message, "error");
+            sendBtn.disabled = false;
+          }
+        });
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) sendBtn.click(); });
+        const grow = () => { input.style.height = "auto"; input.style.height = `${Math.min(input.scrollHeight + 2, 140)}px`; };
+        input.addEventListener("input", grow);
+        grow();
+      }
+
+      document.getElementById("tab-select").addEventListener("change", (e) => { state.tab = e.target.value; loadList(1); });
+      let searchTimer;
+      document.getElementById("search").addEventListener("input", (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => { state.q = e.target.value.trim(); loadList(1); }, 300);
+      });
+
+      (async () => {
+        placeholder();
+        await initAdminPage("orders");
+        const q = getQueryParams();
+        if (q.status) state.tab = q.status;
+        if (q.q) { state.q = q.q; document.getElementById("search").value = q.q; }
+        renderTabs();
+        await loadList(1);
+        if (q.id) openOrder(q.id);
+        else if (window.matchMedia("(min-width: 1024px)").matches && state.rows.length) openOrder(state.rows[0].id);
+      })();
+    </script>
+  </body>
+</html>

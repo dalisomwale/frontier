@@ -241,6 +241,11 @@ async function main() {
     ["review_note", "VARCHAR(500) NULL AFTER review_status"],
     ["submitted_at", "DATETIME NULL AFTER review_note"],
   ], "listings can now be submitted for review");
+  await addColumns("livestock", [
+    ["price", "DECIMAL(12,2) NULL AFTER quantity"],
+    ["price_unit", "ENUM('head', 'lot') NOT NULL DEFAULT 'head' AFTER price"],
+    ["price_negotiable", "TINYINT(1) NOT NULL DEFAULT 0 AFTER price_unit"],
+  ], "listings can now have a price");
   await addColumns("inquiries", [
     ["forwarded_at", "DATETIME NULL AFTER seller_name"],
     ["forward_message", "TEXT NULL AFTER forwarded_at"],

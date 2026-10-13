@@ -153,6 +153,23 @@ The same events also appear in the seller dashboard straight away: a bell with a
 
 ---
 
+## Prices and Buy Now
+
+- Listings can have a price in Kwacha, **per head** or **for the lot**, and can
+  be marked negotiable. Sellers and admins set it in the listing form. With no
+  price the website shows "Price on request" and only Contact Seller.
+- Priced listings show **Buy Now** beside **Contact Seller**. The buyer picks a
+  quantity (a lot is bought whole), collection or delivery, and mobile money or
+  bank transfer. Nothing is paid on the website: the order (reference FM-1001,
+  FM-1002, ...) is emailed to the team and the buyer gets a confirmation.
+- **Admin > Orders**: New -> Awaiting payment -> Paid -> Completed, or
+  Cancelled. Every status change emails the buyer, with any message you type
+  (e.g. payment details). The seller is told once, when you first confirm the
+  order, without the buyer's details.
+- Stock: marking an order Paid takes the quantity off the listing; a listing
+  with nothing left is unpublished. Cancelling a paid order puts it back
+  (republish the listing yourself if it was sold out).
+
 ## Public filtering
 
 The homepage filter cascades, and every option comes from the database:

@@ -382,6 +382,7 @@
             ${field({ name: "quantity", label: "Quantity", type: "number", value: item.quantity ?? 1, attrs: 'min="1" step="1" inputmode="numeric"' })}
             ${field({ name: "age_months", label: "Age (months)", type: "number", value: item.age_months, attrs: 'min="0" max="600" step="1" inputmode="numeric"' })}
           </div>
+          ${priceFields(item)}
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             ${field({ name: "seller_id", label: "Seller", value: sellerId, options: sellerOptions(sellerId),
                 help: sellers.length ? "Only admins see the seller. Customers' inquiries still come to Frontier." : "Add sellers on the Sellers page." })}
@@ -496,6 +497,7 @@
 
             const fd = new FormData();
             for (const key of ["title", "animal_id", "category_id", "breed_id", "seller_id", "livestock_type", "quantity", "age_months", "location", "description"]) fd.append(key, v[key] ?? "");
+            appendPriceFields(fd, form);
             fd.append("status", v.status);
             fd.append("verification", v.verification);
             fd.append("remove_image_ids", JSON.stringify(removed));
