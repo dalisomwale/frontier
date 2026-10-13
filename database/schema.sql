@@ -292,6 +292,8 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_method   ENUM('mobile_money', 'bank_transfer') NOT NULL DEFAULT 'mobile_money',
   mobile_operator  ENUM('airtel', 'mtn', 'zamtel') NULL,
   payment_phone    VARCHAR(30) NULL,
+  payment_bank     VARCHAR(80) NULL,
+  payment_account  VARCHAR(30) NULL,
   status           ENUM('new', 'confirmed', 'paid', 'completed', 'cancelled') NOT NULL DEFAULT 'new',
   stock_deducted   TINYINT(1) NOT NULL DEFAULT 0,
   seller_notified_at DATETIME NULL,

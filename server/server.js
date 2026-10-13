@@ -251,6 +251,8 @@ const LATE_COLUMNS = [
   ["livestock", "price_negotiable", "TINYINT(1) NOT NULL DEFAULT 0 AFTER price_unit"],
   ["orders", "mobile_operator", "ENUM('airtel', 'mtn', 'zamtel') NULL AFTER payment_method"],
   ["orders", "payment_phone", "VARCHAR(30) NULL AFTER mobile_operator"],
+  ["orders", "payment_bank", "VARCHAR(80) NULL AFTER payment_phone"],
+  ["orders", "payment_account", "VARCHAR(30) NULL AFTER payment_bank"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");

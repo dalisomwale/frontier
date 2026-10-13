@@ -14,10 +14,16 @@ const STOCK_STATUSES = ["paid", "completed"];
 
 const DELIVERY_LABELS = { collect: "Collect from farm", deliver: "Deliver to me" };
 const PAYMENT_LABELS = { mobile_money: "Mobile money", bank_transfer: "Bank transfer" };
+// Banks offered at checkout; "Other bank" lets the buyer type the name.
+const BANKS = ["Zanaco", "Stanbic Bank", "Absa Bank", "FNB Zambia", "Access Bank", "Standard Chartered", "Indo Zambia Bank", "Ecobank"];
 const OPERATOR_LABELS = { airtel: "Airtel Money", mtn: "MTN Mobile Money", zamtel: "Zamtel Kwacha" };
 
 // "Mobile money (Airtel Money, 0977 123 456)" / "Bank transfer"
 function paymentText(order) {
+  if (order.payment_method === "bank_transfer") {
+    const parts = [order.payment_bank, order.payment_account ? `account ${order.payment_account}` : null].filter(Boolean);
+    return parts.length ? `Bank transfer (${parts.join(", ")})` : "Bank transfer";
+  }
   if (order.payment_method !== "mobile_money") return PAYMENT_LABELS[order.payment_method] || "";
   const parts = [OPERATOR_LABELS[order.mobile_operator], order.payment_phone].filter(Boolean);
   return parts.length ? `Mobile money (${parts.join(", ")})` : "Mobile money";
@@ -56,6 +62,7 @@ module.exports = {
   DELIVERY_LABELS,
   PAYMENT_LABELS,
   OPERATOR_LABELS,
+  BANKS,
   paymentText,
   orderRef,
   kwacha,

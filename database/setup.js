@@ -250,7 +250,9 @@ async function main() {
     await addColumns("orders", [
       ["mobile_operator", "ENUM('airtel', 'mtn', 'zamtel') NULL AFTER payment_method"],
       ["payment_phone", "VARCHAR(30) NULL AFTER mobile_operator"],
-    ], "orders now record the mobile money operator and number");
+      ["payment_bank", "VARCHAR(80) NULL AFTER payment_phone"],
+      ["payment_account", "VARCHAR(30) NULL AFTER payment_bank"],
+    ], "orders now record how the buyer will pay");
   }
   await addColumns("inquiries", [
     ["forwarded_at", "DATETIME NULL AFTER seller_name"],

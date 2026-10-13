@@ -13,6 +13,8 @@ function openBuyModal(listing, quantity = 1) {
   window.location.href = buyUrl(listing.id, quantity);
 }
 
+const CHECKOUT_BANKS = ["Zanaco", "Stanbic Bank", "Absa Bank", "FNB Zambia", "Access Bank", "Standard Chartered", "Indo Zambia Bank", "Ecobank"];
+
 function validateOrder(values, needsAddress) {
   const errors = {};
   const digits = values.phone.replace(/\D/g, "");
@@ -30,6 +32,12 @@ function validateOrder(values, needsAddress) {
     else if (!values.payment_phone) errors.payment_phone = "Please enter the mobile money number.";
     else if (!/^\+?[\d\s\-()]{7,25}$/.test(values.payment_phone) || payDigits.length < 7 || payDigits.length > 15)
       errors.payment_phone = "Please enter a valid number, e.g. 0977 123 456.";
+  } else if (values.payment_method === "bank_transfer") {
+    const digits = values.payment_account.replace(/[\s-]/g, "");
+    if (!values.payment_bank) errors.payment_bank = "Please choose your bank.";
+    else if (values.payment_bank === "other" && values.payment_bank_other.length < 2) errors.payment_bank_other = "Please enter the name of your bank.";
+    else if (!values.payment_account) errors.payment_account = "Please enter your account number.";
+    else if (!/^\d{6,20}$/.test(digits)) errors.payment_account = "Please enter a valid account number (digits only).";
   }
   return errors;
 }
@@ -115,6 +123,25 @@ function renderCheckout(root, listing, startQuantity = 1) {
               <p class="field-error hidden" data-error-for="payment_phone"></p>
             </div>
           </div>
+          <div data-bank hidden class="momo-box">
+            <p class="field-label">Bank</p>
+            <div class="operator-grid bank-grid" role="radiogroup" aria-label="Bank">
+              ${CHECKOUT_BANKS.map((bank) => `<label class="operator-card op-bank"><input type="radio" name="payment_bank" value="${escapeHtml(bank)}"><span class="op-tick" aria-hidden="true"></span><span>${escapeHtml(bank)}</span></label>`).join("")}
+              <label class="operator-card op-bank"><input type="radio" name="payment_bank" value="other"><span class="op-tick" aria-hidden="true"></span><span>Other bank</span></label>
+            </div>
+            <p class="field-error hidden" data-error-for="payment_bank"></p>
+
+            <div data-bank-other hidden class="mt-4">
+              <label for="buy-bank-other" class="field-label">Bank name</label>
+              <input id="buy-bank-other" name="payment_bank_other" type="text" class="field-input" maxlength="80" placeholder="Name of your bank">
+              <p class="field-error hidden" data-error-for="payment_bank_other"></p>
+            </div>
+            <div data-bank-account hidden class="mt-4">
+              <label for="buy-account" class="field-label" data-bank-label>Account number</label>
+              <input id="buy-account" name="payment_account" type="text" class="field-input" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="e.g. 0123456789012">
+              <p class="field-error hidden" data-error-for="payment_account"></p>
+            </div>
+          </div>
           <p class="text-xs text-gray-500 mt-3">You don't pay now. We confirm with the seller first, then send payment details to your WhatsApp and email.</p>
         </section>
 
@@ -198,8 +225,18 @@ function renderCheckout(root, listing, startQuantity = 1) {
   const momoBox = root.querySelector("[data-momo]");
   const momoNumber = root.querySelector("[data-momo-number]");
   const OPERATOR_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
+  const bankBox = root.querySelector("[data-bank]");
   form.querySelectorAll('input[name="payment_method"]').forEach((r) => r.addEventListener("change", () => {
     momoBox.hidden = form.elements.payment_method.value !== "mobile_money";
+    bankBox.hidden = form.elements.payment_method.value !== "bank_transfer";
+  }));
+  form.querySelectorAll('input[name="payment_bank"]').forEach((r) => r.addEventListener("change", () => {
+    const other = r.value === "other";
+    root.querySelector("[data-bank-other]").hidden = !other;
+    root.querySelector("[data-bank-account]").hidden = false;
+    root.querySelector("[data-bank-label]").textContent = other ? "Account number" : `${r.value} account number`;
+    (other ? form.elements.payment_bank_other : form.elements.payment_account).focus();
+    updateReady();
   }));
   form.querySelectorAll('input[name="mobile_operator"]').forEach((r) => r.addEventListener("change", () => {
     momoNumber.hidden = false;
@@ -223,6 +260,9 @@ function renderCheckout(root, listing, startQuantity = 1) {
       payment_method: form.elements.payment_method.value,
       mobile_operator: form.elements.mobile_operator.value,
       payment_phone: form.elements.payment_phone.value.trim(),
+      payment_bank: form.elements.payment_bank.value,
+      payment_bank_other: form.elements.payment_bank_other.value.trim(),
+      payment_account: form.elements.payment_account.value.trim(),
     };
   }
 

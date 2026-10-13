@@ -4415,3 +4415,20 @@ body.admin-pending main {
     grid-template-columns: 1fr;
   }
 }
+
+.op-bank:has(input:checked) {
+  border-color: #166534;
+  background: #f0fdf4;
+}
+
+@media (max-width: 479px) {
+  .operator-grid.bank-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bank-grid .operator-card {
+    font-size: 12.5px;
+    padding: 8px;
+    gap: 6px;
+  }
+}
