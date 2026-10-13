@@ -4232,3 +4232,12 @@ body.admin-pending main {
     font-size: 13.5px;
   }
 }
+
+/* Listing page: buy section sits on the page, no card */
+.buy-box {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 0;
+  padding: 18px 0 0;
+}
