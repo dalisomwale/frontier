@@ -1,6 +1,17 @@
-// "Buy Now": the order form, shown as a modal (a bottom sheet on phones).
-// Nothing is paid here; the team confirms with the seller and sends payment
-// details by WhatsApp and email.
+// "Buy Now" checkout. Buy Now buttons open /buy.html, a full page with the
+// order form on one side and the summary on the other. Nothing is paid here:
+// the team confirms with the seller and sends payment details by WhatsApp
+// and email.
+
+function buyUrl(listingId, quantity = 1) {
+  const qty = Number(quantity) > 1 ? `&qty=${encodeURIComponent(quantity)}` : "";
+  return `/buy.html?id=${encodeURIComponent(listingId)}${qty}`;
+}
+
+// Kept under its old name: the cards and the listing page call it.
+function openBuyModal(listing, quantity = 1) {
+  window.location.href = buyUrl(listing.id, quantity);
+}
 
 function validateOrder(values, needsAddress) {
   const errors = {};
@@ -15,127 +26,121 @@ function validateOrder(values, needsAddress) {
   return errors;
 }
 
-function openBuyModal(listing, startQuantity = 1) {
-  closeBuyModal();
-  closeInquiryModal();
-  const lastFocus = document.activeElement;
-  const thumb = listing.thumb_path || listing.images?.[0]?.thumb_path;
+function renderCheckout(root, listing, startQuantity = 1) {
+  const photo = listing.images?.[0]?.image_path || listing.images?.[0]?.thumb_path || listing.thumb_path;
   const lot = listing.price_unit === "lot";
   const max = Math.max(1, Number(listing.quantity) || 1);
   const price = Number(listing.price);
   let qty = lot ? max : Math.min(Math.max(1, Number(startQuantity) || 1), max);
   const total = () => (lot ? price : price * qty);
-  const unitWord = (n) => (typeof quantityLabel === "function" ? quantityLabel(n, listing.animal_name) : `${n}`);
+  const units = (n) => quantityLabel(n, listing.animal_name);
+  const subtitle = [listing.breed_name, listing.category_name, listing.animal_name].filter(Boolean).join(", ");
 
-  const backdrop = document.createElement("div");
-  backdrop.id = "buy-modal";
-  backdrop.className = "modal-backdrop";
-  backdrop.innerHTML = `
-    <div class="modal-panel buy-panel" role="dialog" aria-modal="true" aria-labelledby="buy-title">
-      <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-100">
-        <h2 id="buy-title" class="text-lg font-bold text-gray-900">Buy livestock</h2>
-        <button type="button" data-close class="w-9 h-9 -mr-1 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100" aria-label="Close">
-          <span class="w-5 h-5">${uiIcon("close")}</span>
-        </button>
-      </div>
+  root.innerHTML = `
+    <nav class="text-sm mb-5" aria-label="Breadcrumb">
+      <a href="${listingUrl(listing.id)}" class="inline-flex items-center gap-1 font-medium text-blue-600 hover:text-blue-700"><span class="w-4 h-4">${uiIcon("chevronLeft")}</span>Back to listing</a>
+    </nav>
+    <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mb-6">Buy livestock</h1>
 
-      <form id="buy-form" class="p-5 space-y-4" novalidate>
-        <div id="buy-alert" class="hidden alert alert-error text-sm mb-0" role="alert"></div>
+    <form id="buy-form" class="checkout" novalidate>
+      <div class="checkout-main">
+        <div id="buy-alert" class="hidden alert alert-error text-sm" role="alert"></div>
 
-        <div class="order-summary">
-          <div class="order-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : livestockFallbackMedia("w-8 h-8")}</div>
-          <div class="min-w-0 flex-1">
-            <p class="text-sm font-semibold text-gray-900 line-clamp-2">${escapeHtml(listing.title)}</p>
-            <p class="text-xs text-gray-500 mt-0.5" data-unit-line></p>
+        <section class="checkout-section">
+          <h2>Your details</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="buy-name" class="field-label">Full name</label>
+              <input id="buy-name" name="full_name" type="text" class="field-input" autocomplete="name" maxlength="120" required>
+              <p class="field-error hidden" data-error-for="full_name"></p>
+            </div>
+            <div>
+              <label for="buy-phone" class="field-label">WhatsApp Number</label>
+              <input id="buy-phone" name="phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" required placeholder="0977 123 456">
+              <p class="field-error hidden" data-error-for="phone"></p>
+            </div>
+            <div class="sm:col-span-2">
+              <label for="buy-email" class="field-label">Email</label>
+              <input id="buy-email" name="email" type="email" class="field-input" autocomplete="email" inputmode="email" maxlength="255" required>
+              <p class="field-error hidden" data-error-for="email"></p>
+            </div>
           </div>
-          <p class="order-total" data-total></p>
-        </div>
+        </section>
 
-        ${lot ? "" : `
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <p class="text-sm font-semibold text-gray-800">Quantity</p>
-            <p class="text-xs text-gray-500">${escapeHtml(String(max))} available</p>
-          </div>
-          <div class="qty-stepper" role="group" aria-label="Quantity">
-            <button type="button" data-step="-1" aria-label="Fewer">&minus;</button>
-            <input name="quantity" type="number" inputmode="numeric" min="1" max="${max}" value="${qty}" aria-label="Quantity">
-            <button type="button" data-step="1" aria-label="More">+</button>
-          </div>
-        </div>
-        <p class="field-error hidden" data-error-for="quantity"></p>`}
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label for="buy-name" class="field-label">Full name</label>
-            <input id="buy-name" name="full_name" type="text" class="field-input" autocomplete="name" maxlength="120" required>
-            <p class="field-error hidden" data-error-for="full_name"></p>
-          </div>
-          <div>
-            <label for="buy-phone" class="field-label">WhatsApp Number</label>
-            <input id="buy-phone" name="phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" required placeholder="0977 123 456">
-            <p class="field-error hidden" data-error-for="phone"></p>
-          </div>
-        </div>
-        <div>
-          <label for="buy-email" class="field-label">Email</label>
-          <input id="buy-email" name="email" type="email" class="field-input" autocomplete="email" inputmode="email" maxlength="255" required>
-          <p class="field-error hidden" data-error-for="email"></p>
-        </div>
-
-        <fieldset>
-          <legend class="field-label">Delivery</legend>
+        <section class="checkout-section">
+          <h2>Delivery</h2>
           <div class="choice-grid">
             <label class="choice-card"><input type="radio" name="delivery" value="collect" checked>
               <span class="choice-dot"></span><span><b>Collect from farm</b><small>${escapeHtml(listing.location || "")} Province</small></span></label>
             <label class="choice-card"><input type="radio" name="delivery" value="deliver">
               <span class="choice-dot"></span><span><b>Deliver to me</b><small>Cost confirmed with you</small></span></label>
           </div>
-        </fieldset>
-        <div data-address hidden>
-          <label for="buy-address" class="field-label">Delivery address</label>
-          <textarea id="buy-address" name="delivery_address" rows="2" class="field-input" maxlength="300" placeholder="Farm or street, town"></textarea>
-          <p class="field-error hidden" data-error-for="delivery_address"></p>
-        </div>
+          <div data-address hidden class="mt-4">
+            <label for="buy-address" class="field-label">Delivery address</label>
+            <textarea id="buy-address" name="delivery_address" rows="3" class="field-input" maxlength="300" placeholder="Farm or street, town"></textarea>
+            <p class="field-error hidden" data-error-for="delivery_address"></p>
+          </div>
+        </section>
 
-        <fieldset>
-          <legend class="field-label">Payment</legend>
+        <section class="checkout-section">
+          <h2>Payment</h2>
           <div class="choice-grid">
             <label class="choice-card"><input type="radio" name="payment_method" value="mobile_money" checked>
               <span class="choice-dot"></span><span><b>Mobile money</b><small class="pay-names"><i class="pay-airtel">Airtel</i><i class="pay-mtn">MTN</i><i class="pay-zamtel">Zamtel</i></small></span></label>
             <label class="choice-card"><input type="radio" name="payment_method" value="bank_transfer">
               <span class="choice-dot"></span><span><b>Bank transfer</b><small>Details sent to you</small></span></label>
           </div>
-        </fieldset>
+          <p class="text-xs text-gray-500 mt-3">You don't pay now. We confirm with the seller first, then send payment details to your WhatsApp and email.</p>
+        </section>
 
         <div class="honeypot" aria-hidden="true">
           <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
         </div>
 
-        <button id="buy-submit" type="submit" class="btn-buy btn-lg w-full"></button>
-      </form>
-    </div>`;
+        <button type="submit" class="btn-buy btn-lg w-full checkout-submit-mobile" data-submit></button>
+      </div>
 
-  document.body.appendChild(backdrop);
-  document.body.classList.add("modal-open");
+      <aside class="checkout-summary">
+        <div class="checkout-photo">${photo ? `<img src="${escapeHtml(photo)}" alt="${escapeHtml(listing.title)}">` : livestockFallbackMedia("w-14 h-14")}</div>
+        <div class="p-4 sm:p-5">
+          <p class="font-semibold text-gray-900">${escapeHtml(listing.title)}</p>
+          <p class="text-xs text-gray-500 mt-0.5">${escapeHtml([subtitle, listing.location].filter(Boolean).join(" · "))}</p>
+          <p class="text-sm text-gray-600 mt-3"><span class="font-semibold text-gray-800">${kwacha(price)}</span> ${priceUnitLabel(listing)}</p>
 
-  const form = backdrop.querySelector("#buy-form");
-  const submit = backdrop.querySelector("#buy-submit");
+          ${lot ? `<p class="text-sm text-gray-600 mt-3">The whole lot: ${escapeHtml(units(max))}</p>` : `
+          <div class="flex items-center justify-between gap-3 mt-4">
+            <div>
+              <p class="text-sm font-semibold text-gray-800">Quantity</p>
+              <p class="text-xs text-gray-500">${escapeHtml(units(max))} available</p>
+            </div>
+            <div class="qty-stepper" role="group" aria-label="Quantity">
+              <button type="button" data-step="-1" aria-label="Fewer">&minus;</button>
+              <input name="quantity" type="number" inputmode="numeric" min="1" max="${max}" value="${qty}" aria-label="Quantity">
+              <button type="button" data-step="1" aria-label="More">+</button>
+            </div>
+          </div>
+          <p class="field-error hidden" data-error-for="quantity"></p>`}
+
+          <div class="buy-total"><span>Total</span><strong data-total></strong></div>
+          <button type="submit" class="btn-buy btn-lg w-full checkout-submit-desktop" data-submit></button>
+        </div>
+      </aside>
+    </form>`;
+
+  const form = root.querySelector("#buy-form");
+  const submits = root.querySelectorAll("[data-submit]");
   const qtyInput = form.elements.quantity;
 
   function refresh() {
-    backdrop.querySelector("[data-total]").textContent = kwacha(total());
-    backdrop.querySelector("[data-unit-line]").textContent = lot
-      ? `The whole lot, ${unitWord(max)}`
-      : `${qty} × ${kwacha(price)}`;
-    submit.textContent = `Place order · ${kwacha(total())}`;
+    root.querySelector("[data-total]").textContent = kwacha(total());
+    submits.forEach((b) => { b.textContent = `Place order · ${kwacha(total())}`; });
     if (qtyInput) {
-      backdrop.querySelector('[data-step="-1"]').disabled = qty <= 1;
-      backdrop.querySelector('[data-step="1"]').disabled = qty >= max;
+      root.querySelector('[data-step="-1"]').disabled = qty <= 1;
+      root.querySelector('[data-step="1"]').disabled = qty >= max;
     }
   }
   if (qtyInput) {
-    backdrop.querySelectorAll("[data-step]").forEach((b) => b.addEventListener("click", () => {
+    root.querySelectorAll("[data-step]").forEach((b) => b.addEventListener("click", () => {
       qty = Math.min(max, Math.max(1, qty + Number(b.dataset.step)));
       qtyInput.value = qty;
       refresh();
@@ -147,21 +152,12 @@ function openBuyModal(listing, startQuantity = 1) {
     });
     qtyInput.addEventListener("blur", () => { qtyInput.value = qty; });
   }
-  const addressBox = backdrop.querySelector("[data-address]");
+  const addressBox = root.querySelector("[data-address]");
   form.querySelectorAll('input[name="delivery"]').forEach((r) => r.addEventListener("change", () => {
     addressBox.hidden = form.elements.delivery.value !== "deliver";
     if (!addressBox.hidden) form.elements.delivery_address.focus();
   }));
   refresh();
-
-  const close = () => {
-    closeBuyModal();
-    if (lastFocus && typeof lastFocus.focus === "function") lastFocus.focus();
-  };
-  backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); });
-  backdrop.querySelector("[data-close]").addEventListener("click", close);
-  backdrop._onKey = (event) => { if (event.key === "Escape") close(); };
-  document.addEventListener("keydown", backdrop._onKey);
 
   function readValues() {
     return {
@@ -192,37 +188,40 @@ function openBuyModal(listing, startQuantity = 1) {
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const alertBox = backdrop.querySelector("#buy-alert");
+    const alertBox = root.querySelector("#buy-alert");
     alertBox.classList.add("hidden");
     const values = readValues();
     const errors = validateOrder(values, values.delivery === "deliver");
     showErrors(errors);
     if (Object.keys(errors).length) return;
 
-    submit.disabled = true;
-    submit.innerHTML = `<span class="btn-spinner"></span> Placing order…`;
+    submits.forEach((b) => {
+      b.disabled = true;
+      b.innerHTML = `<span class="btn-spinner"></span> Placing order…`;
+    });
     try {
       const res = await apiRequest("/api/orders", {
         method: "POST",
         body: { ...values, quantity: qty, livestock_id: listing.id, website: form.elements.website.value },
       });
-      showSuccess(res.data);
+      showSuccess(res.data, values.delivery);
     } catch (error) {
       if (error.errors) showErrors(error.errors);
       alertBox.textContent = error.message || "Your order could not be placed. Please try again.";
       alertBox.classList.remove("hidden");
-      submit.disabled = false;
+      alertBox.scrollIntoView({ behavior: "smooth", block: "center" });
+      submits.forEach((b) => { b.disabled = false; });
       refresh();
     }
   });
 
-  function showSuccess(order) {
-    const deliveryText = form.elements.delivery.value === "deliver" ? "Delivery" : "Collect from farm";
-    backdrop.querySelector(".modal-panel").innerHTML = `
-      <div class="p-6 sm:p-7" role="status">
+  function showSuccess(order, delivery) {
+    const thumb = listing.images?.[0]?.thumb_path || photo;
+    root.innerHTML = `
+      <div class="checkout-done" role="status">
         <div class="order-done-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg></div>
-        <h2 class="text-xl font-bold text-gray-900 mt-4">Order ${escapeHtml(order.reference)} received</h2>
-        <p class="text-sm text-gray-600 mt-1.5">We'll confirm availability with the seller and send payment details to your WhatsApp and email.</p>
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Order ${escapeHtml(order.reference)} received</h1>
+        <p class="text-sm text-gray-600 mt-2">We'll confirm availability with the seller and send payment details to your WhatsApp and email.</p>
         <ol class="order-steps" aria-label="Order progress">
           <li class="done">Received</li><li>Confirmed</li><li>Paid</li><li>Completed</li>
         </ol>
@@ -230,24 +229,12 @@ function openBuyModal(listing, startQuantity = 1) {
           <div class="order-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : livestockFallbackMedia("w-8 h-8")}</div>
           <div class="min-w-0 flex-1">
             <p class="text-sm font-semibold text-gray-900 line-clamp-2">${escapeHtml(listing.title)}</p>
-            <p class="text-xs text-gray-500 mt-0.5">${escapeHtml(lot ? "The whole lot" : unitWord(order.quantity))} · ${deliveryText}</p>
+            <p class="text-xs text-gray-500 mt-0.5">${escapeHtml(lot ? "The whole lot" : units(order.quantity))} · ${delivery === "deliver" ? "Delivery" : "Collect from farm"}</p>
           </div>
           <p class="order-total">${kwacha(order.total)}</p>
         </div>
-        <button type="button" data-close class="btn-contact btn-inquire btn-lg w-full mt-5">Done</button>
+        <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-6">Back to listings</a>
       </div>`;
-    const done = backdrop.querySelector("[data-close]");
-    done.addEventListener("click", close);
-    done.focus();
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
-
-  setTimeout(() => form.elements.full_name.focus(), 50);
-}
-
-function closeBuyModal() {
-  const existing = document.getElementById("buy-modal");
-  if (!existing) return;
-  document.removeEventListener("keydown", existing._onKey);
-  existing.remove();
-  document.body.classList.remove("modal-open");
 }

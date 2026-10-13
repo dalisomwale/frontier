@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Buy Livestock - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/livestock.js"></script>
+    <script src="/js/order.js"></script>
+  </head>
+  <body class="bg-gray-50">
+    <nav id="page-topnav" class="bg-white shadow-md sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <a href="/" class="flex items-center gap-3" aria-label="Frontier Marketplace home">
+            <div class="brand-mark-full">
+              <img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
+            </div>
+            <span class="hidden sm:block font-bold text-gray-900">Frontier Marketplace</span>
+          </a>
+          <div class="header-auth">
+            <a id="login-link" href="/seller/login.html" class="header-login-link">Login</a>
+            <a id="seller-link" href="/seller/register.html" class="header-seller-link">Register</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main id="checkout" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div class="checkout-loading"><span class="inline-block h-8 w-56 bg-gray-200 rounded animate-pulse"></span></div>
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 mt-10">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-gray-500">
+        <p>© <span id="footer-year"></span> Frontier Farms &amp; Consult. All rights reserved.</p>
+        <nav class="flex flex-wrap gap-x-5 gap-y-2">
+          <a href="/seller/login.html" class="hover:text-gray-700">Seller sign in</a>
+          <a href="/terms.html" class="hover:text-gray-700">Terms of Service</a>
+          <a href="/privacy.html" class="hover:text-gray-700">Privacy Policy</a>
+        </nav>
+      </div>
+    </footer>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", async () => {
+        const root = document.getElementById("checkout");
+        const q = getQueryParams();
+        const unavailable = (message) => {
+          root.innerHTML = "";
+          renderEmptyState(root, {
+            title: "This listing can't be bought online",
+            message: message || "",
+            icon: "cattle",
+            action: `<a href="/#listings" class="inline-block mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 font-medium">Browse all livestock</a>`,
+          });
+        };
+        if (!q.id) return unavailable();
+        let listing;
+        try {
+          listing = (await apiRequest(`/api/livestock/${encodeURIComponent(q.id)}`)).data;
+        } catch (error) {
+          return unavailable(error.status === 404 ? "It's no longer available." : error.message);
+        }
+        if (!hasPrice(listing)) {
+          return unavailable("It has no price yet. Please contact the seller from the listing page.");
+        }
+        document.title = `Buy ${listing.title} - Frontier Marketplace`;
+        renderCheckout(root, listing, q.qty);
+      });
+    </script>
+  </body>
+</html>

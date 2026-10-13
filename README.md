@@ -158,7 +158,8 @@ The same events also appear in the seller dashboard straight away: a bell with a
 - Listings can have a price in Kwacha, **per head** or **for the lot**, and can
   be marked negotiable. Sellers and admins set it in the listing form. With no
   price the website shows "Price on request" and only Contact Seller.
-- Priced listings show **Buy Now** beside **Contact Seller**. The buyer picks a
+- Priced listings show **Buy Now** beside **Contact Seller**. Buy Now opens a
+  checkout page (/buy.html). The buyer picks a
   quantity (a lot is bought whole), collection or delivery, and mobile money or
   bank transfer. Nothing is paid on the website: the order (reference FM-1001,
   FM-1002, ...) is emailed to the team and the buyer gets a confirmation.
