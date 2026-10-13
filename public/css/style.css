@@ -4192,3 +4192,43 @@ body.admin-pending main {
   border-color: rgba(46, 74, 58, 0.25);
   border-top-color: #2e4a3a;
 }
+
+/* Quieter prices */
+.lv-price {
+  font-size: 16px;
+  font-weight: 700;
+  color: #34443a;
+}
+
+.buy-price {
+  font-size: 22px;
+  font-weight: 700;
+  color: #34443a;
+}
+
+.buy-price-unit {
+  font-size: 13px;
+}
+
+.buy-total strong {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.order-total {
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.lv-price-tag {
+  color: #4b5a50;
+  background: #e9eee9;
+  font-weight: 500;
+}
+
+@media (max-width: 639px) {
+  .lv-card .lv-price {
+    font-size: 13.5px;
+  }
+}
