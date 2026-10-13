@@ -62,10 +62,6 @@
             <div id="listing-attributes" class="mb-6 hidden">
               <h3 class="text-base font-semibold text-gray-900 mb-3">Details</h3>
               <dl id="attribute-list" class="space-y-2"></dl>
-              <div id="description-section" class="hidden mt-4 pt-4 border-t border-gray-200">
-                <p class="text-sm text-gray-500 mb-1">Description</p>
-                <p id="listing-description" class="text-sm text-gray-800 leading-relaxed whitespace-pre-line"></p>
-              </div>
             </div>
 
             <div id="buy-box" class="buy-box">
@@ -142,6 +138,13 @@
               <dd class="text-sm font-semibold text-gray-900 text-right">${escapeHtml(value)}</dd>
             </div>`)
           .join("");
+        if (item.description) {
+          document.getElementById("attribute-list").insertAdjacentHTML("beforeend", `
+            <div>
+              <dt class="text-sm text-gray-500">Description</dt>
+              <dd class="text-sm text-gray-900 mt-1 leading-relaxed whitespace-pre-line">${escapeHtml(item.description)}</dd>
+            </div>`);
+        }
         document.getElementById("listing-attributes").classList.toggle("hidden", !rows.length && !item.description);
       }
 
@@ -157,10 +160,6 @@
         document.title = `${item.title} - Frontier Marketplace`;
         document.getElementById("listing-title").textContent = item.title;
 
-        if (item.description) {
-          document.getElementById("listing-description").textContent = item.description;
-          document.getElementById("description-section").classList.remove("hidden");
-        }
         setAttributes(item);
         renderGallery();
         document.getElementById("gallery-verified").innerHTML = verifiedBadge(item);
