@@ -18,23 +18,21 @@
     <div id="app-sidebar"></div>
     <div id="admin-topbar"></div>
 
-    <main class="app-content-shifted inbox-main">
-      <div class="inbox-shell" id="inbox">
-        <aside class="inbox-list-pane">
-          <div class="inbox-list-head">
-            <div class="flex items-center justify-between gap-2">
-              <h1 class="text-lg font-bold text-gray-900">Orders</h1>
-              <select id="tab-select" class="inbox-select" aria-label="Show orders"></select>
-            </div>
-            <div class="relative mt-3">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
-              <input id="search" type="search" placeholder="Search order, name, phone, listing" class="field-input !py-2 !pl-9 !text-sm" />
-            </div>
-          </div>
-          <div id="list" class="inbox-list"></div>
-        </aside>
+    <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Orders</h1>
+      </div>
 
-        <section class="inbox-chat-pane" id="detail" aria-live="polite"></section>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center gap-3 p-4 border-b border-gray-100">
+          <div class="seg" id="status-tabs"></div>
+          <div class="relative md:ml-auto md:w-72">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+            <input id="search" type="search" placeholder="Search order, name, phone, listing" class="field-input !py-2 !pl-9 !text-sm" />
+          </div>
+        </div>
+        <div id="list" class="overflow-x-auto"></div>
+        <div id="pagination" class="pb-4"></div>
       </div>
     </main>
 
@@ -54,53 +52,78 @@
       const DELIVERY = { collect: "Collect from farm", deliver: "Deliver to buyer" };
       const PAYMENT = { mobile_money: "Mobile money", bank_transfer: "Bank transfer" };
       const OPERATORS = { airtel: "Airtel Money", mtn: "MTN Mobile Money", zamtel: "Zamtel Kwacha" };
-      const state = { tab: "", q: "", page: 1, pages: 1, rows: [], selected: null };
+      const state = { status: "", q: "", page: 1, rows: [], open: null, summary: {} };
       const statusLabel = (s) => STATUSES.find((x) => x.value === s)?.label || s;
-      const inbox = document.getElementById("inbox");
-      const detail = document.getElementById("detail");
+      const tel = (p) => escapeHtml(String(p || "").replace(/[^\d+]/g, ""));
 
       function whatsappNumber(phone) {
-        let d = phone.replace(/\D/g, "");
-        if (phone.trim().startsWith("+")) return d;
+        let d = String(phone).replace(/\D/g, "");
+        if (String(phone).trim().startsWith("+")) return d;
         if (d.startsWith("0")) d = "260" + d.slice(1);
         return d;
       }
 
-      function renderTabs(summary = {}) {
-        document.getElementById("tab-select").innerHTML = TABS.map((t) => {
-          const count = t.value === "" ? summary.all : summary[t.value];
-          return `<option value="${t.value}" ${t.value === state.tab ? "selected" : ""}>${t.label}${count !== undefined ? ` (${count})` : ""}</option>`;
+      function shortDate(value) {
+        const d = new Date(value);
+        return `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}, ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+      }
+
+      function paymentShort(o) {
+        if (o.payment_method === "mobile_money") return OPERATORS[o.mobile_operator] || "Mobile money";
+        if (o.payment_method === "bank_transfer") return o.payment_bank || "Bank transfer";
+        return "";
+      }
+
+      function renderTabs() {
+        const s = state.summary;
+        document.getElementById("status-tabs").innerHTML = TABS.map((t) => {
+          const count = t.value === "" ? s.all : s[t.value];
+          return `<button type="button" data-status="${t.value}" class="${t.value === state.status ? "active" : ""}">${t.label}${count ? `<span class="count">${count}</span>` : ""}</button>`;
         }).join("");
+        document.querySelectorAll("#status-tabs button").forEach((b) => b.addEventListener("click", () => {
+          state.status = b.dataset.status;
+          loadList(1);
+        }));
       }
 
-      function listItem(o) {
-        const isNew = o.status === "new";
+      function statusSelect(o) {
+        return `<select class="pill-select order-pill" data-status-for="${o.id}" data-value="${o.status}" aria-label="Status of ${escapeHtml(o.reference)}">
+          ${STATUSES.map((s) => `<option value="${s.value}" ${s.value === o.status ? "selected" : ""}>${s.label}</option>`).join("")}
+        </select>`;
+      }
+
+      function rowHtml(o) {
+        const isOpen = String(state.open) === String(o.id);
+        const units = o.price_unit === "lot" ? `Lot (${o.quantity})` : o.quantity;
         return `
-          <button type="button" class="inbox-item order-item ${isNew ? "is-unread" : ""} ${String(state.selected) === String(o.id) ? "is-active" : ""}" data-open="${o.id}">
-            <span class="order-item-thumb">${o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="">` : livestockFallbackMedia("w-6 h-6")}</span>
-            <span class="min-w-0 flex-1">
-              <span class="flex items-baseline justify-between gap-2">
-                <span class="inbox-name truncate">${escapeHtml(o.full_name)}</span>
-                <span class="text-sm font-bold text-gray-900 whitespace-nowrap">${kwacha(o.total)}</span>
-              </span>
-              <span class="block text-xs text-gray-500 truncate mt-0.5">${escapeHtml(o.reference)} · ${escapeHtml(o.livestock_title)}</span>
-              <span class="flex items-center justify-between gap-2 mt-1">
-                <span class="order-status order-st-${o.status}">${escapeHtml(statusLabel(o.status))}</span>
-                <span class="text-[11px] text-gray-400">${formatDate(o.created_at)}</span>
-              </span>
-            </span>
-          </button>`;
+          <tr class="order-row ${o.status === "new" ? "is-new" : ""} ${isOpen ? "is-open" : ""}" data-row="${o.id}" tabindex="0" aria-expanded="${isOpen}">
+            <td>
+              <p class="font-semibold text-gray-900 whitespace-nowrap">${escapeHtml(o.reference)}</p>
+              <p class="text-xs text-gray-500 whitespace-nowrap">${shortDate(o.created_at)}</p>
+            </td>
+            <td>
+              <p class="font-medium text-gray-900">${escapeHtml(o.full_name)}</p>
+              <p class="text-xs text-gray-500 whitespace-nowrap hidden sm:block">${escapeHtml(o.phone)}</p>
+            </td>
+            <td class="hidden md:table-cell">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="order-item-thumb">${o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="">` : livestockFallbackMedia("w-5 h-5")}</span>
+                <span class="text-sm text-gray-800 line-clamp-2">${escapeHtml(o.livestock_title)}</span>
+              </div>
+            </td>
+            <td class="hidden sm:table-cell text-center">${escapeHtml(String(units))}</td>
+            <td class="font-semibold text-gray-900 whitespace-nowrap">${kwacha(o.total)}</td>
+            <td class="hidden lg:table-cell text-sm text-gray-700">${escapeHtml(paymentShort(o))}</td>
+            <td>${statusSelect(o)}</td>
+          </tr>
+          ${isOpen ? `<tr class="order-detail-row"><td colspan="7"><div class="order-detail" data-detail="${o.id}"><span class="btn-spinner chat-spinner"></span></div></td></tr>` : ""}`;
       }
 
-      function bindListItem(el) {
-        el.addEventListener("click", () => openOrder(el.dataset.open));
-      }
-
-      async function loadList(page = 1, { append = false } = {}) {
+      async function loadList(page = state.page) {
         state.page = page;
         const list = document.getElementById("list");
-        const params = new URLSearchParams({ page, limit: 30 });
-        if (state.tab) params.set("status", state.tab);
+        const params = new URLSearchParams({ page, limit: 25 });
+        if (state.status) params.set("status", state.status);
         if (state.q) params.set("q", state.q);
         let res;
         try {
@@ -108,39 +131,86 @@
         } catch (error) {
           return renderEmptyState(list, { title: "Could not load orders", message: error.message, icon: "alert" });
         }
-        renderTabs(res.summary);
+        state.summary = res.summary;
+        state.rows = res.data;
+        renderTabs();
         setNewOrderBadge(res.summary.new);
-        state.pages = res.pagination.total;
-        state.rows = append ? [...state.rows, ...res.data] : res.data;
-        if (!state.rows.length) {
-          return renderEmptyState(list, state.q || state.tab
-            ? { title: "No orders here", message: state.q ? "No orders match your search." : "No orders with this status.", icon: "inbox" }
-            : { title: "No orders yet", message: "When buyers press Buy Now on a listing, their orders appear here.", icon: "inbox" });
+
+        const pag = document.getElementById("pagination");
+        pag.innerHTML = "";
+        if (!res.data.length) {
+          return renderEmptyState(list, state.q || state.status
+            ? { title: "No orders here", message: state.q ? "No orders match your search." : "No orders with this status.", icon: "search" }
+            : { title: "No orders yet", message: "When buyers press Buy Now on a listing, their orders appear here.", icon: "cart" });
         }
-        list.innerHTML = state.rows.map(listItem).join("") +
-          (state.page < state.pages ? `<div class="p-3"><button type="button" id="load-more" class="w-full text-sm font-medium text-blue-700 py-2 rounded-lg hover:bg-blue-50">Load more</button></div>` : "");
-        list.querySelectorAll("[data-open]").forEach(bindListItem);
-        document.getElementById("load-more")?.addEventListener("click", () => loadList(state.page + 1, { append: true }));
+        renderTable();
+        if (res.pagination.total > 1) pag.appendChild(createPagination(res.pagination.current, res.pagination.total, loadList));
       }
 
-      function markActive() {
-        document.querySelectorAll("#list [data-open]").forEach((b) => b.classList.toggle("is-active", b.dataset.open === String(state.selected)));
+      function renderTable() {
+        const list = document.getElementById("list");
+        list.innerHTML = `
+          <table class="admin-table orders-table">
+            <thead><tr>
+              <th>Order</th><th>Buyer</th><th class="hidden md:table-cell">Listing</th><th class="hidden sm:table-cell text-center">Qty</th>
+              <th>Total</th><th class="hidden lg:table-cell">Payment</th><th>Status</th>
+            </tr></thead>
+            <tbody>${state.rows.map(rowHtml).join("")}</tbody>
+          </table>`;
+        bindTable();
+        if (state.open) loadDetail(state.open);
       }
 
-      function placeholder() {
-        detail.innerHTML = `
-          <div class="inbox-placeholder">
-            <span class="w-12 h-12 text-gray-300 block">${uiIcon("inbox")}</span>
-            <p class="font-semibold text-gray-700 mt-3">Select an order</p>
-          </div>`;
+      function toggle(id) {
+        state.open = String(state.open) === String(id) ? null : String(id);
+        history.replaceState(null, "", state.open ? `${location.pathname}?id=${state.open}` : location.pathname);
+        renderTable();
       }
 
-      function closeDetail() {
-        state.selected = null;
-        inbox.classList.remove("has-selection");
-        history.replaceState(null, "", location.pathname);
-        markActive();
-        placeholder();
+      function bindTable() {
+        document.querySelectorAll("#list [data-row]").forEach((tr) => {
+          tr.addEventListener("click", (e) => {
+            if (e.target.closest("select, a, button")) return;
+            toggle(tr.dataset.row);
+          });
+          tr.addEventListener("keydown", (e) => {
+            if ((e.key === "Enter" || e.key === " ") && e.target === tr) { e.preventDefault(); toggle(tr.dataset.row); }
+          });
+        });
+        document.querySelectorAll("#list [data-status-for]").forEach((sel) => sel.addEventListener("change", () => changeStatus(sel)));
+      }
+
+      async function changeStatus(sel) {
+        const o = state.rows.find((r) => String(r.id) === sel.dataset.statusFor);
+        const value = sel.value;
+        const note = document.querySelector(`[data-detail="${o.id}"] [data-message]`)?.value.trim() || "";
+        const confirmText = {
+          confirmed: o.seller_id && !o.seller_notified_at ? "The seller is told about the order." : "",
+          paid: o.livestock_id && !o.stock_deducted ? `${o.quantity} will be taken off the listing.` : "",
+          completed: o.livestock_id && !o.stock_deducted ? `${o.quantity} will be taken off the listing.` : "",
+          cancelled: o.stock_deducted ? `${o.quantity} will be put back on the listing.` : "",
+        }[value];
+        const ok = await confirmAction({
+          title: `Mark ${o.reference} as ${statusLabel(value).toLowerCase()}?`,
+          message: ["The buyer is emailed about the change.", confirmText, note ? "Your message is included." : ""].filter(Boolean).join(" "),
+          confirmText: `Mark ${statusLabel(value).toLowerCase()}`,
+          variant: value === "cancelled" ? "danger" : undefined,
+        });
+        if (!ok) { sel.value = o.status; return; }
+        sel.disabled = true;
+        try {
+          await update(o, { status: value, message: note || undefined });
+        } catch (error) {
+          sel.value = o.status;
+          sel.disabled = false;
+          showNotification(error.message, "error");
+        }
+      }
+
+      async function update(o, body) {
+        const res = await adminApi(`/api/admin/orders/${o.id}`, { method: "PATCH", body });
+        showNotification(res.message, res.message.includes("not sent") ? "warning" : "success");
+        await loadList(state.page);
       }
 
       function rows(pairs) {
@@ -148,180 +218,85 @@
           .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>`;
       }
 
-      function renderDetail(o) {
+      async function loadDetail(id) {
+        const box = document.querySelector(`[data-detail="${id}"]`);
+        if (!box) return;
+        let o;
+        try {
+          o = (await adminApi(`/api/admin/orders/${id}`)).data;
+        } catch (error) {
+          box.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(error.message)}</p>`;
+          return;
+        }
+        const row = state.rows.find((r) => String(r.id) === String(id));
+        if (row) Object.assign(row, o);
         const lot = o.price_unit === "lot";
-        const tel = (p) => escapeHtml(String(p || "").replace(/[^\d+]/g, ""));
         const listingLink = o.livestock_id && o.listing_status === "published"
-          ? `<a href="/listing.html?id=${o.livestock_id}" target="_blank" rel="noopener" class="hover:underline">${escapeHtml(o.livestock_title)}</a>`
-          : `${escapeHtml(o.livestock_title)} <span class="text-gray-400 font-normal">${o.livestock_id ? "(not on the website)" : "(listing deleted)"}</span>`;
-        const stockNote = o.livestock_id
-          ? (o.stock_deducted ? `Taken off the listing (${o.listing_quantity} left)` : `${o.listing_quantity} on the listing`)
-          : "";
+          ? `<a href="/listing.html?id=${o.livestock_id}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">${escapeHtml(o.livestock_title)}</a>`
+          : `${escapeHtml(o.livestock_title)} <span class="text-gray-400">${o.livestock_id ? "(not on the website)" : "(listing deleted)"}</span>`;
 
-        detail.innerHTML = `
-          <header class="chat-head">
-            <button type="button" data-back class="chat-back" aria-label="Back to orders"><span class="w-5 h-5 block">${uiIcon("chevronRight")}</span></button>
-            <span class="chat-listing-thumb">${o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="">` : livestockFallbackMedia("w-6 h-6")}</span>
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-semibold text-gray-900 truncate">${escapeHtml(o.reference)} · ${listingLink}</p>
-              <p class="text-xs text-gray-500 truncate">${formatDate(o.created_at)}</p>
-            </div>
-            <div class="chat-head-actions flex items-center gap-1.5 flex-shrink-0">
-              <select id="status-select" class="pill-select order-pill" data-value="${o.status}" aria-label="Order status">
-                ${STATUSES.map((s) => `<option value="${s.value}" ${s.value === o.status ? "selected" : ""}>${s.label}</option>`).join("")}
-              </select>
-            </div>
-          </header>
-
-          <div class="order-body">
-            <div class="order-total-card">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Total</p>
-                <p class="order-big-total">${kwacha(o.total)}</p>
+        box.innerHTML = `
+          <div class="order-detail-grid">
+            <section>
+              <h3>Buyer</h3>
+              <p class="font-semibold text-gray-900">${escapeHtml(o.full_name)}</p>
+              <div class="order-contact">
+                <a href="https://wa.me/${whatsappNumber(o.phone)}" target="_blank" rel="noopener">WhatsApp ${escapeHtml(o.phone)}</a>
+                <a href="tel:${tel(o.phone)}">Call</a>
+                <a href="mailto:${escapeHtml(o.email)}?subject=${encodeURIComponent(`Order ${o.reference} - Frontier Marketplace`)}">${escapeHtml(o.email)}</a>
               </div>
-              <p class="text-sm text-gray-600 text-right">${lot ? `The whole lot (${o.quantity})` : `${o.quantity} × ${kwacha(o.unit_price)}`}</p>
-            </div>
-
-            <div class="order-grid">
-              <section class="order-card">
-                <h3>Buyer</h3>
-                <p class="font-semibold text-gray-900">${escapeHtml(o.full_name)}</p>
-                <div class="order-contact">
-                  <a href="https://wa.me/${whatsappNumber(o.phone)}" target="_blank" rel="noopener">WhatsApp ${escapeHtml(o.phone)}</a>
-                  <a href="tel:${tel(o.phone)}">Call</a>
-                  <a href="mailto:${escapeHtml(o.email)}?subject=${encodeURIComponent(`Order ${o.reference} - Frontier Marketplace`)}">${escapeHtml(o.email)}</a>
-                </div>
-              </section>
-
-              <section class="order-card">
-                <h3>Delivery and payment</h3>
-                ${rows([
-                  ["Delivery", escapeHtml(DELIVERY[o.delivery])],
-                  ["Address", o.delivery === "deliver" ? escapeHtml(o.delivery_address) : null],
-                  ["Payment", escapeHtml(PAYMENT[o.payment_method])],
-                  ["Operator", o.payment_method === "mobile_money" && o.mobile_operator ? escapeHtml(OPERATORS[o.mobile_operator]) : null],
-                  ["Pay from", o.payment_method === "mobile_money" && o.payment_phone ? `<a href="tel:${tel(o.payment_phone)}" class="hover:underline">${escapeHtml(o.payment_phone)}</a>` : null],
-                  ["Bank", o.payment_method === "bank_transfer" && o.payment_bank ? escapeHtml(o.payment_bank) : null],
-                  ["Account", o.payment_method === "bank_transfer" && o.payment_account ? escapeHtml(o.payment_account) : null],
-                ])}
-              </section>
-
-              <section class="order-card">
-                <h3>Seller</h3>
-                ${o.seller_id
-                  ? `<a href="/admin/sellers.html?id=${o.seller_id}" class="font-semibold text-gray-900 hover:text-blue-700">${escapeHtml(o.seller_name || "Seller")}</a>
-                     ${rows([["Phone", o.seller_phone ? `<a href="tel:${tel(o.seller_phone)}" class="hover:underline">${escapeHtml(o.seller_phone)}</a>` : null],
-                             ["Told about it", o.seller_notified_at ? formatDate(o.seller_notified_at) : "When you confirm the order"]])}`
-                  : `<p class="text-sm text-gray-600">${o.seller_name ? `${escapeHtml(o.seller_name)} (removed)` : "Frontier's stock"}</p>`}
-              </section>
-
-              <section class="order-card">
-                <h3>Stock</h3>
-                ${rows([["Listing", stockNote || "Listing deleted"], ["Emailed to team", o.email_status === "sent" ? "Yes" : o.email_status === "failed" ? `No${o.email_error ? ` (${escapeHtml(o.email_error)})` : ""}` : "Pending"]])}
-              </section>
-            </div>
+            </section>
+            <section>
+              <h3>Order</h3>
+              ${rows([
+                ["Listing", listingLink],
+                ["Quantity", lot ? `The whole lot (${o.quantity})` : `${o.quantity} × ${kwacha(o.unit_price)}`],
+                ["Total", `<strong>${kwacha(o.total)}</strong>`],
+                ["Stock", o.livestock_id ? (o.stock_deducted ? `Taken off the listing (${o.listing_quantity} left)` : `${o.listing_quantity} on the listing`) : null],
+              ])}
+            </section>
+            <section>
+              <h3>Delivery and payment</h3>
+              ${rows([
+                ["Delivery", escapeHtml(DELIVERY[o.delivery])],
+                ["Address", o.delivery === "deliver" ? escapeHtml(o.delivery_address) : null],
+                ["Payment", escapeHtml(PAYMENT[o.payment_method])],
+                ["Operator", o.payment_method === "mobile_money" && o.mobile_operator ? escapeHtml(OPERATORS[o.mobile_operator]) : null],
+                ["Pay from", o.payment_method === "mobile_money" && o.payment_phone ? `<a href="tel:${tel(o.payment_phone)}" class="hover:underline">${escapeHtml(o.payment_phone)}</a>` : null],
+                ["Bank", o.payment_method === "bank_transfer" && o.payment_bank ? escapeHtml(o.payment_bank) : null],
+                ["Account", o.payment_method === "bank_transfer" && o.payment_account ? escapeHtml(o.payment_account) : null],
+              ])}
+            </section>
+            <section>
+              <h3>Seller</h3>
+              ${o.seller_id
+                ? `<a href="/admin/sellers.html?id=${o.seller_id}" class="font-semibold text-gray-900 hover:text-blue-700">${escapeHtml(o.seller_name || "Seller")}</a>
+                   ${rows([["Phone", o.seller_phone ? `<a href="tel:${tel(o.seller_phone)}" class="hover:underline">${escapeHtml(o.seller_phone)}</a>` : null],
+                           ["Told about it", o.seller_notified_at ? formatDate(o.seller_notified_at) : "When you confirm the order"]])}`
+                : `<p class="text-sm text-gray-600">${o.seller_name ? `${escapeHtml(o.seller_name)} (removed)` : "Frontier's stock"}</p>`}
+            </section>
           </div>
-
-          <div class="chat-composer chat-composer-row">
-            <textarea id="buyer-message" rows="1" maxlength="2000" class="chat-input" placeholder="Message ${escapeHtml(o.full_name)}, e.g. payment details"></textarea>
+          <div class="order-message">
+            <textarea data-message rows="2" maxlength="2000" class="field-input" placeholder="Message ${escapeHtml(o.full_name)}, e.g. payment details"></textarea>
             <button type="button" data-send class="chat-send-btn">Send</button>
           </div>`;
 
-        bindDetail(o);
-      }
-
-      async function openOrder(id) {
-        state.selected = String(id);
-        inbox.classList.add("has-selection");
-        markActive();
-        history.replaceState(null, "", `${location.pathname}?id=${id}`);
-        detail.innerHTML = `<div class="inbox-placeholder"><span class="btn-spinner chat-spinner"></span></div>`;
-        try {
-          const o = (await adminApi(`/api/admin/orders/${id}`)).data;
-          if (state.selected !== String(id)) return;
-          renderDetail(o);
-        } catch (error) {
-          showNotification(error.message, "error");
-          closeDetail();
-        }
-      }
-
-      function refreshRow(order) {
-        const idx = state.rows.findIndex((r) => String(r.id) === String(order.id));
-        if (idx < 0) return;
-        state.rows[idx] = { ...state.rows[idx], ...order };
-        const el = document.querySelector(`#list [data-open="${order.id}"]`);
-        if (!el) return;
-        el.outerHTML = listItem(state.rows[idx]);
-        bindListItem(document.querySelector(`#list [data-open="${order.id}"]`));
-      }
-
-      async function loadCounts() {
-        try {
-          const res = await adminApi("/api/admin/orders?limit=1");
-          renderTabs(res.summary);
-          setNewOrderBadge(res.summary.new);
-        } catch {
-        }
-      }
-
-      async function update(o, body) {
-        const res = await adminApi(`/api/admin/orders/${o.id}`, { method: "PATCH", body });
-        showNotification(res.message, res.message.includes("not sent") ? "warning" : "success");
-        refreshRow(res.data);
-        renderDetail(res.data);
-        loadCounts();
-      }
-
-      function bindDetail(o) {
-        detail.querySelector("[data-back]").addEventListener("click", closeDetail);
-        const input = document.getElementById("buyer-message");
-        const sendBtn = detail.querySelector("[data-send]");
-
-        const statusSel = document.getElementById("status-select");
-        statusSel.addEventListener("change", async () => {
-          const value = statusSel.value;
-          const confirmText = {
-            confirmed: "The buyer is emailed that the order is confirmed, and the seller is told about the order.",
-            paid: o.livestock_id ? `${o.quantity} will be taken off the listing.` : "",
-            completed: o.livestock_id && !o.stock_deducted ? `${o.quantity} will be taken off the listing.` : "",
-            cancelled: o.stock_deducted ? `${o.quantity} will be put back on the listing.` : "",
-          }[value];
-          const ok = await confirmAction({
-            title: `Mark as ${statusLabel(value).toLowerCase()}?`,
-            message: [confirmText, "The buyer is emailed about the change.", input.value.trim() ? "Your message is included." : ""].filter(Boolean).join(" "),
-            confirmText: `Mark ${statusLabel(value).toLowerCase()}`,
-            variant: value === "cancelled" ? "danger" : undefined,
-          });
-          if (!ok) { statusSel.value = o.status; return; }
-          statusSel.disabled = true;
-          try {
-            await update(o, { status: value, message: input.value.trim() || undefined });
-          } catch (error) {
-            statusSel.value = o.status;
-            statusSel.disabled = false;
-            showNotification(error.message, "error");
-          }
-        });
-
-        sendBtn.addEventListener("click", async () => {
+        const input = box.querySelector("[data-message]");
+        const send = box.querySelector("[data-send]");
+        send.addEventListener("click", async () => {
           const message = input.value.trim();
           if (!message) return input.focus();
-          sendBtn.disabled = true;
+          send.disabled = true;
           try {
             await update(o, { message });
           } catch (error) {
             showNotification(error.message, "error");
-            sendBtn.disabled = false;
+            send.disabled = false;
           }
         });
-        input.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) sendBtn.click(); });
-        const grow = () => { input.style.height = "auto"; input.style.height = `${Math.min(input.scrollHeight + 2, 140)}px`; };
-        input.addEventListener("input", grow);
-        grow();
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send.click(); });
       }
 
-      document.getElementById("tab-select").addEventListener("change", (e) => { state.tab = e.target.value; loadList(1); });
       let searchTimer;
       document.getElementById("search").addEventListener("input", (e) => {
         clearTimeout(searchTimer);
@@ -329,15 +304,12 @@
       });
 
       (async () => {
-        placeholder();
         await initAdminPage("orders");
         const q = getQueryParams();
-        if (q.status) state.tab = q.status;
+        if (q.status) state.status = q.status;
         if (q.q) { state.q = q.q; document.getElementById("search").value = q.q; }
-        renderTabs();
+        if (q.id) state.open = String(q.id);
         await loadList(1);
-        if (q.id) openOrder(q.id);
-        else if (window.matchMedia("(min-width: 1024px)").matches && state.rows.length) openOrder(state.rows[0].id);
       })();
     </script>
   </body>
