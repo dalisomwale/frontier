@@ -4174,3 +4174,21 @@ body.admin-pending main {
     border-radius: 8px;
   }
 }
+
+/* Buy Now: muted, close to Contact Seller with a slight green tint */
+.btn-buy {
+  background: #dbe4de;
+  color: #2e4a3a;
+  border: 1px solid #c6d3ca;
+}
+
+.btn-buy:hover:not(:disabled) {
+  background: #cfdbd3;
+  border-color: #b9c9be;
+  color: #243d2f;
+}
+
+.btn-buy .btn-spinner {
+  border-color: rgba(46, 74, 58, 0.25);
+  border-top-color: #2e4a3a;
+}
