@@ -290,6 +290,8 @@ CREATE TABLE IF NOT EXISTS orders (
   delivery         ENUM('collect', 'deliver') NOT NULL DEFAULT 'collect',
   delivery_address VARCHAR(300) NULL,
   payment_method   ENUM('mobile_money', 'bank_transfer') NOT NULL DEFAULT 'mobile_money',
+  mobile_operator  ENUM('airtel', 'mtn', 'zamtel') NULL,
+  payment_phone    VARCHAR(30) NULL,
   status           ENUM('new', 'confirmed', 'paid', 'completed', 'cancelled') NOT NULL DEFAULT 'new',
   stock_deducted   TINYINT(1) NOT NULL DEFAULT 0,
   seller_notified_at DATETIME NULL,

@@ -23,6 +23,14 @@ function validateOrder(values, needsAddress) {
   if (!values.email) errors.email = "Email is required.";
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(values.email)) errors.email = "Please enter a valid email address.";
   if (needsAddress && values.delivery_address.length < 5) errors.delivery_address = "Please enter the delivery address.";
+  if (!values.payment_method) errors.payment_method = "Please choose how you'll pay.";
+  else if (values.payment_method === "mobile_money") {
+    const payDigits = values.payment_phone.replace(/\D/g, "");
+    if (!values.mobile_operator) errors.mobile_operator = "Please choose your mobile money operator.";
+    else if (!values.payment_phone) errors.payment_phone = "Please enter the mobile money number.";
+    else if (!/^\+?[\d\s\-()]{7,25}$/.test(values.payment_phone) || payDigits.length < 7 || payDigits.length > 15)
+      errors.payment_phone = "Please enter a valid number, e.g. 0977 123 456.";
+  }
   return errors;
 }
 
@@ -85,10 +93,27 @@ function renderCheckout(root, listing, startQuantity = 1) {
         <section class="checkout-section">
           <h2>Payment</h2>
           <div class="choice-grid">
-            <label class="choice-card"><input type="radio" name="payment_method" value="mobile_money" checked>
-              <span class="choice-dot"></span><span><b>Mobile money</b><small class="pay-names"><i class="pay-airtel">Airtel</i><i class="pay-mtn">MTN</i><i class="pay-zamtel">Zamtel</i></small></span></label>
+            <label class="choice-card"><input type="radio" name="payment_method" value="mobile_money">
+              <span class="choice-dot"></span><span><b>Mobile money</b><small>Airtel, MTN or Zamtel</small></span></label>
             <label class="choice-card"><input type="radio" name="payment_method" value="bank_transfer">
               <span class="choice-dot"></span><span><b>Bank transfer</b><small>Details sent to you</small></span></label>
+          </div>
+          <p class="field-error hidden" data-error-for="payment_method"></p>
+
+          <div data-momo hidden class="momo-box">
+            <p class="field-label">Operator</p>
+            <div class="operator-grid" role="radiogroup" aria-label="Mobile money operator">
+              <label class="operator-card op-airtel"><input type="radio" name="mobile_operator" value="airtel"><span class="op-tick" aria-hidden="true"></span><span>Airtel Money</span></label>
+              <label class="operator-card op-mtn"><input type="radio" name="mobile_operator" value="mtn"><span class="op-tick" aria-hidden="true"></span><span>MTN MoMo</span></label>
+              <label class="operator-card op-zamtel"><input type="radio" name="mobile_operator" value="zamtel"><span class="op-tick" aria-hidden="true"></span><span>Zamtel Kwacha</span></label>
+            </div>
+            <p class="field-error hidden" data-error-for="mobile_operator"></p>
+
+            <div data-momo-number hidden class="mt-4">
+              <label for="buy-momo" class="field-label" data-momo-label>Mobile money number</label>
+              <input id="buy-momo" name="payment_phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" placeholder="0977 123 456">
+              <p class="field-error hidden" data-error-for="payment_phone"></p>
+            </div>
           </div>
           <p class="text-xs text-gray-500 mt-3">You don't pay now. We confirm with the seller first, then send payment details to your WhatsApp and email.</p>
         </section>
@@ -131,9 +156,22 @@ function renderCheckout(root, listing, startQuantity = 1) {
   const submits = root.querySelectorAll("[data-submit]");
   const qtyInput = form.elements.quantity;
 
+  let placing = false;
+  // Place order stays disabled until every required field is filled in.
+  function updateReady() {
+    if (placing) return;
+    const values = readValues();
+    const ready = !Object.keys(validateOrder(values, values.delivery === "deliver")).length;
+    submits.forEach((b) => {
+      b.disabled = !ready;
+      b.title = ready ? "" : "Fill in your details and payment to place the order";
+    });
+  }
+
   function refresh() {
     root.querySelector("[data-total]").textContent = kwacha(total());
     submits.forEach((b) => { b.textContent = `Place order · ${kwacha(total())}`; });
+    updateReady();
     if (qtyInput) {
       root.querySelector('[data-step="-1"]').disabled = qty <= 1;
       root.querySelector('[data-step="1"]').disabled = qty >= max;
@@ -157,6 +195,22 @@ function renderCheckout(root, listing, startQuantity = 1) {
     addressBox.hidden = form.elements.delivery.value !== "deliver";
     if (!addressBox.hidden) form.elements.delivery_address.focus();
   }));
+  const momoBox = root.querySelector("[data-momo]");
+  const momoNumber = root.querySelector("[data-momo-number]");
+  const OPERATOR_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
+  form.querySelectorAll('input[name="payment_method"]').forEach((r) => r.addEventListener("change", () => {
+    momoBox.hidden = form.elements.payment_method.value !== "mobile_money";
+  }));
+  form.querySelectorAll('input[name="mobile_operator"]').forEach((r) => r.addEventListener("change", () => {
+    momoNumber.hidden = false;
+    root.querySelector("[data-momo-label]").textContent = `${OPERATOR_NAMES[r.value]} number`;
+    const momoInput = form.elements.payment_phone;
+    if (!momoInput.value && form.elements.phone.value.trim()) momoInput.value = form.elements.phone.value.trim();
+    momoInput.focus();
+    updateReady();
+  }));
+  form.addEventListener("input", updateReady);
+  form.addEventListener("change", updateReady);
   refresh();
 
   function readValues() {
@@ -167,6 +221,8 @@ function renderCheckout(root, listing, startQuantity = 1) {
       delivery: form.elements.delivery.value,
       delivery_address: form.elements.delivery_address.value.trim(),
       payment_method: form.elements.payment_method.value,
+      mobile_operator: form.elements.mobile_operator.value,
+      payment_phone: form.elements.payment_phone.value.trim(),
     };
   }
 
@@ -195,6 +251,7 @@ function renderCheckout(root, listing, startQuantity = 1) {
     showErrors(errors);
     if (Object.keys(errors).length) return;
 
+    placing = true;
     submits.forEach((b) => {
       b.disabled = true;
       b.innerHTML = `<span class="btn-spinner"></span> Placing order…`;
@@ -210,7 +267,7 @@ function renderCheckout(root, listing, startQuantity = 1) {
       alertBox.textContent = error.message || "Your order could not be placed. Please try again.";
       alertBox.classList.remove("hidden");
       alertBox.scrollIntoView({ behavior: "smooth", block: "center" });
-      submits.forEach((b) => { b.disabled = false; });
+      placing = false;
       refresh();
     }
   });

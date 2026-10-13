@@ -19,6 +19,7 @@ const {
   orderRef,
   kwacha,
   headCount,
+  paymentText,
   parseOrderRef,
 } = require("../../lib/orders");
 
@@ -177,7 +178,7 @@ router.patch("/:id", async (req, res, next) => {
         ["Quantity", qtyText],
         ["Total", kwacha(order.total)],
         ["Delivery", order.delivery === "deliver" ? `${DELIVERY_LABELS.deliver}: ${order.delivery_address}` : DELIVERY_LABELS.collect],
-        ["Payment", PAYMENT_LABELS[order.payment_method]],
+        ["Payment", paymentText(order)],
       ],
     });
 

@@ -53,6 +53,7 @@
       const TABS = [{ value: "", label: "All" }, ...STATUSES];
       const DELIVERY = { collect: "Collect from farm", deliver: "Deliver to buyer" };
       const PAYMENT = { mobile_money: "Mobile money", bank_transfer: "Bank transfer" };
+      const OPERATORS = { airtel: "Airtel Money", mtn: "MTN Mobile Money", zamtel: "Zamtel Kwacha" };
       const state = { tab: "", q: "", page: 1, pages: 1, rows: [], selected: null };
       const statusLabel = (s) => STATUSES.find((x) => x.value === s)?.label || s;
       const inbox = document.getElementById("inbox");
@@ -198,6 +199,8 @@
                   ["Delivery", escapeHtml(DELIVERY[o.delivery])],
                   ["Address", o.delivery === "deliver" ? escapeHtml(o.delivery_address) : null],
                   ["Payment", escapeHtml(PAYMENT[o.payment_method])],
+                  ["Operator", o.payment_method === "mobile_money" && o.mobile_operator ? escapeHtml(OPERATORS[o.mobile_operator]) : null],
+                  ["Pay from", o.payment_method === "mobile_money" && o.payment_phone ? `<a href="tel:${tel(o.payment_phone)}" class="hover:underline">${escapeHtml(o.payment_phone)}</a>` : null],
                 ])}
               </section>
 

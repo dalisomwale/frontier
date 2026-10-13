@@ -5,7 +5,7 @@ const express = require("express");
 const pool = require("../db");
 const { sendEmail, recipients, appUrl } = require("../services/mailer");
 const { positiveInt, text, isEmail, isPhone, oneOf, badRequest, notFound } = require("../lib/validate");
-const { orderRef, kwacha, headCount, DELIVERY_LABELS, PAYMENT_LABELS } = require("../lib/orders");
+const { orderRef, kwacha, headCount, paymentText, DELIVERY_LABELS } = require("../lib/orders");
 
 const router = express.Router();
 
@@ -16,7 +16,9 @@ function validate(body) {
   const email = text(body.email, 255);
   const delivery = oneOf(body.delivery || "collect", ["collect", "deliver"]);
   const address = text(body.delivery_address, 300);
-  const payment = oneOf(body.payment_method || "mobile_money", ["mobile_money", "bank_transfer"]);
+  const payment = oneOf(body.payment_method, ["mobile_money", "bank_transfer"]);
+  const operator = payment === "mobile_money" ? oneOf(body.mobile_operator, ["airtel", "mtn", "zamtel"]) : null;
+  const paymentPhone = payment === "mobile_money" ? text(body.payment_phone, 30) : null;
 
   if (!fullName || fullName.length < 2) errors.full_name = "Please enter your full name.";
   if (!phone || !isPhone(phone)) errors.phone = "Please enter a valid WhatsApp number, e.g. 0977 123 456.";
@@ -25,6 +27,10 @@ function validate(body) {
   if (delivery === "deliver" && (!address || address.length < 5))
     errors.delivery_address = address === undefined ? "Address must be 300 characters or fewer." : "Please enter the delivery address.";
   if (!payment) errors.payment_method = "Please choose how you'll pay.";
+  else if (payment === "mobile_money") {
+    if (!operator) errors.mobile_operator = "Please choose your mobile money operator.";
+    if (!paymentPhone || !isPhone(paymentPhone)) errors.payment_phone = "Please enter the mobile money number, e.g. 0977 123 456.";
+  }
 
   return {
     errors,
@@ -35,6 +41,8 @@ function validate(body) {
       delivery,
       delivery_address: delivery === "deliver" ? address : null,
       payment_method: payment,
+      mobile_operator: operator,
+      payment_phone: payment === "mobile_money" ? paymentPhone : null,
     },
   };
 }
@@ -83,11 +91,11 @@ router.post("/", async (req, res, next) => {
     const [result] = await pool.query(
       `INSERT INTO orders
          (livestock_id, livestock_title, seller_id, seller_name, quantity, unit_price, price_unit, total,
-          full_name, phone, email, delivery, delivery_address, payment_method, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          full_name, phone, email, delivery, delivery_address, payment_method, mobile_operator, payment_phone, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [item.id, item.title, item.seller_id, sellerName, quantity, unitPrice, item.price_unit, total,
         values.full_name, values.phone, values.email, values.delivery, values.delivery_address,
-        values.payment_method, req.ip],
+        values.payment_method, values.mobile_operator, values.payment_phone, req.ip],
     );
     const id = result.insertId;
     const reference = orderRef(id);
@@ -112,7 +120,7 @@ router.post("/", async (req, res, next) => {
           ["WhatsApp", values.phone],
           ["Email", values.email],
           ["Delivery", deliveryText],
-          ["Payment", PAYMENT_LABELS[values.payment_method]],
+          ["Payment", paymentText(values)],
         ],
         button: { label: "Open order", url: appUrl(`/admin/orders.html?id=${id}`) },
       }),
@@ -129,7 +137,7 @@ router.post("/", async (req, res, next) => {
           ["Quantity", qtyText],
           ["Total", kwacha(total)],
           ["Delivery", deliveryText],
-          ["Payment", PAYMENT_LABELS[values.payment_method]],
+          ["Payment", paymentText(values)],
         ],
       }),
     ]);

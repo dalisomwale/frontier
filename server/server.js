@@ -249,8 +249,20 @@ const LATE_COLUMNS = [
   ["livestock", "price", "DECIMAL(12,2) NULL AFTER quantity"],
   ["livestock", "price_unit", "ENUM('head', 'lot') NOT NULL DEFAULT 'head' AFTER price"],
   ["livestock", "price_negotiable", "TINYINT(1) NOT NULL DEFAULT 0 AFTER price_unit"],
+  ["orders", "mobile_operator", "ENUM('airtel', 'mtn', 'zamtel') NULL AFTER payment_method"],
+  ["orders", "payment_phone", "VARCHAR(30) NULL AFTER mobile_operator"],
 ];
 async function ensureLateTables() {
+  const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");
+  for (const table of LATE_TABLES) {
+    const match = schema.match(new RegExp(`CREATE TABLE IF NOT EXISTS ${table} \\([\\s\\S]*?\\) ENGINE=[^;]*;`));
+    if (!match) continue;
+    try {
+      await pool.query(match[0]);
+    } catch (error) {
+      console.error(`Could not create table ${table}: ${error.message}. Run: npm run db:setup`);
+    }
+  }
   for (const [table, column, definition] of LATE_COLUMNS) {
     try {
       const [found] = await pool.query(
@@ -260,16 +272,6 @@ async function ensureLateTables() {
       if (!found.length) await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
     } catch (error) {
       console.error(`Could not add ${table}.${column}: ${error.message}. Run: npm run db:setup`);
-    }
-  }
-  const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");
-  for (const table of LATE_TABLES) {
-    const match = schema.match(new RegExp(`CREATE TABLE IF NOT EXISTS ${table} \\([\\s\\S]*?\\) ENGINE=[^;]*;`));
-    if (!match) continue;
-    try {
-      await pool.query(match[0]);
-    } catch (error) {
-      console.error(`Could not create table ${table}: ${error.message}. Run: npm run db:setup`);
     }
   }
 }

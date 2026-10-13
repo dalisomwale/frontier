@@ -246,6 +246,12 @@ async function main() {
     ["price_unit", "ENUM('head', 'lot') NOT NULL DEFAULT 'head' AFTER price"],
     ["price_negotiable", "TINYINT(1) NOT NULL DEFAULT 0 AFTER price_unit"],
   ], "listings can now have a price");
+  if (await tableExists(conn, "orders")) {
+    await addColumns("orders", [
+      ["mobile_operator", "ENUM('airtel', 'mtn', 'zamtel') NULL AFTER payment_method"],
+      ["payment_phone", "VARCHAR(30) NULL AFTER mobile_operator"],
+    ], "orders now record the mobile money operator and number");
+  }
   await addColumns("inquiries", [
     ["forwarded_at", "DATETIME NULL AFTER seller_name"],
     ["forward_message", "TEXT NULL AFTER forwarded_at"],
