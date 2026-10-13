@@ -88,7 +88,6 @@ function renderLivestockCard(item) {
           <span class="flex items-center gap-1 min-w-0"><span class="meta-icon">${uiIcon("location")}</span><span class="truncate">${escapeHtml(item.location)}</span></span>
           ${typeLine ? `<span class="whitespace-nowrap">${escapeHtml(typeLine)}</span>` : ""}
         </div>
-        ${item.description ? `<p class="hidden sm:block text-xs text-gray-600 line-clamp-2 mb-2">${escapeHtml(item.description)}</p>` : ""}
         ${cardPrice(item)}
         <div class="buy-row mt-auto ${buyable ? "" : "buy-row-single"}">
           ${buyable ? `<button type="button" class="btn-buy" data-buy="${item.id}">Buy Now</button>` : ""}
