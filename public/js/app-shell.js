@@ -7,12 +7,14 @@ function renderBottomNav(variant = "public") {
 
   const path = window.location.pathname.replace(/\/$/, "/index.html");
   const hash = window.location.hash;
+  const feedPage = new URLSearchParams(window.location.search).get("kind") === "feed";
 
   const tabs =
     variant === "admin"
       ? [
           { href: "/admin/index.html", icon: "dashboard", label: "Overview", match: ["/admin/index.html"] },
-          { href: "/admin/livestock.html", icon: "listings", label: "Livestock", match: ["/admin/livestock.html"] },
+          { href: "/admin/livestock.html", icon: "listings", label: "Livestock", match: ["/admin/livestock.html"], feed: false },
+          { href: "/admin/livestock.html?kind=feed", icon: "feed", label: "Feed", match: ["/admin/livestock.html"], feed: true },
           { href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", match: ["/admin/inquiries.html"], badge: true },
           { href: "/admin/orders.html", icon: "cart", label: "Orders", match: ["/admin/orders.html"], orderBadge: true },
           { href: "/admin/sellers.html", icon: "users", label: "Sellers", match: ["/admin/sellers.html"] },
@@ -28,7 +30,8 @@ function renderBottomNav(variant = "public") {
   mount.innerHTML = tabs
     .map((tab) => {
       const active =
-        tab.match.includes(path) && (tab.exactHash === undefined || tab.exactHash === hash);
+        tab.match.includes(path) && (tab.exactHash === undefined || tab.exactHash === hash) &&
+        (tab.feed === undefined || tab.feed === feedPage);
       const badgeAttr = tab.badge ? "data-new-badge" : tab.orderBadge ? "data-order-badge" : "";
       const badge = badgeAttr
         ? `<span ${badgeAttr} class="hidden absolute -top-1.5 -right-2.5 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full items-center justify-center leading-none">0</span>`
@@ -53,6 +56,7 @@ function renderSidebar(active) {
   const items = [
     { key: "dashboard", href: "/admin/index.html", icon: "dashboard", label: "Dashboard" },
     { key: "livestock", href: "/admin/livestock.html", icon: "listings", label: "Livestock" },
+    { key: "feed", href: "/admin/livestock.html?kind=feed", icon: "feed", label: "Feed" },
     { key: "inquiries", href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", badge: true },
     { key: "orders", href: "/admin/orders.html", icon: "cart", label: "Orders", orderBadge: true },
     { key: "sellers", href: "/admin/sellers.html", icon: "users", label: "Sellers" },

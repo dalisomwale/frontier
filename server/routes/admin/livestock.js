@@ -225,6 +225,12 @@ router.get("/", async (req, res, next) => {
     const sellerId = req.query.seller_id === "none" ? "none" : positiveInt(req.query.seller_id);
     const q = text(req.query.q, 100);
     const review = oneOf(req.query.review, ["pending", "rejected", "approved"]);
+    // Admin > Livestock and Admin > Feed each list their own kind.
+    const kind = oneOf(req.query.kind, ["livestock", "feed"]);
+    if (kind) {
+      where.push("a.kind = ?");
+      params.push(kind);
+    }
     if (review) {
       where.push("l.review_status = ?");
       params.push(review);
@@ -276,11 +282,18 @@ router.get("/", async (req, res, next) => {
        LEFT JOIN sellers s ON s.id = l.seller_id WHERE ${condition}`,
       params,
     );
-    const [[{ pending }]] = await pool.query("SELECT COUNT(*) AS pending FROM livestock WHERE review_status = 'pending'");
+    // Pending review counts, for this page's kind and for the other one.
+    const [[counts]] = await pool.query(
+      `SELECT SUM(a.kind = 'livestock') AS livestock, SUM(a.kind = 'feed') AS feed
+       FROM livestock l JOIN categories c ON c.id = l.category_id JOIN animals a ON a.id = c.animal_id
+       WHERE l.review_status = 'pending'`,
+    );
+    const pendingBy = { livestock: Number(counts.livestock) || 0, feed: Number(counts.feed) || 0 };
+    const pending = kind ? pendingBy[kind] : pendingBy.livestock + pendingBy.feed;
     res.json({
       success: true,
       data: rows,
-      summary: { pending: Number(pending) },
+      summary: { pending, pending_by_kind: pendingBy },
       pagination: { current: page, total: Math.max(1, Math.ceil(total / limit)), totalItems: Number(total) },
     });
   } catch (error) {
