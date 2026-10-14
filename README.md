@@ -155,8 +155,8 @@ The same events also appear in the seller dashboard straight away: a bell with a
 
 ## Prices and Buy Now
 
-- Listings can have a price in Kwacha, **per head** or **for the lot**, and can
-  be marked negotiable. Sellers and admins set it in the listing form. With no
+- Listings can have a price in Kwacha, **per head** or **for the lot**. Sellers
+  and admins set it in the listing form. With no
   price the website shows "Price on request" and only Contact Seller.
 - Priced listings show **Buy Now** beside **Contact Seller**. Buy Now opens a
   checkout page (/buy.html). The buyer picks a

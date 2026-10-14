@@ -208,8 +208,7 @@
         }
         priceBox.innerHTML = `
           <span class="buy-price">${kwacha(item.price)}</span>
-          <span class="buy-price-unit">${priceUnitLabel(item)}</span>
-          ${Number(item.price_negotiable) ? '<span class="lv-price-tag">Negotiable</span>' : ""}`;
+          <span class="buy-price-unit">${priceUnitLabel(item)}</span>`;
         const max = Math.max(1, Number(item.quantity) || 1);
         const lot = item.price_unit === "lot";
         const totalBox = document.getElementById("buy-total");

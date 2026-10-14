@@ -63,16 +63,15 @@ function priceUnitLabel(item, short = false) {
 }
 
 // The price row: "Price on request", or the lot total. A per-head price is
-// on the location line instead, so its row only carries "Negotiable".
+// on the location line instead, so it has no row.
 function cardPrice(item) {
   if (!hasPrice(item)) return `<div class="lv-price-row"><span class="lv-price-request">Price on request</span></div>`;
   if (item.price_unit !== "lot") {
-    return Number(item.price_negotiable) ? `<div class="lv-price-row"><span class="lv-price-tag">Negotiable</span></div>` : "";
+    return "";
   }
   return `<div class="lv-price-row">
     <span class="lv-price">${kwacha(item.price)}</span>
     <span class="lv-price-unit"><span class="lbl-full">${priceUnitLabel(item)}</span><span class="lbl-short">${priceUnitLabel(item, true)}</span></span>
-    ${Number(item.price_negotiable) ? '<span class="lv-price-tag">Negotiable</span>' : ""}
   </div>`;
 }
 

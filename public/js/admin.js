@@ -238,18 +238,12 @@ function priceFields(item = {}) {
     </div>
     ${field({ name: "price_unit", label: "Priced", value: item.price_unit || "head",
         options: [{ value: "head", label: "Per head" }, { value: "lot", label: "For the lot" }] })}
-    <label class="switch-row">
-      <input type="checkbox" name="price_negotiable" value="1" ${Number(item.price_negotiable) ? "checked" : ""}>
-      <span class="switch" aria-hidden="true"></span>
-      <span>Negotiable</span>
-    </label>
   </div>`;
 }
 
 function appendPriceFields(fd, form) {
   fd.append("price", form.elements.price.value.trim());
   fd.append("price_unit", form.elements.price_unit.value);
-  fd.append("price_negotiable", form.elements.price_negotiable.checked ? "1" : "0");
 }
 
 const MAX_DESCRIPTION_WORDS = 50;

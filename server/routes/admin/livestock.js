@@ -42,7 +42,6 @@ async function payload(body) {
   const priceText = priceGiven && body.price !== null ? String(body.price).replace(/[\s,]/g, "").replace(/^(k|zmw)/i, "") : "";
   const price = priceText === "" ? null : Number(priceText);
   const priceUnit = body.price_unit === undefined || body.price_unit === "" ? "head" : oneOf(body.price_unit, ["head", "lot"]);
-  const negotiable = ["1", "true", "on", "yes"].includes(String(body.price_negotiable ?? "").toLowerCase()) || body.price_negotiable === true;
 
   const errors = {};
   let purposeRow = null;
@@ -115,7 +114,7 @@ async function payload(body) {
     price_given: priceGiven,
     price,
     price_unit: priceUnit || "head",
-    price_negotiable: price !== null && negotiable ? 1 : 0,
+    price_negotiable: 0, // "Negotiable" was removed; the column stays for old rows
   };
 }
 
