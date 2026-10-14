@@ -24,7 +24,7 @@ function renderBottomNav(variant = "public") {
       : [
           { href: "/", icon: "home", label: "Home", match: ["/index.html"], exactHash: "" },
           { href: "/#listings", icon: "search", label: "Browse", match: ["/index.html"], exactHash: "#listings" },
-          { href: "/#categories", icon: "layers", label: "Categories", match: ["/index.html"], exactHash: "#categories" },
+          { href: "/#feed", icon: "feed", label: "Feed", match: ["/index.html"], exactHash: "#feed" },
         ];
 
   mount.innerHTML = tabs

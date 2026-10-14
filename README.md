@@ -216,7 +216,7 @@ The homepage filter cascades, and every option comes from the database:
 | Pigs | Meat, Commercial |
 | Poultry | Layers, Broilers, Dual-Purpose, Breeding |
 
-**Photo tiles:** the homepage shows animal tiles; choosing an animal (tile or dropdown) switches them to that animal's production-purpose tiles, and clicking one filters the listings. Animal tiles show one photo (uploaded, else a recent listing photo, else a stock photo). **Purpose tiles slide through their photos** inside the card (about every 4 seconds, staggered; the text stays still; paused for visitors who prefer reduced motion), using the uploaded photos, else recent listing photos, else the animal's photo.
+**Browse Livestock:** the homepage section is a filter bar over the listings: one row of livestock types (All, Cattle, Goats, Sheep, Pigs, Poultry, Pets; a single swipeable line on phones) and a **Province** filter button on the right with all 10 provinces. The listings title follows the choice (e.g. "Cattle in Lusaka"). Purposes and breeds are still reachable from the header's Browse Categories menu ("Dairy Cattle").
 
 Cattle breeds come from the client's cattle breed reference document. The other animals' breeds are common Zambian / Southern African breeds; review them in Admin → Breeds.
 - Province always lists all 10 Zambian provinces (Central, Copperbelt, Eastern, Luapula, Lusaka, Muchinga, Northern, North-Western, Southern, Western), with listing counts for the earlier choices. Admins pick a listing's province from the same list.

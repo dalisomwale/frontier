@@ -4727,3 +4727,190 @@ body.admin-pending main {
   border-color: #1f3d2b;
   color: #fff;
 }
+
+/* Browse Livestock filter bar: livestock types in one row (swipe on phones)
+   and a province filter on the right. */
+.lv-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.lv-types {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lv-type {
+  flex: none;
+  padding: 6px 14px;
+  border: 1px solid #e3e8e4;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  color: #10231a;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.lv-type:hover {
+  border-color: #b9c7bd;
+}
+
+.lv-type.is-active {
+  background: #1f3d2b;
+  border-color: #1f3d2b;
+  color: #fff;
+}
+
+.lv-type:focus-visible,
+.lv-prov-btn:focus-visible,
+.lv-prov-item:focus-visible {
+  outline: 2px solid #65a30d;
+  outline-offset: 2px;
+}
+
+.lv-prov {
+  position: relative;
+  flex: none;
+  align-self: flex-start;
+}
+
+.lv-prov-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid #e3e8e4;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #10231a;
+}
+
+.lv-prov-btn.has-value {
+  border-color: #1f3d2b;
+}
+
+.lv-prov-icon {
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+}
+
+.lv-prov-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #65a30d;
+}
+
+.lv-prov-pop {
+  position: absolute;
+  right: 0;
+  top: 40px;
+  z-index: 40;
+  width: 220px;
+  max-height: min(70vh, 460px);
+  overflow-y: auto;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #e3e8e4;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px -18px rgba(16, 35, 26, 0.4);
+}
+
+.lv-prov-title {
+  padding: 6px 10px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5b6b62;
+}
+
+.lv-prov-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #10231a;
+  text-align: left;
+}
+
+.lv-prov-item:hover {
+  background: #f4f7f5;
+}
+
+.lv-prov-item.is-active {
+  background: #eef5ea;
+  font-weight: 600;
+  color: #1f3d2b;
+}
+
+.lv-prov-check {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 767px) {
+  .lv-bar {
+    align-items: center;
+  }
+
+  .lv-types {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+    mask-image: linear-gradient(90deg, #000 85%, transparent);
+    padding-right: 24px;
+  }
+
+  .lv-types::-webkit-scrollbar {
+    display: none;
+  }
+
+  .lv-types.is-end {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .lv-type {
+    scroll-snap-align: start;
+  }
+
+  .lv-prov {
+    align-self: center;
+  }
+
+  .lv-prov-btn {
+    width: 32px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .lv-prov-text {
+    display: none;
+  }
+
+  .lv-prov-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+  }
+}

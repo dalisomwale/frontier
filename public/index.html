@@ -94,21 +94,23 @@
         </div>
       </section>
 
-      <section id="categories" class="anchor-section py-12 bg-white border-t border-gray-100" aria-labelledby="categories-heading">
+      <section id="listings" class="anchor-section bg-white py-12 border-t border-gray-100" aria-labelledby="livestock-heading">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="mb-6">
-            <button type="button" id="tiles-back" class="hidden mb-2 items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"><span class="w-4 h-4" data-icon="chevronLeft"></span>All animals</button>
-            <h2 id="categories-heading" class="text-xl sm:text-2xl font-bold text-gray-900">Browse Livestock</h2>
-            <p id="categories-subheading" class="text-sm text-gray-600 mt-1">Select a livestock type for more information</p>
-          </div>
-          <div id="animal-tiles" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5"></div>
-        </div>
-      </section>
+          <h2 id="livestock-heading" class="text-xl sm:text-2xl font-bold text-gray-900">Browse Livestock</h2>
+          <p class="text-sm text-gray-600 mt-1">Select a livestock type for more information</p>
 
-      <section id="listings" class="anchor-section bg-gray-50 py-10 border-t border-gray-100" aria-labelledby="listings-heading">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="flex items-center justify-between gap-3 mb-4">
-            <h2 id="listings-heading" class="min-w-0 truncate text-xl sm:text-2xl font-bold text-gray-900">Livestock Listings</h2>
+          <div class="lv-bar">
+            <div id="type-filters" class="lv-types" role="group" aria-label="Livestock type"></div>
+            <div class="lv-prov" id="province-filter">
+              <button type="button" id="province-btn" class="lv-prov-btn" aria-haspopup="true" aria-expanded="false" aria-label="Filter by province">
+                <span class="lv-prov-icon" data-icon="filter"></span><span class="lv-prov-text" id="province-text">Province</span><span class="lv-prov-dot" id="province-dot" hidden></span>
+              </button>
+              <div id="province-pop" class="lv-prov-pop" hidden></div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between gap-3 mt-6 mb-4">
+            <h3 id="listings-heading" class="min-w-0 truncate text-lg font-bold text-gray-900">All livestock</h3>
             <label class="listing-breed" id="breed-filter-wrap" hidden>
               <span class="sr-only">Filter by breed</span>
               <select id="breed-filter"></select>
@@ -150,7 +152,6 @@
       };
       let animals = [];
       let feedTypes = [];
-      let tilesFor = null;
       let currentPage = 1;
       let optionsRequest = 0;
 
@@ -240,12 +241,11 @@
       }
 
       async function loadAnimals() {
-        const tiles = document.getElementById("animal-tiles");
         loadFeedTypes();
         try {
           animals = (await apiRequest("/api/animals")).data;
         } catch (error) {
-          renderEmptyState(tiles, { title: "Animals unavailable", message: error.message, icon: "layers" });
+          document.getElementById("type-filters").innerHTML = `<p class="text-sm text-gray-500">Livestock types could not be loaded.</p>`;
           return;
         }
 
@@ -254,151 +254,93 @@
           animals.map((a) => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
         els.animal.value = "";
 
-        tilesFor = null;
-        syncTiles();
+        syncFilterBar();
       }
 
-      // Same look as the Browse Feed tiles: photo, dark green fade, name and
-      // a short description in the bottom corner.
-      function tileHtml({ id, attr, name, subtitle = "", src, slides = null, alt, active = false }) {
-        const fallback = "this.onerror=null;this.src='/images/livestock/cattle-fallback.webp'";
-        const media = slides && slides.length > 1
-          ? `<div class="tile-slides" aria-hidden="true">${slides.map((url, i) => `
-              <img src="${escapeHtml(url)}" alt="" class="${i === 0 ? "active" : ""}" ${i === 0 ? "" : 'loading="lazy"'} decoding="async" onerror="${fallback}">`).join("")}
-              <div class="tile-dots">${slides.map((_, i) => `<span class="${i === 0 ? "active" : ""}"></span>`).join("")}</div>
-            </div>`
-          : `<img src="${escapeHtml(slides?.[0] || src)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" onerror="${fallback}">`;
-        return `
-          <a href="#listings" class="feed-tile ${active ? "ring-4 ring-blue-500 ring-offset-2" : ""}" ${attr}="${id}" aria-label="${escapeHtml(alt)}">
-            ${media}
-            <span class="feed-tile-body">
-              <span class="feed-tile-name">${escapeHtml(name)}</span>
-              ${subtitle ? `<span class="feed-tile-desc">${escapeHtml(subtitle)}</span>` : ""}
-            </span>
-          </a>`;
+      // Browse Livestock: one row of livestock types (swipeable on phones)
+      // and a province filter on the right. They drive the listings below.
+      function renderTypeFilters() {
+        const box = document.getElementById("type-filters");
+        const current = els.animal.value || "";
+        box.innerHTML = [{ id: "", name: "All" }, ...animals]
+          .map((a) => `<button type="button" class="lv-type ${String(a.id) === current ? "is-active" : ""}" data-type="${a.id}" aria-pressed="${String(a.id) === current}">${escapeHtml(a.name)}</button>`)
+          .join("");
       }
 
-      const TILE_SLIDE_MS = 4000;
-      let tileTimers = [];
-
-      function stopTileSlides() {
-        tileTimers.forEach(clearTimeout);
-        tileTimers.forEach(clearInterval);
-        tileTimers = [];
+      function renderProvinceFilter() {
+        const current = els.location.value || "";
+        document.getElementById("province-text").textContent = current || "Province";
+        document.getElementById("province-dot").hidden = !current;
+        document.getElementById("province-btn").classList.toggle("has-value", Boolean(current));
+        const check = `<span class="lv-prov-check">${uiIcon("check")}</span>`;
+        document.getElementById("province-pop").innerHTML = `<p class="lv-prov-title">Province</p>` +
+          [{ value: "", label: "All provinces" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))]
+            .map((o) => `<button type="button" class="lv-prov-item ${o.value === current ? "is-active" : ""}" data-province-pick="${escapeHtml(o.value)}">${escapeHtml(o.label)}${o.value === current ? check : ""}</button>`)
+            .join("");
       }
 
-      function startTileSlides() {
-        stopTileSlides();
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-        document.querySelectorAll("#animal-tiles .tile-slides").forEach((box, n) => {
-          const imgs = box.querySelectorAll("img");
-          const dots = box.querySelectorAll(".tile-dots span");
-          let index = 0;
-          const advance = () => {
-            imgs[index].classList.remove("active");
-            dots[index]?.classList.remove("active");
-            index = (index + 1) % imgs.length;
-            imgs[index].classList.add("active");
-            dots[index]?.classList.add("active");
-          };
-          tileTimers.push(setTimeout(() => {
-            advance();
-            tileTimers.push(setInterval(advance, TILE_SLIDE_MS));
-          }, TILE_SLIDE_MS + n * 700));
-        });
-      }
-
-      async function syncTiles() {
-        const animalId = els.animal.value || "";
-        if (tilesFor === animalId) return paintPurposeTiles();
-        tilesFor = animalId;
-        stopTileSlides();
-        const tiles = document.getElementById("animal-tiles");
-        const heading = document.getElementById("categories-heading");
-        const subheading = document.getElementById("categories-subheading");
-        const back = document.getElementById("tiles-back");
-
-        if (!animalId) {
-          heading.textContent = "Browse Livestock";
-          subheading.textContent = "Select a livestock type for more information";
-          back.classList.add("hidden");
-          back.classList.remove("inline-flex");
-          if (!animals.length) {
-            renderEmptyState(tiles, { title: "No animals yet", message: "", icon: "layers" });
-            return;
-          }
-          tiles.innerHTML = animals.map((a) => {
-            const photo = animalPhoto(a);
-            return tileHtml({
-              id: a.id, attr: "data-animal", name: a.name, subtitle: a.description,
-              src: a.image_path || a.cover_image || photo.src(),
-              alt: a.image_path || a.cover_image ? `${a.name} for sale` : photo.alt,
-            });
-          }).join("");
-          tiles.querySelectorAll("[data-animal]").forEach((tile) =>
-            tile.addEventListener("click", (event) => {
-              event.preventDefault();
-              selectAnimal(tile.dataset.animal, { scroll: false });
-              document.getElementById("categories").scrollIntoView({ behavior: "smooth" });
-            }),
-          );
-          return;
+      function syncFilterBar() {
+        renderTypeFilters();
+        renderProvinceFilter();
+        const active = document.querySelector("#type-filters .is-active");
+        const row = document.getElementById("type-filters");
+        if (active && row.scrollWidth > row.clientWidth) {
+          row.scrollTo({ left: Math.max(0, active.offsetLeft - row.offsetLeft - 16), behavior: "smooth" });
         }
-
-        const animal = animals.find((a) => String(a.id) === String(animalId));
-        heading.textContent = "Filter by Production purpose";
-        subheading.textContent = "Select a production purpose for more information";
-        back.classList.remove("hidden");
-        back.classList.add("inline-flex");
-        let purposes = [];
-        try {
-          purposes = (await apiRequest(`/api/categories?animal_id=${encodeURIComponent(animalId)}`)).data;
-        } catch (error) {
-          renderEmptyState(tiles, { title: "Purposes unavailable", message: error.message, icon: "layers" });
-          return;
-        }
-        if (tilesFor !== animalId) return;
-        if (!purposes.length) {
-          renderEmptyState(tiles, { title: "No production purposes yet", message: "", icon: "layers" });
-          return;
-        }
-        const fallback = animal ? animal.image_path || animalPhoto(animal).src() : "/images/livestock/cattle-fallback.webp";
-        tiles.innerHTML = purposes.map((p) => tileHtml({
-          id: p.id, attr: "data-purpose", name: p.name, subtitle: p.description,
-          slides: p.photos.length ? p.photos : p.listing_photos.length ? p.listing_photos : [fallback],
-          alt: `${p.animal_name} - ${p.name}`,
-        })).join("");
-        tiles.querySelectorAll("[data-purpose]").forEach((tile) =>
-          tile.addEventListener("click", async (event) => {
-            event.preventDefault();
-            els.purpose.value = tile.dataset.purpose;
-            els.breed.value = "";
-            await refreshOptions();
-            applyFilters({ scroll: true });
-          }),
-        );
-        paintPurposeTiles();
-        startTileSlides();
+        updateTypesFade();
       }
 
-      function paintPurposeTiles() {
-        document.querySelectorAll("#animal-tiles [data-purpose]").forEach((tile) => {
-          const on = tile.dataset.purpose === els.purpose.value;
-          tile.classList.toggle("ring-4", on);
-          tile.classList.toggle("ring-blue-500", on);
-          tile.classList.toggle("ring-offset-2", on);
-        });
+      // The fade on the right of the swipeable row hints at more types; drop
+      // it once the row is scrolled to the end (or everything fits).
+      function updateTypesFade() {
+        const row = document.getElementById("type-filters");
+        row.classList.toggle("is-end", row.scrollLeft + row.clientWidth >= row.scrollWidth - 4);
+      }
+      document.getElementById("type-filters").addEventListener("scroll", updateTypesFade, { passive: true });
+      window.addEventListener("resize", updateTypesFade);
+
+      function setProvinceOpen(open) {
+        document.getElementById("province-pop").hidden = !open;
+        document.getElementById("province-btn").setAttribute("aria-expanded", String(open));
       }
 
-      document.getElementById("tiles-back").addEventListener("click", () => selectAnimal(""));
-
-      async function selectAnimal(id, { scroll = false } = {}) {
-        els.animal.value = id;
+      document.getElementById("type-filters").addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-type]");
+        if (!btn) return;
+        els.animal.value = btn.dataset.type;
         els.purpose.value = "";
         els.breed.value = "";
-        els.location.value = "";
+        setSearch("");
         await refreshOptions();
-        applyFilters({ scroll });
+        applyFilters({ scroll: false });
+      });
+
+      document.getElementById("province-btn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        setProvinceOpen(document.getElementById("province-pop").hidden);
+      });
+
+      document.getElementById("province-pop").addEventListener("click", async (e) => {
+        const item = e.target.closest("[data-province-pick]");
+        if (!item) return;
+        setProvinceOpen(false);
+        els.location.value = item.dataset.provincePick;
+        await refreshOptions();
+        applyFilters({ scroll: false });
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!document.getElementById("province-filter").contains(e.target)) setProvinceOpen(false);
+      });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") setProvinceOpen(false); });
+
+      // "Dairy Cattle in Lusaka" / "Cattle" / "All livestock"
+      function listingsTitle() {
+        if (searchQuery) return `Results for "${searchQuery}"`;
+        const animal = animals.find((a) => String(a.id) === els.animal.value);
+        const purpose = els.purpose.value ? (els.purpose.selectedOptions[0]?.textContent || "").replace(/ \(\d+\)$/, "") : "";
+        const what = animal ? [purpose, animal.name].filter(Boolean).join(" ") : "All livestock";
+        return els.location.value ? `${what} in ${els.location.value}` : what;
       }
 
       function placeholderOption(text) {
@@ -490,7 +432,7 @@
 
         renderBreedFilter(data.breeds);
         fillSelect(els.location, "Select province", data.locations.map((l) => ({ value: l.value, label: withCount(l.value, l.count) })), els.location.value);
-        syncTiles();
+        syncFilterBar();
       }
 
       els.animal.addEventListener("change", () => {
@@ -525,7 +467,7 @@
 
       async function loadListings(page = 1) {
         const container = document.getElementById("listings-container");
-        document.getElementById("listings-heading").textContent = searchQuery ? `Results for "${searchQuery}"` : "Livestock Listings";
+        document.getElementById("listings-heading").textContent = listingsTitle();
         renderSkeletonCards(container, 6);
         const params = currentFilters();
         params.set("page", page);
@@ -758,8 +700,8 @@
           if (d.feedStage) return (location.href = feedUrl(d.feedType, d.feedStage));
           if (d.feedAll) return (location.href = feedUrl(d.feedAll));
           if (d.group) {
-            // Livestock -> "Browse Livestock", Feed -> "Browse Feed".
-            const section = document.getElementById(d.group === "feed" ? "feed" : "categories");
+            // Livestock -> "Browse Livestock" (the listings section), Feed -> "Browse Feed".
+            const section = document.getElementById(d.group === "feed" ? "feed" : "listings");
             const item = link.closest(".nav-item");
             if (section && !section.hidden && !item.classList.contains("is-open")) section.scrollIntoView({ behavior: "smooth" });
             return toggleFlyout(item);
@@ -905,6 +847,7 @@
         if (q.breed_id) { els.breed.value = q.breed_id; await refreshOptions(); }
         if (q.location) els.location.value = q.location;
         if (q.q) setSearch(q.q);
+        syncFilterBar();
         currentPage = Math.max(1, Number.parseInt(q.page, 10) || 1);
         await loadListings(currentPage);
         if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
