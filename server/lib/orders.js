@@ -45,9 +45,10 @@ function kwacha(value) {
   return `K ${n.toLocaleString("en-US", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
 }
 
-// "4 head" / "1 bird" / "200 birds"
-function headCount(n, animalName) {
+// "4 head" / "1 bird" / "200 birds" / "10 bags" (feed)
+function headCount(n, animalName, kind) {
   const count = Number(n) || 0;
+  if (kind === "feed") return `${count.toLocaleString("en-US")} ${count === 1 ? "bag" : "bags"}`;
   if (animalName === "Poultry") return `${count.toLocaleString("en-US")} ${count === 1 ? "bird" : "birds"}`;
   return `${count.toLocaleString("en-US")} head`;
 }

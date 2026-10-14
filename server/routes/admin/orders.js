@@ -168,10 +168,10 @@ router.patch("/:id", async (req, res, next) => {
     const ref = orderRef(id);
     const lot = order.price_unit === "lot";
     const [[animal]] = await pool.query(
-      `SELECT a.name FROM livestock l JOIN categories c ON c.id = l.category_id JOIN animals a ON a.id = c.animal_id WHERE l.id = ?`,
+      `SELECT a.name, a.kind FROM livestock l JOIN categories c ON c.id = l.category_id JOIN animals a ON a.id = c.animal_id WHERE l.id = ?`,
       [order.livestock_id || 0],
     );
-    const units = headCount(order.quantity, animal && animal.name);
+    const units = headCount(order.quantity, animal && animal.name, animal && animal.kind);
     const qtyText = lot ? `The whole lot (${units})` : units;
     const buyerMail = await sendEmail({
       to: order.email,

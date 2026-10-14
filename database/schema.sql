@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS animals (
   name         VARCHAR(100) NOT NULL,
   description  TEXT NULL,
   image_path   VARCHAR(500) NULL,
+  kind         ENUM('livestock', 'feed') NOT NULL DEFAULT 'livestock',
   status       ENUM('active', 'disabled') NOT NULL DEFAULT 'active',
   sort_order   INT NOT NULL DEFAULT 0,
   created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

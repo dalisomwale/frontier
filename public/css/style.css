@@ -4605,3 +4605,113 @@ body.admin-pending main {
 .card-full {
   grid-column: 1 / -1;
 }
+
+/* Browse Feed tiles */
+.feed-tile {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #1f3d2b;
+  color: #fff;
+  isolation: isolate;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.feed-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.15);
+}
+
+.feed-tile img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+}
+
+.feed-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(0deg, rgba(8, 20, 12, 0.78) 0%, rgba(8, 20, 12, 0.15) 60%, rgba(8, 20, 12, 0) 100%);
+}
+
+.feed-tile.is-plain {
+  background:
+    radial-gradient(circle at 85% 15%, rgba(190, 242, 100, 0.22), transparent 45%),
+    linear-gradient(135deg, #24492f 0%, #1c3a26 55%, #142b1c 100%);
+}
+
+.feed-tile.is-plain::after {
+  background: none;
+}
+
+.feed-tile-body {
+  display: block;
+  padding: 14px;
+}
+
+.feed-tile-name {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.feed-tile-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.82);
+  margin-top: 3px;
+}
+
+@media (max-width: 639px) {
+  .feed-tile-body { padding: 10px; }
+  .feed-tile-name { font-size: 14px; }
+  .feed-tile-desc { display: none; }
+}
+
+.nav-heading-split {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* Feed page */
+.feed-stage-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feed-stage-chips button {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 9999px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #374151;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.feed-stage-chips button:hover {
+  border-color: #9ca3af;
+}
+
+.feed-stage-chips button.active {
+  background: #1f3d2b;
+  border-color: #1f3d2b;
+  color: #fff;
+}

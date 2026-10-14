@@ -202,7 +202,7 @@
       const optionsHtml = (opts) => opts.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join("");
 
       function animalOptions() {
-        return [{ value: "", label: "Select category" }, ...taxonomy.animals.map((a) => ({ value: a.id, label: a.name }))];
+        return [{ value: "", label: "Select category" }, ...taxonomy.animals.map((a) => ({ value: a.id, label: a.name, group: a.kind === "feed" ? "Feed" : "Livestock" }))];
       }
       function purposeOptions(animalId) {
         const list = taxonomy.purposes.filter((p) => String(p.animal_id) === String(animalId));
@@ -284,10 +284,13 @@
             const breedSelect = form.elements.breed_id;
             const typeSelect = form.elements.livestock_type;
             bindWordLimit(form.elements.description);
+            const kindOf = (id) => (taxonomy.animals.find((a) => String(a.id) === String(id)) || {}).kind || "livestock";
+            applyListingKind(form, kindOf(animalSelect.value));
             animalSelect.addEventListener("change", () => {
               purposeSelect.innerHTML = optionsHtml(purposeOptions(animalSelect.value));
               breedSelect.innerHTML = optionsHtml(breedOptions(""));
               typeSelect.innerHTML = optionsHtml(typeOptions(animalSelect.value));
+              applyListingKind(form, kindOf(animalSelect.value));
             });
             purposeSelect.addEventListener("change", () => {
               breedSelect.innerHTML = optionsHtml(breedOptions(purposeSelect.value));

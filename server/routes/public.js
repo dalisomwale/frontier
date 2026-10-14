@@ -25,10 +25,20 @@ const FROM = `FROM livestock l
 // dropdown's counts only depend on the selections made before it.
 const FILTER_ORDER = ["animal", "purpose", "breed", "location"];
 
+// kind: "livestock" (default), "feed" or "all". Asking for a specific animal
+// or purpose (a feed type or stage, say) shows it whatever its kind.
+function readKind(value, specific) {
+  if (["livestock", "feed", "all"].includes(value)) return value;
+  return specific ? "all" : "livestock";
+}
+
 function readFilters(query) {
+  const animal = positiveInt(query.animal_id);
+  const purpose = positiveInt(query.category_id);
   return {
-    animal: positiveInt(query.animal_id),
-    purpose: positiveInt(query.category_id),
+    kind: readKind(query.kind, animal || purpose),
+    animal,
+    purpose,
     breed: positiveInt(query.breed_id),
     location: text(query.location, 150) || null,
     q: text(query.q, 100) || null,
@@ -36,6 +46,7 @@ function readFilters(query) {
 }
 
 const SEARCH_FIELDS = ["l.title", "l.description", "l.livestock_type", "l.location", "a.name", "c.name", "b.name"];
+
 
 function searchWords(q) {
   if (!q) return [];
@@ -54,6 +65,10 @@ function buildWhere(filters, upTo = "location") {
   const limit = FILTER_ORDER.indexOf(upTo);
   const active = (name) => FILTER_ORDER.indexOf(name) <= limit;
 
+  if (filters.kind && filters.kind !== "all") {
+    where.push("a.kind = ?");
+    params.push(filters.kind);
+  }
   if (active("animal") && filters.animal) {
     where.push("c.animal_id = ?");
     params.push(filters.animal);
@@ -84,8 +99,9 @@ function buildWhere(filters, upTo = "location") {
 // The outer table is aliased `an` because FROM/VISIBLE already use `a`.
 router.get("/animals", async (req, res, next) => {
   try {
+    const kind = readKind(req.query.kind, false);
     const [rows] = await pool.query(
-      `SELECT an.id, an.name, an.description, an.image_path,
+      `SELECT an.id, an.name, an.description, an.image_path, an.kind,
          (SELECT COUNT(*) FROM categories cc
             WHERE cc.animal_id = an.id AND cc.status = 'active') AS purpose_count,
          (SELECT COUNT(*) ${FROM} WHERE ${VISIBLE} AND c.animal_id = an.id) AS livestock_count,
@@ -94,8 +110,9 @@ router.get("/animals", async (req, res, next) => {
             WHERE ${VISIBLE} AND c.animal_id = an.id
             ORDER BY l.created_at DESC, li.sort_order ASC, li.id ASC LIMIT 1) AS cover_image
        FROM animals an
-       WHERE an.status = 'active'
+       WHERE an.status = 'active' ${kind === "all" ? "" : "AND an.kind = ?"}
        ORDER BY an.sort_order ASC, an.name ASC`,
+      kind === "all" ? [] : [kind],
     );
     res.json({ success: true, data: rows });
   } catch (error) {
@@ -114,7 +131,7 @@ router.get("/categories", async (req, res, next) => {
     const animalId = positiveInt(req.query.animal_id);
     const [rows] = await pool.query(
       `SELECT cat.id, cat.name, cat.description, cat.animal_id,
-         an.name AS animal_name, an.image_path AS animal_image_path,
+         an.name AS animal_name, an.image_path AS animal_image_path, an.kind AS animal_kind,
          (SELECT COUNT(*) FROM breeds bb WHERE bb.category_id = cat.id AND bb.status = 'active') AS breed_count,
          (SELECT COUNT(*) ${FROM} WHERE ${VISIBLE} AND l.category_id = cat.id) AS livestock_count
        FROM categories cat JOIN animals an ON an.id = cat.animal_id
@@ -243,7 +260,7 @@ router.get("/livestock", async (req, res, next) => {
     const [rows] = await pool.query(
       `SELECT l.id, l.title, l.location, l.livestock_type, l.quantity, l.description,
          l.price, l.price_unit, l.price_negotiable,
-         c.animal_id, a.name AS animal_name,
+         c.animal_id, a.name AS animal_name, a.kind AS animal_kind,
          l.category_id, c.name AS category_name, l.breed_id, b.name AS breed_name,
          l.created_at, l.verification,
          img.thumb_path, img.image_path
@@ -287,7 +304,7 @@ router.get("/livestock/:id", async (req, res, next) => {
     const [rows] = await pool.query(
       `SELECT l.id, l.title, l.location, l.livestock_type, l.quantity, l.age_months,
          l.price, l.price_unit, l.price_negotiable,
-         l.description, c.animal_id, a.name AS animal_name,
+         l.description, c.animal_id, a.name AS animal_name, a.kind AS animal_kind,
          l.category_id, c.name AS category_name,
          l.breed_id, b.name AS breed_name, l.verification, l.created_at, l.updated_at
        ${FROM} WHERE l.id = ? AND ${VISIBLE}`,

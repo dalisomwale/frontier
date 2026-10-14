@@ -80,7 +80,7 @@ function renderCheckout(root, listing, startQuantity = 1) {
   const price = Number(listing.price);
   let qty = lot ? max : Math.min(Math.max(1, Number(startQuantity) || 1), max);
   const total = () => (lot ? price : price * qty);
-  const units = (n) => quantityLabel(n, listing.animal_name);
+  const units = (n) => quantityLabel(n, listing.animal_name, listing.animal_kind);
   const subtitle = [listing.breed_name, listing.category_name, listing.animal_name].filter(Boolean).join(", ");
 
   root.innerHTML = `
@@ -358,7 +358,7 @@ function renderCheckout(root, listing, startQuantity = 1) {
       <div class="checkout-done" role="status">
         <div class="order-done-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg></div>
         <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Order ${escapeHtml(order.reference)} placed</h1>
-        <p class="text-sm text-gray-600 mt-2">Thank you, ${escapeHtml(firstName)}. The animals are now reserved for you. We'll contact you on both WhatsApp and email to arrange collection.</p>
+        <p class="text-sm text-gray-600 mt-2">Thank you, ${escapeHtml(firstName)}. ${listing.animal_kind === "feed" ? "The feed is" : "The animals are"} now reserved for you. We'll contact you on both WhatsApp and email to arrange collection.</p>
         <div class="order-summary checkout-done-summary">
           <div class="order-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : livestockFallbackMedia("w-8 h-8")}</div>
           <div class="min-w-0 flex-1">

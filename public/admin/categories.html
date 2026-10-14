@@ -18,15 +18,19 @@
     <div id="admin-topbar"></div>
 
     <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div class="mb-6">
+      <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Categories &amp; Purposes</h1>
+        <div class="seg" id="kind-tabs">
+          <button type="button" data-kind="livestock">Livestock</button>
+          <button type="button" data-kind="feed">Feed</button>
+        </div>
       </div>
 
       <section class="mb-10" aria-labelledby="animals-h">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 id="animals-h" class="text-lg font-bold text-gray-900">Manage Categories</h2>
           <button id="add-animal-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
-            <span class="w-5 h-5" data-icon="plus"></span> Add Category
+            <span class="w-5 h-5" data-icon="plus"></span> <span data-add-animal-label>Add Category</span>
           </button>
         </div>
         <div id="animals" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3"></div>
@@ -36,7 +40,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 id="purposes-h" class="text-lg font-bold text-gray-900">Manage Production Purposes</h2>
           <button id="add-purpose-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
-            <span class="w-5 h-5" data-icon="plus"></span> Add Purpose
+            <span class="w-5 h-5" data-icon="plus"></span> <span data-add-purpose-label>Add Purpose</span>
           </button>
         </div>
         <div class="bg-white rounded-xl border border-gray-100 shadow-sm">
@@ -50,16 +54,46 @@
 
     <script>
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      let allAnimals = [];
+      let allPurposes = [];
       let animals = [];
       let purposes = [];
       let current = getQueryParams().animal_id || "";
+      // Livestock (animals -> production purposes) or Feed (feed types -> stages).
+      let kind = getQueryParams().kind === "feed" ? "feed" : "livestock";
+      const WORDS = {
+        livestock: { group: "Category", groups: "Categories", item: "Purpose", items: "Production Purposes", example: "Cattle or Goats", itemExample: "Meat, Dairy or Layers" },
+        feed: { group: "Feed type", groups: "Feed Types", item: "Stage", items: "Feed Stages", example: "Pig Feed or Poultry Feed", itemExample: "Starter, Grower or Finisher" },
+      };
+      const w = () => WORDS[kind];
+
+      function applyKind() {
+        animals = allAnimals.filter((a) => (a.kind || "livestock") === kind);
+        purposes = allPurposes.filter((p) => (p.animal_kind || "livestock") === kind);
+        if (current && !animals.some((a) => String(a.id) === String(current))) current = "";
+        document.querySelectorAll("#kind-tabs button").forEach((b) => b.classList.toggle("active", b.dataset.kind === kind));
+        document.getElementById("animals-h").textContent = `Manage ${w().groups}`;
+        document.getElementById("purposes-h").textContent = `Manage ${w().items}`;
+        document.querySelector("[data-add-animal-label]").textContent = `Add ${w().group}`;
+        document.querySelector("[data-add-purpose-label]").textContent = `Add ${w().item}`;
+      }
+
+      document.querySelectorAll("#kind-tabs button").forEach((b) => b.addEventListener("click", () => {
+        kind = b.dataset.kind;
+        current = "";
+        history.replaceState(null, "", kind === "feed" ? "?kind=feed" : location.pathname);
+        applyKind();
+        renderAnimals();
+        renderTabs();
+        renderPurposes();
+      }));
       const statusOptions = [{ value: "active", label: "Active" }, { value: "disabled", label: "Disabled" }];
       const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? "" : "s"}`;
 
       function renderAnimals() {
         const box = document.getElementById("animals");
         if (!animals.length) {
-          return renderEmptyState(box, { title: "No categories yet", message: "Add a category such as Cattle or Goats.", icon: "layers" });
+          return renderEmptyState(box, { title: `No ${w().groups.toLowerCase()} yet`, message: `Add one such as ${w().example}.`, icon: "layers" });
         }
         box.innerHTML = animals.map((a) => `
           <div class="bg-white rounded-xl border ${String(a.id) === String(current) ? "border-blue-500 ring-2 ring-blue-100" : "border-gray-200"} shadow-sm p-4 flex flex-col gap-3">
@@ -94,10 +128,10 @@
         }));
         box.querySelectorAll("[data-delete-animal]").forEach((b) => b.addEventListener("click", async () => {
           const a = find(b.dataset.deleteAnimal);
-          if (!(await confirmAction({ title: `Delete ${a.name}?`, message: "Categories that still have production purposes can't be deleted - disable them instead.", confirmText: "Delete", variant: "danger" }))) return;
+          if (!(await confirmAction({ title: `Delete ${a.name}?`, message: `${w().groups} that still have ${w().items.toLowerCase()} can't be deleted - disable them instead.`, confirmText: "Delete", variant: "danger" }))) return;
           try {
             await adminApi(`/api/admin/animals/${a.id}`, { method: "DELETE" });
-            showNotification("Category deleted.", "success");
+            showNotification(`${w().group} deleted.`, "success");
             if (String(a.id) === String(current)) current = "";
             load();
           } catch (error) { showNotification(error.message, "error"); }
@@ -107,10 +141,10 @@
       function openAnimalEditor(a = {}) {
         let photo;
         openFormModal({
-          title: a.id ? "Edit Category" : "Add Category",
-          submitText: a.id ? "Save Changes" : "Add Category",
+          title: a.id ? `Edit ${w().group}` : `Add ${w().group}`,
+          submitText: a.id ? "Save Changes" : `Add ${w().group}`,
           body: `
-            ${field({ name: "name", label: "Category name", value: a.name, required: true, attrs: 'maxlength="100"' })}
+            ${field({ name: "name", label: `${w().group} name`, value: a.name, required: true, attrs: 'maxlength="100"' })}
             ${photoField({ current: a.image_path, help: "JPEG, PNG or WebP." })}
             ${field({ name: "status", label: "Status", value: a.status || "active", options: statusOptions })}`,
           onOpen(form) {
@@ -119,6 +153,7 @@
           async onSubmit(form) {
             const v = formValues(form);
             if (!v.name.trim()) { const e = new Error("Please enter a name."); e.errors = { name: "Category name is required." }; throw e; }
+            if (!a.id) v.kind = kind;
             const res = await adminApi(a.id ? `/api/admin/animals/${a.id}` : "/api/admin/animals", { method: a.id ? "PUT" : "POST", body: v });
             try {
               await photo.apply(`/api/admin/animals/${a.id || res.data.id}`);
@@ -127,7 +162,7 @@
               load();
               return;
             }
-            showNotification(a.id ? "Category updated." : "Category added.", "success");
+            showNotification(a.id ? `${w().group} updated.` : `${w().group} added.`, "success");
             load();
           },
         });
@@ -135,7 +170,10 @@
 
       function selectAnimal(id) {
         current = id;
-        history.replaceState(null, "", id ? `?animal_id=${id}` : location.pathname);
+        const query = new URLSearchParams();
+        if (kind === "feed") query.set("kind", "feed");
+        if (id) query.set("animal_id", id);
+        history.replaceState(null, "", query.toString() ? `?${query}` : location.pathname);
         renderAnimals();
         renderTabs();
         renderPurposes();
@@ -154,16 +192,16 @@
         const box = document.getElementById("purposes");
         const shown = purposes.filter((p) => !current || String(p.animal_id) === String(current));
         if (!shown.length) {
-          return renderEmptyState(box, { title: "No production purposes yet", message: "Add a purpose such as Meat, Dairy or Layers for this category.", icon: "layers" });
+          return renderEmptyState(box, { title: `No ${w().items.toLowerCase()} yet`, message: `Add one such as ${w().itemExample}.`, icon: "layers" });
         }
         box.innerHTML = `
           <table class="admin-table">
-            <thead><tr><th>Purpose</th><th>Category</th><th class="text-center">Breeds</th><th class="text-center hidden sm:table-cell">Listings</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
+            <thead><tr><th>${w().item}</th><th>${w().group}</th>${kind === "feed" ? "" : '<th class="text-center">Breeds</th>'}<th class="text-center hidden sm:table-cell">Listings</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
             <tbody>${shown.map((p) => `
               <tr>
                 <td><p class="font-semibold text-gray-900">${escapeHtml(p.name)}</p>${p.description ? `<p class="text-xs text-gray-500 line-clamp-1">${escapeHtml(p.description)}</p>` : ""}</td>
                 <td><span class="tag tag-category">${escapeHtml(p.animal_name)}</span></td>
-                <td class="text-center"><a href="/admin/breeds.html?animal_id=${p.animal_id}&category_id=${p.id}" class="text-blue-600 font-semibold hover:underline">${p.breed_count}</a></td>
+                ${kind === "feed" ? "" : `<td class="text-center"><a href="/admin/breeds.html?animal_id=${p.animal_id}&category_id=${p.id}" class="text-blue-600 font-semibold hover:underline">${p.breed_count}</a></td>`}
                 <td class="text-center hidden sm:table-cell">${p.livestock_count}</td>
                 <td>${statusPill(p.status)}</td>
                 <td class="text-right whitespace-nowrap">
@@ -202,15 +240,16 @@
 
       function openPurposeEditor(p = {}) {
         let photo;
-        const animalOptions = [{ value: "", label: "Select category" }, ...animals.map((a) => ({ value: a.id, label: a.name }))];
+        const animalOptions = [{ value: "", label: `Select ${w().group.toLowerCase()}` }, ...animals.map((a) => ({ value: a.id, label: a.name }))];
+        const itemName = kind === "feed" ? "Feed Stage" : "Production Purpose";
         openFormModal({
-          title: p.id ? "Edit Production Purpose" : "Add Production Purpose",
-          submitText: p.id ? "Save Changes" : "Add Purpose",
+          title: p.id ? `Edit ${itemName}` : `Add ${itemName}`,
+          submitText: p.id ? "Save Changes" : `Add ${w().item}`,
           body: `
-            ${field({ name: "animal_id", label: "Category", value: p.animal_id ?? current, required: true, options: animalOptions,
-                help: p.livestock_count ? "This purpose is used by listings, so its category can't be changed." : "",
+            ${field({ name: "animal_id", label: w().group, value: p.animal_id ?? current, required: true, options: animalOptions,
+                help: p.livestock_count ? `This ${w().item.toLowerCase()} is used by listings, so its ${w().group.toLowerCase()} can't be changed.` : "",
                 attrs: p.livestock_count ? "disabled" : "" })}
-            ${field({ name: "name", label: "Purpose name", value: p.name, required: true, attrs: 'maxlength="100"' })}
+            ${field({ name: "name", label: `${w().item} name`, value: p.name, required: true, attrs: 'maxlength="100"' })}
             ${field({ name: "description", label: "Description", type: "textarea", value: p.description, attrs: 'maxlength="2000"' })}
             ${photosField({ help: `Up to ${MAX_PURPOSE_PHOTOS} photos.` })}
             ${field({ name: "status", label: "Status", value: p.status || "active", options: statusOptions })}`,
@@ -221,18 +260,18 @@
             const v = formValues(form);
             if (p.livestock_count) delete v.animal_id;
             const errors = {};
-            if (!p.livestock_count && !v.animal_id) errors.animal_id = "Please choose an animal.";
-            if (!v.name.trim()) errors.name = "Purpose name is required.";
+            if (!p.livestock_count && !v.animal_id) errors.animal_id = `Please choose a ${w().group.toLowerCase()}.`;
+            if (!v.name.trim()) errors.name = `${w().item} name is required.`;
             if (Object.keys(errors).length) { const e = new Error("Please correct the highlighted fields."); e.errors = errors; throw e; }
             const res = await adminApi(p.id ? `/api/admin/categories/${p.id}` : "/api/admin/categories", { method: p.id ? "PUT" : "POST", body: v });
             try {
               await photo.apply(`/api/admin/categories/${p.id || res.data.id}`);
             } catch (error) {
-              showNotification(`Production purpose saved, but some photos weren't: ${error.message} Open it again to retry.`, "warning");
+              showNotification(`${itemName} saved, but some photos weren't: ${error.message} Open it again to retry.`, "warning");
               load();
               return;
             }
-            showNotification(p.id ? "Production purpose updated." : "Production purpose added.", "success");
+            showNotification(p.id ? `${itemName} updated.` : `${itemName} added.`, "success");
             load();
           },
         });
@@ -240,14 +279,14 @@
 
       async function load() {
         try {
-          [animals, purposes] = await Promise.all([
+          [allAnimals, allPurposes] = await Promise.all([
             adminApi("/api/admin/animals").then((r) => r.data),
             adminApi("/api/admin/categories").then((r) => r.data),
           ]);
         } catch (error) {
           return renderEmptyState(document.getElementById("purposes"), { title: "Could not load", message: error.message, icon: "alert" });
         }
-        if (current && !animals.some((a) => String(a.id) === String(current))) current = "";
+        applyKind();
         renderAnimals();
         renderTabs();
         renderPurposes();

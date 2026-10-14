@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Livestock Feed - Frontier Marketplace</title>
+    <meta name="description" content="Buy livestock feed for pigs, poultry, dairy and beef cattle, fish, ducks, goats and sheep across Zambia." />
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/livestock.js"></script>
+    <script src="/js/inquiry.js"></script>
+    <script src="/js/order.js"></script>
+  </head>
+  <body class="bg-gray-50">
+    <nav id="page-topnav" class="bg-white shadow-md sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <a href="/" class="flex items-center gap-3" aria-label="Frontier Marketplace home">
+            <div class="brand-mark-full">
+              <img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult" />
+            </div>
+            <span class="hidden sm:block font-bold text-gray-900">Frontier Marketplace</span>
+          </a>
+          <div class="header-auth">
+            <a id="login-link" href="/seller/login.html" class="header-login-link">Login</a>
+            <a id="seller-link" href="/seller/register.html" class="header-seller-link">Register</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <nav class="text-sm mb-5" aria-label="Breadcrumb">
+        <a id="back-link" href="/#feed" class="inline-flex items-center gap-1 font-medium text-blue-600 hover:text-blue-700"><span class="w-4 h-4" data-icon="chevronLeft"></span><span id="back-label">Home</span></a>
+      </nav>
+
+      <div class="mb-6">
+        <h1 id="feed-title" class="text-xl sm:text-2xl font-bold text-gray-900">Browse Feed</h1>
+        <p id="feed-subtitle" class="text-sm text-gray-600 mt-1">Select a livestock feed type for more information</p>
+      </div>
+
+      <div id="feed-types" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5"></div>
+
+      <div id="feed-listings" hidden>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
+          <div id="stage-chips" class="feed-stage-chips" role="tablist" aria-label="Feed stage"></div>
+          <select id="province-filter" class="field-input !py-2 !text-sm sm:!w-44 sm:ml-auto" aria-label="Province"></select>
+        </div>
+        <div id="listings-container" class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6 mb-6"></div>
+        <div id="pagination-container"></div>
+      </div>
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 mt-10">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-gray-500">
+        <p>© <span id="footer-year"></span> Frontier Farms &amp; Consult. All rights reserved.</p>
+        <nav class="flex flex-wrap gap-x-5 gap-y-2">
+          <a href="/seller/login.html" class="hover:text-gray-700">Seller sign in</a>
+          <a href="/terms.html" class="hover:text-gray-700">Terms of Service</a>
+          <a href="/privacy.html" class="hover:text-gray-700">Privacy Policy</a>
+        </nav>
+      </div>
+    </footer>
+
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+
+      const PAGE_SIZE = 12;
+      const state = { type: null, stage: "", province: "", page: 1, feedTypes: [] };
+
+      function updateUrl() {
+        const params = new URLSearchParams();
+        if (state.type) params.set("type", state.type.id);
+        if (state.stage) params.set("stage", state.stage);
+        if (state.province) params.set("province", state.province);
+        if (state.page > 1) params.set("page", state.page);
+        history.replaceState(null, "", `${location.pathname}${params.toString() ? `?${params}` : ""}`);
+      }
+
+      // No feed type chosen: show them all as tiles.
+      function showTypes() {
+        const box = document.getElementById("feed-types");
+        if (!state.feedTypes.length) {
+          return renderEmptyState(box, { title: "No feed listed yet", message: "Please check back soon.", icon: "layers" });
+        }
+        box.innerHTML = state.feedTypes.map(feedTileHtml).join("");
+      }
+
+      async function loadStages() {
+        const res = await apiRequest(`/api/livestock/filters?animal_id=${encodeURIComponent(state.type.id)}${state.stage ? `&category_id=${encodeURIComponent(state.stage)}` : ""}`);
+        const chips = document.getElementById("stage-chips");
+        const stages = res.data.purposes;
+        chips.innerHTML = [{ id: "", name: "All" }, ...stages]
+          .map((st) => `<button type="button" role="tab" data-stage="${st.id}" class="${String(st.id) === String(state.stage) ? "active" : ""}" aria-selected="${String(st.id) === String(state.stage)}">${escapeHtml(st.name)}</button>`)
+          .join("");
+        chips.querySelectorAll("[data-stage]").forEach((b) => b.addEventListener("click", () => {
+          state.stage = b.dataset.stage;
+          state.page = 1;
+          loadStages();
+          loadListings();
+        }));
+        const province = document.getElementById("province-filter");
+        province.innerHTML = `<option value="">All provinces</option>` +
+          res.data.locations.map((l) => `<option value="${escapeHtml(l.value)}" ${l.value === state.province ? "selected" : ""}>${escapeHtml(l.value)}</option>`).join("");
+      }
+
+      async function loadListings() {
+        updateUrl();
+        const container = document.getElementById("listings-container");
+        const pagination = document.getElementById("pagination-container");
+        renderSkeletonCards(container, 6);
+        const params = new URLSearchParams({ animal_id: state.type.id, page: state.page, limit: PAGE_SIZE });
+        if (state.stage) params.set("category_id", state.stage);
+        if (state.province) params.set("location", state.province);
+        try {
+          const res = await apiRequest(`/api/livestock?${params}`);
+          pagination.innerHTML = "";
+          if (!res.data.length) {
+            const filtered = state.stage || state.province;
+            return renderEmptyState(container, {
+              title: filtered ? "No feed matches these filters" : `No ${state.type.name} listed yet`,
+              message: filtered ? "" : "Please check back soon.",
+              icon: "search",
+            });
+          }
+          container.innerHTML = res.data.map(renderLivestockCard).join("");
+          bindInquireButtons(container, res.data);
+          if (res.pagination.total > 1) {
+            pagination.appendChild(createPagination(res.pagination.current, res.pagination.total, (page) => {
+              state.page = page;
+              window.scrollTo({ top: 0, behavior: "smooth" });
+              loadListings();
+            }));
+          }
+        } catch (error) {
+          renderEmptyState(container, { title: "Feed could not be loaded", message: error.message, icon: "alert" });
+        }
+      }
+
+      document.getElementById("province-filter").addEventListener("change", (e) => {
+        state.province = e.target.value;
+        state.page = 1;
+        loadListings();
+      });
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        const q = getQueryParams();
+        try {
+          state.feedTypes = (await apiRequest("/api/animals?kind=feed")).data;
+        } catch (error) {
+          return renderEmptyState(document.getElementById("feed-types"), { title: "Feed could not be loaded", message: error.message, icon: "alert" });
+        }
+        state.type = state.feedTypes.find((f) => String(f.id) === String(q.type)) || null;
+        if (!state.type) return showTypes();
+
+        document.title = `${state.type.name} - Frontier Marketplace`;
+        document.getElementById("feed-title").textContent = state.type.name;
+        document.getElementById("feed-subtitle").textContent = state.type.description || "";
+        document.getElementById("back-link").href = "/feed.html";
+        document.getElementById("back-label").textContent = "All feed";
+        document.getElementById("feed-types").hidden = true;
+        document.getElementById("feed-listings").hidden = false;
+        state.stage = q.stage || "";
+        state.province = q.province || "";
+        state.page = Math.max(1, Number.parseInt(q.page, 10) || 1);
+        await loadStages();
+        loadListings();
+      });
+    </script>
+  </body>
+</html>

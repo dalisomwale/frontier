@@ -160,12 +160,52 @@ function openFormModal({ title, body, submitText = "Save", wide = false, onSubmi
   return { form, close };
 }
 
+// <option>s for a select; options with a `group` are put in <optgroup>s.
+function optionsMarkup(options, value) {
+  const one = (o) => `<option value="${escapeHtml(o.value)}" ${String(o.value) === String(value ?? "") ? "selected" : ""}>${escapeHtml(o.label)}</option>`;
+  if (!options.some((o) => o.group)) return options.map(one).join("");
+  let html = "";
+  let group = null;
+  options.forEach((o) => {
+    if (!o.group) return (html += one(o));
+    if (o.group !== group) {
+      if (group !== null) html += "</optgroup>";
+      group = o.group;
+      html += `<optgroup label="${escapeHtml(group)}">`;
+    }
+    html += one(o);
+  });
+  return html + (group !== null ? "</optgroup>" : "");
+}
+
+// Listing forms: feed listings (a feed type chosen as the category) have no
+// breed, type or age, and are counted and priced in bags.
+function applyListingKind(form, kind) {
+  const feed = kind === "feed";
+  ["breed_id", "livestock_type", "age_months"].forEach((name) => {
+    const input = form.elements[name];
+    if (!input) return;
+    input.closest("div").hidden = feed;
+    if (feed) input.value = "";
+  });
+  const setLabel = (name, text) => {
+    const label = form.querySelector(`label[for="f-${name}"]`);
+    if (label && label.firstChild) label.firstChild.textContent = text;
+  };
+  setLabel("category_id", feed ? "Feed Stage" : "Production Purpose");
+  setLabel("quantity", feed ? "Quantity (bags)" : "Quantity");
+  const blank = form.elements.category_id?.querySelector('option[value=""]');
+  if (blank && feed) blank.textContent = blank.textContent.replace(/purposes?/i, (w) => (w.toLowerCase().endsWith("s") ? "stages" : "stage"));
+  const perHead = form.elements.price_unit?.querySelector('option[value="head"]');
+  if (perHead) perHead.textContent = feed ? "Per bag" : "Per head";
+}
+
 function field({ name, label, type = "text", value = "", required = false, placeholder = "", help = "", options = null, rows = 3, attrs = "" }) {
   const id = `f-${name}`;
   let control;
   if (options) {
     control = `<select id="${id}" name="${name}" class="field-input" ${required ? "required" : ""} ${attrs}>
-      ${options.map((o) => `<option value="${escapeHtml(o.value)}" ${String(o.value) === String(value ?? "") ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}
+      ${optionsMarkup(options, value)}
     </select>`;
   } else if (type === "textarea") {
     control = `<textarea id="${id}" name="${name}" rows="${rows}" class="field-input" placeholder="${escapeHtml(placeholder)}" ${attrs}>${escapeHtml(value ?? "")}</textarea>`;

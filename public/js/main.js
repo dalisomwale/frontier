@@ -29,8 +29,9 @@ function livestockTypesFor(animalName) {
   return LIVESTOCK_TYPES_BY_ANIMAL[animalName] || LIVESTOCK_TYPES_BY_ANIMAL.GENERIC;
 }
 
-function quantityLabel(quantity, animalName) {
+function quantityLabel(quantity, animalName, kind) {
   const n = Number(quantity) || 0;
+  if (kind === "feed") return `${n.toLocaleString()} ${n === 1 ? "bag" : "bags"}`;
   return `${n.toLocaleString()} ${animalName === "Poultry" ? (n === 1 ? "bird" : "birds") : "head"}`;
 }
 

@@ -189,7 +189,7 @@ async function applyPhotoChanges(conn, id, { removeIds, order }, files) {
 
 async function loadOne(id) {
   const [rows] = await pool.query(
-    `SELECT l.*, c.animal_id, a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
+    `SELECT l.*, c.animal_id, a.name AS animal_name, a.kind AS animal_kind, c.name AS category_name, b.name AS breed_name,
        s.name AS seller_name, s.business_name AS seller_business_name, s.phone AS seller_phone, s.status AS seller_status,
        s.account_status AS seller_account_status
      FROM livestock l JOIN categories c ON c.id = l.category_id
@@ -256,7 +256,7 @@ router.get("/", async (req, res, next) => {
     const [rows] = await pool.query(
       `SELECT l.id, l.title, l.status, l.published_at, l.verification, l.review_status, l.review_note, l.submitted_at,
          l.location, l.livestock_type, l.quantity, l.price, l.price_unit, l.price_negotiable,
-         l.created_at, l.updated_at, a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
+         l.created_at, l.updated_at, a.name AS animal_name, a.kind AS animal_kind, c.name AS category_name, b.name AS breed_name,
          l.seller_id, s.name AS seller_name, s.business_name AS seller_business_name,
          (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = l.id
             ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path,

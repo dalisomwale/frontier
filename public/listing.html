@@ -122,11 +122,11 @@
 
       function setAttributes(item) {
         const rows = [
-          ["Animal", item.animal_name],
-          ["Production Purpose", item.category_name],
+          [item.animal_kind === "feed" ? "Feed type" : "Animal", item.animal_name],
+          [item.animal_kind === "feed" ? "Feed stage" : "Production Purpose", item.category_name],
           ["Breed", item.breed_name],
           ["Type", item.livestock_type],
-          ["Quantity", item.quantity ? quantityLabel(item.quantity, item.animal_name) : null],
+          ["Quantity", item.quantity ? quantityLabel(item.quantity, item.animal_name, item.animal_kind) : null],
           ["Age", item.age_months !== null && item.age_months !== undefined ? formatAge(item.age_months) : null],
           ["Province", item.location],
           ["Listed", formatDateShort(item.created_at)],
@@ -158,6 +158,11 @@
 
       function renderListing(item) {
         document.title = `${item.title} - Frontier Marketplace`;
+        if (item.animal_kind === "feed") {
+          const back = document.querySelector('nav[aria-label="Breadcrumb"] a');
+          back.href = `/feed.html?type=${encodeURIComponent(item.animal_id)}`;
+          back.lastChild.textContent = `All ${item.animal_name}`;
+        }
         document.getElementById("listing-title").textContent = item.title;
 
         setAttributes(item);
@@ -220,7 +225,7 @@
           qtyBox.classList.remove("hidden");
           totalBox.classList.remove("hidden");
           input.max = max;
-          document.getElementById("buy-available").textContent = `${quantityLabel(max, item.animal_name)} available`;
+          document.getElementById("buy-available").textContent = `${quantityLabel(max, item.animal_name, item.animal_kind)} available`;
           qtyBox.querySelectorAll("[data-step]").forEach((b) => b.addEventListener("click", () => {
             buyQty = Math.min(max, Math.max(1, buyQty + Number(b.dataset.step)));
             update();

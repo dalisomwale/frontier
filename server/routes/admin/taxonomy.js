@@ -77,7 +77,7 @@ animals.get("/", async (req, res, next) => {
         (SELECT COUNT(*) FROM categories c WHERE c.animal_id = an.id) AS purpose_count,
         (SELECT COUNT(*) FROM breeds b JOIN categories c ON c.id = b.category_id WHERE c.animal_id = an.id) AS breed_count,
         (SELECT COUNT(*) FROM livestock l JOIN categories c ON c.id = l.category_id WHERE c.animal_id = an.id) AS livestock_count
-      FROM animals an ORDER BY an.sort_order ASC, an.name ASC`);
+      FROM animals an ORDER BY an.kind = 'feed', an.sort_order ASC, an.name ASC`);
     res.json({ success: true, data: rows });
   } catch (error) {
     next(error);
@@ -93,15 +93,17 @@ function animalPayload(body, partial) {
     throw badRequest("Category name must be 1-100 characters.");
   if (description === undefined) throw badRequest("Description is too long.");
   if (status === null) throw badRequest("Invalid status.");
-  return { name, description, status };
+  const kind = body.kind === undefined ? undefined : oneOf(body.kind, ["livestock", "feed"]);
+  if (kind === null) throw badRequest("Choose livestock or feed.");
+  return { name, description, status, kind };
 }
 
 animals.post("/", async (req, res, next) => {
   try {
     const p = animalPayload(req.body, false);
     const [result] = await pool.query(
-      "INSERT INTO animals (name, description, status, sort_order) VALUES (?, ?, ?, ?)",
-      [p.name, p.description, p.status || "active", await nextSortOrder("animals")],
+      "INSERT INTO animals (name, description, status, kind, sort_order) VALUES (?, ?, ?, ?, ?)",
+      [p.name, p.description, p.status || "active", p.kind || "livestock", await nextSortOrder("animals", "kind = ?", [p.kind || "livestock"])],
     );
     res.status(201).json({ success: true, data: { id: result.insertId } });
   } catch (error) {
@@ -116,7 +118,7 @@ animals.put("/:id", async (req, res, next) => {
     const p = animalPayload(req.body, true);
     const fields = [];
     const params = [];
-    for (const key of ["name", "description", "status"]) {
+    for (const key of ["name", "description", "status", "kind"]) {
       if (req.body[key] !== undefined) {
         fields.push(`${key} = ?`);
         params.push(p[key] ?? null);
@@ -161,7 +163,7 @@ categories.get("/", async (req, res, next) => {
   try {
     const animalId = positiveInt(req.query.animal_id);
     const [rows] = await pool.query(
-      `SELECT c.*, an.name AS animal_name,
+      `SELECT c.*, an.name AS animal_name, an.kind AS animal_kind,
         (SELECT COUNT(*) FROM breeds b WHERE b.category_id = c.id) AS breed_count,
         (SELECT COUNT(*) FROM livestock l WHERE l.category_id = c.id) AS livestock_count
       FROM categories c JOIN animals an ON an.id = c.animal_id

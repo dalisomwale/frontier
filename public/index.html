@@ -48,7 +48,7 @@
           <form id="site-search" class="site-search" role="search" autocomplete="off">
             <span class="site-search-icon" data-icon="search"></span>
             <input id="search-input" type="search" name="q" maxlength="100" enterkeyhint="search"
-              placeholder="Search livestock, breeds, provinces" aria-label="Search livestock listings"
+              placeholder="Search livestock, feed, provinces" aria-label="Search livestock listings"
               aria-controls="search-results" aria-expanded="false">
             <button type="button" id="search-clear" class="site-search-clear" aria-label="Clear search" hidden><span class="w-4 h-4" data-icon="close"></span></button>
             <div id="search-results" class="search-results" hidden></div>
@@ -110,6 +110,16 @@
         </div>
       </section>
 
+      <section id="feed" class="anchor-section py-12 bg-white border-t border-gray-100" aria-labelledby="feed-heading" hidden>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="mb-6">
+            <h2 id="feed-heading" class="text-xl sm:text-2xl font-bold text-gray-900">Browse Feed</h2>
+            <p class="text-sm text-gray-600 mt-1">Select a livestock feed type for more information</p>
+          </div>
+          <div id="feed-tiles" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5"></div>
+        </div>
+      </section>
+
     </main>
 
     <footer class="bg-white border-t border-gray-200">
@@ -137,6 +147,7 @@
         location: document.getElementById("filter-location"),
       };
       let animals = [];
+      let feedTypes = [];
       let tilesFor = null;
       let currentPage = 1;
       let optionsRequest = 0;
@@ -215,8 +226,20 @@
         show(0);
       }
 
+      async function loadFeedTypes() {
+        const box = document.getElementById("feed-tiles");
+        try {
+          feedTypes = (await apiRequest("/api/animals?kind=feed")).data;
+        } catch {
+          feedTypes = [];
+        }
+        document.getElementById("feed").hidden = !feedTypes.length;
+        box.innerHTML = feedTypes.map(feedTileHtml).join("");
+      }
+
       async function loadAnimals() {
         const tiles = document.getElementById("animal-tiles");
+        loadFeedTypes();
         try {
           animals = (await apiRequest("/api/animals")).data;
         } catch (error) {
@@ -503,6 +526,7 @@
         const params = currentFilters();
         params.set("page", page);
         params.set("limit", PAGE_SIZE);
+        if (searchQuery && !els.animal.value) params.set("kind", "all");
 
         try {
           const res = await apiRequest(`/api/livestock?${params}`);
@@ -594,10 +618,26 @@
         </li>`;
       }
 
-      const animalItems = () => animals.map((a) => navLink({
-        label: a.name, count: a.livestock_count, sub: true,
-        attrs: `data-animal="${a.id}"`, active: els.animal.value === String(a.id),
-      })).join("");
+      // Browse Categories: Livestock (animals -> purposes) and Feed (feed types
+      // -> stages). Feed opens the feed page.
+      const animalItems = () =>
+        `<li class="nav-heading">Livestock</li>` +
+        animals.map((a) => navLink({
+          label: a.name, count: a.livestock_count, sub: true,
+          attrs: `data-animal="${a.id}"`, active: els.animal.value === String(a.id),
+        })).join("") +
+        (feedTypes.length
+          ? `<li class="nav-heading nav-heading-split">Feed</li>` +
+            feedTypes.map((f) => navLink({ label: f.name, count: f.livestock_count, sub: true, attrs: `data-feed="${f.id}"` })).join("")
+          : "");
+
+      async function feedStageItems(feedId) {
+        const feed = feedTypes.find((f) => String(f.id) === String(feedId));
+        const list = await getPurposes(feedId);
+        return `<li class="nav-heading">Select a feed stage</li>` +
+          navLink({ label: `All ${feed ? feed.name : "feed"}`, attrs: `data-feed-all="${feedId}"` }) +
+          list.map((p) => navLink({ label: p.name, attrs: `data-feed-type="${feedId}" data-feed-stage="${p.id}"` })).join("");
+      }
 
       const purposeHeading = (animalId) =>
         "Filter by Production purpose";
@@ -664,9 +704,11 @@
         const link = item.querySelector(":scope > .nav-link");
         sub.innerHTML = `<ul class="nav-list"><li class="nav-empty">Loading...</li></ul>`;
         try {
-          const html = link.dataset.purpose
-            ? await breedItems(link.dataset.animal, link.dataset.purpose)
-            : await purposeItems(link.dataset.animal);
+          const html = link.dataset.feed
+            ? await feedStageItems(link.dataset.feed)
+            : link.dataset.purpose
+              ? await breedItems(link.dataset.animal, link.dataset.purpose)
+              : await purposeItems(link.dataset.animal);
           sub.innerHTML = `<ul class="nav-list ${link.dataset.purpose ? "nav-scroll" : ""}">${html}</ul>`;
         } catch {
           delete sub.dataset.loaded;
@@ -701,6 +743,9 @@
           if (!link) return;
           const d = link.dataset;
           if (d.province !== undefined) return pickProvince(d.province);
+          if (d.feedStage) return (location.href = feedUrl(d.feedType, d.feedStage));
+          if (d.feedAll) return (location.href = feedUrl(d.feedAll));
+          if (d.feed) return toggleFlyout(link.closest(".nav-item"));
           if (d.purpose) return pickAnimal(d.animal, d.purpose, null);
           pickAnimal(d.animal, d.purpose, null, { close: false });
           toggleFlyout(link.closest(".nav-item"));
@@ -762,7 +807,7 @@
         const request = ++searchRequest;
         let res;
         try {
-          res = await apiRequest(`/api/livestock?q=${encodeURIComponent(term)}&limit=6`);
+          res = await apiRequest(`/api/livestock?q=${encodeURIComponent(term)}&limit=6&kind=all`);
         } catch {
           return hideSearchResults();
         }

@@ -65,7 +65,7 @@ router.post("/", async (req, res, next) => {
     if (!livestockId) throw badRequest("Please choose a listing to buy.");
 
     const [rows] = await pool.query(
-      `SELECT l.id, l.title, l.quantity, l.price, l.price_unit, l.location, a.name AS animal_name,
+      `SELECT l.id, l.title, l.quantity, l.price, l.price_unit, l.location, a.name AS animal_name, a.kind AS animal_kind,
          s.id AS seller_id, s.name AS seller_name, s.business_name AS seller_business_name,
          (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = l.id
             ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path
@@ -140,7 +140,7 @@ router.post("/", async (req, res, next) => {
     }
     const id = result.insertId;
     const reference = orderRef(id);
-    const qtyText = lot ? `The whole lot (${headCount(quantity, item.animal_name)})` : headCount(quantity, item.animal_name);
+    const qtyText = lot ? `The whole lot (${headCount(quantity, item.animal_name, item.animal_kind)})` : headCount(quantity, item.animal_name, item.animal_kind);
     const deliveryText = `${DELIVERY_LABELS.collect} (${item.location} Province)`;
 
     // The order is already saved; email problems are recorded, not shown.
@@ -150,10 +150,10 @@ router.post("/", async (req, res, next) => {
         subject: `New order ${reference}: ${item.title}`,
         heading: `New order ${reference}`,
         paragraphs: [
-          `${values.full_name} wants to buy ${lot ? "the whole lot" : headCount(quantity, item.animal_name)} from "${item.title}".`,
+          `${values.full_name} wants to buy ${lot ? "the whole lot" : headCount(quantity, item.animal_name, item.animal_kind)} from "${item.title}".`,
           soldOut
             ? "Nothing is left on the listing, so it has been taken off the website."
-            : "The animals have been taken off the listing. Cancelling the order puts them back.",
+            : `The ${item.animal_kind === "feed" ? "bags have" : "animals have"} been taken off the listing. Cancelling the order puts them back.`,
         ],
         rows: [
           ["Listing", item.title],
@@ -173,7 +173,7 @@ router.post("/", async (req, res, next) => {
         subject: `Order ${reference} received`,
         heading: `Order ${reference} received`,
         paragraphs: [
-          `Hi ${values.full_name}, thank you for your order. The animals are now reserved for you.`,
+          `Hi ${values.full_name}, thank you for your order. ${item.animal_kind === "feed" ? "The feed is" : "The animals are"} now reserved for you.`,
           "We'll contact you on both WhatsApp and email to arrange collection.",
         ],
         rows: [

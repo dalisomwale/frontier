@@ -58,7 +58,7 @@ function kwacha(value) {
 
 function priceUnitLabel(item, short = false) {
   if (item.price_unit === "lot") return short ? "lot" : "for the lot";
-  const unit = item.animal_name === "Poultry" ? "bird" : "head";
+  const unit = item.animal_kind === "feed" ? "bag" : item.animal_name === "Poultry" ? "bird" : "head";
   return short ? `/ ${unit}` : `per ${unit}`;
 }
 
@@ -72,7 +72,7 @@ function cardPrice(item) {
 }
 
 function renderLivestockCard(item) {
-  const typeLine = [item.livestock_type, item.quantity > 1 ? quantityLabel(item.quantity, item.animal_name) : ""]
+  const typeLine = [item.livestock_type, item.quantity > 1 ? quantityLabel(item.quantity, item.animal_name, item.animal_kind) : ""]
     .filter(Boolean)
     .join(", ");
   const buyable = hasPrice(item);
@@ -117,4 +117,26 @@ function bindInquireButtons(container, items) {
       if (item) openBuyModal(item);
     });
   });
+}
+
+// Feed ------------------------------------------------------------------
+function feedUrl(typeId, stageId) {
+  const params = new URLSearchParams();
+  if (typeId) params.set("type", typeId);
+  if (stageId) params.set("stage", stageId);
+  return `/feed.html${params.toString() ? `?${params}` : ""}`;
+}
+
+// A feed type tile: the photo uploaded in the admin, else a listing photo,
+// else a plain coloured tile with the name.
+function feedTileHtml(feed) {
+  const photo = feed.image_path || feed.cover_image;
+  return `
+    <a href="${feedUrl(feed.id)}" class="feed-tile ${photo ? "" : "is-plain"}" aria-label="${escapeHtml(feed.name)}">
+      ${photo ? `<img src="${escapeHtml(photo)}" alt="" loading="lazy" decoding="async">` : ""}
+      <span class="feed-tile-body">
+        <span class="feed-tile-name">${escapeHtml(feed.name)}</span>
+        ${feed.description ? `<span class="feed-tile-desc">${escapeHtml(feed.description)}</span>` : ""}
+      </span>
+    </a>`;
 }

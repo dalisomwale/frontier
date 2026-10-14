@@ -117,6 +117,10 @@ async function main() {
     await conn.query("SET FOREIGN_KEY_CHECKS = 1");
   }
 
+  // Feed (and Pets) arrive with the animals.kind column: seeded once, when
+  // the column is first added or on a new install, then managed in the admin.
+  const upgradingToFeed = (await tableExists(conn, "animals")) && !(await columnExists(conn, "animals", "kind"));
+
   // --- 2. v2 schema ---------------------------------------------------------
   await conn.query(readSql("schema.sql"));
   console.log("Schema is up to date.");
@@ -322,6 +326,12 @@ async function main() {
     if (moved.affectedRows) console.log(`  moved ${moved.affectedRows} purpose photo(s) into the slideshow table`);
   }
 
+  if (upgradingToFeed) {
+    await conn.query(
+      "ALTER TABLE animals ADD COLUMN kind ENUM('livestock', 'feed') NOT NULL DEFAULT 'livestock' AFTER image_path",
+    );
+  }
+
   // --- 5. Reference data ----------------------------------------------------
   if (seedTaxonomy) {
     await conn.query(readSql("seed-taxonomy.sql"));
@@ -335,6 +345,13 @@ async function main() {
     );
   } else {
     console.log("Animals already present - reference seed skipped.");
+  }
+  if (seedTaxonomy || upgradingToFeed) {
+    await conn.query(readSql("seed-feed.sql"));
+    const [[feed]] = await conn.query(
+      "SELECT COUNT(*) AS types, (SELECT COUNT(*) FROM categories c JOIN animals a ON a.id = c.animal_id WHERE a.kind = 'feed') AS stages FROM animals WHERE kind = 'feed'",
+    );
+    console.log(`Feed: ${feed.types} feed types with ${feed.stages} stages, and Pets added.`);
   }
 
   // --- 6. Retired reference data ------------------------------------------

@@ -178,6 +178,25 @@ The same events also appear in the seller dashboard straight away: a bell with a
   the full number, expiry and CVV are never sent, stored or emailed. When a
   gateway is added, its secure card fields should replace these.
 
+## Livestock and feed
+
+- **Browse Categories** in the header has two groups. **Livestock**: Cattle,
+  Goats, Sheep, Pigs, Poultry, Pets, each opening its production purposes.
+  **Feed**: Pig, Poultry, Dairy, Beef, Fish, Duck, Goat and Sheep feed, each
+  opening its feed stages (e.g. Pig Feed: Creep & Starter, Weaner, Grower,
+  Finisher, Sow & Lactation, Boar).
+- The homepage has a **Browse Feed** section ("Select a livestock feed type
+  for more information"). A feed type opens /feed.html?type=..., with stage
+  chips, a province filter and the feed listings.
+- Feed types are stored as animals with `kind = 'feed'`, and their stages as
+  categories, so feed listings use the same listing form, photos, prices, Buy
+  Now and orders. Feed is counted and priced in bags, and has no breed, type
+  or age. Feed listings don't appear in the livestock grid; search covers both.
+- Manage both in **Admin > Categories & Purposes**, with the Livestock / Feed
+  switch at the top (add, rename, hide, photos, stages).
+- `npm run db:setup` adds the feed types, stages and Pets once (new install,
+  or the first upgrade to feed). Later edits in the admin are kept.
+
 ## Public filtering
 
 The homepage filter cascades, and every option comes from the database:

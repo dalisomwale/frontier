@@ -321,7 +321,7 @@ router.get("/summary", requireSeller, async (req, res, next) => {
 
 router.get("/taxonomy", requireSeller, async (req, res, next) => {
   try {
-    const [animals] = await pool.query("SELECT id, name FROM animals WHERE status = 'active' ORDER BY sort_order, name");
+    const [animals] = await pool.query("SELECT id, name, kind FROM animals WHERE status = 'active' ORDER BY kind = 'feed', sort_order, name");
     const [purposes] = await pool.query(
       `SELECT c.id, c.animal_id, c.name FROM categories c JOIN animals a ON a.id = c.animal_id
        WHERE c.status = 'active' AND a.status = 'active' ORDER BY c.sort_order, c.name`,
@@ -363,7 +363,7 @@ router.get("/listings", requireSeller, async (req, res, next) => {
     const [rows] = await pool.query(
       `SELECT l.id, l.title, l.status, l.review_status, l.review_note, l.verification, l.published_at, l.submitted_at,
          l.location, l.livestock_type, l.quantity, l.price, l.price_unit, l.price_negotiable, l.created_at, l.updated_at,
-         a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
+         a.name AS animal_name, a.kind AS animal_kind, c.name AS category_name, b.name AS breed_name,
          (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = l.id
             ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path
        FROM livestock l JOIN categories c ON c.id = l.category_id
