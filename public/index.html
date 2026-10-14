@@ -37,12 +37,6 @@
               </button>
               <div class="nav-dropdown"></div>
             </div>
-            <div class="nav-menu" id="menu-province">
-              <button type="button" class="nav-menu-btn" aria-haspopup="true" aria-expanded="false">
-                Province <span class="nav-menu-caret" data-icon="chevronRight"></span>
-              </button>
-              <div class="nav-dropdown"></div>
-            </div>
           </div>
 
           <form id="site-search" class="site-search" role="search" autocomplete="off">
@@ -629,13 +623,6 @@
         return html;
       }
 
-      function provinceItems() {
-        return [...els.location.options].filter((o) => o.value).map((o) => {
-          const m = o.text.match(/^(.*?)(?: \((\d+)\))?$/);
-          return navLink({ label: m[1], count: m[2], attrs: `data-province="${escapeHtml(o.value)}"`, active: els.location.value === o.value });
-        }).join("");
-      }
-
       function toggleFlyout(item) {
         const willOpen = !item.classList.contains("is-open");
         item.parentElement.querySelectorAll(":scope > .nav-item.is-open").forEach((sib) => {
@@ -675,7 +662,7 @@
         menu.classList.add("open");
         menu.querySelector(".nav-menu-btn").setAttribute("aria-expanded", "true");
         const panel = menu.querySelector(".nav-dropdown");
-        panel.innerHTML = `<ul class="nav-list">${menu.id === "menu-province" ? provinceItems() : groupItems()}</ul>`;
+        panel.innerHTML = `<ul class="nav-list">${groupItems()}</ul>`;
         panel.style.top = window.innerWidth < 1024
           ? `${Math.round(document.getElementById("page-topnav").getBoundingClientRect().bottom) + 6}px`
           : "";
@@ -696,7 +683,6 @@
           const link = e.target.closest(".nav-link");
           if (!link) return;
           const d = link.dataset;
-          if (d.province !== undefined) return pickProvince(d.province);
           if (d.feedStage) return (location.href = feedUrl(d.feedType, d.feedStage));
           if (d.feedAll) return (location.href = feedUrl(d.feedAll));
           if (d.group) {
@@ -726,13 +712,6 @@
         await refreshOptions();
         if (purposeId) { els.purpose.value = purposeId; await refreshOptions(); }
         if (breedId) { els.breed.value = breedId; await refreshOptions(); }
-        applyFilters({ scroll: true });
-      }
-
-      async function pickProvince(value) {
-        closeMenus();
-        els.location.value = value;
-        await refreshOptions();
         applyFilters({ scroll: true });
       }
 
