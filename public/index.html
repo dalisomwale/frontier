@@ -753,7 +753,14 @@
           if (d.province !== undefined) return pickProvince(d.province);
           if (d.feedStage) return (location.href = feedUrl(d.feedType, d.feedStage));
           if (d.feedAll) return (location.href = feedUrl(d.feedAll));
-          if (d.group || d.feed) return toggleFlyout(link.closest(".nav-item"));
+          if (d.group) {
+            // Livestock -> "Browse by Category", Feed -> "Browse Feed".
+            const section = document.getElementById(d.group === "feed" ? "feed" : "categories");
+            const item = link.closest(".nav-item");
+            if (section && !section.hidden && !item.classList.contains("is-open")) section.scrollIntoView({ behavior: "smooth" });
+            return toggleFlyout(item);
+          }
+          if (d.feed) return toggleFlyout(link.closest(".nav-item"));
           if (d.purpose) return pickAnimal(d.animal, d.purpose, null);
           pickAnimal(d.animal, d.purpose, null, { close: false });
           toggleFlyout(link.closest(".nav-item"));
