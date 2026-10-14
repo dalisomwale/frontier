@@ -1409,20 +1409,20 @@ body.admin-pending main {
   object-fit: cover;
 }
 
-.cat-tile .tile-slides {
+.feed-tile .tile-slides {
   position: absolute;
   inset: 0;
   z-index: -2;
 }
 
-.cat-tile .tile-slides img {
+.feed-tile .tile-slides img {
   opacity: 0;
   transition:
     opacity 1.2s ease-in-out,
     transform 0.5s ease;
 }
 
-.cat-tile .tile-slides img.active {
+.feed-tile .tile-slides img.active {
   opacity: 1;
 }
 
@@ -1450,7 +1450,7 @@ body.admin-pending main {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cat-tile .tile-slides img {
+  .feed-tile .tile-slides img {
     transition: none;
   }
 }

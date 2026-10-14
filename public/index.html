@@ -91,7 +91,7 @@
             <h2 id="categories-heading" class="text-xl sm:text-2xl font-bold text-gray-900">Browse Livestock</h2>
             <p id="categories-subheading" class="text-sm text-gray-600 mt-1">Select a livestock type for more information</p>
           </div>
-          <div id="animal-tiles" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div>
+          <div id="animal-tiles" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5"></div>
         </div>
       </section>
 
@@ -257,7 +257,9 @@
         syncTiles();
       }
 
-      function tileHtml({ id, attr, name, subtitle = "", more = false, src, slides = null, alt, active = false }) {
+      // Same look as the Browse Feed tiles: photo, dark green fade, name and
+      // a short description in the bottom corner.
+      function tileHtml({ id, attr, name, subtitle = "", src, slides = null, alt, active = false }) {
         const fallback = "this.onerror=null;this.src='/images/livestock/cattle-fallback.webp'";
         const media = slides && slides.length > 1
           ? `<div class="tile-slides" aria-hidden="true">${slides.map((url, i) => `
@@ -266,15 +268,12 @@
             </div>`
           : `<img src="${escapeHtml(slides?.[0] || src)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" onerror="${fallback}">`;
         return `
-          <a href="#listings" class="cat-tile group ${active ? "ring-4 ring-blue-500 ring-offset-2" : ""}" ${attr}="${id}" aria-label="${escapeHtml(alt)}">
+          <a href="#listings" class="feed-tile ${active ? "ring-4 ring-blue-500 ring-offset-2" : ""}" ${attr}="${id}" aria-label="${escapeHtml(alt)}">
             ${media}
-            <div class="absolute inset-x-0 bottom-0 p-5">
-              <div class="flex items-end justify-between gap-3">
-                <h3 class="text-xl font-bold">${escapeHtml(name)}</h3>
-                ${more ? `<span class="inline-flex items-center gap-1 text-sm font-semibold whitespace-nowrap pb-1 group-hover:translate-x-1 transition">See more <span class="w-4 h-4">${uiIcon("chevronRight")}</span></span>` : ""}
-              </div>
-              ${subtitle ? `<p class="text-sm text-blue-100 mt-1 line-clamp-2">${escapeHtml(subtitle)}</p>` : ""}
-            </div>
+            <span class="feed-tile-body">
+              <span class="feed-tile-name">${escapeHtml(name)}</span>
+              ${subtitle ? `<span class="feed-tile-desc">${escapeHtml(subtitle)}</span>` : ""}
+            </span>
           </a>`;
       }
 
@@ -330,7 +329,7 @@
           tiles.innerHTML = animals.map((a) => {
             const photo = animalPhoto(a);
             return tileHtml({
-              id: a.id, attr: "data-animal", name: a.name, more: true,
+              id: a.id, attr: "data-animal", name: a.name, subtitle: a.description,
               src: a.image_path || a.cover_image || photo.src(),
               alt: a.image_path || a.cover_image ? `${a.name} for sale` : photo.alt,
             });
