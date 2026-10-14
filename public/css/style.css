@@ -4906,3 +4906,16 @@ body.admin-pending main {
     right: 3px;
   }
 }
+
+/* Price per head on a card's location line */
+.lv-each {
+  flex: none;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #374151;
+}
+
+.lv-each-unit {
+  font-weight: 400;
+  color: #6b7280;
+}

@@ -62,8 +62,13 @@ function priceUnitLabel(item, short = false) {
   return short ? `/ ${unit}` : `per ${unit}`;
 }
 
+// The price row: "Price on request", or the lot total. A per-head price is
+// on the location line instead, so its row only carries "Negotiable".
 function cardPrice(item) {
   if (!hasPrice(item)) return `<div class="lv-price-row"><span class="lv-price-request">Price on request</span></div>`;
+  if (item.price_unit !== "lot") {
+    return Number(item.price_negotiable) ? `<div class="lv-price-row"><span class="lv-price-tag">Negotiable</span></div>` : "";
+  }
   return `<div class="lv-price-row">
     <span class="lv-price">${kwacha(item.price)}</span>
     <span class="lv-price-unit"><span class="lbl-full">${priceUnitLabel(item)}</span><span class="lbl-short">${priceUnitLabel(item, true)}</span></span>
@@ -71,15 +76,20 @@ function cardPrice(item) {
   </div>`;
 }
 
-// Price per head (bird / bag) for the card's top line. Per-head prices are
-// already shown in the price row, so this only adds something for a lot:
-// "K 13,000 / head" worked out from the lot price and the quantity.
-function perHeadLine(item) {
-  if (!hasPrice(item) || item.price_unit !== "lot") return "";
+// Price per head (bird / bag), shown on the location line: the listing's
+// own price when it is per head, or worked out from a lot price and the
+// quantity ("K 13,000 / head").
+function perHeadPrice(item) {
+  if (!hasPrice(item)) return null;
+  if (item.price_unit !== "lot") return Number(item.price);
   const qty = Number(item.quantity) || 0;
-  if (qty < 2) return "";
-  const each = Math.round((Number(item.price) / qty) * 100) / 100;
-  return `${kwacha(each)} ${priceUnitLabel({ ...item, price_unit: "head" }, true)}`;
+  return qty >= 2 ? Math.round((Number(item.price) / qty) * 100) / 100 : null;
+}
+
+function perHeadLine(item) {
+  const each = perHeadPrice(item);
+  if (each === null) return "";
+  return `<span class="lv-each">${kwacha(each)}<span class="lv-each-unit"> ${priceUnitLabel({ ...item, price_unit: "head" }, true)}</span></span>`;
 }
 
 function renderLivestockCard(item) {
@@ -95,7 +105,7 @@ function renderLivestockCard(item) {
         </h3>
         <div class="flex items-center justify-between gap-2 min-w-0 text-[11px] sm:text-xs text-gray-500 mb-1.5">
           <span class="flex items-center gap-1 min-w-0"><span class="meta-icon">${uiIcon("location")}</span><span class="truncate">${escapeHtml(item.location)}</span></span>
-          ${typeLine ? `<span class="whitespace-nowrap">${escapeHtml(typeLine)}</span>` : ""}
+          ${typeLine}
         </div>
         ${cardPrice(item)}
         <div class="buy-row mt-auto ${buyable ? "" : "buy-row-single"}">
