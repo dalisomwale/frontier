@@ -174,7 +174,7 @@ router.post("/", async (req, res, next) => {
         heading: `Order ${reference} received`,
         paragraphs: [
           `Hi ${values.full_name}, thank you for your order. The animals are now reserved for you.`,
-          `We'll contact you on WhatsApp at ${values.phone} to arrange collection.`,
+          "We'll contact you on both WhatsApp and email to arrange collection.",
         ],
         rows: [
           ["Listing", item.title],
