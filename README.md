@@ -160,7 +160,7 @@ The same events also appear in the seller dashboard straight away: a bell with a
   price the website shows "Price on request" and only Contact Seller.
 - Priced listings show **Buy Now** beside **Contact Seller**. Buy Now opens a
   checkout page (/buy.html). The buyer picks a
-  quantity (a lot is bought whole), collection or delivery, and mobile money or
+  quantity (a lot is bought whole) and mobile money or
   a Visa/Mastercard card. Nothing is paid on the website: the order (reference FM-1001,
   FM-1002, ...) is emailed to the team and the buyer gets a confirmation.
 - **Admin > Orders**: New -> Awaiting payment -> Paid -> Completed, or

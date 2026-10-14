@@ -14,8 +14,8 @@ function validate(body) {
   const fullName = text(body.full_name, 120);
   const phone = text(body.phone, 30);
   const email = text(body.email, 255);
-  const delivery = oneOf(body.delivery || "collect", ["collect", "deliver"]);
-  const address = text(body.delivery_address, 300);
+  // Delivery is switched off for now: every order is collected from the farm.
+  const delivery = "collect";
   // Bank transfer is no longer offered at checkout (older orders keep it).
   const payment = oneOf(body.payment_method, ["mobile_money", "card"]);
   // Cards: only the type and last 4 digits are ever sent or kept.
@@ -27,9 +27,6 @@ function validate(body) {
   if (!fullName || fullName.length < 2) errors.full_name = "Please enter your full name.";
   if (!phone || !isPhone(phone)) errors.phone = "Please enter a valid WhatsApp number, e.g. 0977 123 456.";
   if (!email || !isEmail(email)) errors.email = "Please enter a valid email address.";
-  if (!delivery) errors.delivery = "Please choose collection or delivery.";
-  if (delivery === "deliver" && (!address || address.length < 5))
-    errors.delivery_address = address === undefined ? "Address must be 300 characters or fewer." : "Please enter the delivery address.";
   if (!payment) errors.payment_method = "Please choose how you'll pay.";
   else if (payment === "mobile_money") {
     if (!operator) errors.mobile_operator = "Please choose your mobile money operator.";
@@ -47,7 +44,7 @@ function validate(body) {
       phone,
       email: email ? email.toLowerCase() : email,
       delivery,
-      delivery_address: delivery === "deliver" ? address : null,
+      delivery_address: null,
       payment_method: payment,
       mobile_operator: operator,
       payment_phone: payment === "mobile_money" ? paymentPhone : null,
@@ -144,9 +141,7 @@ router.post("/", async (req, res, next) => {
     const id = result.insertId;
     const reference = orderRef(id);
     const qtyText = lot ? `The whole lot (${headCount(quantity, item.animal_name)})` : headCount(quantity, item.animal_name);
-    const deliveryText = values.delivery === "deliver"
-      ? `${DELIVERY_LABELS.deliver}: ${values.delivery_address}`
-      : `${DELIVERY_LABELS.collect} (${item.location} Province)`;
+    const deliveryText = `${DELIVERY_LABELS.collect} (${item.location} Province)`;
 
     // The order is already saved; email problems are recorded, not shown.
     const [team, buyer] = await Promise.all([
@@ -168,7 +163,7 @@ router.post("/", async (req, res, next) => {
           ["Buyer", values.full_name],
           ["WhatsApp", values.phone],
           ["Email", values.email],
-          ["Delivery", deliveryText],
+          ["Collection", deliveryText],
           ["Payment", paymentText(values)],
         ],
         button: { label: "Open order", url: appUrl(`/admin/orders.html?id=${id}`) },
@@ -179,13 +174,13 @@ router.post("/", async (req, res, next) => {
         heading: `Order ${reference} received`,
         paragraphs: [
           `Hi ${values.full_name}, thank you for your order. The animals are now reserved for you.`,
-          `We'll contact you on WhatsApp at ${values.phone} to arrange payment and ${values.delivery === "deliver" ? "delivery" : "collection"}.`,
+          `We'll contact you on WhatsApp at ${values.phone} to arrange payment and collection.`,
         ],
         rows: [
           ["Listing", item.title],
           ["Quantity", qtyText],
           ["Total", kwacha(total)],
-          ["Delivery", deliveryText],
+          ["Collection", deliveryText],
           ["Payment", paymentText(values)],
         ],
       }),

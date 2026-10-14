@@ -256,9 +256,9 @@
               ])}
             </section>
             <section>
-              <h3>Delivery and payment</h3>
+              <h3>Collection and payment</h3>
               ${rows([
-                ["Delivery", escapeHtml(DELIVERY[o.delivery])],
+                ["Collection", escapeHtml(DELIVERY[o.delivery])],
                 ["Address", o.delivery === "deliver" ? escapeHtml(o.delivery_address) : null],
                 ["Payment", escapeHtml(PAYMENT[o.payment_method])],
                 ["Operator", o.payment_method === "mobile_money" && o.mobile_operator ? escapeHtml(OPERATORS[o.mobile_operator]) : null],

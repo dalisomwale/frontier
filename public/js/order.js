@@ -45,7 +45,7 @@ function expiryValid(value) {
   return year > now.getFullYear() || (year === now.getFullYear() && month >= now.getMonth() + 1);
 }
 
-function validateOrder(values, needsAddress) {
+function validateOrder(values) {
   const errors = {};
   const digits = values.phone.replace(/\D/g, "");
   if (!values.full_name || values.full_name.length < 2) errors.full_name = "Please enter your full name.";
@@ -54,7 +54,6 @@ function validateOrder(values, needsAddress) {
     errors.phone = "Please enter a valid number, e.g. 0977 123 456.";
   if (!values.email) errors.email = "Email is required.";
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(values.email)) errors.email = "Please enter a valid email address.";
-  if (needsAddress && values.delivery_address.length < 5) errors.delivery_address = "Please enter the delivery address.";
   if (!values.payment_method) errors.payment_method = "Please choose how you'll pay.";
   else if (values.payment_method === "mobile_money") {
     const payDigits = values.payment_phone.replace(/\D/g, "");
@@ -112,21 +111,6 @@ function renderCheckout(root, listing, startQuantity = 1) {
               <input id="buy-email" name="email" type="email" class="field-input" autocomplete="email" inputmode="email" maxlength="255" required>
               <p class="field-error hidden" data-error-for="email"></p>
             </div>
-          </div>
-        </section>
-
-        <section class="checkout-section">
-          <h2>Delivery</h2>
-          <div class="choice-grid">
-            <label class="choice-card"><input type="radio" name="delivery" value="collect" checked>
-              <span class="choice-dot"></span><span><b>Collect from farm</b><small>${escapeHtml(listing.location || "")} Province</small></span></label>
-            <label class="choice-card"><input type="radio" name="delivery" value="deliver">
-              <span class="choice-dot"></span><span><b>Deliver to me</b><small>Cost confirmed with you</small></span></label>
-          </div>
-          <div data-address hidden class="mt-4">
-            <label for="buy-address" class="field-label">Delivery address</label>
-            <textarea id="buy-address" name="delivery_address" rows="3" class="field-input" maxlength="300" placeholder="Farm or street, town"></textarea>
-            <p class="field-error hidden" data-error-for="delivery_address"></p>
           </div>
         </section>
 
@@ -198,6 +182,7 @@ function renderCheckout(root, listing, startQuantity = 1) {
           <p class="font-semibold text-gray-900">${escapeHtml(listing.title)}</p>
           <p class="text-xs text-gray-500 mt-0.5">${escapeHtml([subtitle, listing.location].filter(Boolean).join(" · "))}</p>
           <p class="text-sm text-gray-600 mt-3"><span class="font-semibold text-gray-800">${kwacha(price)}</span> ${priceUnitLabel(listing)}</p>
+          <p class="text-xs text-gray-500 mt-1">Collect from the farm${listing.location ? ` in ${escapeHtml(listing.location)} Province` : ""}</p>
 
           ${lot ? `<p class="text-sm text-gray-600 mt-3">The whole lot: ${escapeHtml(units(max))}</p>` : `
           <div class="flex items-center justify-between gap-3 mt-4">
@@ -228,7 +213,7 @@ function renderCheckout(root, listing, startQuantity = 1) {
   function updateReady() {
     if (placing) return;
     const values = readValues();
-    const ready = !Object.keys(validateOrder(values, values.delivery === "deliver")).length;
+    const ready = !Object.keys(validateOrder(values)).length;
     submits.forEach((b) => {
       b.disabled = !ready;
       b.title = ready ? "" : "Fill in your details and payment to place the order";
@@ -257,11 +242,6 @@ function renderCheckout(root, listing, startQuantity = 1) {
     });
     qtyInput.addEventListener("blur", () => { qtyInput.value = qty; });
   }
-  const addressBox = root.querySelector("[data-address]");
-  form.querySelectorAll('input[name="delivery"]').forEach((r) => r.addEventListener("change", () => {
-    addressBox.hidden = form.elements.delivery.value !== "deliver";
-    if (!addressBox.hidden) form.elements.delivery_address.focus();
-  }));
   const momoBox = root.querySelector("[data-momo]");
   const momoNumber = root.querySelector("[data-momo-number]");
   const OPERATOR_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
@@ -305,8 +285,7 @@ function renderCheckout(root, listing, startQuantity = 1) {
       full_name: form.elements.full_name.value.trim(),
       phone: form.elements.phone.value.trim(),
       email: form.elements.email.value.trim(),
-      delivery: form.elements.delivery.value,
-      delivery_address: form.elements.delivery_address.value.trim(),
+      delivery: "collect",
       payment_method: form.elements.payment_method.value,
       mobile_operator: form.elements.mobile_operator.value,
       payment_phone: form.elements.payment_phone.value.trim(),
@@ -347,7 +326,7 @@ function renderCheckout(root, listing, startQuantity = 1) {
     const alertBox = root.querySelector("#buy-alert");
     alertBox.classList.add("hidden");
     const values = readValues();
-    const errors = validateOrder(values, values.delivery === "deliver");
+    const errors = validateOrder(values);
     showErrors(errors);
     if (Object.keys(errors).length) return;
 
@@ -361,7 +340,7 @@ function renderCheckout(root, listing, startQuantity = 1) {
         method: "POST",
         body: orderPayload(values),
       });
-      showSuccess(res.data, values.delivery);
+      showSuccess(res.data);
     } catch (error) {
       if (error.errors) showErrors(error.errors);
       alertBox.textContent = error.message || "Your order could not be placed. Please try again.";
@@ -372,7 +351,7 @@ function renderCheckout(root, listing, startQuantity = 1) {
     }
   });
 
-  function showSuccess(order, delivery) {
+  function showSuccess(order) {
     const firstName = form.elements.full_name.value.trim().split(/\s+/)[0];
     const phone = form.elements.phone.value.trim();
     const thumb = listing.images?.[0]?.thumb_path || photo;
@@ -380,12 +359,12 @@ function renderCheckout(root, listing, startQuantity = 1) {
       <div class="checkout-done" role="status">
         <div class="order-done-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg></div>
         <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Order ${escapeHtml(order.reference)} placed</h1>
-        <p class="text-sm text-gray-600 mt-2">Thank you, ${escapeHtml(firstName)}. The animals are now reserved for you. We'll contact you on WhatsApp at ${escapeHtml(phone)} to arrange payment and ${delivery === "deliver" ? "delivery" : "collection"}.</p>
+        <p class="text-sm text-gray-600 mt-2">Thank you, ${escapeHtml(firstName)}. The animals are now reserved for you. We'll contact you on WhatsApp at ${escapeHtml(phone)} to arrange payment and collection.</p>
         <div class="order-summary checkout-done-summary">
           <div class="order-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : livestockFallbackMedia("w-8 h-8")}</div>
           <div class="min-w-0 flex-1">
             <p class="text-sm font-semibold text-gray-900 line-clamp-2">${escapeHtml(listing.title)}</p>
-            <p class="text-xs text-gray-500 mt-0.5">${escapeHtml(lot ? "The whole lot" : units(order.quantity))} · ${delivery === "deliver" ? "Delivery" : "Collect from farm"}</p>
+            <p class="text-xs text-gray-500 mt-0.5">${escapeHtml(lot ? "The whole lot" : units(order.quantity))} · Collect from farm</p>
           </div>
           <p class="order-total">${kwacha(order.total)}</p>
         </div>

@@ -182,7 +182,7 @@ router.patch("/:id", async (req, res, next) => {
         ["Listing", order.livestock_title],
         ["Quantity", qtyText],
         ["Total", kwacha(order.total)],
-        ["Delivery", order.delivery === "deliver" ? `${DELIVERY_LABELS.deliver}: ${order.delivery_address}` : DELIVERY_LABELS.collect],
+        ["Collection", order.delivery === "deliver" ? `${DELIVERY_LABELS.deliver}: ${order.delivery_address}` : DELIVERY_LABELS.collect],
         ["Payment", paymentText(order)],
       ],
     });
