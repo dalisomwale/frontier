@@ -71,10 +71,19 @@ function cardPrice(item) {
   </div>`;
 }
 
+// Price per head (bird / bag) for the card's top line. Per-head prices are
+// already shown in the price row, so this only adds something for a lot:
+// "K 13,000 / head" worked out from the lot price and the quantity.
+function perHeadLine(item) {
+  if (!hasPrice(item) || item.price_unit !== "lot") return "";
+  const qty = Number(item.quantity) || 0;
+  if (qty < 2) return "";
+  const each = Math.round((Number(item.price) / qty) * 100) / 100;
+  return `${kwacha(each)} ${priceUnitLabel({ ...item, price_unit: "head" }, true)}`;
+}
+
 function renderLivestockCard(item) {
-  const typeLine = [item.livestock_type, item.quantity > 1 ? quantityLabel(item.quantity, item.animal_name, item.animal_kind) : ""]
-    .filter(Boolean)
-    .join(", ");
+  const typeLine = perHeadLine(item);
   const buyable = hasPrice(item);
 
   return `
