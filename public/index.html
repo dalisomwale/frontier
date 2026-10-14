@@ -88,7 +88,8 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="mb-6">
             <button type="button" id="tiles-back" class="hidden mb-2 items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"><span class="w-4 h-4" data-icon="chevronLeft"></span>All animals</button>
-            <h2 id="categories-heading" class="text-xl sm:text-2xl font-bold text-gray-900">Browse by Category</h2>
+            <h2 id="categories-heading" class="text-xl sm:text-2xl font-bold text-gray-900">Browse Livestock</h2>
+            <p id="categories-subheading" class="text-sm text-gray-600 mt-1">Select a livestock type for more information</p>
           </div>
           <div id="animal-tiles" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></div>
         </div>
@@ -314,10 +315,12 @@
         stopTileSlides();
         const tiles = document.getElementById("animal-tiles");
         const heading = document.getElementById("categories-heading");
+        const subheading = document.getElementById("categories-subheading");
         const back = document.getElementById("tiles-back");
 
         if (!animalId) {
-          heading.textContent = "Browse by Category";
+          heading.textContent = "Browse Livestock";
+          subheading.textContent = "Select a livestock type for more information";
           back.classList.add("hidden");
           back.classList.remove("inline-flex");
           if (!animals.length) {
@@ -344,6 +347,7 @@
 
         const animal = animals.find((a) => String(a.id) === String(animalId));
         heading.textContent = "Filter by Production purpose";
+        subheading.textContent = "Select a production purpose for more information";
         back.classList.remove("hidden");
         back.classList.add("inline-flex");
         let purposes = [];
@@ -754,7 +758,7 @@
           if (d.feedStage) return (location.href = feedUrl(d.feedType, d.feedStage));
           if (d.feedAll) return (location.href = feedUrl(d.feedAll));
           if (d.group) {
-            // Livestock -> "Browse by Category", Feed -> "Browse Feed".
+            // Livestock -> "Browse Livestock", Feed -> "Browse Feed".
             const section = document.getElementById(d.group === "feed" ? "feed" : "categories");
             const item = link.closest(".nav-item");
             if (section && !section.hidden && !item.classList.contains("is-open")) section.scrollIntoView({ behavior: "smooth" });
