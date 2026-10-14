@@ -5,7 +5,7 @@ const express = require("express");
 const pool = require("../db");
 const { sendEmail, recipients, appUrl } = require("../services/mailer");
 const { positiveInt, text, isEmail, isPhone, oneOf, badRequest, notFound } = require("../lib/validate");
-const { orderRef, kwacha, headCount, paymentText, DELIVERY_LABELS, BANKS } = require("../lib/orders");
+const { orderRef, kwacha, headCount, paymentText, DELIVERY_LABELS } = require("../lib/orders");
 
 const router = express.Router();
 
@@ -16,13 +16,13 @@ function validate(body) {
   const email = text(body.email, 255);
   const delivery = oneOf(body.delivery || "collect", ["collect", "deliver"]);
   const address = text(body.delivery_address, 300);
-  const payment = oneOf(body.payment_method, ["mobile_money", "bank_transfer"]);
+  // Bank transfer is no longer offered at checkout (older orders keep it).
+  const payment = oneOf(body.payment_method, ["mobile_money", "card"]);
+  // Cards: only the type and last 4 digits are ever sent or kept.
+  const cardBrand = payment === "card" ? oneOf(body.card_brand, ["visa", "mastercard"]) : null;
+  const cardLast4 = payment === "card" && /^\d{4}$/.test(String(body.card_last4 || "")) ? String(body.card_last4) : null;
   const operator = payment === "mobile_money" ? oneOf(body.mobile_operator, ["airtel", "mtn", "zamtel"]) : null;
   const paymentPhone = payment === "mobile_money" ? text(body.payment_phone, 30) : null;
-  const bankChoice = payment === "bank_transfer" ? text(body.payment_bank, 80) : null;
-  const bankOther = payment === "bank_transfer" && bankChoice === "other" ? text(body.payment_bank_other, 80) : null;
-  const bankName = bankChoice === "other" ? bankOther : bankChoice;
-  const account = payment === "bank_transfer" ? text(body.payment_account, 30) : null;
 
   if (!fullName || fullName.length < 2) errors.full_name = "Please enter your full name.";
   if (!phone || !isPhone(phone)) errors.phone = "Please enter a valid WhatsApp number, e.g. 0977 123 456.";
@@ -34,12 +34,11 @@ function validate(body) {
   else if (payment === "mobile_money") {
     if (!operator) errors.mobile_operator = "Please choose your mobile money operator.";
     if (!paymentPhone || !isPhone(paymentPhone)) errors.payment_phone = "Please enter the mobile money number, e.g. 0977 123 456.";
-  } else if (payment === "bank_transfer") {
-    if (!bankChoice || (bankChoice !== "other" && !BANKS.includes(bankChoice))) errors.payment_bank = "Please choose your bank.";
-    else if (bankChoice === "other" && (!bankOther || bankOther.length < 2)) errors.payment_bank_other = "Please enter the name of your bank.";
-    const digits = String(account || "").replace(/[\s-]/g, "");
-    if (!account || !/^\d{6,20}$/.test(digits)) errors.payment_account = "Please enter your account number (digits only).";
+  } else if (payment === "card") {
+    if (!cardBrand) errors.card_number = "We accept Visa and Mastercard.";
+    else if (!cardLast4) errors.card_number = "Please check the card number.";
   }
+
 
   return {
     errors,
@@ -52,8 +51,10 @@ function validate(body) {
       payment_method: payment,
       mobile_operator: operator,
       payment_phone: payment === "mobile_money" ? paymentPhone : null,
-      payment_bank: payment === "bank_transfer" ? bankName : null,
-      payment_account: payment === "bank_transfer" ? account : null,
+      payment_bank: null,
+      payment_account: null,
+      card_brand: cardBrand,
+      card_last4: cardLast4,
     },
   };
 }
@@ -121,12 +122,12 @@ router.post("/", async (req, res, next) => {
         `INSERT INTO orders
            (livestock_id, livestock_title, seller_id, seller_name, quantity, unit_price, price_unit, total,
             full_name, phone, email, delivery, delivery_address, payment_method, mobile_operator, payment_phone,
-            payment_bank, payment_account, stock_deducted, ip_address)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+            payment_bank, payment_account, card_brand, card_last4, stock_deducted, ip_address)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
         [item.id, item.title, item.seller_id, sellerName, quantity, unitPrice, item.price_unit, total,
           values.full_name, values.phone, values.email, values.delivery, values.delivery_address,
           values.payment_method, values.mobile_operator, values.payment_phone,
-          values.payment_bank, values.payment_account, req.ip],
+          values.payment_bank, values.payment_account, values.card_brand, values.card_last4, req.ip],
       );
       soldOut = Number(current.quantity) - quantity === 0;
       await conn.query(

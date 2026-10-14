@@ -253,6 +253,8 @@ const LATE_COLUMNS = [
   ["orders", "payment_phone", "VARCHAR(30) NULL AFTER mobile_operator"],
   ["orders", "payment_bank", "VARCHAR(80) NULL AFTER payment_phone"],
   ["orders", "payment_account", "VARCHAR(30) NULL AFTER payment_bank"],
+  ["orders", "card_brand", "VARCHAR(20) NULL AFTER payment_account"],
+  ["orders", "card_last4", "CHAR(4) NULL AFTER card_brand"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");
@@ -275,6 +277,17 @@ async function ensureLateTables() {
     } catch (error) {
       console.error(`Could not add ${table}.${column}: ${error.message}. Run: npm run db:setup`);
     }
+  }
+  // Card payments were added to the payment_method list later.
+  try {
+    const [[column]] = await pool.query(
+      "SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'orders' AND column_name = 'payment_method'",
+    );
+    if (column && !column.type.includes("'card'")) {
+      await pool.query("ALTER TABLE orders MODIFY payment_method ENUM('mobile_money', 'bank_transfer', 'card') NOT NULL DEFAULT 'mobile_money'");
+    }
+  } catch (error) {
+    console.error(`Could not update orders.payment_method: ${error.message}. Run: npm run db:setup`);
   }
 }
 

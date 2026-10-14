@@ -13,7 +13,37 @@ function openBuyModal(listing, quantity = 1) {
   window.location.href = buyUrl(listing.id, quantity);
 }
 
-const CHECKOUT_BANKS = ["Zanaco", "Stanbic Bank", "Absa Bank", "FNB Zambia", "Access Bank", "Standard Chartered", "Indo Zambia Bank", "Ecobank"];
+// Card checks run in the browser only. The full card number, expiry and CVV
+// are never sent to our server: until a payment gateway is connected, the
+// order records just the card type and last 4 digits.
+function cardBrand(number) {
+  const n = String(number).replace(/\D/g, "");
+  if (/^4/.test(n)) return "visa";
+  if (/^(5[1-5]|2[2-7])/.test(n)) return "mastercard";
+  return "";
+}
+
+function luhnValid(number) {
+  const n = String(number).replace(/\D/g, "");
+  if (n.length < 13 || n.length > 19) return false;
+  let sum = 0;
+  for (let i = 0; i < n.length; i++) {
+    let d = Number(n[n.length - 1 - i]);
+    if (i % 2 === 1) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+
+function expiryValid(value) {
+  const m = String(value).match(/^(\d{2})\s*\/\s*(\d{2})$/);
+  if (!m) return false;
+  const month = Number(m[1]);
+  const year = 2000 + Number(m[2]);
+  if (month < 1 || month > 12) return false;
+  const now = new Date();
+  return year > now.getFullYear() || (year === now.getFullYear() && month >= now.getMonth() + 1);
+}
 
 function validateOrder(values, needsAddress) {
   const errors = {};
@@ -32,12 +62,14 @@ function validateOrder(values, needsAddress) {
     else if (!values.payment_phone) errors.payment_phone = "Please enter the mobile money number.";
     else if (!/^\+?[\d\s\-()]{7,25}$/.test(values.payment_phone) || payDigits.length < 7 || payDigits.length > 15)
       errors.payment_phone = "Please enter a valid number, e.g. 0977 123 456.";
-  } else if (values.payment_method === "bank_transfer") {
-    const digits = values.payment_account.replace(/[\s-]/g, "");
-    if (!values.payment_bank) errors.payment_bank = "Please choose your bank.";
-    else if (values.payment_bank === "other" && values.payment_bank_other.length < 2) errors.payment_bank_other = "Please enter the name of your bank.";
-    else if (!values.payment_account) errors.payment_account = "Please enter your account number.";
-    else if (!/^\d{6,20}$/.test(digits)) errors.payment_account = "Please enter a valid account number (digits only).";
+  } else if (values.payment_method === "card") {
+    const brand = cardBrand(values.card_number);
+    if (!values.card_number) errors.card_number = "Please enter your card number.";
+    else if (!brand) errors.card_number = "We accept Visa and Mastercard.";
+    else if (!luhnValid(values.card_number)) errors.card_number = "Please check the card number.";
+    if (values.card_name.length < 2) errors.card_name = "Please enter the name on the card.";
+    if (!expiryValid(values.card_expiry)) errors.card_expiry = "Enter a valid expiry date (MM/YY).";
+    if (!/^\d{3}$/.test(values.card_cvc)) errors.card_cvc = "Enter the 3-digit security code.";
   }
   return errors;
 }
@@ -103,8 +135,8 @@ function renderCheckout(root, listing, startQuantity = 1) {
           <div class="choice-grid">
             <label class="choice-card"><input type="radio" name="payment_method" value="mobile_money">
               <span class="choice-dot"></span><span><b>Mobile money</b><small>Airtel, MTN or Zamtel</small></span></label>
-            <label class="choice-card"><input type="radio" name="payment_method" value="bank_transfer">
-              <span class="choice-dot"></span><span><b>Bank transfer</b><small>Details sent to you</small></span></label>
+            <label class="choice-card"><input type="radio" name="payment_method" value="card">
+              <span class="choice-dot"></span><span><b>Visa card</b><small>Visa or Mastercard</small></span></label>
           </div>
           <p class="field-error hidden" data-error-for="payment_method"></p>
 
@@ -123,26 +155,34 @@ function renderCheckout(root, listing, startQuantity = 1) {
               <p class="field-error hidden" data-error-for="payment_phone"></p>
             </div>
           </div>
-          <div data-bank hidden class="momo-box">
-            <p class="field-label">Bank</p>
-            <div class="operator-grid bank-grid" role="radiogroup" aria-label="Bank">
-              ${CHECKOUT_BANKS.map((bank) => `<label class="operator-card op-bank"><input type="radio" name="payment_bank" value="${escapeHtml(bank)}"><span class="op-tick" aria-hidden="true"></span><span>${escapeHtml(bank)}</span></label>`).join("")}
-              <label class="operator-card op-bank"><input type="radio" name="payment_bank" value="other"><span class="op-tick" aria-hidden="true"></span><span>Other bank</span></label>
-            </div>
-            <p class="field-error hidden" data-error-for="payment_bank"></p>
-
-            <div data-bank-other hidden class="mt-4">
-              <label for="buy-bank-other" class="field-label">Bank name</label>
-              <input id="buy-bank-other" name="payment_bank_other" type="text" class="field-input" maxlength="80" placeholder="Name of your bank">
-              <p class="field-error hidden" data-error-for="payment_bank_other"></p>
-            </div>
-            <div data-bank-account hidden class="mt-4">
-              <label for="buy-account" class="field-label" data-bank-label>Account number</label>
-              <input id="buy-account" name="payment_account" type="text" class="field-input" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="e.g. 0123456789012">
-              <p class="field-error hidden" data-error-for="payment_account"></p>
+          <div data-card hidden class="momo-box">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="card-full">
+                <label for="buy-card-number" class="field-label">Card number</label>
+                <div class="card-input">
+                  <input id="buy-card-number" name="card_number" type="text" class="field-input" inputmode="numeric" autocomplete="cc-number" maxlength="23" placeholder="1234 5678 9012 3456">
+                  <span class="card-brand" data-card-brand></span>
+                </div>
+                <p class="field-error hidden" data-error-for="card_number"></p>
+              </div>
+              <div class="card-full">
+                <label for="buy-card-name" class="field-label">Name on card</label>
+                <input id="buy-card-name" name="card_name" type="text" class="field-input" autocomplete="cc-name" maxlength="80">
+                <p class="field-error hidden" data-error-for="card_name"></p>
+              </div>
+              <div>
+                <label for="buy-card-expiry" class="field-label">Expiry</label>
+                <input id="buy-card-expiry" name="card_expiry" type="text" class="field-input" inputmode="numeric" autocomplete="cc-exp" maxlength="7" placeholder="MM/YY">
+                <p class="field-error hidden" data-error-for="card_expiry"></p>
+              </div>
+              <div>
+                <label for="buy-card-cvc" class="field-label">CVV</label>
+                <input id="buy-card-cvc" name="card_cvc" type="password" class="field-input" inputmode="numeric" autocomplete="cc-csc" maxlength="3" placeholder="123">
+                <p class="field-error hidden" data-error-for="card_cvc"></p>
+              </div>
             </div>
           </div>
-          <p class="text-xs text-gray-500 mt-3">You don't pay now. We confirm with the seller first, then send payment details to your WhatsApp and email.</p>
+          <p class="text-xs text-gray-500 mt-3">You won't be charged now. We'll contact you on WhatsApp to complete the payment.</p>
         </section>
 
         <div class="honeypot" aria-hidden="true">
@@ -225,19 +265,29 @@ function renderCheckout(root, listing, startQuantity = 1) {
   const momoBox = root.querySelector("[data-momo]");
   const momoNumber = root.querySelector("[data-momo-number]");
   const OPERATOR_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
-  const bankBox = root.querySelector("[data-bank]");
+  const cardBox = root.querySelector("[data-card]");
   form.querySelectorAll('input[name="payment_method"]').forEach((r) => r.addEventListener("change", () => {
     momoBox.hidden = form.elements.payment_method.value !== "mobile_money";
-    bankBox.hidden = form.elements.payment_method.value !== "bank_transfer";
+    cardBox.hidden = form.elements.payment_method.value !== "card";
+    if (!cardBox.hidden) form.elements.card_number.focus();
   }));
-  form.querySelectorAll('input[name="payment_bank"]').forEach((r) => r.addEventListener("change", () => {
-    const other = r.value === "other";
-    root.querySelector("[data-bank-other]").hidden = !other;
-    root.querySelector("[data-bank-account]").hidden = false;
-    root.querySelector("[data-bank-label]").textContent = other ? "Account number" : `${r.value} account number`;
-    (other ? form.elements.payment_bank_other : form.elements.payment_account).focus();
-    updateReady();
-  }));
+  // Card number in groups of 4, with the card type shown; expiry as MM/YY.
+  const cardNumber = form.elements.card_number;
+  cardNumber.addEventListener("input", () => {
+    const digits = cardNumber.value.replace(/\D/g, "").slice(0, 19);
+    cardNumber.value = digits.replace(/(\d{4})(?=\d)/g, "$1 ");
+    const brand = cardBrand(digits);
+    const badge = root.querySelector("[data-card-brand]");
+    badge.textContent = brand === "visa" ? "VISA" : brand === "mastercard" ? "Mastercard" : "";
+    badge.dataset.brand = brand;
+  });
+  const cardExpiry = form.elements.card_expiry;
+  cardExpiry.addEventListener("input", (e) => {
+    let d = cardExpiry.value.replace(/\D/g, "").slice(0, 4);
+    if (d.length === 1 && Number(d) > 1) d = `0${d}`;
+    cardExpiry.value = d.length > 2 || (d.length === 2 && e.inputType !== "deleteContentBackward") ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+  });
+  form.elements.card_cvc.addEventListener("input", (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 3); });
   form.querySelectorAll('input[name="mobile_operator"]').forEach((r) => r.addEventListener("change", () => {
     momoNumber.hidden = false;
     root.querySelector("[data-momo-label]").textContent = `${OPERATOR_NAMES[r.value]} number`;
@@ -260,9 +310,10 @@ function renderCheckout(root, listing, startQuantity = 1) {
       payment_method: form.elements.payment_method.value,
       mobile_operator: form.elements.mobile_operator.value,
       payment_phone: form.elements.payment_phone.value.trim(),
-      payment_bank: form.elements.payment_bank.value,
-      payment_bank_other: form.elements.payment_bank_other.value.trim(),
-      payment_account: form.elements.payment_account.value.trim(),
+      card_number: form.elements.card_number.value.trim(),
+      card_name: form.elements.card_name.value.trim(),
+      card_expiry: form.elements.card_expiry.value.trim(),
+      card_cvc: form.elements.card_cvc.value.trim(),
     };
   }
 
@@ -282,6 +333,15 @@ function renderCheckout(root, listing, startQuantity = 1) {
     if (first) form.elements[first].focus();
   }
 
+  // What goes to the server. Card number, expiry and CVV stay in the browser.
+  function orderPayload(values) {
+    const { card_number: cardNo, card_name: cardName, card_expiry: cardExp, card_cvc: cardCvc, ...rest } = values;
+    const card = values.payment_method === "card"
+      ? { card_brand: cardBrand(cardNo), card_last4: cardNo.replace(/\D/g, "").slice(-4) }
+      : {};
+    return { ...rest, ...card, quantity: qty, livestock_id: listing.id, website: form.elements.website.value };
+  }
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const alertBox = root.querySelector("#buy-alert");
@@ -299,7 +359,7 @@ function renderCheckout(root, listing, startQuantity = 1) {
     try {
       const res = await apiRequest("/api/orders", {
         method: "POST",
-        body: { ...values, quantity: qty, livestock_id: listing.id, website: form.elements.website.value },
+        body: orderPayload(values),
       });
       showSuccess(res.data, values.delivery);
     } catch (error) {

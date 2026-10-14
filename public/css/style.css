@@ -4570,3 +4570,38 @@ body.admin-pending main {
     align-items: stretch;
   }
 }
+
+/* Checkout: card number with the card type shown inside the field */
+.card-input {
+  position: relative;
+}
+
+.card-input .field-input {
+  padding-right: 104px;
+  letter-spacing: 0.04em;
+}
+
+.card-brand {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.card-brand[data-brand="visa"] {
+  color: #1a1f71;
+  font-style: italic;
+  font-size: 14px;
+}
+
+.card-brand[data-brand="mastercard"] {
+  color: #b45309;
+}
+
+.card-full {
+  grid-column: 1 / -1;
+}

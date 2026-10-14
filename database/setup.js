@@ -252,7 +252,17 @@ async function main() {
       ["payment_phone", "VARCHAR(30) NULL AFTER mobile_operator"],
       ["payment_bank", "VARCHAR(80) NULL AFTER payment_phone"],
       ["payment_account", "VARCHAR(30) NULL AFTER payment_bank"],
+      ["card_brand", "VARCHAR(20) NULL AFTER payment_account"],
+      ["card_last4", "CHAR(4) NULL AFTER card_brand"],
     ], "orders now record how the buyer will pay");
+    const [[paymentColumn]] = await conn.query(
+      "SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = ? AND table_name = 'orders' AND column_name = 'payment_method'",
+      [DB_NAME],
+    );
+    if (paymentColumn && !paymentColumn.type.includes("'card'")) {
+      await conn.query("ALTER TABLE orders MODIFY payment_method ENUM('mobile_money', 'bank_transfer', 'card') NOT NULL DEFAULT 'mobile_money'");
+      console.log("  orders can now be paid by card");
+    }
   }
   await addColumns("inquiries", [
     ["forwarded_at", "DATETIME NULL AFTER seller_name"],

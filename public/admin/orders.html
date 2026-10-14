@@ -50,7 +50,8 @@
       ];
       const TABS = [{ value: "", label: "All" }, ...STATUSES];
       const DELIVERY = { collect: "Collect from farm", deliver: "Deliver to buyer" };
-      const PAYMENT = { mobile_money: "Mobile money", bank_transfer: "Bank transfer" };
+      const PAYMENT = { mobile_money: "Mobile money", bank_transfer: "Bank transfer", card: "Card" };
+      const CARDS = { visa: "Visa", mastercard: "Mastercard" };
       const OPERATORS = { airtel: "Airtel Money", mtn: "MTN Mobile Money", zamtel: "Zamtel Kwacha" };
       const state = { status: "", q: "", page: 1, rows: [], open: null, summary: {} };
       const statusLabel = (s) => STATUSES.find((x) => x.value === s)?.label || s;
@@ -71,6 +72,7 @@
       function paymentShort(o) {
         if (o.payment_method === "mobile_money") return OPERATORS[o.mobile_operator] || "Mobile money";
         if (o.payment_method === "bank_transfer") return o.payment_bank || "Bank transfer";
+        if (o.payment_method === "card") return `${CARDS[o.card_brand] || "Card"}${o.card_last4 ? ` •••• ${o.card_last4}` : ""}`;
         return "";
       }
 
@@ -263,6 +265,7 @@
                 ["Pay from", o.payment_method === "mobile_money" && o.payment_phone ? `<a href="tel:${tel(o.payment_phone)}" class="hover:underline">${escapeHtml(o.payment_phone)}</a>` : null],
                 ["Bank", o.payment_method === "bank_transfer" && o.payment_bank ? escapeHtml(o.payment_bank) : null],
                 ["Account", o.payment_method === "bank_transfer" && o.payment_account ? escapeHtml(o.payment_account) : null],
+                ["Card", o.payment_method === "card" ? `${escapeHtml(CARDS[o.card_brand] || "Card")}${o.card_last4 ? ` ending ${escapeHtml(o.card_last4)}` : ""}` : null],
               ])}
             </section>
             <section>

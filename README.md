@@ -161,7 +161,7 @@ The same events also appear in the seller dashboard straight away: a bell with a
 - Priced listings show **Buy Now** beside **Contact Seller**. Buy Now opens a
   checkout page (/buy.html). The buyer picks a
   quantity (a lot is bought whole), collection or delivery, and mobile money or
-  bank transfer. Nothing is paid on the website: the order (reference FM-1001,
+  a Visa/Mastercard card. Nothing is paid on the website: the order (reference FM-1001,
   FM-1002, ...) is emailed to the team and the buyer gets a confirmation.
 - **Admin > Orders**: New -> Awaiting payment -> Paid -> Completed, or
   Cancelled. Every status change emails the buyer, with any message you type
@@ -171,6 +171,12 @@ The same events also appear in the seller dashboard straight away: a bell with a
   (reserved for that buyer); a listing with nothing left comes off the
   website. Cancelling the order puts the animals back, and a sold-out listing
   goes back on the website.
+
+- Card payments: the checkout shows card fields (number, name, expiry, CVV)
+  and checks them in the browser, but no payment gateway is connected yet, so
+  nothing is charged. Only the card type and last 4 digits reach the server;
+  the full number, expiry and CVV are never sent, stored or emailed. When a
+  gateway is added, its secure card fields should replace these.
 
 ## Public filtering
 
