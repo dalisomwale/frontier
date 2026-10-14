@@ -618,18 +618,23 @@
         </li>`;
       }
 
-      // Browse Categories: Livestock (animals -> purposes) and Feed (feed types
-      // -> stages). Feed opens the feed page.
-      const animalItems = () =>
-        `<li class="nav-heading">Livestock</li>` +
+      // Browse Categories: first Livestock and Feed, then to the right
+      // Livestock -> animals -> purposes, and Feed -> feed types -> stages.
+      // Feed opens the feed page.
+      const groupItems = () =>
+        navLink({ label: "Livestock", sub: true, attrs: `data-group="livestock"`, active: Boolean(els.animal.value) }) +
+        (feedTypes.length ? navLink({ label: "Feed", sub: true, attrs: `data-group="feed"` }) : "");
+
+      const livestockItems = () =>
+        `<li class="nav-heading">Select livestock</li>` +
         animals.map((a) => navLink({
           label: a.name, count: a.livestock_count, sub: true,
           attrs: `data-animal="${a.id}"`, active: els.animal.value === String(a.id),
-        })).join("") +
-        (feedTypes.length
-          ? `<li class="nav-heading nav-heading-split">Feed</li>` +
-            feedTypes.map((f) => navLink({ label: f.name, count: f.livestock_count, sub: true, attrs: `data-feed="${f.id}"` })).join("")
-          : "");
+        })).join("");
+
+      const feedTypeItems = () =>
+        `<li class="nav-heading">Select a feed type</li>` +
+        feedTypes.map((f) => navLink({ label: f.name, count: f.livestock_count, sub: true, attrs: `data-feed="${f.id}"` })).join("");
 
       async function feedStageItems(feedId) {
         const feed = feedTypes.find((f) => String(f.id) === String(feedId));
@@ -704,7 +709,10 @@
         const link = item.querySelector(":scope > .nav-link");
         sub.innerHTML = `<ul class="nav-list"><li class="nav-empty">Loading...</li></ul>`;
         try {
-          const html = link.dataset.feed
+          const group = link.dataset.group;
+          const html = group
+            ? (group === "feed" ? feedTypeItems() : livestockItems())
+            : link.dataset.feed
             ? await feedStageItems(link.dataset.feed)
             : link.dataset.purpose
               ? await breedItems(link.dataset.animal, link.dataset.purpose)
@@ -721,7 +729,7 @@
         menu.classList.add("open");
         menu.querySelector(".nav-menu-btn").setAttribute("aria-expanded", "true");
         const panel = menu.querySelector(".nav-dropdown");
-        panel.innerHTML = `<ul class="nav-list">${menu.id === "menu-province" ? provinceItems() : animalItems()}</ul>`;
+        panel.innerHTML = `<ul class="nav-list">${menu.id === "menu-province" ? provinceItems() : groupItems()}</ul>`;
         panel.style.top = window.innerWidth < 1024
           ? `${Math.round(document.getElementById("page-topnav").getBoundingClientRect().bottom) + 6}px`
           : "";
@@ -745,7 +753,7 @@
           if (d.province !== undefined) return pickProvince(d.province);
           if (d.feedStage) return (location.href = feedUrl(d.feedType, d.feedStage));
           if (d.feedAll) return (location.href = feedUrl(d.feedAll));
-          if (d.feed) return toggleFlyout(link.closest(".nav-item"));
+          if (d.group || d.feed) return toggleFlyout(link.closest(".nav-item"));
           if (d.purpose) return pickAnimal(d.animal, d.purpose, null);
           pickAnimal(d.animal, d.purpose, null, { close: false });
           toggleFlyout(link.closest(".nav-item"));

@@ -4681,10 +4681,22 @@ body.admin-pending main {
   .feed-tile-desc { display: none; }
 }
 
-.nav-heading-split {
-  margin-top: 6px;
-  padding-top: 10px;
-  border-top: 1px solid #f1f5f9;
+/* Browse Categories on phones: three columns (Livestock/Feed, then the
+   animals or feed types, then purposes or stages). The first column is
+   narrower; each flyout is sized against the column it opens from. */
+@media (max-width: 1023px) {
+  #menu-animals .nav-dropdown > .nav-list {
+    width: 31%;
+  }
+
+  #menu-animals .nav-dropdown > .nav-list > .nav-item > .nav-link {
+    word-break: normal;
+    white-space: nowrap;
+  }
+
+  #menu-animals .nav-dropdown > .nav-list > .nav-item > .nav-flyout {
+    width: calc(100% * 34.5 / 31);
+  }
 }
 
 /* Feed page */
