@@ -4919,3 +4919,23 @@ body.admin-pending main {
   font-weight: 400;
   color: #6b7280;
 }
+
+/* Verified: the badge icon only (the word stays for screen readers) */
+.verified-badge {
+  gap: 0;
+  padding: 3px;
+}
+
+.verified-badge svg {
+  width: 18px;
+  height: 18px;
+}
+
+.gallery-frame .verified-badge {
+  padding: 4px;
+}
+
+.gallery-frame .verified-badge svg {
+  width: 22px;
+  height: 22px;
+}

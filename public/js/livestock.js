@@ -42,7 +42,7 @@ function cardImage(item) {
 
 function verifiedBadge(item) {
   if (item.verification !== "verified") return "";
-  return `<span class="verified-badge" title="Verified by Frontier"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.4 1.8 3-.2.9 2.9 2.5 1.7-1 2.8 1 2.8-2.5 1.7-.9 2.9-3-.2L12 21.5l-2.4-1.8-3 .2-.9-2.9-2.5-1.7 1-2.8-1-2.8 2.5-1.7.9-2.9 3 .2z"/><path d="M8.5 12.2l2.3 2.3 4.7-4.8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Verified</span>`;
+  return `<span class="verified-badge" title="Verified by Frontier" aria-label="Verified by Frontier"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.4 1.8 3-.2.9 2.9 2.5 1.7-1 2.8 1 2.8-2.5 1.7-.9 2.9-3-.2L12 21.5l-2.4-1.8-3 .2-.9-2.9-2.5-1.7 1-2.8-1-2.8 2.5-1.7.9-2.9 3 .2z"/><path d="M8.5 12.2l2.3 2.3 4.7-4.8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr-only">Verified</span></span>`;
 }
 
 // Prices are optional. "K 18,500" with "per head" / "for the lot".
@@ -91,7 +91,10 @@ function perHeadLine(item) {
   return `<span class="lv-each">${kwacha(each)}<span class="lv-each-unit"> ${priceUnitLabel({ ...item, price_unit: "head" }, true)}</span></span>`;
 }
 
-function renderLivestockCard(item) {
+// options.actions = false leaves out Buy Now / Contact Seller (the homepage
+// cards); the whole card still opens the listing.
+function renderLivestockCard(item, options = {}) {
+  const actions = options.actions !== false;
   const typeLine = perHeadLine(item);
   const buyable = hasPrice(item);
 
@@ -107,12 +110,12 @@ function renderLivestockCard(item) {
           ${typeLine}
         </div>
         ${cardPrice(item)}
-        <div class="buy-row mt-auto ${buyable ? "" : "buy-row-single"}">
+        ${actions ? `<div class="buy-row mt-auto ${buyable ? "" : "buy-row-single"}">
           ${buyable ? `<button type="button" class="btn-buy" data-buy="${item.id}">Buy Now</button>` : ""}
           <button type="button" class="btn-contact btn-inquire" data-inquire="${item.id}">
             ${buyable ? '<span class="lbl-full">Contact Seller</span><span class="lbl-short">Contact</span>' : "Contact Seller"}
           </button>
-        </div>
+        </div>` : ""}
       </div>
     </article>`;
 }
