@@ -34,7 +34,7 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       <nav class="text-sm mb-5" aria-label="Breadcrumb">
-        <a id="back-link" href="/#feed" class="inline-flex items-center gap-1 font-medium text-blue-600 hover:text-blue-700"><span class="w-4 h-4" data-icon="chevronLeft"></span><span id="back-label">Home</span></a>
+        <a id="back-link" href="/" class="inline-flex items-center gap-1 font-medium text-blue-600 hover:text-blue-700"><span class="w-4 h-4" data-icon="chevronLeft"></span><span id="back-label">Back Home</span></a>
       </nav>
 
       <div class="mb-6">
@@ -205,8 +205,6 @@
         document.title = `${state.type.name} - Frontier Marketplace`;
         document.getElementById("feed-title").textContent = state.type.name;
         document.getElementById("feed-subtitle").textContent = state.type.description || "";
-        document.getElementById("back-link").href = "/feed.html";
-        document.getElementById("back-label").textContent = "All feed";
         document.getElementById("feed-types").hidden = true;
         document.getElementById("feed-listings").hidden = false;
         state.stage = q.stage || "";
