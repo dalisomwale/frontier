@@ -91,10 +91,10 @@ function perHeadLine(item) {
   return `<span class="lv-each">${kwacha(each)}<span class="lv-each-unit"> ${priceUnitLabel({ ...item, price_unit: "head" }, true)}</span></span>`;
 }
 
-// options.actions = false leaves out Buy Now / Contact Seller (the homepage
-// cards); the whole card still opens the listing.
+// Cards have no Buy Now / Contact Seller: the whole card opens the listing,
+// where those buttons are. Pass { actions: true } to show them on a card.
 function renderLivestockCard(item, options = {}) {
-  const actions = options.actions !== false;
+  const actions = options.actions === true;
   const typeLine = perHeadLine(item);
   const buyable = hasPrice(item);
 

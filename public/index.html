@@ -481,7 +481,7 @@
                   action: `<button type="button" onclick="clearFilters()" class="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-700">Clear all filters</button>` }
               : { title: "No livestock listed yet", message: "Please check back soon.", icon: "cattle" });
           } else {
-            container.innerHTML = res.data.map((item) => renderLivestockCard(item, { actions: false })).join("");
+            container.innerHTML = res.data.map(renderLivestockCard).join("");
             bindInquireButtons(container, res.data);
           }
           renderPagination(res.pagination);
