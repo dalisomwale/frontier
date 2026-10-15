@@ -33,7 +33,7 @@
           <div class="flex items-center gap-1 ml-auto md:ml-2 lg:ml-6">
             <div class="nav-menu" id="menu-animals">
               <button type="button" class="nav-menu-btn" aria-haspopup="true" aria-expanded="false">
-                Browse Categories <span class="nav-menu-caret" data-icon="chevronRight"></span>
+                <span class="nav-menu-label-full">Browse Categories</span><span class="nav-menu-label-short">Categories</span> <span class="nav-menu-caret" data-icon="chevronRight"></span>
               </button>
               <div class="nav-dropdown"></div>
             </div>
@@ -723,7 +723,6 @@
 
       let searchQuery = "";
       const searchForm = document.getElementById("site-search");
-      if (window.matchMedia("(max-width: 767px)").matches) document.getElementById("search-input").placeholder = "Search livestock";
       const searchInput = document.getElementById("search-input");
       const searchResults = document.getElementById("search-results");
       const searchClear = document.getElementById("search-clear");
