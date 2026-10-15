@@ -45,9 +45,14 @@
       <div id="feed-types" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5"></div>
 
       <div id="feed-listings" hidden>
-        <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
-          <div id="stage-chips" class="feed-stage-chips" role="tablist" aria-label="Feed stage"></div>
-          <select id="province-filter" class="field-input !py-2 !text-sm sm:!w-44 sm:ml-auto" aria-label="Province"></select>
+        <div class="lv-bar mb-6">
+          <div id="stage-chips" class="lv-types" role="group" aria-label="Feed stage"></div>
+          <div class="lv-prov" id="province-filter">
+            <button type="button" id="province-btn" class="lv-prov-btn" aria-haspopup="true" aria-expanded="false" aria-label="Filter by province">
+              <span class="lv-prov-icon" data-icon="filter"></span><span class="lv-prov-text" id="province-text">Province</span><span class="lv-prov-dot" id="province-dot" hidden></span>
+            </button>
+            <div id="province-pop" class="lv-prov-pop" hidden></div>
+          </div>
         </div>
         <div id="listings-container" class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6 mb-6"></div>
         <div id="pagination-container"></div>
@@ -94,7 +99,7 @@
         const chips = document.getElementById("stage-chips");
         const stages = res.data.purposes;
         chips.innerHTML = [{ id: "", name: "All" }, ...stages]
-          .map((st) => `<button type="button" role="tab" data-stage="${st.id}" class="${String(st.id) === String(state.stage) ? "active" : ""}" aria-selected="${String(st.id) === String(state.stage)}">${escapeHtml(st.name)}</button>`)
+          .map((st) => `<button type="button" class="lv-type ${String(st.id) === String(state.stage) ? "is-active" : ""}" data-stage="${st.id}" aria-pressed="${String(st.id) === String(state.stage)}">${escapeHtml(st.name)}</button>`)
           .join("");
         chips.querySelectorAll("[data-stage]").forEach((b) => b.addEventListener("click", () => {
           state.stage = b.dataset.stage;
@@ -102,9 +107,36 @@
           loadStages();
           loadListings();
         }));
-        const province = document.getElementById("province-filter");
-        province.innerHTML = `<option value="">All provinces</option>` +
-          res.data.locations.map((l) => `<option value="${escapeHtml(l.value)}" ${l.value === state.province ? "selected" : ""}>${escapeHtml(l.value)}</option>`).join("");
+        const active = chips.querySelector(".is-active");
+        if (active && chips.scrollWidth > chips.clientWidth) {
+          chips.scrollTo({ left: Math.max(0, active.offsetLeft - chips.offsetLeft - 16), behavior: "smooth" });
+        }
+        updateStagesFade();
+        renderProvinceFilter();
+      }
+
+      // Province: a filter button on the right of the stage row.
+      function renderProvinceFilter() {
+        const current = state.province || "";
+        document.getElementById("province-text").textContent = current || "Province";
+        document.getElementById("province-dot").hidden = !current;
+        document.getElementById("province-btn").classList.toggle("has-value", Boolean(current));
+        const check = `<span class="lv-prov-check">${uiIcon("check")}</span>`;
+        document.getElementById("province-pop").innerHTML = `<p class="lv-prov-title">Province</p>` +
+          [{ value: "", label: "All provinces" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))]
+            .map((o) => `<button type="button" class="lv-prov-item ${o.value === current ? "is-active" : ""}" data-province-pick="${escapeHtml(o.value)}">${escapeHtml(o.label)}${o.value === current ? check : ""}</button>`)
+            .join("");
+      }
+
+      function setProvinceOpen(open) {
+        document.getElementById("province-pop").hidden = !open;
+        document.getElementById("province-btn").setAttribute("aria-expanded", String(open));
+      }
+
+      // The fade on the right of the swipeable row hints at more stages.
+      function updateStagesFade() {
+        const row = document.getElementById("stage-chips");
+        row.classList.toggle("is-end", row.scrollLeft + row.clientWidth >= row.scrollWidth - 4);
       }
 
       async function loadListings() {
@@ -140,11 +172,25 @@
         }
       }
 
-      document.getElementById("province-filter").addEventListener("change", (e) => {
-        state.province = e.target.value;
+      document.getElementById("stage-chips").addEventListener("scroll", updateStagesFade, { passive: true });
+      window.addEventListener("resize", updateStagesFade);
+      document.getElementById("province-btn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        setProvinceOpen(document.getElementById("province-pop").hidden);
+      });
+      document.getElementById("province-pop").addEventListener("click", (e) => {
+        const item = e.target.closest("[data-province-pick]");
+        if (!item) return;
+        setProvinceOpen(false);
+        state.province = item.dataset.provincePick;
         state.page = 1;
+        renderProvinceFilter();
         loadListings();
       });
+      document.addEventListener("click", (e) => {
+        if (!document.getElementById("province-filter").contains(e.target)) setProvinceOpen(false);
+      });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") setProvinceOpen(false); });
 
       document.addEventListener("DOMContentLoaded", async () => {
         const q = getQueryParams();
