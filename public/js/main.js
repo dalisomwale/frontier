@@ -246,7 +246,6 @@ function renderSiteFooter() {
           <h2>Browse</h2>
           ${link("/#listings", "Livestock")}
           ${link("/#feed", "Animal Feed")}
-          ${link("/feed.html", "All feed types")}
         </nav>
         <nav class="site-footer-col" aria-label="Sell with us">
           <h2>Sell with us</h2>
