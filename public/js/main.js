@@ -260,13 +260,8 @@ function renderSiteFooter() {
       </div>
       <div class="site-footer-bottom">
         <p>&copy; ${new Date().getFullYear()} Frontier Farms &amp; Consult. All rights reserved.</p>
-        <a href="#" class="site-footer-top" data-to-top>Back to top <span aria-hidden="true">&uarr;</span></a>
       </div>
     </div>`;
-  el.querySelector("[data-to-top]").addEventListener("click", (e) => {
-    e.preventDefault();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  });
 }
 document.addEventListener("DOMContentLoaded", renderSiteFooter);
 
