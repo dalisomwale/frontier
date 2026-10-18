@@ -226,11 +226,50 @@ function renderSkeletonCards(container, count = 8) {
     .join("");
 }
 
-function footerYear() {
-  const el = document.getElementById("footer-year");
-  if (el) el.textContent = new Date().getFullYear();
+// The public site footer, the same on every page (<footer id="site-footer">).
+function renderSiteFooter() {
+  const el = document.getElementById("site-footer");
+  if (!el) return;
+  el.classList.add("site-footer");
+  const link = (href, text) => `<a href="${href}">${text}</a>`;
+  el.innerHTML = `
+    <div class="site-footer-inner">
+      <div class="site-footer-grid">
+        <div class="site-footer-brand">
+          <a href="/" class="site-footer-logo" aria-label="Frontier Marketplace home">
+            <span class="site-footer-mark"><img src="/images/logo-full.jpg" alt="" loading="lazy"></span>
+            <span><strong>Frontier Marketplace</strong><small>by Frontier Farms &amp; Consult</small></span>
+          </a>
+          <p>Buy and sell livestock and animal feed from farmers across Zambia.</p>
+        </div>
+        <nav class="site-footer-col" aria-label="Browse">
+          <h2>Browse</h2>
+          ${link("/#listings", "Livestock")}
+          ${link("/#feed", "Animal Feed")}
+          ${link("/feed.html", "All feed types")}
+        </nav>
+        <nav class="site-footer-col" aria-label="Sell with us">
+          <h2>Sell with us</h2>
+          ${link("/seller/register.html", "Register as a seller")}
+          ${link("/seller/login.html", "Seller sign in")}
+        </nav>
+        <nav class="site-footer-col" aria-label="Legal">
+          <h2>Legal</h2>
+          ${link("/terms.html", "Terms of Service")}
+          ${link("/privacy.html", "Privacy Policy")}
+        </nav>
+      </div>
+      <div class="site-footer-bottom">
+        <p>&copy; ${new Date().getFullYear()} Frontier Farms &amp; Consult. All rights reserved.</p>
+        <a href="#" class="site-footer-top" data-to-top>Back to top <span aria-hidden="true">&uarr;</span></a>
+      </div>
+    </div>`;
+  el.querySelector("[data-to-top]").addEventListener("click", (e) => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
 }
-document.addEventListener("DOMContentLoaded", footerYear);
+document.addEventListener("DOMContentLoaded", renderSiteFooter);
 
 const SELLER_HINT_KEY = "frontier.seller";
 
