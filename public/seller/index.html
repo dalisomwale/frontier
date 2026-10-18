@@ -35,14 +35,14 @@
       <section id="tab-overview">
         <div id="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8"></div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <section class="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <section class="bg-white rounded-xl border border-gray-100">
             <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <h2 class="text-base font-bold text-gray-900">Recent Messages</h2>
               <a href="/seller/?tab=messages" data-tab-link="messages" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
             </div>
             <div id="recent-messages"></div>
           </section>
-          <section class="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <section class="bg-white rounded-xl border border-gray-100">
             <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <h2 class="text-base font-bold text-gray-900">My Listings</h2>
               <a href="/seller/?tab=listings" data-tab-link="listings" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
@@ -60,19 +60,19 @@
         </div>
       </section>
       <section id="tab-notifications" hidden>
-        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
           <div id="notifications-list"></div>
         </div>
       </section>
       <section id="tab-profile" hidden>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <form id="profile-form" class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4" novalidate>
+          <form id="profile-form" class="bg-white rounded-xl border border-gray-100 p-5 space-y-4" novalidate>
             <h2 class="font-semibold text-gray-900">Your details</h2>
             <div data-alert class="hidden alert text-sm mb-0" role="alert"></div>
             <div data-fields class="space-y-4"></div>
             <button type="submit" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold">Save details</button>
           </form>
-          <form id="password-form" class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4 self-start" novalidate>
+          <form id="password-form" class="bg-white rounded-xl border border-gray-100 p-5 space-y-4 self-start" novalidate>
             <h2 class="font-semibold text-gray-900">Change password</h2>
             <div data-alert class="hidden alert text-sm mb-0" role="alert"></div>
             <div>
@@ -124,7 +124,7 @@
       async function loadSummary() {
         const { data } = await sellerApi("/api/seller/summary");
         const stat = (label, value, tab, tone = "") => `
-          <a href="/seller/?tab=${tab}" data-tab-link="${tab}" class="stat-tile hover:shadow-md transition !p-4">
+          <a href="/seller/?tab=${tab}" data-tab-link="${tab}" class="stat-tile transition !p-4">
             <div class="min-w-0">
               <p class="text-gray-600 text-xs sm:text-sm font-medium leading-tight">${label}</p>
               <p class="text-xl sm:text-2xl font-bold ${tone || "text-gray-900"}">${Number(value).toLocaleString()}</p>
@@ -149,7 +149,7 @@
         const st = sellerState(l);
         const detail = [l.breed_name, l.category_name, l.animal_name].filter(Boolean).join(" · ");
         return `
-          <article class="bg-white rounded-xl border border-gray-100 shadow-sm p-3 sm:p-4 flex gap-3 sm:gap-4">
+          <article class="bg-white rounded-xl border border-gray-100 p-3 sm:p-4 flex gap-3 sm:gap-4">
             <div class="w-24 h-20 sm:w-32 sm:h-24 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
               ${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : ""}
             </div>
@@ -174,7 +174,7 @@
         const box = document.getElementById("tab-listings");
         listings = (await sellerApi("/api/seller/listings")).data;
         if (!listings.length) {
-          box.innerHTML = `<div class="bg-white rounded-xl border border-gray-100 shadow-sm"><div class="empty-state">
+          box.innerHTML = `<div class="bg-white rounded-xl border border-gray-100"><div class="empty-state">
             <p class="font-semibold text-gray-800">No listings yet</p>
             <p class="text-sm mt-1">${approved() ? "Add your first listing. Our team will review it before it goes live." : "You can add listings once your account is approved."}</p>
             ${approved() ? `<button type="button" data-add class="mt-4 inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold">Add Listing</button>` : ""}

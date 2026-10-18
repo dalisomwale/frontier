@@ -29,7 +29,7 @@
       <div id="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8"></div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section class="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <section class="bg-white rounded-xl border border-gray-100">
           <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <h2 class="text-base font-bold text-gray-900">Recent Inquiries</h2>
             <a href="/admin/inquiries.html" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
@@ -37,7 +37,7 @@
           <div id="recent-inquiries"></div>
         </section>
 
-        <section class="bg-white rounded-xl border border-gray-100 shadow-sm">
+        <section class="bg-white rounded-xl border border-gray-100">
           <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <h2 class="text-base font-bold text-gray-900">Recent Livestock</h2>
             <a href="/admin/livestock.html" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
@@ -75,7 +75,7 @@
 
       function renderStats(stats) {
         document.getElementById("stats").innerHTML = STAT_TILES.map((t) => `
-          <a href="${t.href}" class="stat-tile hover:shadow-md transition !p-4">
+          <a href="${t.href}" class="stat-tile transition !p-4">
             <div class="min-w-0">
               <p class="text-gray-600 text-xs sm:text-sm font-medium leading-tight">${t.label}</p>
               <p class="text-xl sm:text-2xl font-bold ${["new_inquiries", "new_orders"].includes(t.key) && stats[t.key] ? "text-red-600" : "text-gray-900"}">${stats[t.key].toLocaleString()}</p>

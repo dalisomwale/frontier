@@ -4997,3 +4997,28 @@ body.admin-pending main {
     display: inline;
   }
 }
+
+/* Cards: no shadows anywhere; a thin border marks the edge instead. */
+.card,
+.card:hover,
+.stat-tile,
+.inbox-shell,
+.inbox-shell.seller-inbox,
+.feed-tile:hover {
+  box-shadow: none;
+}
+
+.card:hover {
+  border-color: #d1d5db;
+}
+
+.lv-card {
+  border: 1px solid #e5e7eb;
+  box-shadow: none;
+  transition: border-color 0.2s ease;
+}
+
+.lv-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: none;
+}

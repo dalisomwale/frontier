@@ -214,7 +214,7 @@ function renderSkeletonCards(container, count = 8) {
   container.innerHTML = Array.from({ length: count })
     .map(
       () => `
-      <div class="bg-white rounded-lg shadow-md overflow-hidden animate-pulse">
+      <div class="bg-white rounded-lg border border-gray-200 overflow-hidden animate-pulse">
         <div class="bg-gray-200 aspect-[4/3]"></div>
         <div class="p-3 space-y-2">
           <div class="h-4 bg-gray-200 rounded w-3/4"></div>
