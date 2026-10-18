@@ -51,6 +51,7 @@ function renderBottomNav(variant = "public") {
 function renderSidebar(active) {
   const mount = document.getElementById("app-sidebar");
   if (!mount) return;
+  const feedPage = new URLSearchParams(window.location.search).get("kind") === "feed";
   mount.classList.add("app-sidebar");
 
   const items = [
@@ -61,7 +62,13 @@ function renderSidebar(active) {
     { key: "orders", href: "/admin/orders.html", icon: "cart", label: "Orders", orderBadge: true },
     { key: "sellers", href: "/admin/sellers.html", icon: "users", label: "Sellers" },
     { key: "breeds", href: "/admin/breeds.html", icon: "tag", label: "Breeds" },
-    { key: "categories", href: "/admin/categories.html", icon: "layers", label: "Categories & Purposes" },
+    {
+      key: "categories", href: "/admin/categories.html", icon: "layers", label: "Categories & Purposes",
+      children: [
+        { href: "/admin/categories.html", label: "Livestock", feed: false },
+        { href: "/admin/categories.html?kind=feed", label: "Feed", feed: true },
+      ],
+    },
     { key: "site", href: "/", icon: "external", label: "View Website", external: true },
   ];
 
@@ -80,7 +87,10 @@ function renderSidebar(active) {
             ${uiIcon(item.icon)}<span>${item.label}</span>
             ${item.badge ? '<span data-new-badge class="nav-badge hidden">0</span>' : ""}
             ${item.orderBadge ? '<span data-order-badge class="nav-badge hidden">0</span>' : ""}
-          </a>`,
+          </a>${item.children ? `<div class="app-sidebar-sub">${item.children.map((c) => {
+            const on = item.key === active && c.feed === feedPage;
+            return `<a href="${c.href}" class="${on ? "active" : ""}"${on ? ' aria-current="page"' : ""}>${c.label}</a>`;
+          }).join("")}</div>` : ""}`,
         )
         .join("")}
     </nav>

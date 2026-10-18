@@ -5165,3 +5165,32 @@ body.admin-pending main {
     margin-top: 32px;
   }
 }
+
+/* Sidebar sub-tabs (Categories & Purposes: Livestock / Feed) */
+.app-sidebar-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 6px 22px;
+  padding-left: 12px;
+  border-left: 1px solid var(--sidebar-border);
+}
+
+.app-sidebar-nav .app-sidebar-sub a {
+  padding: 7px 12px;
+  font-size: 0.875rem;
+  border-left: 0;
+}
+
+.app-sidebar-nav .app-sidebar-sub a.active {
+  background: var(--sidebar-bg-active);
+  color: var(--sidebar-text-active);
+}
+
+/* Categories page: the sidebar has the Livestock / Feed tabs on desktop;
+   the in-page switch stays for phones and tablets. */
+@media (min-width: 1024px) {
+  #kind-tabs {
+    display: none;
+  }
+}
