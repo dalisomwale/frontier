@@ -31,7 +31,8 @@ function paymentText(order) {
   }
   if (order.payment_method !== "mobile_money") return PAYMENT_LABELS[order.payment_method] || "";
   const parts = [OPERATOR_LABELS[order.mobile_operator], order.payment_phone].filter(Boolean);
-  return parts.length ? `Mobile money (${parts.join(", ")})` : "Mobile money";
+  const paid = order.payment_status === "paid" ? ", paid online" : "";
+  return parts.length ? `Mobile money (${parts.join(", ")}${paid})` : `Mobile money${paid}`;
 }
 
 function orderRef(id) {

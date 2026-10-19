@@ -172,6 +172,20 @@ The same events also appear in the seller dashboard straight away: a bell with a
   website. Cancelling the order puts the animals back, and a sold-out listing
   goes back on the website.
 
+- **Mobile money on the website (Lenco):** with `LENCO_SECRET_KEY` set in
+  `.env`, a buyer who pays by Airtel Money, MTN MoMo or Zamtel Kwacha gets a
+  prompt on their phone to enter their PIN as soon as they place the order.
+  The checkout shows "Check your phone" and waits; when they approve, the
+  order is marked **Paid**, and the buyer and team are emailed. If it fails
+  (wrong PIN, not enough money, timed out) the order stays reserved and the
+  buyer can send the prompt again (up to 5 tries, optionally to another
+  number) or choose "Pay later". Lenco also confirms payments by webhook at
+  `/api/payments/lenco/webhook` (signed; set this URL in the Lenco
+  dashboard). An order is never marked paid for less than its total. Admin >
+  Orders shows "Paid online", "Waiting for PIN" or "Payment failed", with the
+  Lenco reference. Without a key, checkout works as before.
+  Test first with `LENCO_ENV=sandbox` and a sandbox key: Airtel test number
+  0971111111 approves, 0972222222 fails with "Incorrect Pin".
 - Card payments: the checkout shows card fields (number, name, expiry, CVV)
   and checks them in the browser, but no payment gateway is connected yet, so
   nothing is charged. Only the card type and last 4 digits reach the server;

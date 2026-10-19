@@ -297,6 +297,14 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_account  VARCHAR(30) NULL,
   card_brand       VARCHAR(20) NULL,
   card_last4       CHAR(4) NULL,
+  payment_status   ENUM('unpaid', 'pending', 'paid', 'failed') NOT NULL DEFAULT 'unpaid',
+  payment_reference VARCHAR(64) NULL,
+  payment_provider_ref VARCHAR(80) NULL,
+  payment_failure  VARCHAR(255) NULL,
+  payment_attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  payment_checked_at DATETIME NULL,
+  paid_at          DATETIME NULL,
+  public_token     CHAR(32) NULL,
   status           ENUM('new', 'confirmed', 'paid', 'completed', 'cancelled') NOT NULL DEFAULT 'new',
   stock_deducted   TINYINT(1) NOT NULL DEFAULT 0,
   seller_notified_at DATETIME NULL,
@@ -311,5 +319,6 @@ CREATE TABLE IF NOT EXISTS orders (
     REFERENCES sellers(id) ON DELETE SET NULL,
   INDEX idx_orders_status (status, created_at),
   INDEX idx_orders_livestock (livestock_id),
-  INDEX idx_orders_seller (seller_id)
+  INDEX idx_orders_seller (seller_id),
+  INDEX idx_orders_payment_ref (payment_reference)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

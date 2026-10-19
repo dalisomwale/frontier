@@ -1,11 +1,15 @@
-// Public "Buy Now". Visitors need no account. Nothing is paid on the website:
-// the order is saved, the team is emailed, and the buyer gets a confirmation.
-// The team then checks availability with the seller and sends payment details.
+// Public "Buy Now". Visitors need no account. The order is saved, the team is
+// emailed, and the buyer gets a confirmation. With mobile money and Lenco
+// switched on (LENCO_SECRET_KEY), the buyer also gets a PIN prompt on their
+// phone and the order is marked paid when they approve it (lib/payments.js).
+// Otherwise the team arranges payment.
 const express = require("express");
 const pool = require("../db");
 const { sendEmail, recipients, appUrl } = require("../services/mailer");
 const { positiveInt, text, isEmail, isPhone, oneOf, badRequest, notFound } = require("../lib/validate");
 const { orderRef, kwacha, headCount, paymentText, DELIVERY_LABELS } = require("../lib/orders");
+const payments = require("../lib/payments");
+const lenco = require("../services/lenco");
 
 const router = express.Router();
 
@@ -100,6 +104,7 @@ router.post("/", async (req, res, next) => {
     // Save the order and take the animals off the listing in one step, so two
     // buyers can't order the same animals. A listing with nothing left comes
     // off the website.
+    const token = payments.newToken();
     const conn = await pool.getConnection();
     let result;
     let soldOut = false;
@@ -119,12 +124,12 @@ router.post("/", async (req, res, next) => {
         `INSERT INTO orders
            (livestock_id, livestock_title, seller_id, seller_name, quantity, unit_price, price_unit, total,
             full_name, phone, email, delivery, delivery_address, payment_method, mobile_operator, payment_phone,
-            payment_bank, payment_account, card_brand, card_last4, stock_deducted, ip_address)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+            payment_bank, payment_account, card_brand, card_last4, stock_deducted, ip_address, public_token)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
         [item.id, item.title, item.seller_id, sellerName, quantity, unitPrice, item.price_unit, total,
           values.full_name, values.phone, values.email, values.delivery, values.delivery_address,
           values.payment_method, values.mobile_operator, values.payment_phone,
-          values.payment_bank, values.payment_account, values.card_brand, values.card_last4, req.ip],
+          values.payment_bank, values.payment_account, values.card_brand, values.card_last4, req.ip, token],
       );
       soldOut = Number(current.quantity) - quantity === 0;
       await conn.query(
@@ -140,6 +145,13 @@ router.post("/", async (req, res, next) => {
     }
     const id = result.insertId;
     const reference = orderRef(id);
+
+    // Mobile money with Lenco: send the PIN prompt straight away.
+    let payment = null;
+    if (values.payment_method === "mobile_money" && lenco.enabled()) {
+      const order = await payments.loadOrder(id);
+      payment = payments.publicView(await payments.startCollection(order));
+    }
     const qtyText = lot ? `The whole lot (${headCount(quantity, item.animal_name, item.animal_kind)})` : headCount(quantity, item.animal_name, item.animal_kind);
     const deliveryText = `${DELIVERY_LABELS.collect} (${item.location} Province)`;
 
@@ -204,10 +216,65 @@ router.post("/", async (req, res, next) => {
         total,
         delivery: values.delivery,
         thumb_path: item.thumb_path,
+        token,
+        payment,
       },
     });
   } catch (error) {
     return next(error);
+  }
+});
+
+// Tells the checkout whether mobile money is paid on the website (PIN prompt).
+router.get("/payment-options", (req, res) => {
+  res.json({ success: true, data: { mobile_money_online: lenco.enabled() } });
+});
+
+// The checkout page asks for the payment status every few seconds.
+async function orderForBuyer(req) {
+  const id = positiveInt(req.params.id);
+  const token = String(req.query.token || req.body?.token || "");
+  if (!id || !/^[a-f0-9]{32}$/.test(token)) throw notFound("Order not found.");
+  const [[order]] = await pool.query("SELECT * FROM orders WHERE id = ? AND public_token = ?", [id, token]);
+  if (!order) throw notFound("Order not found.");
+  return order;
+}
+
+router.get("/:id/payment", async (req, res, next) => {
+  try {
+    const order = await payments.refresh(await orderForBuyer(req));
+    res.json({ success: true, data: payments.publicView(order) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Try again: a new PIN prompt, optionally to another operator or number.
+router.post("/:id/payment", async (req, res, next) => {
+  try {
+    if (!lenco.enabled()) throw badRequest("Mobile money payments on the website are not switched on.");
+    const order = await orderForBuyer(req);
+    if (order.payment_method !== "mobile_money") throw badRequest("This order is not paid by mobile money.");
+    if (order.status === "cancelled") throw badRequest("This order has been cancelled.");
+    if (order.payment_status === "paid") return res.json({ success: true, data: payments.publicView(order) });
+    if (order.payment_status === "pending") throw badRequest("A payment request is already waiting on your phone.");
+    if (Number(order.payment_attempts) >= payments.MAX_ATTEMPTS) {
+      throw badRequest("Too many attempts. Our team will contact you to arrange payment.");
+    }
+    const changes = {};
+    if (req.body.mobile_operator !== undefined || req.body.payment_phone !== undefined) {
+      const operator = oneOf(req.body.mobile_operator, ["airtel", "mtn", "zamtel"]);
+      const phone = text(req.body.payment_phone, 30);
+      const errors = {};
+      if (!operator) errors.mobile_operator = "Please choose your mobile money operator.";
+      if (!phone || !isPhone(phone)) errors.payment_phone = "Please enter the mobile money number, e.g. 0977 123 456.";
+      if (Object.keys(errors).length) return res.status(422).json({ success: false, message: "Please correct the highlighted fields.", errors });
+      Object.assign(changes, { mobile_operator: operator, payment_phone: phone });
+    }
+    const updated = await payments.startCollection(order, changes);
+    res.json({ success: true, data: payments.publicView(updated) });
+  } catch (error) {
+    next(error);
   }
 });
 

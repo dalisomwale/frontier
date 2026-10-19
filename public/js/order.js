@@ -1,7 +1,8 @@
 // "Buy Now" checkout. Buy Now buttons open /buy.html, a full page with the
-// order form on one side and the summary on the other. Nothing is paid here:
-// the team confirms with the seller and sends payment details by WhatsApp
-// and email.
+// order form on one side and the summary on the other. With mobile money
+// switched on for the website (Lenco), placing the order sends the buyer a
+// PIN prompt on their phone and this page waits for the payment. Otherwise
+// the team contacts the buyer to arrange payment.
 
 function buyUrl(listingId, quantity = 1) {
   const qty = Number(quantity) > 1 ? `&qty=${encodeURIComponent(quantity)}` : "";
@@ -166,7 +167,7 @@ function renderCheckout(root, listing, startQuantity = 1) {
               </div>
             </div>
           </div>
-          <p class="text-xs text-gray-500 mt-3">You won't be charged now. We'll contact you on WhatsApp to complete the payment.</p>
+          <p class="text-xs text-gray-500 mt-3" data-pay-note>You won't be charged now. We'll contact you on WhatsApp to complete the payment.</p>
         </section>
 
         <div class="honeypot" aria-hidden="true">
@@ -246,10 +247,20 @@ function renderCheckout(root, listing, startQuantity = 1) {
   const momoNumber = root.querySelector("[data-momo-number]");
   const OPERATOR_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
   const cardBox = root.querySelector("[data-card]");
+  // Is mobile money paid here, with a PIN prompt? Asked once.
+  let momoOnline = false;
+  const payNote = root.querySelector("[data-pay-note]");
+  function updatePayNote() {
+    payNote.textContent = momoOnline && form.elements.payment_method.value === "mobile_money"
+      ? "When you place the order, you'll get a prompt on your phone. Enter your mobile money PIN to pay."
+      : "You won't be charged now. We'll contact you on WhatsApp to complete the payment.";
+  }
+  apiRequest("/api/orders/payment-options").then((r) => { momoOnline = Boolean(r.data.mobile_money_online); updatePayNote(); }).catch(() => {});
   form.querySelectorAll('input[name="payment_method"]').forEach((r) => r.addEventListener("change", () => {
     momoBox.hidden = form.elements.payment_method.value !== "mobile_money";
     cardBox.hidden = form.elements.payment_method.value !== "card";
     if (!cardBox.hidden) form.elements.card_number.focus();
+    updatePayNote();
   }));
   // Card number in groups of 4, with the card type shown; expiry as MM/YY.
   const cardNumber = form.elements.card_number;
@@ -340,7 +351,10 @@ function renderCheckout(root, listing, startQuantity = 1) {
         method: "POST",
         body: orderPayload(values),
       });
-      showSuccess(res.data);
+      const pay = res.data.payment;
+      if (pay && pay.status === "pending") showWaiting(res.data, pay);
+      else if (pay && pay.status === "failed") showFailed(res.data, pay);
+      else showSuccess(res.data, { paid: Boolean(pay && pay.status === "paid") });
     } catch (error) {
       if (error.errors) showErrors(error.errors);
       alertBox.textContent = error.message || "Your order could not be placed. Please try again.";
@@ -351,14 +365,102 @@ function renderCheckout(root, listing, startQuantity = 1) {
     }
   });
 
-  function showSuccess(order) {
-    const firstName = form.elements.full_name.value.trim().split(/\s+/)[0];
+  const firstName = () => form.elements.full_name.value.trim().split(/\s+/)[0];
+  const reserved = listing.animal_kind === "feed" ? "The feed is" : "The animals are";
+
+  // --- Paying by mobile money on the website -------------------------------
+  const phoneIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>`;
+  let pollTimer = null;
+
+  function showWaiting(order, pay) {
+    clearTimeout(pollTimer);
+    root.innerHTML = `
+      <div class="checkout-done pay-wait" role="status" aria-live="polite">
+        <div class="pay-phone">${phoneIcon}</div>
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Check your phone</h1>
+        <p class="text-sm text-gray-600 mt-2">We've sent a payment request of <b>${kwacha(pay.total)}</b> to <b>${escapeHtml(pay.operator)} ${escapeHtml(pay.phone)}</b>. Enter your PIN on your phone to approve it.</p>
+        <p class="pay-wait-status mt-5"><span class="btn-spinner"></span> <span data-wait-text>Waiting for your approval…</span></p>
+        <p class="text-xs text-gray-500 mt-5">Order ${escapeHtml(order.reference)} is reserved for you. Please keep this page open.</p>
+        <button type="button" class="pay-later" data-pay-later>Pay later instead</button>
+      </div>`;
+    root.querySelector("[data-pay-later]").addEventListener("click", () => { clearTimeout(pollTimer); showSuccess(order, { paid: false }); });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    const started = Date.now();
+    const poll = async () => {
+      let current;
+      try {
+        current = (await apiRequest(`/api/orders/${order.id}/payment?token=${encodeURIComponent(order.token)}`)).data;
+      } catch {
+        current = null;
+      }
+      if (current && current.status === "paid") return showSuccess(order, { paid: true });
+      if (current && current.status === "failed") return showFailed(order, current);
+      const waited = Date.now() - started;
+      const text = root.querySelector("[data-wait-text]");
+      if (text && waited > 90000) text.textContent = "Still waiting. If the prompt didn't come, it will time out in a moment and you can try again.";
+      pollTimer = setTimeout(poll, waited > 180000 ? 10000 : 4000);
+    };
+    pollTimer = setTimeout(poll, 4000);
+  }
+
+  function showFailed(order, pay) {
+    clearTimeout(pollTimer);
+    const canRetry = pay.attempts_left > 0 && pay.order_status !== "cancelled";
+    root.innerHTML = `
+      <div class="checkout-done pay-wait" role="alert">
+        <div class="pay-phone pay-phone-failed">${phoneIcon}</div>
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Payment not completed</h1>
+        <p class="text-sm text-gray-600 mt-2">${escapeHtml(pay.failure || "The payment was not approved.")}</p>
+        ${canRetry ? `
+        <form class="pay-retry" novalidate>
+          <div class="operator-grid" role="radiogroup" aria-label="Mobile money operator">
+            ${Object.entries(OPERATOR_NAMES).map(([v, l]) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}" ${l === pay.operator ? "checked" : ""}><span class="op-tick" aria-hidden="true"></span><span>${l}</span></label>`).join("")}
+          </div>
+          <label for="retry-phone" class="field-label mt-4">Mobile money number</label>
+          <input id="retry-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" maxlength="25" value="${escapeHtml(form.elements.payment_phone.value.trim())}">
+          <p class="field-error hidden" data-retry-error></p>
+          <button type="submit" class="btn-buy btn-lg w-full mt-4">Send the prompt again · ${kwacha(pay.total)}</button>
+        </form>` : `<p class="text-sm text-gray-600 mt-3">Our team will contact you to arrange payment.</p>`}
+        <p class="text-xs text-gray-500 mt-5">Order ${escapeHtml(order.reference)} is still reserved for you.</p>
+        <button type="button" class="pay-later" data-pay-later>${canRetry ? "Pay later instead" : "Done"}</button>
+      </div>`;
+    root.querySelector("[data-pay-later]").addEventListener("click", () => showSuccess(order, { paid: false }));
+    const retry = root.querySelector(".pay-retry");
+    if (retry) retry.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = retry.querySelector("button[type=submit]");
+      const err = retry.querySelector("[data-retry-error]");
+      err.classList.add("hidden");
+      btn.disabled = true;
+      btn.innerHTML = `<span class="btn-spinner"></span> Sending…`;
+      try {
+        const res = await apiRequest(`/api/orders/${order.id}/payment?token=${encodeURIComponent(order.token)}`, {
+          method: "POST",
+          body: { mobile_operator: retry.elements.mobile_operator.value, payment_phone: retry.elements.payment_phone.value.trim() },
+        });
+        if (res.data.status === "paid") showSuccess(order, { paid: true });
+        else if (res.data.status === "failed") showFailed(order, res.data);
+        else showWaiting(order, res.data);
+      } catch (error) {
+        err.textContent = (error.errors && Object.values(error.errors)[0]) || error.message || "Please try again.";
+        err.classList.remove("hidden");
+        btn.disabled = false;
+        btn.textContent = `Send the prompt again · ${kwacha(pay.total)}`;
+      }
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function showSuccess(order, { paid = false } = {}) {
+    clearTimeout(pollTimer);
     const thumb = listing.images?.[0]?.thumb_path || photo;
     root.innerHTML = `
       <div class="checkout-done" role="status">
         <div class="order-done-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg></div>
-        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Order ${escapeHtml(order.reference)} placed</h1>
-        <p class="text-sm text-gray-600 mt-2">Thank you, ${escapeHtml(firstName)}. ${listing.animal_kind === "feed" ? "The feed is" : "The animals are"} now reserved for you. We'll contact you on both WhatsApp and email to arrange collection.</p>
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">${paid ? "Payment received" : `Order ${escapeHtml(order.reference)} placed`}</h1>
+        <p class="text-sm text-gray-600 mt-2">${paid
+          ? `Thank you, ${escapeHtml(firstName())}. Your payment of ${kwacha(order.total)} for order ${escapeHtml(order.reference)} went through. ${reserved} yours. We'll contact you on both WhatsApp and email to arrange collection.`
+          : `Thank you, ${escapeHtml(firstName())}. ${reserved} now reserved for you. We'll contact you on both WhatsApp and email to arrange collection.`}</p>
         <div class="order-summary checkout-done-summary">
           <div class="order-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" alt="">` : livestockFallbackMedia("w-8 h-8")}</div>
           <div class="min-w-0 flex-1">

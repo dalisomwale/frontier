@@ -80,7 +80,11 @@ app.use("/api/seller/auth/reset", limiter(10, 60));
 app.post("/api/inquiries", limiter(8, 60));
 app.post("/api/orders", limiter(8, 60));
 
-app.use(express.json({ limit: "100kb" }));
+app.use(express.json({
+  limit: "100kb",
+  // Payment webhooks are signed over the exact bytes sent.
+  verify: (req, res, buf) => { if (req.originalUrl.startsWith("/api/payments/")) req.rawBody = buf; },
+}));
 app.use(express.urlencoded({ limit: "100kb", extended: false }));
 
 // ---------------------------------------------------------------------------
@@ -192,6 +196,7 @@ app.get("/api/health", async (req, res) => {
 app.use("/api", publicRoutes);
 app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/payments", require("./routes/payments"));
 app.use("/api/admin", adminRoutes);
 app.use("/api/seller", sellerRoutes);
 
@@ -255,6 +260,14 @@ const LATE_COLUMNS = [
   ["orders", "payment_account", "VARCHAR(30) NULL AFTER payment_bank"],
   ["orders", "card_brand", "VARCHAR(20) NULL AFTER payment_account"],
   ["orders", "card_last4", "CHAR(4) NULL AFTER card_brand"],
+  ["orders", "payment_status", "ENUM('unpaid', 'pending', 'paid', 'failed') NOT NULL DEFAULT 'unpaid' AFTER card_last4"],
+  ["orders", "payment_reference", "VARCHAR(64) NULL AFTER payment_status"],
+  ["orders", "payment_provider_ref", "VARCHAR(80) NULL AFTER payment_reference"],
+  ["orders", "payment_failure", "VARCHAR(255) NULL AFTER payment_provider_ref"],
+  ["orders", "payment_attempts", "TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER payment_failure"],
+  ["orders", "payment_checked_at", "DATETIME NULL AFTER payment_attempts"],
+  ["orders", "paid_at", "DATETIME NULL AFTER payment_checked_at"],
+  ["orders", "public_token", "CHAR(32) NULL AFTER paid_at"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");

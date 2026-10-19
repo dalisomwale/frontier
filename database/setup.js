@@ -259,6 +259,16 @@ async function main() {
       ["card_brand", "VARCHAR(20) NULL AFTER payment_account"],
       ["card_last4", "CHAR(4) NULL AFTER card_brand"],
     ], "orders now record how the buyer will pay");
+    await addColumns("orders", [
+      ["payment_status", "ENUM('unpaid', 'pending', 'paid', 'failed') NOT NULL DEFAULT 'unpaid' AFTER card_last4"],
+      ["payment_reference", "VARCHAR(64) NULL AFTER payment_status"],
+      ["payment_provider_ref", "VARCHAR(80) NULL AFTER payment_reference"],
+      ["payment_failure", "VARCHAR(255) NULL AFTER payment_provider_ref"],
+      ["payment_attempts", "TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER payment_failure"],
+      ["payment_checked_at", "DATETIME NULL AFTER payment_attempts"],
+      ["paid_at", "DATETIME NULL AFTER payment_checked_at"],
+      ["public_token", "CHAR(32) NULL AFTER paid_at"],
+    ], "orders can now be paid by mobile money on the website (Lenco)");
     const [[paymentColumn]] = await conn.query(
       "SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = ? AND table_name = 'orders' AND column_name = 'payment_method'",
       [DB_NAME],
