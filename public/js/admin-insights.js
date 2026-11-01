@@ -141,34 +141,6 @@
   }
 
   function renderCharts(d) {
-    const t = d.timeline;
-    const unit = { day: "day", week: "week", month: "month" }[d.bucket];
-
-    // Sales and orders over time
-    emptyNote("ch-sales", !t.orders.some(Boolean));
-    draw("ch-sales", {
-      data: {
-        labels: t.labels,
-        datasets: [
-          { type: "bar", label: "Sales (paid)", data: t.sales, backgroundColor: C.leaf, borderRadius: 4, maxBarThickness: 28, yAxisID: "y", order: 2 },
-          { type: "line", label: "Orders", data: t.orders, borderColor: C.amber, backgroundColor: C.amber, tension: 0.35, cubicInterpolationMode: "monotone", pointRadius: t.labels.length > 20 ? 0 : 3, pointHoverRadius: 5, borderWidth: 2.5, yAxisID: "y1", order: 1 },
-        ],
-      },
-      options: {
-        interaction: { mode: "index", intersect: false },
-        plugins: {
-          legend: { position: "top", align: "end" },
-          tooltip: { callbacks: { label: (ctx) => (ctx.dataset.yAxisID === "y" ? ` Sales: ${money(ctx.parsed.y)}` : ` Orders: ${ctx.parsed.y}`) } },
-        },
-        scales: {
-          x: noGrid(),
-          y: axis({ beginAtZero: true, ticks: { callback: (v) => compactMoney(v), padding: 6 } }),
-          y1: { position: "right", beginAtZero: true, grid: { display: false }, border: { display: false }, ticks: { precision: 0, padding: 6 } },
-        },
-      },
-    });
-    document.getElementById("ch-sales-sub").textContent = `Per ${unit}. Bars: paid sales in Kwacha. Line: orders placed.`;
-
     doughnut("ch-status", d.orders_by_status, STATUS, "orders");
     doughnut("ch-pay", d.payments, PAY, "orders");
 

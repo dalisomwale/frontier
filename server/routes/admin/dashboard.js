@@ -48,50 +48,17 @@ router.get("/", async (req, res, next) => {
 
 // ---------------------------------------------------------------------------
 // Insights for the dashboard charts: GET /api/admin/dashboard/insights?range=30d
-// range: 7d | 30d | 90d | 12m. Headline numbers come with the same-length
-// period before, so the page can show the change.
+// range: 7d | 30d | 90d.
 // ---------------------------------------------------------------------------
-const RANGES = {
-  "7d": { days: 7, bucket: "day" },
-  "30d": { days: 30, bucket: "day" },
-  "90d": { days: 90, bucket: "week" },
-  "12m": { days: 365, bucket: "month" },
-};
+const RANGES = { "7d": 7, "30d": 30, "90d": 90 };
 
 // An order counts as a sale once it's paid (online or marked paid) and not cancelled.
 const SOLD = "(o.status IN ('paid', 'completed') OR o.payment_status = 'paid') AND o.status <> 'cancelled'";
 
-const pad = (n) => String(n).padStart(2, "0");
-const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-// Bucket keys and labels covering the range, so empty days still show as 0.
-function buckets(start, end, bucket) {
-  const out = [];
-  const d = new Date(start);
-  d.setHours(0, 0, 0, 0);
-  if (bucket === "week") d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // Monday
-  if (bucket === "month") d.setDate(1);
-  const fmt = new Intl.DateTimeFormat("en-GB", bucket === "month" ? { month: "short", year: "2-digit" } : { day: "numeric", month: "short" });
-  while (d <= end) {
-    out.push({ key: bucket === "month" ? ymd(d).slice(0, 7) : ymd(d), label: fmt.format(d) });
-    if (bucket === "day") d.setDate(d.getDate() + 1);
-    else if (bucket === "week") d.setDate(d.getDate() + 7);
-    else d.setMonth(d.getMonth() + 1);
-  }
-  return out;
-}
-
-// SQL expression giving each row's bucket key, matching buckets() above.
-function bucketSql(column, bucket) {
-  if (bucket === "month") return `DATE_FORMAT(${column}, '%Y-%m')`;
-  if (bucket === "week") return `DATE_FORMAT(DATE_SUB(DATE(${column}), INTERVAL WEEKDAY(${column}) DAY), '%Y-%m-%d')`;
-  return `DATE_FORMAT(${column}, '%Y-%m-%d')`;
-}
-
 router.get("/insights", async (req, res, next) => {
   try {
     const rangeKey = RANGES[req.query.range] ? req.query.range : "30d";
-    const { days, bucket } = RANGES[rangeKey];
+    const days = RANGES[rangeKey];
     const end = new Date();
     const start = new Date(end.getTime() - days * 86400000);
     const q = async (sql, params = []) => (await pool.query(sql, params))[0];
@@ -118,19 +85,6 @@ router.get("/insights", async (req, res, next) => {
       };
     };
     const current = await period(start, end);
-
-    // Over time: sales and orders per day / week / month.
-    const keys = buckets(start, end, bucket);
-    const series = (rows, field) => {
-      const map = new Map(rows.map((r) => [r.k, num(r[field])]));
-      return keys.map((b) => map.get(b.key) || 0);
-    };
-    const orderRows = await q(
-      `SELECT ${bucketSql("o.created_at", bucket)} AS k, COUNT(*) AS orders,
-         COALESCE(SUM(CASE WHEN ${SOLD} THEN o.total END), 0) AS sales
-       FROM orders o WHERE o.created_at >= ? GROUP BY k`,
-      [start],
-    );
 
     // Breakdowns.
     const ordersByStatus = await q(
@@ -161,13 +115,7 @@ router.get("/insights", async (req, res, next) => {
       success: true,
       data: {
         range: rangeKey,
-        bucket,
         current,
-        timeline: {
-          labels: keys.map((b) => b.label),
-          sales: series(orderRows, "sales"),
-          orders: series(orderRows, "orders"),
-        },
         orders_by_status: clean(ordersByStatus),
         top_listings: topListings.map((r) => ({ id: r.id, title: r.title, inquiries: num(r.inquiries), orders: num(r.orders) })),
         payments: clean(payments),
