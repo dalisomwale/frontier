@@ -12,6 +12,8 @@
     <script src="/js/icons.js"></script>
     <script src="/js/app-shell.js"></script>
     <script src="/js/admin.js"></script>
+    <script src="/vendor/chart-4.4.1.umd.min.js"></script>
+    <script src="/js/admin-insights.js"></script>
   </head>
   <body class="bg-gray-50 admin-pending">
     <div id="app-sidebar"></div>
@@ -26,7 +28,70 @@
       </div>
 
       <div id="review-banner"></div>
-      <div id="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8"></div>
+
+      <section id="insights" class="ins">
+        <div class="ins-head">
+          <div>
+            <h2 class="ins-title">How the marketplace is doing</h2>
+            <p id="ins-compare" class="ins-sub"></p>
+          </div>
+          <div id="ins-range" class="ins-range" role="group" aria-label="Time period">
+            <button type="button" data-range="7d">7 days</button>
+            <button type="button" data-range="30d">30 days</button>
+            <button type="button" data-range="90d">90 days</button>
+            <button type="button" data-range="12m">12 months</button>
+          </div>
+        </div>
+
+        <div id="ins-kpis" class="ins-kpis"></div>
+
+        <div class="ins-grid">
+          <article class="ins-card ins-span-2">
+            <header><h3>Sales &amp; orders</h3><p id="ch-sales-sub"></p></header>
+            <div class="ins-chart ins-tall"><canvas id="ch-sales"></canvas></div>
+          </article>
+          <article class="ins-card">
+            <header><h3>Orders by status</h3><p>Where orders in this period stand now</p></header>
+            <div class="ins-chart"><canvas id="ch-status"></canvas></div>
+          </article>
+
+          <article class="ins-card ins-span-2">
+            <header><h3>Interest vs orders</h3><p>Contact Seller messages compared with orders placed</p></header>
+            <div class="ins-chart"><canvas id="ch-demand"></canvas></div>
+          </article>
+          <article class="ins-card">
+            <header><h3>How buyers pay</h3><p>Orders by payment method, not counting cancelled ones</p></header>
+            <div class="ins-chart"><canvas id="ch-pay"></canvas></div>
+          </article>
+
+          <article class="ins-card ins-span-2">
+            <header><h3>Most popular listings</h3><p>Inquiries and orders in this period. Tap a bar to open the listing.</p></header>
+            <div class="ins-chart ins-tall"><canvas id="ch-top"></canvas></div>
+          </article>
+          <article class="ins-card">
+            <header><h3>Inquiry follow-up</h3><p>All inquiries not archived, not just this period</p></header>
+            <div class="ins-chart"><canvas id="ch-inquiry"></canvas></div>
+          </article>
+
+          <article class="ins-card">
+            <header><h3>Live listings by type</h3><p><span id="ch-types-total"></span> · <i class="ins-key" style="background:#1f3d2b"></i>livestock <i class="ins-key" style="background:#a3e635"></i>feed</p></header>
+            <div class="ins-chart ins-tall"><canvas id="ch-types"></canvas></div>
+          </article>
+          <article class="ins-card">
+            <header><h3>Live listings by province</h3><p>Where the stock is</p></header>
+            <div class="ins-chart ins-tall"><canvas id="ch-province"></canvas></div>
+          </article>
+          <article class="ins-card">
+            <header><h3>Sellers</h3><p>All seller accounts</p></header>
+            <div id="ins-seller-chips" class="ins-chips"></div>
+            <h4 class="ins-h4">Top sellers this period</h4>
+            <div id="ins-top-sellers" class="ins-table-wrap"></div>
+          </article>
+        </div>
+      </section>
+
+      <h2 class="ins-title mb-3">At a glance</h2>
+      <div id="stats" class="ins-glance mb-8"></div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section class="bg-white rounded-xl border border-gray-100">
@@ -75,11 +140,9 @@
 
       function renderStats(stats) {
         document.getElementById("stats").innerHTML = STAT_TILES.map((t) => `
-          <a href="${t.href}" class="stat-tile transition !p-4">
-            <div class="min-w-0">
-              <p class="text-gray-600 text-xs sm:text-sm font-medium leading-tight">${t.label}</p>
-              <p class="text-xl sm:text-2xl font-bold ${["new_inquiries", "new_orders"].includes(t.key) && stats[t.key] ? "text-red-600" : "text-gray-900"}">${stats[t.key].toLocaleString()}</p>
-            </div>
+          <a href="${t.href}" class="ins-glance-item">
+            <span>${t.label}</span>
+            <b class="${["new_inquiries", "new_orders"].includes(t.key) && stats[t.key] ? "text-red-600" : ""}">${stats[t.key].toLocaleString()}</b>
           </a>`).join("");
       }
 
@@ -127,6 +190,7 @@
         const hour = new Date().getHours();
         document.getElementById("greeting").textContent =
           `Good ${hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"}, ${admin.name.split(" ")[0]}.`;
+        initInsights();
         await loadDashboard();
       })();
 
