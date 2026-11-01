@@ -5298,3 +5298,57 @@ body.admin-pending main {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* Seller password fields: Show / Hide text button and live feedback */
+.pw-toggle {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.pw-toggle:hover {
+  color: #111827;
+}
+
+.relative > .field-input.pr-12 {
+  padding-right: 64px;
+}
+
+.pw-meter {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.pw-hint {
+  color: #6b7280;
+}
+
+.pw-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pw-bar {
+  flex: 1;
+  min-width: 40px;
+  height: 5px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.pw-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.15s;
+}
+
+.pw-warn { background: #f59e0b; }
+.pw-ok { background: #16a34a; }
+.pw-text { white-space: nowrap; }
+.pw-warn-text { color: #b45309; }
+.pw-ok-text { color: #166534; }
+.pw-bad-text { color: #b91c1c; white-space: normal; }

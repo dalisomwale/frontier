@@ -16,7 +16,11 @@ const { subscribe, unreadCount } = require("../services/notifications");
 
 const router = express.Router();
 const DUMMY_HASH = bcrypt.hashSync("frontier-seller-timing-guard", 12);
-const MIN_PASSWORD = 8;
+// Password rules shared with the browser: 6+ characters, no spaces, not a
+// common password, not the seller's own phone or email.
+const passwordRules = require("../../public/js/password-rules");
+// "Keep me signed in": 30 days on that device; otherwise until the browser closes.
+const REMEMBER_MS = 30 * 24 * 60 * 60 * 1000;
 const RESET_HOURS = 1;
 
 const SELLER_FIELDS = `id, name, business_name, phone, email, province, address, status,
@@ -114,11 +118,14 @@ function notifyAdmins(subject, heading, paragraphs, rows, path) {
 
 const sellerLabel = (s) => (s.business_name ? `${s.business_name} (${s.name})` : s.name);
 
-function startSession(req, sellerId) {
+function startSession(req, sellerId, { remember = true } = {}) {
   return new Promise((resolve, reject) => {
     req.session.regenerate((error) => {
       if (error) return reject(error);
       req.session.sellerId = sellerId;
+      // Remembered: stays signed in for 30 days of inactivity. Otherwise the
+      // cookie lasts until the browser is closed.
+      req.session.cookie.maxAge = remember ? REMEMBER_MS : null;
       return req.session.save((saveError) => (saveError ? reject(saveError) : resolve()));
     });
   });
@@ -137,8 +144,8 @@ router.post("/auth/register", async (req, res, next) => {
   try {
     const { errors, data } = profilePayload(req.body);
     const password = typeof req.body.password === "string" ? req.body.password : "";
-    if (password.length < MIN_PASSWORD) errors.password = `Password must be at least ${MIN_PASSWORD} characters.`;
-    else if (password.length > 200) errors.password = "Password is too long.";
+    const passwordProblem = passwordRules.problem(password, { email: data.email, phone: data.phone });
+    if (passwordProblem) errors.password = passwordProblem;
     if (!errors.email && (await emailTaken(data.email))) {
       errors.email = "An account with this email already exists. Sign in instead.";
     }
@@ -182,7 +189,7 @@ router.post("/auth/login", async (req, res, next) => {
     if (seller.status === "inactive") {
       return res.status(403).json({ success: false, message: "This account has been suspended. Please contact Frontier." });
     }
-    await startSession(req, seller.id);
+    await startSession(req, seller.id, { remember: req.body.remember !== false && req.body.remember !== "false" });
     await pool.query("UPDATE sellers SET last_login_at = NOW() WHERE id = ?", [seller.id]);
     res.json({ success: true, data: await loadSeller(seller.id) });
   } catch (error) {
@@ -239,15 +246,19 @@ router.post("/auth/reset", async (req, res, next) => {
     const token = typeof req.body.token === "string" ? req.body.token : "";
     const password = typeof req.body.password === "string" ? req.body.password : "";
     if (!/^[a-f0-9]{64}$/.test(token)) throw badRequest("This reset link is invalid or has expired.");
-    if (password.length < MIN_PASSWORD || password.length > 200) {
-      throw badRequest(`Password must be at least ${MIN_PASSWORD} characters.`);
-    }
     const hash = crypto.createHash("sha256").update(token).digest("hex");
     const [[row]] = await pool.query(
-      "SELECT id, seller_id FROM seller_password_resets WHERE token_hash = ? AND used_at IS NULL AND expires_at > NOW()",
+      "SELECT r.id, r.seller_id, s.email, s.phone FROM seller_password_resets r JOIN sellers s ON s.id = r.seller_id WHERE r.token_hash = ? AND r.used_at IS NULL AND r.expires_at > NOW()",
       [hash],
     );
     if (!row) throw badRequest("This reset link is invalid or has expired.");
+    const resetProblem = passwordRules.problem(password, { email: row.email, phone: row.phone });
+    if (resetProblem) {
+      const error = badRequest(resetProblem);
+      error.status = 422;
+      error.errors = { password: resetProblem };
+      throw error;
+    }
     await pool.query("UPDATE sellers SET password_hash = ? WHERE id = ?", [await bcrypt.hash(password, 12), row.seller_id]);
     await pool.query("DELETE FROM seller_password_resets WHERE seller_id = ?", [row.seller_id]);
     const [[owner]] = await pool.query("SELECT name, email FROM sellers WHERE id = ?", [row.seller_id]);
@@ -283,8 +294,12 @@ router.patch("/me/password", requireSeller, async (req, res, next) => {
   try {
     const current = String(req.body.current_password || "");
     const fresh = String(req.body.new_password || "");
-    if (fresh.length < MIN_PASSWORD || fresh.length > 200) {
-      throw badRequest(`New password must be at least ${MIN_PASSWORD} characters.`);
+    const freshProblem = passwordRules.problem(fresh, { email: req.seller.email, phone: req.seller.phone });
+    if (freshProblem) {
+      const error = badRequest(freshProblem);
+      error.status = 422;
+      error.errors = { new_password: freshProblem };
+      throw error;
     }
     const [[row]] = await pool.query("SELECT password_hash FROM sellers WHERE id = ?", [req.seller.id]);
     if (!(await bcrypt.compare(current, row.password_hash))) throw badRequest("Your current password is incorrect.");

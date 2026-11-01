@@ -175,6 +175,8 @@ Photos are resized in the browser before upload (good on mobile data). The serve
 | `/seller/login.html`, `forgot.html`, `reset.html` | Sign in; reset a forgotten password by email (link valid for 1 hour, single use). |
 | `/seller/` | **My Listings**: add and edit listings, with their status (*In review*, *Changes needed* with Frontier's note, *Live*, *Hidden*). A new listing needs at least one photo, and the description is limited to 50 words. Only Frontier can hide or delete a listing. Any edit takes a live listing off the website until it is approved again. **Messages**: inquiries Frontier has passed on, with a reply box. **Profile**: details and password. |
 
+**Seller passwords** (`public/js/password-rules.js`, used by both the pages and the server): at least 6 characters, no spaces, not a very common password (`123456`, `password`, ...) and not the seller's own phone number or email. No capitals, numbers or symbols are required. The register, reset and change-password fields show live feedback ("4 of 6 characters", "Looks good") and a Show / Hide button. Passwords set before this rule (including ones with spaces) still work. **Keep me signed in** (ticked by default) keeps a seller signed in for 30 days on that device; unticked, the sign-in ends when the browser closes.
+
 Rules enforced by the server (`server/routes/seller.js`, mounted at `/api/seller`):
 
 - Sellers can only see and change their own listings and messages.

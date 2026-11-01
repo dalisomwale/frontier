@@ -36,7 +36,10 @@
             
             <p class="field-error hidden" data-error-for="password"></p>
           </div>
-          <div class="text-right -mt-2"><a href="/seller/forgot.html" class="text-sm text-blue-700 hover:underline">Forgot password?</a></div>
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 -mt-1 text-sm">
+            <label class="inline-flex items-center gap-2 text-gray-700 whitespace-nowrap"><input id="remember" name="remember" type="checkbox" checked /> Keep me signed in for 30 days</label>
+            <a href="/seller/forgot.html" class="text-blue-700 hover:underline whitespace-nowrap">Forgot password?</a>
+          </div>
           <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Sign in</button>
         </form>
         <p class="text-sm text-gray-600 text-center mt-6">New seller? <a href="/seller/register.html" class="text-blue-700 font-medium hover:underline">Register</a></p>
@@ -64,7 +67,7 @@
         if (!email || !password) return showAlert("Please enter your email and password.");
         try {
           await withBusy(document.getElementById("submit-btn"), "Signing in…", () =>
-            sellerApi("/api/seller/auth/login", { method: "POST", body: { email, password } }));
+            sellerApi("/api/seller/auth/login", { method: "POST", body: { email, password, remember: form.elements.remember.checked } }));
           setSellerHint(true);
           window.location.href = safeNext();
         } catch (error) {

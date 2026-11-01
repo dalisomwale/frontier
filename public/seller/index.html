@@ -12,6 +12,7 @@
     <script src="/js/icons.js"></script>
     <script src="/js/admin.js"></script>
     <script src="/js/seller.js"></script>
+    <script src="/js/password-rules.js"></script>
   </head>
   <body class="bg-gray-50">
     <div id="app-sidebar"></div>
@@ -88,7 +89,7 @@
                 <input id="new_password" name="new_password" type="password" class="field-input pr-12" autocomplete="new-password" />
                 <button type="button" data-toggle-password="new_password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
               </div>
-              <p class="text-xs text-gray-500 mt-1">At least 8 characters.</p>
+              <p class="field-error hidden" data-error-for="new_password"></p>
             </div>
             <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold">Update password</button>
           </form>
@@ -614,14 +615,21 @@
         }
       });
 
+      const newPasswordMeter = bindPasswordMeter(document.getElementById("new_password"), () => ({ email: seller && seller.email, phone: seller && seller.phone }));
       document.getElementById("password-form").addEventListener("submit", async (e) => {
         e.preventDefault();
         const form = e.currentTarget;
         const alertBox = form.querySelector("[data-alert]");
+        if (newPasswordMeter && newPasswordMeter.problem()) {
+          alertBox.className = "alert alert-error text-sm mb-0";
+          alertBox.textContent = newPasswordMeter.problem();
+          return;
+        }
         try {
           await withBusy(form.querySelector("[type=submit]"), "Saving…", () =>
             sellerApi("/api/seller/me/password", { method: "PATCH", body: formValues(form) }));
           form.reset();
+          form.elements.new_password.dispatchEvent(new Event("input"));
           alertBox.className = "alert alert-success text-sm mb-0";
           alertBox.textContent = "Password updated.";
         } catch (error) {

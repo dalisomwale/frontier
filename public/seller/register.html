@@ -11,6 +11,7 @@
     <script src="/js/main.js"></script>
     <script src="/js/icons.js"></script>
     <script src="/js/seller.js"></script>
+    <script src="/js/password-rules.js"></script>
   </head>
   <body class="bg-gray-50 min-h-screen">
     <div id="seller-header"></div>
@@ -66,7 +67,6 @@
               <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
               <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
             </div>
-            <p class="text-xs text-gray-500 mt-1">At least 8 characters.</p>
             <p class="field-error hidden" data-error-for="password"></p>
           </div>
           <label class="flex items-start gap-2 text-sm text-gray-600">
@@ -84,6 +84,7 @@
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
       bindPasswordToggles();
       const form = document.getElementById("register-form");
+      const meter = bindPasswordMeter(form.elements.password, () => ({ email: form.elements.email.value, phone: form.elements.phone.value }));
       const alertBox = document.getElementById("form-alert");
       form.province.innerHTML = `<option value="">Select province</option>` + ZAMBIA_PROVINCES.map((p) => `<option>${p}</option>`).join("");
 
@@ -98,7 +99,7 @@
         if (!v.phone.trim()) errors.phone = "WhatsApp number is required.";
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email.trim())) errors.email = "Please enter a valid email address.";
         if (!v.province) errors.province = "Please choose your province.";
-        if (v.password.length < 8) errors.password = "Password must be at least 8 characters.";
+        if (meter.problem()) errors.password = meter.problem();
         if (Object.keys(errors).length) return showFieldErrors(form, { errors });
         if (!document.getElementById("agree").checked) {
           alertBox.textContent = "Please agree to the Terms of Service and Privacy Policy.";

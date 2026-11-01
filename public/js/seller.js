@@ -55,15 +55,53 @@ function sellerPageHeader(seller) {
 
 function bindPasswordToggles(root = document) {
   root.querySelectorAll("[data-toggle-password]").forEach((btn) => {
-    btn.innerHTML = `<span class="w-5 h-5 block">${uiIcon("eye")}</span>`;
+    btn.textContent = "Show";
+    btn.classList.add("pw-toggle");
     btn.addEventListener("click", () => {
       const input = document.getElementById(btn.dataset.togglePassword);
       const show = input.type === "password";
       input.type = show ? "text" : "password";
-      btn.innerHTML = `<span class="w-5 h-5 block">${uiIcon(show ? "eyeOff" : "eye")}</span>`;
+      btn.textContent = show ? "Hide" : "Show";
       btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
     });
   });
+}
+
+// Live feedback under a new-password field (rules in password-rules.js):
+// a hint before typing, "4 of 6 characters", the problem in red, or
+// "Looks good". `context()` returns { email, phone } to check against.
+function bindPasswordMeter(input, context = () => ({})) {
+  if (!input || typeof PasswordRules === "undefined") return;
+  const box = document.createElement("div");
+  box.className = "pw-meter";
+  box.setAttribute("aria-live", "polite");
+  const wrapper = input.closest(".relative") || input;
+  wrapper.insertAdjacentElement("afterend", box);
+  const hint = `At least ${PasswordRules.MIN} characters, no spaces. Letters and numbers both work, e.g. <i>bandafarm22</i>.`;
+  const render = () => {
+    const value = input.value;
+    if (!value) {
+      box.innerHTML = `<p class="pw-hint">${hint}</p>`;
+      input.classList.remove("has-error");
+      return;
+    }
+    const problem = PasswordRules.problem(value, context());
+    const tooShort = !/\s/.test(value) && value.length < PasswordRules.MIN;
+    if (tooShort) {
+      const pct = Math.round((value.length / PasswordRules.MIN) * 100);
+      box.innerHTML = `<div class="pw-row"><span class="pw-bar"><span style="width:${pct}%" class="pw-fill pw-warn"></span></span><span class="pw-text pw-warn-text">${value.length} of ${PasswordRules.MIN} characters</span></div>`;
+      input.classList.remove("has-error");
+    } else if (problem) {
+      box.innerHTML = `<p class="pw-text pw-bad-text">${escapeHtml(problem)}</p>`;
+      input.classList.add("has-error");
+    } else {
+      box.innerHTML = `<div class="pw-row"><span class="pw-bar"><span style="width:100%" class="pw-fill pw-ok"></span></span><span class="pw-text pw-ok-text">✓ Looks good</span></div>`;
+      input.classList.remove("has-error");
+    }
+  };
+  input.addEventListener("input", render);
+  render();
+  return { valid: () => !PasswordRules.problem(input.value, context()), problem: () => PasswordRules.problem(input.value, context()) };
 }
 
 function showFieldErrors(form, error) {

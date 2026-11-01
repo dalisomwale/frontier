@@ -11,6 +11,7 @@
     <script src="/js/main.js"></script>
     <script src="/js/icons.js"></script>
     <script src="/js/seller.js"></script>
+    <script src="/js/password-rules.js"></script>
   </head>
   <body class="bg-gray-50 min-h-screen">
     <div id="seller-header"></div>
@@ -26,7 +27,6 @@
               <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
               <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
             </div>
-            <p class="text-xs text-gray-500 mt-1">At least 8 characters.</p>
             <p class="field-error hidden" data-error-for="password"></p>
           </div>
           <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Save password</button>
@@ -40,12 +40,13 @@
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
       bindPasswordToggles();
       const form = document.getElementById("reset-form");
+      const resetMeter = bindPasswordMeter(form.elements.password);
       const alertBox = document.getElementById("form-alert");
       const token = getQueryParams().token || "";
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         alertBox.classList.add("hidden");
-        if (form.password.value.length < 8) return showFieldErrors(form, { errors: { password: "Password must be at least 8 characters." } });
+        if (resetMeter.problem()) return showFieldErrors(form, { errors: { password: resetMeter.problem() } });
         try {
           await withBusy(document.getElementById("submit-btn"), "Saving…", () =>
             sellerApi("/api/seller/auth/reset", { method: "POST", body: { token, password: form.password.value } }));
