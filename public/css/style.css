@@ -5389,9 +5389,10 @@ body.admin-pending main {
 .ins-select:focus-visible { outline: 2px solid #65a30d; outline-offset: 2px; }
 
 /* ---- Seller profile tab ------------------------------------------------- */
-.pf-wrap:not([hidden]) { display: flex; flex-direction: column; gap: 1rem; max-width: 40rem; }
-.pf-card { background: #fff; border: 1px solid #f0f1f3; border-radius: 1rem; padding: 1.25rem; }
-.pf-head { position: relative; text-align: center; padding: 1.75rem 1.25rem 1.5rem; }
+.pf-wrap:not([hidden]) { display: flex; flex-direction: column; max-width: 40rem; }
+.pf-card { padding: 1.5rem 0; }
+.pf-card + .pf-card:not([hidden]), .pf-card[hidden] + .pf-card { border-top: 1px solid #e5e7eb; }
+.pf-head { position: relative; text-align: center; padding: .5rem 0 1.5rem; }
 .pf-head #profile-card { display: flex; flex-direction: column; align-items: center; }
 .pf-avatar { width: 4.25rem; height: 4.25rem; border-radius: 999px; background: #1f3d2b; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.35rem; letter-spacing: .02em; margin-bottom: .75rem; }
 .pf-name { font-size: 1.15rem; font-weight: 700; color: #111827; line-height: 1.25; overflow-wrap: anywhere; }
@@ -5401,7 +5402,7 @@ body.admin-pending main {
 .pf-chip-wait { background: #fef3c7; color: #92400e; }
 .pf-chip-no { background: #fee2e2; color: #b91c1c; }
 .pf-since { font-size: .75rem; color: #6b7280; margin-top: .4rem; }
-.pf-menu { position: absolute; top: .6rem; right: .6rem; z-index: 5; }
+.pf-menu { position: absolute; top: 0; right: 0; z-index: 5; }
 .pf-menu-btn { width: 2.25rem; height: 2.25rem; display: flex; align-items: center; justify-content: center; border-radius: 999px; color: #4b5563; }
 .pf-menu-btn:hover, .pf-menu-btn[aria-expanded="true"] { background: #f3f4f6; color: #111827; }
 .pf-menu-btn svg { width: 1.2rem; height: 1.2rem; }
@@ -5413,7 +5414,7 @@ body.admin-pending main {
 .pf-card-head { margin-bottom: 1rem; }
 .pf-card-head h2 { font-size: 1rem; font-weight: 700; color: #111827; }
 .pf-card-head p { font-size: .8rem; color: #6b7280; margin-top: .15rem; }
-.pf-list > div { display: flex; justify-content: space-between; gap: 1rem; padding: .7rem 0; border-top: 1px solid #f3f4f6; font-size: .9rem; }
+.pf-list > div { display: flex; justify-content: space-between; gap: 1rem; padding: .75rem 0; border-top: 1px solid #eceef0; font-size: .9rem; }
 .pf-list dt { color: #6b7280; flex-shrink: 0; }
 .pf-list dd { color: #111827; font-weight: 500; text-align: right; overflow-wrap: anywhere; min-width: 0; }
 .pf-actions { display: flex; gap: .6rem; justify-content: flex-end; margin-top: 1.25rem; }
@@ -5422,15 +5423,13 @@ body.admin-pending main {
 .pf-btn-primary:hover { background: #17301f; }
 .pf-btn-outline { border: 1px solid #d1d5db; color: #374151; background: #fff; }
 .pf-btn-outline:hover { background: #f9fafb; }
-.pf-account { padding: .35rem; }
-.pf-row { display: flex; width: 100%; align-items: center; gap: .75rem; padding: .85rem .9rem; border-radius: .7rem; font-size: .95rem; font-weight: 600; color: #374151; text-align: left; }
-.pf-row + .pf-row { border-top: 1px solid #f3f4f6; border-radius: 0 0 .7rem .7rem; }
-.pf-row:hover { background: #f9fafb; }
+.pf-account { padding: .75rem 0; }
+.pf-row { display: flex; width: 100%; align-items: center; gap: .75rem; padding: .85rem 0; font-size: .95rem; font-weight: 600; color: #374151; text-align: left; }
+.pf-row + .pf-row { border-top: 1px solid #eceef0; }
+.pf-row:hover { color: #111827; }
 .pf-row svg { width: 1.2rem; height: 1.2rem; color: #6b7280; }
 .pf-row-danger, .pf-row-danger svg { color: #dc2626; }
-.pf-row-danger:hover { background: #fef2f2; }
+.pf-row-danger:hover { color: #b91c1c; }
 @media (max-width: 639px) {
-  .pf-card { padding: 1.1rem 1rem; }
-  .pf-head { padding: 1.6rem 1rem 1.35rem; }
   .pf-actions .pf-btn { flex: 1; padding: .75rem 1rem; }
 }
