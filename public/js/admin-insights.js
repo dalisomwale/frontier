@@ -208,17 +208,8 @@
   }
 
   const PERIODS = { "7d": 7, "30d": 30, "90d": 90 };
-  const fmtDay = (d, year) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(year ? { year: "numeric" } : {}) });
-  function span(range) {
-    const end = new Date();
-    const start = new Date(end.getTime() - (PERIODS[range] - 1) * 86400000);
-    return `${fmtDay(start, start.getFullYear() !== end.getFullYear())} – ${fmtDay(end, true)}`;
-  }
 
   async function load(range) {
-    document.getElementById("ins-period-label").textContent = `Last ${PERIODS[range]} days`;
-    document.getElementById("ins-period-dates").textContent = span(range);
-    document.querySelectorAll("#ins-range [role=option]").forEach((o) => o.setAttribute("aria-selected", String(o.dataset.range === range)));
     document.getElementById("insights").classList.add("is-loading");
     try {
       const { data } = await adminApi(`/api/admin/dashboard/insights?range=${range}`);
@@ -235,35 +226,12 @@
     let range = "30d";
     try { range = localStorage.getItem("frontier.insights.range") || "30d"; } catch {}
     if (!PERIODS[range]) range = "30d";
-
-    const box = document.getElementById("ins-range");
-    const btn = box.querySelector(".ins-period-btn");
-    const menu = box.querySelector(".ins-period-menu");
-    const options = [...menu.querySelectorAll("[role=option]")];
-    options.forEach((o) => (o.querySelector("small").textContent = span(o.dataset.range)));
-
-    const open = (show) => {
-      menu.hidden = !show;
-      btn.setAttribute("aria-expanded", String(show));
-      if (show) (options.find((o) => o.getAttribute("aria-selected") === "true") || options[0]).focus();
-    };
-    const choose = (o) => {
-      open(false);
-      btn.focus();
-      if (o.getAttribute("aria-selected") === "true") return;
-      try { localStorage.setItem("frontier.insights.range", o.dataset.range); } catch {}
-      load(o.dataset.range);
-    };
-    btn.addEventListener("click", () => open(menu.hidden));
-    options.forEach((o) => o.addEventListener("click", () => choose(o)));
-    menu.addEventListener("keydown", (e) => {
-      const i = options.indexOf(document.activeElement);
-      if (e.key === "ArrowDown") { e.preventDefault(); options[(i + 1) % options.length].focus(); }
-      else if (e.key === "ArrowUp") { e.preventDefault(); options[(i - 1 + options.length) % options.length].focus(); }
-      else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (i >= 0) choose(options[i]); }
-      else if (e.key === "Escape") { open(false); btn.focus(); }
+    const select = document.getElementById("ins-range");
+    select.value = range;
+    select.addEventListener("change", () => {
+      try { localStorage.setItem("frontier.insights.range", select.value); } catch {}
+      load(select.value);
     });
-    document.addEventListener("click", (e) => { if (!box.contains(e.target)) open(false); });
     load(range);
   };
 })();
