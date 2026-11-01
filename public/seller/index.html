@@ -65,54 +65,64 @@
           <div id="notifications-list"></div>
         </div>
       </section>
-      <section id="tab-profile" hidden>
-        <div id="profile-card" class="pf-card pf-head"></div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
-          <form id="profile-form" class="pf-card" novalidate>
-            <div class="pf-card-head">
-              <h2>Your details</h2>
-              <p>Buyers never see these. Frontier uses them to reach you.</p>
-            </div>
-            <div data-alert class="hidden alert text-sm mb-4" role="alert"></div>
-            <div data-fields class="space-y-4"></div>
-            <button type="submit" class="pf-btn pf-btn-primary">Save details</button>
-          </form>
-          <div class="space-y-4 lg:space-y-5">
-            <form id="password-form" class="pf-card" novalidate>
-              <div class="pf-card-head">
-                <h2>Change password</h2>
-                <p>You'll get an email whenever it changes.</p>
-              </div>
-              <div data-alert class="hidden alert text-sm mb-4" role="alert"></div>
-              <div class="space-y-4">
-                <div>
-                  <label for="current_password" class="field-label">Current password</label>
-                  <div class="relative">
-                    <input id="current_password" name="current_password" type="password" class="field-input pr-12" autocomplete="current-password" />
-                    <button type="button" data-toggle-password="current_password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
-                  </div>
-                </div>
-                <div>
-                  <label for="new_password" class="field-label">New password</label>
-                  <div class="relative">
-                    <input id="new_password" name="new_password" type="password" class="field-input pr-12" autocomplete="new-password" />
-                    <button type="button" data-toggle-password="new_password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
-                  </div>
-                  <p class="field-error hidden" data-error-for="new_password"></p>
-                </div>
-              </div>
-              <button type="submit" class="pf-btn pf-btn-outline">Update password</button>
-            </form>
-
-            <div class="pf-card pf-account lg:hidden">
-              <a href="/" target="_blank" rel="noopener" class="pf-row">
-                <span data-icon="external"></span><span>View website</span>
-              </a>
-              <button type="button" data-seller-logout class="pf-row pf-row-danger">
-                <span data-icon="logout"></span><span>Log out</span>
-              </button>
+      <section id="tab-profile" class="pf-wrap" hidden>
+        <div class="pf-card pf-head">
+          <div class="pf-menu">
+            <button type="button" id="pf-menu-btn" class="pf-menu-btn" aria-label="Profile options" aria-haspopup="menu" aria-expanded="false">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/></svg>
+            </button>
+            <div id="pf-menu" class="pf-menu-list" role="menu" hidden>
+              <button type="button" role="menuitem" data-pf-open="details"><span data-icon="edit"></span>Edit details</button>
+              <button type="button" role="menuitem" data-pf-open="password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>Change password</button>
             </div>
           </div>
+          <div id="profile-card"></div>
+        </div>
+
+        <div id="pf-view" class="pf-card">
+          <div class="pf-card-head"><h2>Your details</h2><p>Buyers never see these. Frontier uses them to reach you.</p></div>
+          <dl id="pf-details" class="pf-list"></dl>
+        </div>
+
+        <form id="profile-form" class="pf-card" novalidate hidden>
+          <div class="pf-card-head"><h2>Edit details</h2><p>Buyers never see these. Frontier uses them to reach you.</p></div>
+          <div data-alert class="hidden alert text-sm mb-4" role="alert"></div>
+          <div data-fields class="space-y-4"></div>
+          <div class="pf-actions">
+            <button type="button" class="pf-btn pf-btn-outline" data-pf-cancel>Cancel</button>
+            <button type="submit" class="pf-btn pf-btn-primary">Save details</button>
+          </div>
+        </form>
+
+        <form id="password-form" class="pf-card" novalidate hidden>
+          <div class="pf-card-head"><h2>Change password</h2><p>You'll get an email whenever it changes.</p></div>
+          <div data-alert class="hidden alert text-sm mb-4" role="alert"></div>
+          <div class="space-y-4">
+            <div>
+              <label for="current_password" class="field-label">Current password</label>
+              <div class="relative">
+                <input id="current_password" name="current_password" type="password" class="field-input pr-12" autocomplete="current-password" />
+                <button type="button" data-toggle-password="current_password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+              </div>
+            </div>
+            <div>
+              <label for="new_password" class="field-label">New password</label>
+              <div class="relative">
+                <input id="new_password" name="new_password" type="password" class="field-input pr-12" autocomplete="new-password" />
+                <button type="button" data-toggle-password="new_password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+              </div>
+              <p class="field-error hidden" data-error-for="new_password"></p>
+            </div>
+          </div>
+          <div class="pf-actions">
+            <button type="button" class="pf-btn pf-btn-outline" data-pf-cancel>Cancel</button>
+            <button type="submit" class="pf-btn pf-btn-primary">Update password</button>
+          </div>
+        </form>
+
+        <div class="pf-card pf-account lg:hidden">
+          <a href="/" target="_blank" rel="noopener" class="pf-row"><span data-icon="external"></span><span>View website</span></a>
+          <button type="button" data-seller-logout class="pf-row pf-row-danger"><span data-icon="logout"></span><span>Log out</span></button>
         </div>
       </section>
     </main>
@@ -543,15 +553,60 @@
         const since = seller.created_at ? new Date(seller.created_at).toLocaleDateString("en-GB", { month: "long", year: "numeric" }) : "";
         document.getElementById("profile-card").innerHTML = `
           <span class="pf-avatar">${escapeHtml(initials)}</span>
-          <div class="min-w-0 flex-1">
-            <p class="pf-name">${escapeHtml(seller.name)}</p>
-            ${seller.business_name ? `<p class="pf-biz">${escapeHtml(seller.business_name)}</p>` : ""}
-            <div class="pf-meta">
-              <span class="pf-chip ${state[1]}">${state[0]}</span>
-              ${since ? `<span>Member since ${since}</span>` : ""}
-            </div>
-          </div>`;
+          <p class="pf-name">${escapeHtml(seller.name)}</p>
+          ${seller.business_name ? `<p class="pf-biz">${escapeHtml(seller.business_name)}</p>` : ""}
+          <span class="pf-chip ${state[1]}">${state[0]}</span>
+          ${since ? `<p class="pf-since">Member since ${since}</p>` : ""}`;
+        const rows = [
+          ["WhatsApp Number", seller.phone],
+          ["Email", seller.email],
+          ["Province", seller.province],
+          ["Town / farm location", seller.address],
+        ];
+        document.getElementById("pf-details").innerHTML = rows.map(([k, v]) =>
+          `<div><dt>${k}</dt><dd>${v ? escapeHtml(v) : '<span class="text-gray-400">Not added</span>'}</dd></div>`).join("");
       }
+
+      // Profile: details are shown read-only; the ⋮ menu opens Edit details
+      // or Change password in place of them.
+      function showProfilePanel(panel) {
+        document.getElementById("pf-view").hidden = panel !== "view";
+        document.getElementById("profile-form").hidden = panel !== "details";
+        document.getElementById("password-form").hidden = panel !== "password";
+        document.querySelectorAll("#tab-profile [data-alert]").forEach((el) => el.classList.add("hidden"));
+        if (panel === "details") {
+          renderProfile();
+          document.getElementById("profile-form").elements.name.focus();
+        } else if (panel === "password") {
+          const pf = document.getElementById("password-form");
+          pf.reset();
+          pf.elements.new_password.dispatchEvent(new Event("input"));
+          pf.elements.current_password.focus();
+        }
+      }
+      (() => {
+        const btn = document.getElementById("pf-menu-btn");
+        const menu = document.getElementById("pf-menu");
+        const open = (show) => {
+          menu.hidden = !show;
+          btn.setAttribute("aria-expanded", String(show));
+          if (show) menu.querySelector("button").focus();
+        };
+        btn.addEventListener("click", (e) => { e.stopPropagation(); open(menu.hidden); });
+        document.addEventListener("click", (e) => { if (!menu.hidden && !menu.contains(e.target)) open(false); });
+        menu.addEventListener("keydown", (e) => {
+          const items = [...menu.querySelectorAll("button")];
+          const i = items.indexOf(document.activeElement);
+          if (e.key === "ArrowDown") { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+          if (e.key === "ArrowUp") { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+          if (e.key === "Escape") { open(false); btn.focus(); }
+        });
+        menu.querySelectorAll("[data-pf-open]").forEach((item) => item.addEventListener("click", () => {
+          open(false);
+          showProfilePanel(item.dataset.pfOpen);
+        }));
+        document.querySelectorAll("[data-pf-cancel]").forEach((b) => b.addEventListener("click", () => showProfilePanel("view")));
+      })();
 
       function renderProfile() {
         renderProfileCard();
@@ -649,6 +704,7 @@
           seller = res.data;
           renderProfileCard();
           showFieldErrors(form, {});
+          showProfilePanel("view");
           showNotification("Details saved.", "success");
         } catch (error) {
           showFieldErrors(form, error);
@@ -670,10 +726,8 @@
         try {
           await withBusy(form.querySelector("[type=submit]"), "Saving…", () =>
             sellerApi("/api/seller/me/password", { method: "PATCH", body: formValues(form) }));
-          form.reset();
-          form.elements.new_password.dispatchEvent(new Event("input"));
-          alertBox.className = "alert alert-success text-sm mb-0";
-          alertBox.textContent = "Password updated.";
+          showProfilePanel("view");
+          showNotification("Password updated.", "success");
         } catch (error) {
           alertBox.className = "alert alert-error text-sm mb-0";
           alertBox.textContent = error.message;
