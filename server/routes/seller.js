@@ -9,6 +9,7 @@ const bcrypt = require("bcrypt");
 const pool = require("../db");
 const { uploadImages, deleteImageFiles } = require("../middleware/upload");
 const { sendEmail, appUrl, recipients } = require("../services/mailer");
+const emails = require("../lib/emails");
 const { positiveInt, text, isEmail, isPhone, badRequest, notFound, HttpError, PROVINCES } = require("../lib/validate");
 const { helpers } = require("./admin/livestock");
 const { subscribe, unreadCount } = require("../services/notifications");
@@ -150,6 +151,7 @@ router.post("/auth/register", async (req, res, next) => {
       [data.name, data.business_name, data.phone, data.email, data.province, data.address, hash],
     );
     await startSession(req, result.insertId);
+    emails.sellerWelcome(data);
     notifyAdmins(
       `New seller registration: ${data.business_name || data.name}`,
       "New seller waiting for approval",
@@ -248,6 +250,8 @@ router.post("/auth/reset", async (req, res, next) => {
     if (!row) throw badRequest("This reset link is invalid or has expired.");
     await pool.query("UPDATE sellers SET password_hash = ? WHERE id = ?", [await bcrypt.hash(password, 12), row.seller_id]);
     await pool.query("DELETE FROM seller_password_resets WHERE seller_id = ?", [row.seller_id]);
+    const [[owner]] = await pool.query("SELECT name, email FROM sellers WHERE id = ?", [row.seller_id]);
+    if (owner && owner.email) emails.passwordChanged(owner);
     res.json({ success: true, message: "Password updated. You can now sign in." });
   } catch (error) {
     next(error);
@@ -285,6 +289,7 @@ router.patch("/me/password", requireSeller, async (req, res, next) => {
     const [[row]] = await pool.query("SELECT password_hash FROM sellers WHERE id = ?", [req.seller.id]);
     if (!(await bcrypt.compare(current, row.password_hash))) throw badRequest("Your current password is incorrect.");
     await pool.query("UPDATE sellers SET password_hash = ? WHERE id = ?", [await bcrypt.hash(fresh, 12), req.seller.id]);
+    emails.passwordChanged(req.seller);
     res.json({ success: true, message: "Password updated." });
   } catch (error) {
     next(error);
@@ -398,6 +403,14 @@ function listingNotice(seller, listing, edited, listingId) {
   if (last && Date.now() - last < 2 * 60 * 1000) return null;
   recentNotices.set(key, Date.now());
   if (recentNotices.size > 500) recentNotices.delete(recentNotices.keys().next().value);
+  // The seller gets a "we've received it" at the same moment.
+  (async () => {
+    const [[animal]] = await pool.query(
+      "SELECT a.name, a.kind FROM categories c JOIN animals a ON a.id = c.animal_id WHERE c.id = ?",
+      [listing.category_id || 0],
+    );
+    await emails.listingReceived(seller, { ...listing, animal_name: animal && animal.name, animal_kind: animal && animal.kind }, edited);
+  })().catch((error) => console.error(`Listing receipt email: ${error.message}`));
   return notifyAdmins(
     edited ? `Listing updated for review: ${listing.title}` : `Listing added for review: ${listing.title}`,
     edited ? "A seller updated a listing" : "A seller added a listing",

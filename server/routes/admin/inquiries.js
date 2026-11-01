@@ -135,9 +135,11 @@ router.post("/:id/reply", async (req, res, next) => {
       to: row.customer_email,
       subject: `Re: your inquiry about ${row.livestock_title}`,
       heading: "A reply to your inquiry",
-      paragraphs: [`Hi ${row.full_name},`, message, "Frontier Marketplace"],
+      paragraphs: [`Hi ${String(row.full_name).split(" ")[0]},`],
+      quote: message,
       rows: [["Listing", row.livestock_title]],
       button: listingUrl ? { label: "View the listing", url: listingUrl } : null,
+      after: ["Reply to this email to continue the conversation."],
     });
     await pool.query(
       `INSERT INTO inquiry_messages (inquiry_id, sender, body, to_customer, customer_emailed) VALUES (?, 'admin', ?, 1, ?)`,
@@ -175,7 +177,8 @@ router.post("/:id/ask", async (req, res, next) => {
         to: row.email,
         subject: `Question from Frontier: ${row.livestock_title}`,
         heading: "A question about your livestock",
-        paragraphs: [`Hi ${row.name},`, `Frontier has a question about "${row.livestock_title}":`, message],
+        paragraphs: [`Hi ${String(row.name).split(" ")[0]},`, `We have a question about ${row.livestock_title}:`],
+        quote: message,
         button: hasAccount ? { label: "Reply in your dashboard", url: appUrl("/seller/?tab=messages") } : null,
       });
       emailed = result.sent;

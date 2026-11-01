@@ -9,6 +9,7 @@ const express = require("express");
 const pool = require("../../db");
 const { sendEmail } = require("../../services/mailer");
 const { notifySeller } = require("../../services/notifications");
+const emails = require("../../lib/emails");
 const { positiveInt, text, oneOf, badRequest, notFound } = require("../../lib/validate");
 const {
   ORDER_STATUSES,
@@ -105,18 +106,6 @@ router.get("/:id", async (req, res, next) => {
   }
 });
 
-function buyerParagraphs(order, status, message) {
-  const ref = orderRef(order.id);
-  const intro = {
-    new: `Your order ${ref} is with our team.`,
-    confirmed: `Good news: the seller has confirmed your order ${ref}. Please make payment to complete it.`,
-    paid: `We've received your payment for order ${ref}. Thank you.`,
-    completed: `Your order ${ref} is complete. Thank you for buying on Frontier Marketplace.`,
-    cancelled: `Your order ${ref} has been cancelled.`,
-  }[status];
-  return [`Hi ${order.full_name},`, intro, ...(message ? [message] : [])];
-}
-
 // Update the status and/or send the buyer a message.
 router.patch("/:id", async (req, res, next) => {
   const conn = await pool.getConnection();
@@ -173,34 +162,29 @@ router.patch("/:id", async (req, res, next) => {
     );
     const units = headCount(order.quantity, animal && animal.name, animal && animal.kind);
     const qtyText = lot ? `The whole lot (${units})` : units;
-    const buyerMail = await sendEmail({
-      to: order.email,
-      subject: changed ? `Order ${ref}: ${STATUS_LABELS[newStatus].toLowerCase()}` : `Order ${ref}: message from Frontier`,
-      heading: changed ? `Order ${ref}: ${STATUS_LABELS[newStatus]}` : `Order ${ref}`,
-      paragraphs: changed ? buyerParagraphs(order, newStatus, message) : [`Hi ${order.full_name},`, message],
-      rows: [
-        ["Listing", order.livestock_title],
-        ["Quantity", qtyText],
-        ["Total", kwacha(order.total)],
-        ["Collection", order.delivery === "deliver" ? `${DELIVERY_LABELS.deliver}: ${order.delivery_address}` : DELIVERY_LABELS.collect],
-        ["Payment", paymentText(order)],
-      ],
-    });
+    const kind = animal && animal.kind;
+    const buyerMail = await emails.orderUpdate(
+      { ...order, previous_status: order.status },
+      { status: newStatus, changed, message, kind },
+    );
 
+    // Seller: told once when the order is confirmed (without the buyer's
+    // details), then if it's completed or cancelled after that.
     if (notifySellerNow) {
       const body = `${lot ? "The whole lot" : units} from "${order.livestock_title}" has been ordered (${kwacha(order.total)}). Our team will contact you to arrange the handover.`;
       notifySeller(order.seller_id, { type: "order", title: `New order ${ref}: ${order.livestock_title}`, body, link: "/seller/" });
-      const [[seller]] = await pool.query("SELECT email, name FROM sellers WHERE id = ?", [order.seller_id]);
-      if (seller && seller.email) {
-        sendEmail({
-          to: seller.email,
-          subject: `New order ${ref}: ${order.livestock_title}`,
-          heading: "You have a new order",
-          paragraphs: [`Hi ${seller.name},`, body],
-          rows: [["Listing", order.livestock_title], ["Quantity", qtyText], ["Total", kwacha(order.total)]],
-        });
-      }
+      const [[left]] = await pool.query("SELECT quantity FROM livestock WHERE id = ?", [order.livestock_id || 0]);
+      emails.sellerOrder(order, "new", { units, leftOnListing: left ? headCount(left.quantity, animal && animal.name, kind) : undefined });
+    } else if (changed && order.seller_id && order.seller_notified_at && ["completed", "cancelled"].includes(newStatus)) {
+      notifySeller(order.seller_id, {
+        type: "order",
+        title: newStatus === "completed" ? `Order ${ref} is complete` : `Order ${ref} was cancelled`,
+        body: order.livestock_title,
+        link: "/seller/",
+      });
+      emails.sellerOrder(order, newStatus, { units });
     }
+    if (soldOut && order.seller_id) emails.listingSoldOut(order.seller_id, { id: order.livestock_id, title: order.livestock_title });
 
     const data = await loadOrder(id);
     res.json({

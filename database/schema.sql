@@ -305,6 +305,7 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_checked_at DATETIME NULL,
   paid_at          DATETIME NULL,
   public_token     CHAR(32) NULL,
+  payment_reminder_at DATETIME NULL,
   status           ENUM('new', 'confirmed', 'paid', 'completed', 'cancelled') NOT NULL DEFAULT 'new',
   stock_deducted   TINYINT(1) NOT NULL DEFAULT 0,
   seller_notified_at DATETIME NULL,
@@ -321,4 +322,12 @@ CREATE TABLE IF NOT EXISTS orders (
   INDEX idx_orders_livestock (livestock_id),
   INDEX idx_orders_seller (seller_id),
   INDEX idx_orders_payment_ref (payment_reference)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Small key/value store for background jobs (e.g. the day the morning
+-- summary was last sent), so a restart doesn't send it twice.
+CREATE TABLE IF NOT EXISTS app_state (
+  name       VARCHAR(64) PRIMARY KEY,
+  value      VARCHAR(255) NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

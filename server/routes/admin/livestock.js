@@ -2,6 +2,7 @@ const express = require("express");
 const pool = require("../../db");
 const { uploadImages, saveImage, deleteImageFiles, MAX_FILES } = require("../../middleware/upload");
 const { sendEmail, appUrl } = require("../../services/mailer");
+const emails = require("../../lib/emails");
 const { notifySeller } = require("../../services/notifications");
 const { positiveInt, text, oneOf, badRequest, notFound, PROVINCES, isAllBreedsPurpose } = require("../../lib/validate");
 
@@ -377,7 +378,7 @@ router.patch("/:id/status", async (req, res, next) => {
     const status = oneOf(req.body.status, STATUSES);
     if (!status) throw badRequest("Status must be published or unpublished.");
     const id = positiveInt(req.params.id);
-    const [[before]] = await pool.query("SELECT title, status, seller_id FROM livestock WHERE id = ?", [id]);
+    const [[before]] = await pool.query("SELECT title, status, seller_id, review_status FROM livestock WHERE id = ?", [id]);
     if (!before) throw notFound("Livestock listing not found.");
     // Choosing a status is the admin's decision, so it also settles any review.
     await pool.query(
@@ -388,6 +389,7 @@ router.patch("/:id/status", async (req, res, next) => {
       await notifySeller(before.seller_id, status === "published"
         ? { type: "listing", title: `Your listing is live: ${before.title}`, link: "/seller/" }
         : { type: "listing", title: `Your listing was taken off the website: ${before.title}`, body: "Contact Frontier if you have questions.", link: "/seller/" });
+      if (before.seller_id) emails.listingVisibility(before.seller_id, { id, title: before.title }, status === "published", { first: before.review_status === "pending" });
     }
     res.json({ success: true });
   } catch (error) {
@@ -422,6 +424,7 @@ router.delete("/:id", async (req, res, next) => {
     const [result] = await pool.query("DELETE FROM livestock WHERE id = ?", [id]);
     if (!result.affectedRows) throw notFound("Livestock listing not found.");
     await notifySeller(listing.seller_id, { type: "listing", title: `Your listing was removed: ${listing.title}`, body: "Contact Frontier if you have questions.", link: "/seller/" });
+    if (listing.seller_id) emails.listingRemoved(listing.seller_id, listing);
     images.forEach((row) => deleteImageFiles(row.image_path, row.thumb_path));
     res.json({ success: true });
   } catch (error) {
@@ -468,9 +471,12 @@ router.post("/:id/review", async (req, res, next) => {
         subject: action === "approve" ? `Your listing is live: ${row.title}` : `Changes needed: ${row.title}`,
         heading: action === "approve" ? "Your listing is live" : "Your listing needs changes",
         paragraphs: action === "approve"
-          ? [`Hi ${row.seller_name},`, `"${row.title}" has been approved and is now live on Frontier Marketplace.`, ...(note ? [note] : [])]
-          : [`Hi ${row.seller_name},`, `"${row.title}" was not approved yet. Please update it and submit it again.`, note],
-        button: { label: "Open my dashboard", url: appUrl("/seller/") },
+          ? [`Hi ${String(row.seller_name).split(" ")[0]},`, `${row.title} is now on Frontier Marketplace. Buyers can see it, ask questions and order it.`]
+          : [`Hi ${String(row.seller_name).split(" ")[0]},`, `Before ${row.title} can go live, please make this change:`],
+        quote: note || null,
+        button: action === "approve"
+          ? { label: "View it on the website", url: appUrl(`/listing.html?id=${id}`) }
+          : { label: "Edit the listing", url: appUrl("/seller/") },
       });
       emailed = result.sent;
     }

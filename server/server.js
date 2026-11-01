@@ -248,7 +248,7 @@ app.use((err, req, res, next) => {
 // Tables added by later updates are created at startup if missing, so a
 // deploy that forgot "npm run db:setup" still works. Column changes still
 // need db:setup.
-const LATE_TABLES = ["seller_password_resets", "seller_sessions", "seller_notifications", "inquiry_messages", "orders"];
+const LATE_TABLES = ["seller_password_resets", "seller_sessions", "seller_notifications", "inquiry_messages", "orders", "app_state"];
 // Columns added by later updates, added at startup when missing.
 const LATE_COLUMNS = [
   ["livestock", "price", "DECIMAL(12,2) NULL AFTER quantity"],
@@ -268,6 +268,7 @@ const LATE_COLUMNS = [
   ["orders", "payment_checked_at", "DATETIME NULL AFTER payment_attempts"],
   ["orders", "paid_at", "DATETIME NULL AFTER payment_checked_at"],
   ["orders", "public_token", "CHAR(32) NULL AFTER paid_at"],
+  ["orders", "payment_reminder_at", "DATETIME NULL AFTER public_token"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");
@@ -306,6 +307,8 @@ async function ensureLateTables() {
 
 if (require.main === module) {
   ensureLateTables();
+  // Payment reminders and the team's morning summary.
+  require("./services/scheduler").start();
   const server = app.listen(PORT, () => {
     console.log("\nFrontier Marketplace");
     console.log(`Running on http://localhost:${PORT}  (${process.env.NODE_ENV || "development"})`);

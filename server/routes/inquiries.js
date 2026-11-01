@@ -1,9 +1,10 @@
 // Public inquiry submission. Visitors need no account: the inquiry is tied to
-// the listing they were viewing, saved to the database, and then emailed to
-// the marketplace team.
+// the listing they were viewing, saved to the database, emailed to the
+// marketplace team, and the customer gets an automatic "we've received it".
 const express = require("express");
 const pool = require("../db");
 const { sendInquiryNotification } = require("../services/mailer");
+const emails = require("../lib/emails");
 const {
   positiveInt,
   text,
@@ -88,7 +89,7 @@ router.post("/", async (req, res, next) => {
     }
 
     const [listing] = await pool.query(
-      `SELECT l.id, l.title, a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
+      `SELECT l.id, l.title, l.price, l.price_unit, l.location, a.kind AS animal_kind, a.name AS animal_name, c.name AS category_name, b.name AS breed_name,
          s.id AS seller_id, s.name AS seller_name, s.business_name AS seller_business_name,
          s.phone AS seller_phone, s.email AS seller_email
        FROM livestock l
@@ -151,6 +152,9 @@ router.post("/", async (req, res, next) => {
         [String(mailError.message).slice(0, 500), inquiryId],
       );
     }
+
+    // Auto-reply to the customer so they know it arrived.
+    emails.inquiryReceived({ ...values, id: inquiryId }, item);
 
     return res.status(201).json({
       success: true,

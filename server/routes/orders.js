@@ -9,6 +9,7 @@ const { sendEmail, recipients, appUrl } = require("../services/mailer");
 const { positiveInt, text, isEmail, isPhone, oneOf, badRequest, notFound } = require("../lib/validate");
 const { orderRef, kwacha, headCount, paymentText, DELIVERY_LABELS } = require("../lib/orders");
 const payments = require("../lib/payments");
+const emails = require("../lib/emails");
 const lenco = require("../services/lenco");
 
 const router = express.Router();
@@ -179,23 +180,12 @@ router.post("/", async (req, res, next) => {
           ["Payment", paymentText(values)],
         ],
         button: { label: "Open order", url: appUrl(`/admin/orders.html?id=${id}`) },
+        replyTo: values.email,
       }),
-      sendEmail({
-        to: values.email,
-        subject: `Order ${reference} received`,
-        heading: `Order ${reference} received`,
-        paragraphs: [
-          `Hi ${values.full_name}, thank you for your order. ${item.animal_kind === "feed" ? "The feed is" : "The animals are"} now reserved for you.`,
-          "We'll contact you on both WhatsApp and email to arrange collection.",
-        ],
-        rows: [
-          ["Listing", item.title],
-          ["Quantity", qtyText],
-          ["Total", kwacha(total)],
-          ["Collection", deliveryText],
-          ["Payment", paymentText(values)],
-        ],
-      }),
+      emails.orderReceived(
+        { ...values, id, quantity, price_unit: item.price_unit, total, online: lenco.enabled() },
+        item,
+      ),
     ]);
     await pool.query("UPDATE orders SET email_status = ?, email_error = ? WHERE id = ?", [
       team.sent ? "sent" : "failed",
@@ -203,6 +193,7 @@ router.post("/", async (req, res, next) => {
       id,
     ]);
     if (!buyer.sent) console.error(`Order ${reference}: buyer email not sent (${buyer.error})`);
+    if (soldOut && item.seller_id) emails.listingSoldOut(item.seller_id, { id: item.id, title: item.title });
 
     return res.status(201).json({
       success: true,

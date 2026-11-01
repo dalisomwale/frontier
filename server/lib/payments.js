@@ -44,6 +44,9 @@ function publicView(order) {
     total: Number(order.total),
     attempts_left: Math.max(0, MAX_ATTEMPTS - Number(order.payment_attempts || 0)),
     order_status: order.status,
+    reference: orderRef(order.id),
+    title: order.livestock_title,
+    operator_key: order.mobile_operator,
   };
 }
 

@@ -1,4 +1,4 @@
-// Inquiry notification email.
+// Email: the branded template, inquiry notifications and sendEmail().
 //
 // All SMTP settings come from environment variables (see .env.example) and
 // are only ever used here, on the server. Nothing about email is exposed to
@@ -142,62 +142,26 @@ function formatDate(date) {
 }
 
 function buildInquiryEmail(inquiry) {
-  const date = formatDate(inquiry.created_at || new Date());
   const rows = [
     ["Livestock", inquiry.livestock_title],
     ["Category", [inquiry.animal_name, inquiry.category_name].filter(Boolean).join(" · ") || "-"],
     ["Breed", inquiry.breed_name || "-"],
     ["Seller", inquiry.seller_name ? [inquiry.seller_name, inquiry.seller_phone].filter(Boolean).join("\n") : "Frontier's stock"],
-    ["Full Name", inquiry.full_name],
+    ["Customer", inquiry.full_name],
     ["Phone", inquiry.phone],
     ["Email", inquiry.email],
-    ["Message", inquiry.message],
-    ["Date", date],
+    ["Date", formatDate(inquiry.created_at || new Date())],
   ];
-
-  const subject = `New Livestock Inquiry — ${inquiry.livestock_title}`;
-  const text = [
-    "New Livestock Inquiry — Frontier Marketplace",
-    "",
-    ...rows.flatMap(([label, value]) => [`${label}:`, value, ""]),
-    inquiry.admin_url ? `Open in admin dashboard: ${inquiry.admin_url}` : "",
-  ].join("\n");
-
-  const htmlRows = rows
-    .map(
-      ([label, value]) => `
-        <tr>
-          <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;width:120px;vertical-align:top;">${label}</td>
-          <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;white-space:pre-wrap;">${
-            label === "Email"
-              ? `<a href="mailto:${escapeHtml(value)}" style="color:#2563eb;">${escapeHtml(value)}</a>`
-              : label === "Phone"
-                ? `<a href="tel:${escapeHtml(String(value).replace(/[^\d+]/g, ""))}" style="color:#2563eb;">${escapeHtml(value)}</a>`
-                : escapeHtml(value)
-          }</td>
-        </tr>`,
-    )
-    .join("");
-
-  const html = `<!doctype html>
-<html><body style="margin:0;background:#f3f4f6;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
-  <div style="max-width:600px;margin:0 auto;padding:24px 12px;">
-    <div style="background:#0b2a5e;color:#fff;border-radius:12px 12px 0 0;padding:18px 20px;">
-      <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#93c5fd;">Frontier Marketplace</div>
-      <div style="font-size:20px;font-weight:700;margin-top:4px;">New Livestock Inquiry</div>
-    </div>
-    <table role="presentation" style="width:100%;border-collapse:collapse;background:#fff;">${htmlRows}</table>
-    <div style="background:#fff;border-radius:0 0 12px 12px;padding:16px 20px;">
-      ${
-        inquiry.admin_url
-          ? `<a href="${escapeHtml(inquiry.admin_url)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;font-size:14px;">Open in admin dashboard</a>`
-          : ""
-      }
-      <p style="color:#9ca3af;font-size:12px;margin:14px 0 0;">Reply to this email to respond to ${escapeHtml(inquiry.full_name)} directly.</p>
-    </div>
-  </div>
-</body></html>`;
-
+  const subject = `New inquiry: ${inquiry.livestock_title}`;
+  const { text, html } = renderEmail({
+    audience: "team",
+    heading: "New livestock inquiry",
+    paragraphs: [`${inquiry.full_name} asked about "${inquiry.livestock_title}":`],
+    quote: inquiry.message,
+    rows,
+    button: inquiry.admin_url ? { label: "Open in admin", url: inquiry.admin_url } : null,
+    after: [`Reply to this email to answer ${inquiry.full_name} directly.`],
+  });
   return { subject, text, html };
 }
 
@@ -230,43 +194,109 @@ function appUrl(path = "/") {
   return base ? `${base}${path}` : path;
 }
 
-// A short branded email: a heading, a few paragraphs and an optional button.
-function buildSimpleEmail({ heading, paragraphs = [], rows = [], button = null }) {
+// Who to tell people to contact, from .env:
+//   SUPPORT_PHONE   phone / WhatsApp shown at the bottom of customer emails
+//   REPLY_TO_EMAIL  where replies to customer and seller emails go
+function contactSettings() {
+  return {
+    phone: (process.env.SUPPORT_PHONE || "").trim(),
+    replyTo: (process.env.REPLY_TO_EMAIL || "").trim(),
+  };
+}
+
+function siteName() {
+  try {
+    return new URL(process.env.APP_URL || "").host || "marketplace.frontierfc.co.zm";
+  } catch {
+    return "marketplace.frontierfc.co.zm";
+  }
+}
+
+const C = { deep: "#10231a", leaf: "#1f3d2b", lime: "#bef264", sun: "#fde047", ink: "#1f2937", muted: "#6b7280", line: "#edf0ee", page: "#eef1ee" };
+
+/**
+ * One branded email (Frontier's green and yellow-lime design).
+ *   heading      title in the green header
+ *   paragraphs   text before everything else ("Hi Chanda," first)
+ *   quote        a message shown as a quote (e.g. what the customer wrote)
+ *   rows         [label, value] details table
+ *   stepsTitle / steps   a short numbered list ("What happens next")
+ *   button       { label, url }
+ *   after        text after the button
+ *   audience     "public" (customers, sellers: sign-off and contact footer)
+ *                or "team" (Frontier's own notifications)
+ */
+function renderEmail({ heading, paragraphs = [], quote = null, rows = [], stepsTitle = null, steps = [], button = null, after = [], audience = "public" }) {
+  const team = audience === "team";
+  const { phone } = contactSettings();
+  const signOff = team ? [] : ["Kind regards,", "The Frontier Marketplace team"];
+  const footerText = team
+    ? "Sent to the Frontier team by Frontier Marketplace."
+    : `Frontier Marketplace by Frontier Farms & Consult · ${siteName()}\nQuestions? Reply to this email${phone ? ` or call / WhatsApp us on ${phone}` : ""}.`;
+
   const text = [
     heading,
     "",
     ...paragraphs,
+    ...(quote ? ["", ...String(quote).split("\n").map((l) => `> ${l}`)] : []),
     ...(rows.length ? ["", ...rows.map(([label, value]) => `${label}: ${value}`)] : []),
+    ...(steps.length ? ["", stepsTitle || "", ...steps.map((st, i) => `${i + 1}. ${st}`)] : []),
     ...(button ? ["", `${button.label}: ${button.url}`] : []),
+    ...(after.length ? ["", ...after] : []),
+    ...(signOff.length ? ["", ...signOff] : []),
+    "",
+    "--",
+    footerText,
   ].join("\n");
+
+  const p = (t) => `<p style="margin:0 0 12px;white-space:pre-wrap;">${escapeHtml(t)}</p>`;
   const html = `<!doctype html>
-<html><body style="margin:0;background:#f3f4f6;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"></head>
+<body style="margin:0;background:${C.page};font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
   <div style="max-width:600px;margin:0 auto;padding:24px 12px;">
-    <div style="background:#0b2a5e;color:#fff;border-radius:12px 12px 0 0;padding:18px 20px;">
-      <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#93c5fd;">Frontier Marketplace</div>
-      <div style="font-size:20px;font-weight:700;margin-top:4px;">${escapeHtml(heading)}</div>
-    </div>
-    <div style="background:#fff;border-radius:0 0 12px 12px;padding:18px 20px;color:#111827;font-size:14px;line-height:1.55;">
-      ${paragraphs.map((p) => `<p style="margin:0 0 12px;white-space:pre-wrap;">${escapeHtml(p)}</p>`).join("")}
-      ${rows.length ? `<table role="presentation" style="width:100%;border-collapse:collapse;margin:4px 0 12px;">${rows
-        .map(([label, value]) => `<tr><td style="padding:6px 0;color:#6b7280;width:130px;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:6px 0;white-space:pre-wrap;">${escapeHtml(value)}</td></tr>`)
-        .join("")}</table>` : ""}
-      ${button ? `<a href="${escapeHtml(button.url)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;font-size:14px;">${escapeHtml(button.label)}</a>` : ""}
+    <div style="border-radius:12px;overflow:hidden;background:#fff;border:1px solid #dfe5e0;">
+      <div style="height:4px;background:${C.sun};background-image:linear-gradient(90deg,${C.sun},${C.lime});"></div>
+      <div style="background:${C.deep};color:#fff;padding:18px 22px;">
+        <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:${C.lime};font-weight:700;">Frontier Marketplace</div>
+        <div style="font-size:20px;font-weight:700;margin-top:4px;line-height:1.3;">${escapeHtml(heading)}</div>
+      </div>
+      <div style="padding:20px 22px 8px;color:${C.ink};font-size:14.5px;line-height:1.6;">
+        ${paragraphs.map(p).join("")}
+        ${quote ? `<div style="margin:0 0 14px;padding:10px 14px;border-left:3px solid ${C.lime};background:#f7faf5;color:#374151;white-space:pre-wrap;">${escapeHtml(quote)}</div>` : ""}
+        ${rows.length ? `<table role="presentation" style="width:100%;border-collapse:collapse;margin:4px 0 14px;font-size:14px;">${rows
+          .map(([label, value]) => `<tr><td style="padding:7px 10px 7px 0;border-top:1px solid ${C.line};color:${C.muted};width:140px;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:7px 0;border-top:1px solid ${C.line};white-space:pre-wrap;">${escapeHtml(value)}</td></tr>`)
+          .join("")}</table>` : ""}
+        ${steps.length ? `${stepsTitle ? `<p style="margin:0 0 6px;font-weight:700;">${escapeHtml(stepsTitle)}</p>` : ""}<ol style="margin:0 0 14px;padding-left:20px;">${steps.map((st) => `<li style="margin-bottom:4px;">${escapeHtml(st)}</li>`).join("")}</ol>` : ""}
+        ${button ? `<p style="margin:2px 0 14px;"><a href="${escapeHtml(button.url)}" style="display:inline-block;background:${C.leaf};color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px;">${escapeHtml(button.label)}</a></p>` : ""}
+        ${after.map(p).join("")}
+        ${signOff.length ? `<p style="margin:4px 0 12px;">${signOff.map(escapeHtml).join("<br>")}</p>` : ""}
+      </div>
+      <div style="padding:14px 22px 18px;border-top:1px solid ${C.line};font-size:12px;color:${C.muted};line-height:1.55;white-space:pre-line;">${escapeHtml(footerText)}</div>
     </div>
   </div>
 </body></html>`;
   return { text, html };
 }
 
+// Kept for older callers.
+function buildSimpleEmail(content) {
+  return renderEmail(content);
+}
+
 // Sends one email. Never throws: account and listing notices must not break
 // the action that triggered them, so failures are logged and reported.
-async function sendEmail({ to, subject, ...content }) {
+// Team emails (sent to the notification list) get the team layout unless
+// the caller says otherwise. Customer and seller emails carry REPLY_TO_EMAIL.
+async function sendEmail({ to, subject, replyTo, ...content }) {
   const list = (Array.isArray(to) ? to : [to]).filter(Boolean);
   if (!list.length) return { sent: false, error: "No recipient" };
   if (!emailConfig().configured) return { sent: false, error: "Email is not set up" };
+  const team = recipients();
+  const audience = content.audience || (list.every((address) => team.includes(address)) ? "team" : "public");
+  const reply = replyTo || (audience === "public" ? contactSettings().replyTo : "") || undefined;
   try {
-    const { text, html } = buildSimpleEmail(content);
-    await getTransporter().sendMail({ from: emailConfig().from, to: list.join(", "), subject, text, html });
+    const { text, html } = renderEmail({ ...content, audience });
+    await getTransporter().sendMail({ from: emailConfig().from, to: list.join(", "), replyTo: reply, subject, text, html });
     return { sent: true };
   } catch (error) {
     console.error(`Email "${subject}" failed:`, error.message);
@@ -276,6 +306,8 @@ async function sendEmail({ to, subject, ...content }) {
 
 module.exports = {
   sendEmail,
+  renderEmail,
+  contactSettings,
   appUrl,
   sendInquiryNotification: sendInquiryNotificationSafe,
   buildInquiryEmail,

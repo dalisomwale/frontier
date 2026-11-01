@@ -114,6 +114,42 @@ The email contains the livestock title, category (animal · purpose, e.g. *Goats
 
 SMTP credentials are only read on the server from `.env`. Nothing about email reaches the browser.
 
+### Every email the marketplace sends
+
+All emails use the website's green and yellow-lime design. Customer and
+seller emails are signed "The Frontier Marketplace team", end with
+Frontier's contact details (`SUPPORT_PHONE`) and carry `REPLY_TO_EMAIL` as
+Reply-To, so people can simply answer them. The wording lives in
+`server/lib/emails.js`; the design in `server/services/mailer.js`
+(`renderEmail`). Sending never blocks or undoes the action that triggered it.
+
+| To | Email | When |
+|---|---|---|
+| Customer | We've received your inquiry (auto-reply) | Contact Seller |
+| Customer | A reply to your inquiry | Admin replies in Inquiries |
+| Customer | Order received, with what happens next | Buy Now |
+| Customer | Payment received | Website mobile money payment succeeds |
+| Customer | Your payment didn't go through (with a "try again" link to /pay.html) | Website payment failed and still unpaid 30 min after the order; once |
+| Customer | Order confirmed / payment received / completed (thank you) / cancelled (refund note if paid) / message | Admin changes the order or writes a message |
+| Seller | Welcome, we're reviewing your account | Registration |
+| Seller | Account approved / not approved | Admin review |
+| Seller | We've received your listing (or changes) | Seller adds or edits a listing |
+| Seller | Listing live / changes needed | Admin review |
+| Seller | Listing taken off / back on the website | Admin changes the listing status |
+| Seller | Listing removed | Admin deletes it |
+| Seller | New order (no buyer details), order completed, order cancelled | Admin confirms, completes or cancels |
+| Seller | Sold out | An order takes the last animals or bags |
+| Seller | Question from Frontier | Admin asks the seller |
+| Seller | Reset password, password changed | Forgot password; password changed |
+| Seller | Account paused / active again | Admin marks the seller inactive / active |
+| Team | New inquiry (Reply-To: the customer), new order, order paid | As they happen |
+| Team | Unpaid order | Same moment as the customer's payment reminder |
+| Team | New seller, listing to review, seller replied | As they happen |
+| Team | Morning summary | `DAILY_SUMMARY_TIME` (default 07:30), only when something needs attention; `DAILY_SUMMARY=off` turns it off |
+
+The payment reminder and morning summary run in the background every few
+minutes while the app is running (`server/services/scheduler.js`).
+
 ---
 
 ## Admin dashboard

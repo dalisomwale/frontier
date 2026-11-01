@@ -5,6 +5,7 @@ const express = require("express");
 const pool = require("../../db");
 const { positiveInt, text, isEmail, isPhone, oneOf, badRequest, notFound, HttpError, PROVINCES } = require("../../lib/validate");
 const { sendEmail, appUrl } = require("../../services/mailer");
+const emails = require("../../lib/emails");
 const { notifySeller, disconnectSeller } = require("../../services/notifications");
 
 const router = express.Router();
@@ -162,9 +163,11 @@ router.patch("/:id/status", async (req, res, next) => {
     const status = oneOf(req.body.status, STATUSES);
     if (!status) throw badRequest("Status must be active or inactive.");
     const id = positiveInt(req.params.id);
+    const [[before]] = await pool.query("SELECT status FROM sellers WHERE id = ?", [id]);
     const [result] = await pool.query("UPDATE sellers SET status = ? WHERE id = ?", [status, id]);
     if (!result.affectedRows) throw notFound("Seller not found.");
     if (status === "inactive") disconnectSeller(id);
+    if (before && before.status !== status) emails.accountStatus(id, status === "active");
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -203,8 +206,10 @@ router.patch("/:id/account", async (req, res, next) => {
       heading: action === "approve" ? "You can start selling" : "Your seller account was not approved",
       paragraphs: action === "approve"
         ? [`Hi ${seller.name},`, "Your Frontier Marketplace seller account has been approved. You can now add your livestock. Each listing is checked by our team before it goes live."]
-        : [`Hi ${seller.name},`, "Thank you for registering. We could not approve your seller account at this time.", ...(note ? [note] : []), "Reply to this email or call us if you have questions."],
-      button: { label: action === "approve" ? "Add your first listing" : "Open my account", url: appUrl("/seller/") },
+        : [`Hi ${seller.name},`, "Thank you for registering. We could not approve your seller account at this time."],
+      quote: action === "approve" ? null : note || null,
+      after: action === "approve" ? [] : ["Reply to this email if you have questions."],
+      button: action === "approve" ? { label: "Add your first listing", url: appUrl("/seller/") } : null,
     });
     const [rows] = await pool.query(`SELECT ${COLUMNS}, ${COUNTS} FROM sellers s WHERE s.id = ?`, [id]);
     res.json({ success: true, data: rows[0], emailed: result.sent });
