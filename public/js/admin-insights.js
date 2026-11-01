@@ -23,12 +23,6 @@
     completed: ["Completed", C.leaf],
     cancelled: ["Cancelled", C.slate],
   };
-  const INQUIRY = {
-    new: ["Not replied", C.red],
-    contacted: ["Replied", C.amber],
-    in_progress: ["In progress", C.sky],
-    resolved: ["Resolved", C.green],
-  };
   const PAY = {
     airtel: ["Airtel Money", "#dc2626"],
     mtn: ["MTN MoMo", "#eab308"],
@@ -36,12 +30,6 @@
     card: ["Visa / Mastercard", "#1d4ed8"],
     bank_transfer: ["Bank transfer", C.slate],
     mobile: ["Mobile money", C.teal],
-  };
-  const SELLERS = {
-    active: ["Active", C.green],
-    pending: ["Waiting for approval", C.amber],
-    paused: ["Paused", C.slate],
-    rejected: ["Not approved", C.red],
   };
   const RANGE_TEXT = { "7d": "previous 7 days", "30d": "previous 30 days", "90d": "previous 90 days", "12m": "previous 12 months" };
 
@@ -104,14 +92,11 @@
   function renderKpis(d) {
     const c = d.current;
     const p = d.previous;
-    const conv = (x) => (x.inquiries ? Math.round((x.orders / x.inquiries) * 100) : 0);
     const kpis = [
       { label: "Sales (paid)", value: c.sales >= 1e6 ? compactMoney(c.sales) : money(c.sales), title: money(c.sales), now: c.sales, before: p.sales, hint: `${c.sold} paid order${c.sold === 1 ? "" : "s"}` },
       { label: "Orders", value: c.orders.toLocaleString(), now: c.orders, before: p.orders, hint: "All orders placed" },
       { label: "Inquiries", value: c.inquiries.toLocaleString(), now: c.inquiries, before: p.inquiries, hint: "Contact Seller messages" },
-      { label: "Orders per 100 inquiries", value: String(conv(c)), now: conv(c), before: conv(p), hint: "How often interest turns into an order" },
       { label: "Average order", value: c.avg_order >= 1e6 ? compactMoney(c.avg_order) : money(c.avg_order), title: money(c.avg_order), now: c.avg_order, before: p.avg_order, hint: "Paid orders only" },
-      { label: "New listings", value: c.new_listings.toLocaleString(), now: c.new_listings, before: p.new_listings, hint: `${c.new_sellers} new seller${c.new_sellers === 1 ? "" : "s"}` },
     ];
     document.getElementById("ins-kpis").innerHTML = kpis.map((k) => {
       const ch = change(k.now, k.before);
@@ -196,49 +181,8 @@
     });
     document.getElementById("ch-sales-sub").textContent = `Per ${unit}. Bars: paid sales in Kwacha. Line: orders placed.`;
 
-    // Interest vs orders
-    emptyNote("ch-demand", !t.inquiries.some(Boolean) && !t.orders.some(Boolean));
-    draw("ch-demand", {
-      type: "line",
-      data: {
-        labels: t.labels,
-        datasets: [
-          { label: "Inquiries", data: t.inquiries, borderColor: C.sky, backgroundColor: "rgba(14,165,233,0.12)", fill: true, tension: 0.35, cubicInterpolationMode: "monotone", pointRadius: 0, pointHoverRadius: 4, borderWidth: 2 },
-          { label: "Orders", data: t.orders, borderColor: C.leaf, backgroundColor: C.leaf, tension: 0.35, cubicInterpolationMode: "monotone", pointRadius: 0, pointHoverRadius: 4, borderWidth: 2 },
-        ],
-      },
-      options: {
-        interaction: { mode: "index", intersect: false },
-        plugins: { legend: { position: "top", align: "end" } },
-        scales: { x: noGrid(), y: axis({ beginAtZero: true, ticks: { precision: 0, padding: 6 } }) },
-      },
-    });
-
     doughnut("ch-status", d.orders_by_status, STATUS, "orders");
     doughnut("ch-pay", d.payments, PAY, "orders");
-    doughnut("ch-inquiry", d.inquiry_status, INQUIRY, "inquiries");
-
-    // Live listings by type (feed types in a lighter green)
-    const types = d.listings_by_type;
-    emptyNote("ch-types", !types.length, "No live listings yet.");
-    draw("ch-types", {
-      type: "bar",
-      data: {
-        labels: types.map((r) => r.label),
-        datasets: [{ label: "Live listings", data: types.map((r) => r.value), backgroundColor: types.map((r) => (r.kind === "feed" ? C.lime : C.leaf)), borderRadius: 4, maxBarThickness: 22 }],
-      },
-      options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: axis({ beginAtZero: true, ticks: { precision: 0, padding: 4 } }), y: noGrid({ ticks: { autoSkip: false, color: C.ink } }) } },
-    });
-    document.getElementById("ch-types-total").textContent = `${types.reduce((s, r) => s + r.value, 0)} live`;
-
-    // Live listings by province
-    const prov = d.listings_by_province;
-    emptyNote("ch-province", !prov.length, "No live listings yet.");
-    draw("ch-province", {
-      type: "bar",
-      data: { labels: prov.map((r) => r.label), datasets: [{ label: "Live listings", data: prov.map((r) => r.value), backgroundColor: C.green, borderRadius: 4, maxBarThickness: 22 }] },
-      options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: axis({ beginAtZero: true, ticks: { precision: 0, padding: 4 } }), y: noGrid({ ticks: { autoSkip: false, color: C.ink } }) } },
-    });
 
     // Most popular listings (inquiries + orders, stacked)
     const top = d.top_listings;
@@ -261,18 +205,6 @@
       },
     });
 
-    // Sellers: status chips and the top sellers table
-    document.getElementById("ins-seller-chips").innerHTML = d.seller_status
-      .sort((a, b) => Object.keys(SELLERS).indexOf(a.label) - Object.keys(SELLERS).indexOf(b.label))
-      .map((r) => `<span class="ins-chip"><i style="background:${(SELLERS[r.label] || [0, C.slate])[1]}"></i>${(SELLERS[r.label] || [r.label])[0]} <b>${r.value}</b></span>`)
-      .join("");
-    const ts = d.top_sellers;
-    const maxSales = Math.max(1, ...ts.map((s) => s.sales));
-    document.getElementById("ins-top-sellers").innerHTML = ts.length
-      ? `<table class="ins-table"><thead><tr><th>Seller</th><th class="num">Live listings</th><th class="num">Orders</th><th>Sales (paid)</th></tr></thead><tbody>${ts.map((s) => `
-          <tr><td><a href="/admin/sellers.html?id=${s.id}">${escapeHtml(s.name)}</a></td><td class="num">${s.live}</td><td class="num">${s.orders}</td>
-          <td><div class="ins-bar-cell"><span class="ins-bar"><span style="width:${Math.round((s.sales / maxSales) * 100)}%"></span></span><span class="ins-bar-val">${money(s.sales)}</span></div></td></tr>`).join("")}</tbody></table>`
-      : `<p class="ins-empty-inline">No seller orders in this period yet. Frontier's own stock isn't counted here.</p>`;
   }
 
   async function load(range) {

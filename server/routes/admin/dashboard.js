@@ -109,8 +109,6 @@ router.get("/insights", async (req, res, next) => {
         [from, to],
       );
       const [[i]] = await pool.query("SELECT COUNT(*) AS n FROM inquiries WHERE created_at >= ? AND created_at < ?", [from, to]);
-      const [[sl]] = await pool.query("SELECT COUNT(*) AS n FROM sellers WHERE created_at >= ? AND created_at < ?", [from, to]);
-      const [[li]] = await pool.query("SELECT COUNT(*) AS n FROM livestock WHERE created_at >= ? AND created_at < ?", [from, to]);
       const sold = num(o.sold);
       return {
         sales: num(o.sales),
@@ -118,13 +116,11 @@ router.get("/insights", async (req, res, next) => {
         sold,
         avg_order: sold ? Math.round(num(o.sales) / sold) : 0,
         inquiries: num(i.n),
-        new_sellers: num(sl.n),
-        new_listings: num(li.n),
       };
     };
     const [current, previous] = await Promise.all([period(start, end), period(prevStart, start)]);
 
-    // Over time: sales, orders and inquiries per day / week / month.
+    // Over time: sales and orders per day / week / month.
     const keys = buckets(start, end, bucket);
     const series = (rows, field) => {
       const map = new Map(rows.map((r) => [r.k, num(r[field])]));
@@ -136,23 +132,11 @@ router.get("/insights", async (req, res, next) => {
        FROM orders o WHERE o.created_at >= ? GROUP BY k`,
       [start],
     );
-    const inquiryRows = await q(
-      `SELECT ${bucketSql("created_at", bucket)} AS k, COUNT(*) AS n FROM inquiries WHERE created_at >= ? GROUP BY k`,
-      [start],
-    );
 
     // Breakdowns.
     const ordersByStatus = await q(
       "SELECT status AS label, COUNT(*) AS value FROM orders WHERE created_at >= ? GROUP BY status",
       [start],
-    );
-    const listingsByType = await q(
-      `SELECT a.name AS label, a.kind, COUNT(*) AS value
-       FROM livestock l JOIN categories c ON c.id = l.category_id JOIN animals a ON a.id = c.animal_id
-       WHERE l.status = 'published' GROUP BY a.id ORDER BY value DESC`,
-    );
-    const listingsByProvince = await q(
-      "SELECT location AS label, COUNT(*) AS value FROM livestock WHERE status = 'published' GROUP BY location ORDER BY value DESC",
     );
     const topListings = await q(
       `SELECT l.id, l.title,
@@ -172,26 +156,6 @@ router.get("/insights", async (req, res, next) => {
        FROM orders WHERE created_at >= ? AND status <> 'cancelled' GROUP BY label`,
       [start],
     );
-    const inquiryStatus = await q(
-      "SELECT status AS label, COUNT(*) AS value FROM inquiries WHERE is_archived = 0 GROUP BY status",
-    );
-    const sellerStatus = await q(
-      `SELECT CASE WHEN status = 'inactive' THEN 'paused'
-                   WHEN account_status = 'pending' THEN 'pending'
-                   WHEN account_status = 'rejected' THEN 'rejected'
-                   ELSE 'active' END AS label, COUNT(*) AS value
-       FROM sellers GROUP BY label`,
-    );
-    const topSellers = await q(
-      `SELECT s.id, COALESCE(NULLIF(s.business_name, ''), s.name) AS name,
-         (SELECT COUNT(*) FROM livestock l WHERE l.seller_id = s.id AND l.status = 'published') AS live,
-         (SELECT COUNT(*) FROM orders o WHERE o.seller_id = s.id AND o.created_at >= ? AND o.status <> 'cancelled') AS orders,
-         (SELECT COALESCE(SUM(o.total), 0) FROM orders o WHERE o.seller_id = s.id AND o.created_at >= ? AND ${SOLD}) AS sales
-       FROM sellers s
-       HAVING live + orders > 0
-       ORDER BY sales DESC, orders DESC, live DESC LIMIT 5`,
-      [start, start],
-    );
 
     const clean = (rows) => rows.map((r) => ({ ...r, value: num(r.value) }));
     res.json({
@@ -205,16 +169,10 @@ router.get("/insights", async (req, res, next) => {
           labels: keys.map((b) => b.label),
           sales: series(orderRows, "sales"),
           orders: series(orderRows, "orders"),
-          inquiries: series(inquiryRows, "n"),
         },
         orders_by_status: clean(ordersByStatus),
-        listings_by_type: clean(listingsByType),
-        listings_by_province: clean(listingsByProvince),
         top_listings: topListings.map((r) => ({ id: r.id, title: r.title, inquiries: num(r.inquiries), orders: num(r.orders) })),
         payments: clean(payments),
-        inquiry_status: clean(inquiryStatus),
-        seller_status: clean(sellerStatus),
-        top_sellers: topSellers.map((r) => ({ id: r.id, name: r.name, live: num(r.live), orders: num(r.orders), sales: num(r.sales) })),
       },
     });
   } catch (error) {

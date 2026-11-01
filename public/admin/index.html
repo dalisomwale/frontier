@@ -55,43 +55,18 @@
             <div class="ins-chart"><canvas id="ch-status"></canvas></div>
           </article>
 
-          <article class="ins-card ins-span-2">
-            <header><h3>Interest vs orders</h3><p>Contact Seller messages compared with orders placed</p></header>
-            <div class="ins-chart"><canvas id="ch-demand"></canvas></div>
-          </article>
-          <article class="ins-card">
-            <header><h3>How buyers pay</h3><p>Orders by payment method, not counting cancelled ones</p></header>
-            <div class="ins-chart"><canvas id="ch-pay"></canvas></div>
-          </article>
 
           <article class="ins-card ins-span-2">
             <header><h3>Most popular listings</h3><p>Inquiries and orders in this period. Tap a bar to open the listing.</p></header>
             <div class="ins-chart ins-tall"><canvas id="ch-top"></canvas></div>
           </article>
           <article class="ins-card">
-            <header><h3>Inquiry follow-up</h3><p>All inquiries not archived, not just this period</p></header>
-            <div class="ins-chart"><canvas id="ch-inquiry"></canvas></div>
-          </article>
-
-          <article class="ins-card">
-            <header><h3>Live listings by type</h3><p><span id="ch-types-total"></span> · <i class="ins-key" style="background:#1f3d2b"></i>livestock <i class="ins-key" style="background:#a3e635"></i>feed</p></header>
-            <div class="ins-chart ins-tall"><canvas id="ch-types"></canvas></div>
-          </article>
-          <article class="ins-card">
-            <header><h3>Live listings by province</h3><p>Where the stock is</p></header>
-            <div class="ins-chart ins-tall"><canvas id="ch-province"></canvas></div>
-          </article>
-          <article class="ins-card">
-            <header><h3>Sellers</h3><p>All seller accounts</p></header>
-            <div id="ins-seller-chips" class="ins-chips"></div>
-            <h4 class="ins-h4">Top sellers this period</h4>
-            <div id="ins-top-sellers" class="ins-table-wrap"></div>
+            <header><h3>How buyers pay</h3><p>Orders by payment method, not counting cancelled ones</p></header>
+            <div class="ins-chart"><canvas id="ch-pay"></canvas></div>
           </article>
         </div>
       </section>
 
-      <h2 class="ins-title mb-3">At a glance</h2>
-      <div id="stats" class="ins-glance mb-8"></div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section class="bg-white rounded-xl border border-gray-100">
@@ -117,18 +92,6 @@
     <script>
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
 
-      const STAT_TILES = [
-        { key: "total_livestock", label: "Total Livestock", icon: "listings", tint: "bg-blue-100 text-blue-600", href: "/admin/livestock.html" },
-        { key: "published_livestock", label: "Published", icon: "eye", tint: "bg-green-100 text-green-600", href: "/admin/livestock.html?status=published" },
-        { key: "unpublished_livestock", label: "Unpublished", icon: "eyeOff", tint: "bg-gray-100 text-gray-600", href: "/admin/livestock.html?status=unpublished" },
-        { key: "new_inquiries", label: "New Inquiries", icon: "inbox", tint: "bg-red-100 text-red-600", href: "/admin/inquiries.html?status=new" },
-        { key: "new_orders", label: "New Orders", icon: "cart", tint: "bg-green-100 text-green-700", href: "/admin/orders.html?status=new" },
-        { key: "total_inquiries", label: "Total Inquiries", icon: "inquire", tint: "bg-purple-100 text-purple-600", href: "/admin/inquiries.html" },
-        { key: "animals", label: "Categories", icon: "layers", tint: "bg-amber-100 text-amber-600", href: "/admin/categories.html" },
-        { key: "purposes", label: "Purposes", icon: "listings", tint: "bg-sky-100 text-sky-600", href: "/admin/categories.html" },
-        { key: "breeds", label: "Breeds", icon: "tag", tint: "bg-emerald-100 text-emerald-600", href: "/admin/breeds.html" },
-      ];
-
       function renderReviewBanner(stats) {
         const items = [];
         if (stats.pending_sellers) items.push(`<a href="/admin/sellers.html?account=pending" class="font-semibold underline">${stats.pending_sellers} seller${stats.pending_sellers === 1 ? "" : "s"} waiting for approval</a>`);
@@ -136,14 +99,6 @@
         document.getElementById("review-banner").innerHTML = items.length
           ? `<div class="alert alert-warning text-sm mb-6 flex flex-wrap gap-x-4 gap-y-1">${items.join("")}</div>`
           : "";
-      }
-
-      function renderStats(stats) {
-        document.getElementById("stats").innerHTML = STAT_TILES.map((t) => `
-          <a href="${t.href}" class="ins-glance-item">
-            <span>${t.label}</span>
-            <b class="${["new_inquiries", "new_orders"].includes(t.key) && stats[t.key] ? "text-red-600" : ""}">${stats[t.key].toLocaleString()}</b>
-          </a>`).join("");
       }
 
       function renderRecentInquiries(items) {
@@ -197,7 +152,6 @@
       async function loadDashboard() {
         try {
           const { data } = await adminApi("/api/admin/dashboard");
-          renderStats(data.stats);
           renderReviewBanner(data.stats);
           renderRecentInquiries(data.recentInquiries);
           renderRecentLivestock(data.recentLivestock);
