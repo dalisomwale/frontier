@@ -5359,10 +5359,6 @@ body.admin-pending main {
 .ins-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; }
 .ins-title { font-size: 1.05rem; font-weight: 700; color: #111827; }
 .ins-sub { font-size: .8rem; color: #6b7280; margin-top: .15rem; }
-.ins-range { display: inline-flex; background: #fff; border: 1px solid #e5e7eb; border-radius: 999px; padding: 3px; }
-.ins-range button { font-size: .8rem; font-weight: 600; color: #4b5563; padding: .35rem .8rem; border-radius: 999px; white-space: nowrap; }
-.ins-range button:hover { color: #1f3d2b; }
-.ins-range button[aria-pressed="true"] { background: #1f3d2b; color: #fff; }
 .ins-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin-bottom: 1rem; }
 .ins-kpi { background: #fff; border: 1px solid #f0f1f3; border-radius: .9rem; padding: .9rem 1rem; min-width: 0; }
 .ins-kpi-label { font-size: .75rem; font-weight: 600; color: #6b7280; line-height: 1.2; }
@@ -5395,6 +5391,22 @@ body.admin-pending main {
   .ins-span-2 { grid-column: auto; }
   .ins-chart { height: 230px; }
   .ins-tall { height: 270px; }
-  .ins-range { width: 100%; }
-  .ins-range button { flex: 1; padding: .4rem .3rem; }
 }
+
+.ins-period { position: relative; }
+.ins-period-btn { display: flex; align-items: center; gap: .6rem; background: #fff; border: 1px solid #e5e7eb; border-radius: .75rem; padding: .5rem .75rem; text-align: left; min-width: 240px; }
+.ins-period-btn:hover, .ins-period-btn[aria-expanded="true"] { border-color: #1f3d2b; }
+.ins-period-btn:focus-visible, .ins-period-menu li:focus-visible { outline: 2px solid #65a30d; outline-offset: 2px; }
+.ins-period-btn > svg:first-child { width: 1.15rem; height: 1.15rem; color: #1f3d2b; flex-shrink: 0; }
+.ins-period-text { display: flex; flex-direction: column; line-height: 1.2; flex: 1; min-width: 0; }
+.ins-period-text b { font-size: .85rem; color: #111827; }
+.ins-period-text small { font-size: .72rem; color: #6b7280; }
+.ins-period-caret { width: 1rem; height: 1rem; color: #6b7280; flex-shrink: 0; transition: transform .15s; }
+.ins-period-btn[aria-expanded="true"] .ins-period-caret { transform: rotate(180deg); }
+.ins-period-menu { position: absolute; right: 0; top: calc(100% + .35rem); z-index: 30; width: 100%; min-width: 240px; background: #fff; border: 1px solid #e5e7eb; border-radius: .75rem; padding: .3rem; box-shadow: 0 10px 25px -10px rgba(16, 35, 26, .25); }
+.ins-period-menu li { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .55rem .65rem; border-radius: .5rem; cursor: pointer; font-size: .85rem; color: #374151; }
+.ins-period-menu li small { font-size: .72rem; color: #9ca3af; white-space: nowrap; }
+.ins-period-menu li:hover, .ins-period-menu li:focus { background: #f3f6f1; outline: none; }
+.ins-period-menu li[aria-selected="true"] { background: #1f3d2b; color: #fff; font-weight: 600; }
+.ins-period-menu li[aria-selected="true"] small { color: #c7d9c0; }
+@media (max-width: 639px) { .ins-period, .ins-period-btn { width: 100%; } }
