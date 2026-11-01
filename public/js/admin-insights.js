@@ -31,7 +31,6 @@
     bank_transfer: ["Bank transfer", C.slate],
     mobile: ["Mobile money", C.teal],
   };
-  const RANGE_TEXT = { "7d": "previous 7 days", "30d": "previous 30 days", "90d": "previous 90 days" };
 
   const money = (n) => `K ${Math.round(Number(n) || 0).toLocaleString("en-US")}`;
   const compactMoney = (n) => {
@@ -81,32 +80,21 @@
   }
 
   // --- Headline numbers ------------------------------------------------------
-  function change(now, before) {
-    if (!before && !now) return { text: "No change", cls: "flat" };
-    if (!before) return { text: "New this period", cls: "up" };
-    const pct = Math.round(((now - before) / before) * 100);
-    if (pct === 0) return { text: "No change", cls: "flat" };
-    return { text: `${pct > 0 ? "▲" : "▼"} ${Math.abs(pct)}%`, cls: pct > 0 ? "up" : "down" };
-  }
-
   function renderKpis(d) {
     const c = d.current;
-    const p = d.previous;
     const kpis = [
-      { label: "Sales (paid)", value: c.sales >= 1e6 ? compactMoney(c.sales) : money(c.sales), title: money(c.sales), now: c.sales, before: p.sales, hint: `${c.sold} paid order${c.sold === 1 ? "" : "s"}` },
-      { label: "Orders", value: c.orders.toLocaleString(), now: c.orders, before: p.orders, hint: "All orders placed" },
-      { label: "Inquiries", value: c.inquiries.toLocaleString(), now: c.inquiries, before: p.inquiries, hint: "Contact Seller messages" },
-      { label: "Average order", value: c.avg_order >= 1e6 ? compactMoney(c.avg_order) : money(c.avg_order), title: money(c.avg_order), now: c.avg_order, before: p.avg_order, hint: "Paid orders only" },
+      { label: "Sales (paid)", value: c.sales >= 1e6 ? compactMoney(c.sales) : money(c.sales), title: money(c.sales), hint: `${c.sold} paid order${c.sold === 1 ? "" : "s"}` },
+      { label: "Orders", value: c.orders.toLocaleString(), hint: "All orders placed" },
+      { label: "Inquiries", value: c.inquiries.toLocaleString(), hint: "Contact Seller messages" },
+      { label: "Average order", value: c.avg_order >= 1e6 ? compactMoney(c.avg_order) : money(c.avg_order), title: money(c.avg_order), hint: "Paid orders only" },
     ];
     document.getElementById("ins-kpis").innerHTML = kpis.map((k) => {
-      const ch = change(k.now, k.before);
       return `<div class="ins-kpi">
         <p class="ins-kpi-label">${k.label}</p>
         <p class="ins-kpi-value" title="${k.title || k.value}">${k.value}</p>
-        <p class="ins-kpi-foot"><span class="ins-change ${ch.cls}" title="Compared with the ${RANGE_TEXT[d.range]}">${ch.text}</span><span class="ins-kpi-hint">${k.hint}</span></p>
+        <p class="ins-kpi-foot"><span class="ins-kpi-hint">${k.hint}</span></p>
       </div>`;
     }).join("");
-    document.getElementById("ins-compare").textContent = `Changes compare with the ${RANGE_TEXT[d.range]}.`;
   }
 
   // --- Charts -------------------------------------------------------------

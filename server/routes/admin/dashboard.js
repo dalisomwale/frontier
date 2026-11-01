@@ -94,11 +94,10 @@ router.get("/insights", async (req, res, next) => {
     const { days, bucket } = RANGES[rangeKey];
     const end = new Date();
     const start = new Date(end.getTime() - days * 86400000);
-    const prevStart = new Date(start.getTime() - days * 86400000);
     const q = async (sql, params = []) => (await pool.query(sql, params))[0];
     const num = (v) => Number(v) || 0;
 
-    // Headline numbers, this period and the one before.
+    // Headline numbers for the period.
     const period = async (from, to) => {
       const [[o]] = await pool.query(
         `SELECT COUNT(*) AS orders,
@@ -118,7 +117,7 @@ router.get("/insights", async (req, res, next) => {
         inquiries: num(i.n),
       };
     };
-    const [current, previous] = await Promise.all([period(start, end), period(prevStart, start)]);
+    const current = await period(start, end);
 
     // Over time: sales and orders per day / week / month.
     const keys = buckets(start, end, bucket);
@@ -164,7 +163,6 @@ router.get("/insights", async (req, res, next) => {
         range: rangeKey,
         bucket,
         current,
-        previous,
         timeline: {
           labels: keys.map((b) => b.label),
           sales: series(orderRows, "sales"),
