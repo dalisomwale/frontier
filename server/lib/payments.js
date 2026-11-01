@@ -3,14 +3,16 @@
 // Placing an order with mobile money sends the buyer a PIN prompt on their
 // phone. The checkout page then asks for the payment status every few
 // seconds; Lenco also tells us by webhook. When the payment succeeds the
-// order is marked paid and the buyer and team are emailed. If it fails
+// order is marked paid and the buyer, team and seller are emailed. If it fails
 // (wrong PIN, not enough money, no answer) the order stays reserved and the
 // buyer can try again or leave it for the team to arrange.
 const crypto = require("crypto");
 const pool = require("../db");
 const lenco = require("../services/lenco");
 const { sendEmail, recipients, appUrl } = require("../services/mailer");
-const { orderRef, kwacha, OPERATOR_LABELS } = require("./orders");
+const { orderRef, kwacha, headCount, OPERATOR_LABELS } = require("./orders");
+const { notifySeller } = require("../services/notifications");
+const emails = require("./emails");
 
 const MAX_ATTEMPTS = 5;
 const CHECK_EVERY_MS = 4000;
@@ -91,6 +93,36 @@ async function markPaid(order, data) {
     rows: [...rows, ["Buyer", order.full_name], ["WhatsApp", order.phone]],
     button: { label: "Open order", url: appUrl(`/admin/orders.html?id=${order.id}`) },
   });
+  tellSeller(order).catch((error) => console.error(`Order ${ref}: seller notice failed (${error.message})`));
+}
+
+// The seller hears about an order once (here, or when the team confirms it),
+// without the buyer's contact details.
+async function tellSeller(order) {
+  if (!order.seller_id) return;
+  const [claim] = await pool.query(
+    "UPDATE orders SET seller_notified_at = NOW() WHERE id = ? AND seller_notified_at IS NULL",
+    [order.id],
+  );
+  if (!claim.affectedRows) return;
+  const [[info]] = await pool.query(
+    `SELECT l.quantity AS left_qty, a.name AS animal, a.kind
+     FROM livestock l JOIN categories c ON c.id = l.category_id JOIN animals a ON a.id = c.animal_id WHERE l.id = ?`,
+    [order.livestock_id || 0],
+  );
+  const units = headCount(order.quantity, info && info.animal, info && info.kind);
+  const ref = orderRef(order.id);
+  notifySeller(order.seller_id, {
+    type: "order",
+    title: `New order ${ref}: ${order.livestock_title}`,
+    body: `${order.price_unit === "lot" ? "The whole lot" : units} from "${order.livestock_title}" has been ordered and paid (${kwacha(order.total)}). Our team will contact you to arrange the handover.`,
+    link: "/seller/",
+  });
+  await emails.sellerOrder(
+    { ...order, payment_status: "paid" },
+    "new",
+    { units, leftOnListing: info ? headCount(info.left_qty, info.animal, info.kind) : undefined },
+  );
 }
 
 async function markFailed(order, reason, reference) {
