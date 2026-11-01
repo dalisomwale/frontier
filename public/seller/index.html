@@ -66,33 +66,53 @@
         </div>
       </section>
       <section id="tab-profile" hidden>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <form id="profile-form" class="bg-white rounded-xl border border-gray-100 p-5 space-y-4" novalidate>
-            <h2 class="font-semibold text-gray-900">Your details</h2>
-            <div data-alert class="hidden alert text-sm mb-0" role="alert"></div>
+        <div id="profile-card" class="pf-card pf-head"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
+          <form id="profile-form" class="pf-card" novalidate>
+            <div class="pf-card-head">
+              <h2>Your details</h2>
+              <p>Buyers never see these. Frontier uses them to reach you.</p>
+            </div>
+            <div data-alert class="hidden alert text-sm mb-4" role="alert"></div>
             <div data-fields class="space-y-4"></div>
-            <button type="submit" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold">Save details</button>
+            <button type="submit" class="pf-btn pf-btn-primary">Save details</button>
           </form>
-          <form id="password-form" class="bg-white rounded-xl border border-gray-100 p-5 space-y-4 self-start" novalidate>
-            <h2 class="font-semibold text-gray-900">Change password</h2>
-            <div data-alert class="hidden alert text-sm mb-0" role="alert"></div>
-            <div>
-              <label for="current_password" class="field-label">Current password</label>
-              <div class="relative">
-                <input id="current_password" name="current_password" type="password" class="field-input pr-12" autocomplete="current-password" />
-                <button type="button" data-toggle-password="current_password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+          <div class="space-y-4 lg:space-y-5">
+            <form id="password-form" class="pf-card" novalidate>
+              <div class="pf-card-head">
+                <h2>Change password</h2>
+                <p>You'll get an email whenever it changes.</p>
               </div>
-            </div>
-            <div>
-              <label for="new_password" class="field-label">New password</label>
-              <div class="relative">
-                <input id="new_password" name="new_password" type="password" class="field-input pr-12" autocomplete="new-password" />
-                <button type="button" data-toggle-password="new_password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+              <div data-alert class="hidden alert text-sm mb-4" role="alert"></div>
+              <div class="space-y-4">
+                <div>
+                  <label for="current_password" class="field-label">Current password</label>
+                  <div class="relative">
+                    <input id="current_password" name="current_password" type="password" class="field-input pr-12" autocomplete="current-password" />
+                    <button type="button" data-toggle-password="current_password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+                  </div>
+                </div>
+                <div>
+                  <label for="new_password" class="field-label">New password</label>
+                  <div class="relative">
+                    <input id="new_password" name="new_password" type="password" class="field-input pr-12" autocomplete="new-password" />
+                    <button type="button" data-toggle-password="new_password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+                  </div>
+                  <p class="field-error hidden" data-error-for="new_password"></p>
+                </div>
               </div>
-              <p class="field-error hidden" data-error-for="new_password"></p>
+              <button type="submit" class="pf-btn pf-btn-outline">Update password</button>
+            </form>
+
+            <div class="pf-card pf-account lg:hidden">
+              <a href="/" target="_blank" rel="noopener" class="pf-row">
+                <span data-icon="external"></span><span>View website</span>
+              </a>
+              <button type="button" data-seller-logout class="pf-row pf-row-danger">
+                <span data-icon="logout"></span><span>Log out</span>
+              </button>
             </div>
-            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold">Update password</button>
-          </form>
+          </div>
         </div>
       </section>
     </main>
@@ -513,7 +533,28 @@
         else msgPlaceholder();
       }
 
+      function renderProfileCard() {
+        const initials = seller.name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+        const state = {
+          approved: ["Approved seller", "pf-chip-ok"],
+          pending: ["Waiting for approval", "pf-chip-wait"],
+          rejected: ["Not approved", "pf-chip-no"],
+        }[seller.account_status] || ["Seller", "pf-chip-wait"];
+        const since = seller.created_at ? new Date(seller.created_at).toLocaleDateString("en-GB", { month: "long", year: "numeric" }) : "";
+        document.getElementById("profile-card").innerHTML = `
+          <span class="pf-avatar">${escapeHtml(initials)}</span>
+          <div class="min-w-0 flex-1">
+            <p class="pf-name">${escapeHtml(seller.name)}</p>
+            ${seller.business_name ? `<p class="pf-biz">${escapeHtml(seller.business_name)}</p>` : ""}
+            <div class="pf-meta">
+              <span class="pf-chip ${state[1]}">${state[0]}</span>
+              ${since ? `<span>Member since ${since}</span>` : ""}
+            </div>
+          </div>`;
+      }
+
       function renderProfile() {
+        renderProfileCard();
         const form = document.getElementById("profile-form");
         form.querySelector("[data-fields]").innerHTML = `
           ${field({ name: "name", label: "Full name", value: seller.name, required: true, attrs: 'maxlength="120" autocomplete="name"' })}
@@ -606,6 +647,7 @@
           const res = await withBusy(form.querySelector("[type=submit]"), "Saving…", () =>
             sellerApi("/api/seller/me", { method: "PUT", body: formValues(form) }));
           seller = res.data;
+          renderProfileCard();
           showFieldErrors(form, {});
           showNotification("Details saved.", "success");
         } catch (error) {
