@@ -5649,3 +5649,8 @@ a.cart-title:hover { text-decoration: underline; }
 .pay-dpo .pay-names { display: flex; flex-wrap: wrap; gap: 6px; }
 .pay-dpo .pay-names i { font-size: 12px; padding: 4px 10px; }
 .btn-checkout svg { width: 17px; height: 17px; flex-shrink: 0; }
+.co-pay-note { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; font-size: 12.5px; color: #4b5563; background: #f3f6f1; border-radius: 10px; padding: 10px 12px; }
+.co-pay-note svg { width: 18px; height: 18px; flex-shrink: 0; color: #1f3d2b; margin-top: 1px; }
+.co-ops { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pay-alt { display: block; margin: 14px auto 0; font-size: 13px; font-weight: 600; color: #1f3d2b; text-decoration: underline; text-underline-offset: 2px; }
+.pay-alt:disabled { opacity: .6; }

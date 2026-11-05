@@ -178,16 +178,29 @@
             ${canPay ? `
             <form class="pay-form" novalidate>
               <p class="field-label">Choose your mobile money</p>
-              <div class="operator-grid" role="radiogroup" aria-label="Mobile money operator">
-                ${Object.entries(OPERATORS).map(([v, l]) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}" ${v === c.operator_key ? "checked" : ""}><span class="op-tick" aria-hidden="true"></span><span>${l}</span></label>`).join("")}
+              <div class="operator-grid ${c.operators && c.operators.length === 2 ? "co-ops" : ""}" role="radiogroup" aria-label="Mobile money operator">
+                ${Object.entries(OPERATORS).filter(([v]) => !c.operators || c.operators.includes(v)).map(([v, l]) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}" ${v === c.operator_key ? "checked" : ""}><span class="op-tick" aria-hidden="true"></span><span>${l}</span></label>`).join("")}
               </div>
               <label for="pay-phone" class="field-label mt-4">Mobile money number</label>
               <input id="pay-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" autocomplete="tel" maxlength="25" placeholder="0977 123 456" value="${escapeHtml(lastPhone)}">
               <p class="field-error hidden" data-pay-error></p>
               <button type="submit" class="btn-checkout btn-lg w-full mt-5">Pay ${kwacha(c.total)}</button>
               <p class="pay-secure">${phoneIcon}<span>You'll get a prompt on your phone. Enter your PIN to approve. We never see or store your PIN.</span></p>
+              ${c.provider === "dpo" ? `<button type="button" class="pay-alt" data-dpo-page>Or pay on DPO Pay's payment page</button>` : ""}
             </form>` : `<p class="pay-text">Too many attempts. Our team will contact you on WhatsApp to arrange payment.</p>`}
           `);
+          const alt = root.querySelector("[data-dpo-page]");
+          if (alt) alt.addEventListener("click", async () => {
+            alt.disabled = true;
+            alt.textContent = "Opening the payment page…";
+            try {
+              const target = (await apiRequest(papi, { method: "POST", body: {} })).data.pay_url;
+              if (target) window.location.href = target;
+            } catch (error) {
+              alt.disabled = false;
+              alt.textContent = error.message || "Or pay on DPO Pay's payment page";
+            }
+          });
           const form = root.querySelector(".pay-form");
           if (!form) return;
           form.addEventListener("submit", async (e) => {
@@ -234,7 +247,15 @@
             }
             const waited = Date.now() - started;
             const t = root.querySelector("[data-wait-text]");
-            if (t && waited > 90000) t.textContent = "Still waiting. If the prompt didn't come, it will time out shortly and you can try again.";
+            if (t && waited > 90000 && c.provider !== "dpo") t.textContent = "Still waiting. If the prompt didn't come, it will time out shortly and you can try again.";
+            // DPO: after a minute, let the buyer send the prompt again or change the number.
+            if (c.provider === "dpo" && waited > 60000 && !root.querySelector("[data-resend]")) {
+              const box = root.querySelector(".pay-wait-status");
+              if (box) {
+                box.insertAdjacentHTML("afterend", `<button type="button" class="btn-contact btn-inquire btn-lg w-full mt-5" data-resend>Didn't get it? Send again or change number</button>`);
+                root.querySelector("[data-resend]").addEventListener("click", () => { clearTimeout(ctimer); payForm({ ...c, status: "unpaid" }); });
+              }
+            }
             ctimer = setTimeout(poll, waited > 180000 ? 10000 : 4000);
           };
           ctimer = setTimeout(poll, 4000);
@@ -328,6 +349,9 @@
         function show(c) {
           if (c.status === "paid") return paid(c);
           if (c.provider === "dpo") {
+            // Prompt sent to the phone: wait on our page.
+            if (c.status === "pending" && c.push) return waiting(c);
+            if (c.status !== "pending" && c.operators && c.operators.length) return payForm(c);
             if (c.status === "pending" && q.returned) return dpoChecking(c);
             return dpoForm(c, q.cancelled && c.status === "pending" ? "You left the payment page before paying. Your items are still reserved; continue whenever you're ready." : "");
           }

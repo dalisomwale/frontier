@@ -38,6 +38,8 @@ const payUrl = (checkout) => (checkout.payment_provider === "dpo" && checkout.pa
   ? checkout.payment_url
   : ourPayPage(checkout));
 const provider = () => (dpo.enabled() ? "dpo" : lenco.enabled() ? "lenco" : null);
+// Mobile money operators the buyer can choose with the current provider.
+const operators = () => ({ dpo: dpo.OPERATORS, lenco: ["airtel", "mtn", "zamtel"] }[provider()] || []);
 const newToken = () => crypto.randomBytes(16).toString("hex");
 
 // Listing details needed to price a cart line. Only published listings with
@@ -105,6 +107,7 @@ async function quote(items) {
   });
   const ok = out.filter((i) => i.available);
   return {
+    payment: { provider: provider(), operators: operators() },
     items: out,
     total: Math.round(ok.reduce((s, i) => s + i.line_total, 0) * 100) / 100,
     sellers: new Set(ok.map((i) => i.seller_key)).size,
@@ -113,7 +116,7 @@ async function quote(items) {
 
 // Creates the checkout and one order per cart line in one transaction,
 // taking the animals or feed off the listings so nobody else can buy them.
-async function create(lines, buyer, ip) {
+async function create(lines, buyer, ip, pay = null) {
   const clean = cleanLines(lines);
   if (!clean.length) throw badRequest("Your cart is empty.");
   const token = newToken();
@@ -177,8 +180,14 @@ async function create(lines, buyer, ip) {
   }
 
   let checkout = await load(checkoutId);
-  // DPO: create the payment now, so checkout goes straight to DPO's page.
-  if (provider() === "dpo") checkout = await startDpo(checkout);
+  // With a mobile money number, the PIN prompt goes to the buyer's phone right
+  // away. DPO without one: the payment opens on DPO's page.
+  const current = provider();
+  if (current && pay && pay.operator && pay.phone) {
+    checkout = await startPayment(checkout, pay);
+  } else if (current === "dpo") {
+    checkout = await startDpo(checkout);
+  }
   notifyCreated(checkout, created).catch((error) => console.error(`Checkout ${checkoutRef(checkoutId)}: emails failed (${error.message})`));
   return checkout;
 }
@@ -274,6 +283,9 @@ function publicView(checkout, orders) {
   const current = provider();
   return {
     provider: current,
+    operators: operators(),
+    // DPO: the prompt was sent to the phone (not paid on DPO's page).
+    push: Boolean(checkout.mobile_operator),
     // DPO: the open payment on DPO's page (null when a new one is needed).
     pay_url: current === "dpo" && checkout.payment_provider === "dpo" && checkout.payment_status === "pending" ? checkout.payment_url : null,
     id: checkout.id,
@@ -408,6 +420,7 @@ async function startCollection(checkout, { operator, phone }) {
 // with payment_url set to DPO's page. A new payment each time (a cancelled or
 // expired DPO token can't be paid again).
 async function startDpo(checkout) {
+  if (!checkout.mobile_operator) await pool.query("UPDATE checkouts SET mobile_operator = NULL WHERE id = ?", [checkout.id]);
   const orders = await ordersOf(checkout.id);
   const amount = due(orders);
   if (!amount) return checkout;
@@ -442,6 +455,29 @@ async function startDpo(checkout) {
   const fresh = await load(checkout.id);
   await syncOrders(fresh);
   return fresh;
+}
+
+// DPO: a new payment, and DPO sends the PIN prompt to the buyer's phone.
+async function startDpoPush(checkout, { operator, phone }) {
+  await pool.query("UPDATE checkouts SET mobile_operator = ?, payment_phone = ? WHERE id = ?", [operator, phone, checkout.id]);
+  const opened = await startDpo({ ...checkout, mobile_operator: operator, payment_phone: phone });
+  if (opened.payment_status !== "pending" || !opened.payment_reference) return opened;
+  try {
+    await dpo.chargeMobile({ token: opened.payment_reference, phone, operator });
+    await pool.query("UPDATE checkouts SET payment_checked_at = NOW() WHERE id = ?", [checkout.id]);
+  } catch (error) {
+    console.error(`Checkout ${checkoutRef(checkout.id)}: DPO prompt not sent (${error.message})`);
+    await markFailed(opened, `We couldn't send the payment request to your phone: ${error.message}`, opened.payment_reference);
+  }
+  const fresh = await load(checkout.id);
+  await syncOrders(fresh);
+  return fresh;
+}
+
+// Sends the PIN prompt with whichever provider is on.
+function startPayment(checkout, pay) {
+  if (provider() === "dpo") return startDpoPush(checkout, pay);
+  return startCollection(checkout, pay);
 }
 
 // Asks DPO whether the open payment has been paid.
@@ -563,7 +599,9 @@ async function sendReminders(afterMinutes) {
 module.exports = {
   MAX_ATTEMPTS,
   provider,
+  operators,
   startDpo,
+  startPayment,
   checkOpenPayments,
   checkoutRef,
   checkoutIdFromReference,

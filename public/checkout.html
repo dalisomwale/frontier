@@ -38,6 +38,9 @@
       // reserves the items and takes the buyer to the payment page.
       const root = document.getElementById("checkout");
       let quote = null;
+      let ops = [];
+      const OP_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
+      const phoneSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></svg>`;
 
       function summaryLine(item) {
         const lot = item.price_unit === "lot";
@@ -59,6 +62,7 @@
         }
         if (quote.items.some((i) => !i.available) || !quote.items.length) { window.location.replace("/cart.html"); return; }
         quote.items.forEach((i) => { if (i.adjusted) setCartQty(i.id, i.quantity); });
+        ops = (quote.payment && quote.payment.operators) || [];
         render();
       }
 
@@ -96,15 +100,18 @@
               </section>
 
               <section class="checkout-section">
-                <h2>Payment method</h2>
-                <div class="co-method">
-                  <span class="choice-dot co-dot" aria-hidden="true"></span>
-                  <div>
-                    <p class="font-semibold text-gray-900 text-sm">Mobile money</p>
-                    <p class="text-xs text-gray-500 mt-0.5">Airtel Money, MTN MoMo or Zamtel Kwacha. You'll choose on the next page and approve the payment with your PIN.</p>
-                  </div>
-                  <span class="pay-names"><i class="pay-airtel">Airtel</i><i class="pay-mtn">MTN</i><i class="pay-zamtel">Zamtel</i></span>
+                <h2>Pay with mobile money</h2>
+                ${ops.length ? `
+                <p class="field-label" id="co-op-label">Your network</p>
+                <div class="operator-grid ${ops.length === 2 ? "co-ops" : ""}" role="radiogroup" aria-labelledby="co-op-label">
+                  ${ops.map((v) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}"><span class="op-tick" aria-hidden="true"></span><span>${OP_NAMES[v]}</span></label>`).join("")}
                 </div>
+                <p class="field-error hidden" data-error-for="mobile_operator"></p>
+                <label for="co-pay-phone" class="field-label mt-4">Mobile money number</label>
+                <input id="co-pay-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" autocomplete="tel" maxlength="25" placeholder="0977 123 456">
+                <p class="field-error hidden" data-error-for="payment_phone"></p>
+                <p class="co-pay-note">${phoneSvg}<span>When you tap Pay, a payment request goes straight to this phone. Enter your mobile money PIN on the phone to approve it. We never see your PIN.</span></p>` : `
+                <p class="text-sm text-gray-600">Our team will contact you on WhatsApp to arrange mobile money payment.</p>`}
               </section>
 
               <p class="text-xs text-gray-500">By placing this order you agree to our <a href="/terms.html" class="underline">Terms</a>, <a href="/refund-policy.html" class="underline">Refund</a>, <a href="/return-policy.html" class="underline">Return</a> and <a href="/cancellation-policy.html" class="underline">Cancellation</a> policies.</p>
@@ -124,7 +131,17 @@
           </form>`;
         const form = root.querySelector("#checkout-form");
         const submits = root.querySelectorAll("[data-submit]");
-        const label = `Continue to payment · ${kwacha(quote.total)}`;
+        const label = ops.length ? `Pay ${kwacha(quote.total)}` : `Place order · ${kwacha(quote.total)}`;
+        // The mobile money number starts as the WhatsApp number.
+        const wa = form.elements.phone;
+        const pp = form.elements.payment_phone;
+        if (pp) {
+          form.querySelectorAll('input[name="mobile_operator"]').forEach((r) => r.addEventListener("change", () => {
+            form.querySelector('[data-error-for="mobile_operator"]').classList.add("hidden");
+          }));
+          wa.addEventListener("input", () => { if (!pp.dataset.edited) pp.value = wa.value; });
+          pp.addEventListener("input", () => { pp.dataset.edited = "1"; });
+        }
         submits.forEach((b) => { b.textContent = label; });
         form.addEventListener("submit", (e) => { e.preventDefault(); place(form, submits, label); });
       }
@@ -135,10 +152,13 @@
           const input = form.elements[el.dataset.errorFor];
           el.textContent = msg || "";
           el.classList.toggle("hidden", !msg);
-          if (input) { input.classList.toggle("has-error", Boolean(msg)); input.setAttribute("aria-invalid", msg ? "true" : "false"); }
+          if (input && input.classList) { input.classList.toggle("has-error", Boolean(msg)); input.setAttribute("aria-invalid", msg ? "true" : "false"); }
         });
         const first = Object.keys(errors).find((k) => form.elements[k]);
-        if (first) form.elements[first].focus();
+        if (first) {
+          const el = form.elements[first];
+          (el.focus ? el : el[0]).focus();
+        }
       }
 
       function check(v) {
@@ -146,6 +166,10 @@
         if (v.full_name.length < 2) e.full_name = "Please enter your full name.";
         if (v.phone.replace(/\D/g, "").length < 9) e.phone = "Please enter a valid WhatsApp number, e.g. 0977 123 456.";
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) e.email = "Please enter a valid email address.";
+        if (ops.length) {
+          if (!v.mobile_operator) e.mobile_operator = "Please choose your mobile money network.";
+          if (v.payment_phone.replace(/\D/g, "").length < 9) e.payment_phone = "Please enter your mobile money number, e.g. 0977 123 456.";
+        }
         return e;
       }
 
@@ -156,11 +180,13 @@
           full_name: form.elements.full_name.value.trim(),
           phone: form.elements.phone.value.trim(),
           email: form.elements.email.value.trim(),
+          mobile_operator: ops.length ? (form.elements.mobile_operator.value || "") : "",
+          payment_phone: ops.length ? form.elements.payment_phone.value.trim() : "",
         };
         const errors = check(values);
         showErrors(form, errors);
         if (Object.keys(errors).length) return;
-        submits.forEach((b) => { b.disabled = true; b.innerHTML = `<span class="btn-spinner"></span> Placing your order…`; });
+        submits.forEach((b) => { b.disabled = true; b.innerHTML = `<span class="btn-spinner"></span> ${ops.length ? "Sending the payment request…" : "Placing your order…"}`; });
         try {
           const res = await apiRequest("/api/checkout", {
             method: "POST",

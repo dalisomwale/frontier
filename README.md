@@ -236,18 +236,23 @@ The same events also appear in the seller dashboard straight away: a bell with a
   for less than the amount due. Without a key, the order is placed and the
   team arranges payment. Sandbox test numbers: Airtel 0971111111 approves,
   0972222222 fails.
-- **DPO Pay (hosted payment page):** with `DPO_COMPANY_TOKEN` and
-  `DPO_SERVICE_TYPE` set in `.env`, DPO takes over from Lenco for cart
-  checkouts. Placing the order creates a DPO payment (`createToken`: amount
-  due in ZMW, reference `FMC-1001-1`, mobile money preselected) and the buyer
-  goes straight to DPO's payment page (`payv3.php?ID=<token>`). DPO sends them
-  back to `/pay/return/<id>/<token>` (or `/pay/back/...` if they cancel); the
-  server then asks DPO (`verifyToken`) and only marks the orders paid when DPO
-  confirms the full amount. Open DPO payments are also checked every 5
-  minutes, in case the buyer closed the page after paying. A declined,
-  cancelled or expired payment can be tried again (a new DPO payment).
-  Test with DPO's test company token and a "Test Product" service type;
-  switch to the live values once DPO approves the account.
+- **DPO Pay:** with `DPO_COMPANY_TOKEN` and `DPO_SERVICE_TYPE` set in `.env`,
+  DPO takes over from Lenco for cart checkouts.
+  - **Prompt straight to the phone (normal way).** At checkout the buyer
+    picks Airtel Money or MTN MoMo (DPO's Zambian networks) and enters the
+    mobile money number (filled in from their WhatsApp number). **Pay**
+    places the order, creates the DPO payment (`createToken`) and asks DPO to
+    send the PIN prompt (`chargeTokenMobile`, `AirtelZM`/`MTNZM`, number as
+    `260...`). The buyer stays on our "Check your phone" page, which checks
+    with DPO (`verifyToken`) every few seconds and shows Payment received.
+    Declined or no prompt: send again or change the number.
+  - **DPO's payment page (fallback).** "Or pay on DPO Pay's payment page"
+    opens DPO's hosted page (`payv3.php?ID=`); DPO returns the buyer to
+    `/pay/return/<id>/<token>` (or `/pay/back/...`).
+  - Orders are only marked paid when `verifyToken` confirms the full amount.
+    Open DPO payments are checked every 5 minutes in case the buyer left.
+  - Test with DPO's test company token and its "Test Product" service type;
+    use the live values once DPO approves the account.
 
 ## Livestock and feed
 

@@ -2,6 +2,8 @@
 //
 //   createToken   our server creates a payment for the amount due and gets a
 //                 transaction token
+//   chargeTokenMobile  DPO sends the PIN prompt to the buyer's phone (the
+//                 normal way here: the buyer never leaves our site)
 //   payment page  the buyer is sent to DPO's page (payv3.php?ID=<token>) and
 //                 pays there; DPO sends them back to RedirectURL (or BackURL
 //                 if they cancel)
@@ -137,6 +139,32 @@ async function createToken(details) {
   return { token, transRef: read(xml, "TransRef"), payUrl: `${config().payUrl}?ID=${encodeURIComponent(token)}` };
 }
 
+// DPO's names for the Zambian mobile money operators.
+const MNO = { airtel: "AirtelZM", mtn: "MTNZM" };
+
+// Sends the PIN prompt to the buyer's phone for an open payment, so they pay
+// without leaving our site. The result comes later through verifyToken.
+async function chargeMobile({ token, phone, operator }) {
+  if (!MNO[operator]) throw new Error("This mobile money operator isn't available.");
+  const xml = await call([
+    tag("CompanyToken", config().companyToken),
+    tag("Request", "chargeTokenMobile"),
+    tag("TransactionToken", token),
+    tag("PhoneNumber", `260${nationalNumber(phone)}`),
+    tag("MNO", MNO[operator]),
+    tag("MNOcountry", "zambia"),
+  ].join(""));
+  // DPO answers 130 ("new invoice": prompt sent) or 000.
+  const code = read(xml, "StatusCode") || read(xml, "Result") || read(xml, "Code");
+  const explanation = read(xml, "ResultExplanation") || read(xml, "Explanation") || read(xml, "instructions") || "";
+  if (!["000", "130", "0"].includes(String(code))) {
+    const error = new Error(explanation || `The payment request wasn't sent (${code || "no answer"}).`);
+    error.code = code;
+    throw error;
+  }
+  return { code, explanation };
+}
+
 // What happened to a payment. status: paid | pending | failed.
 //   000 paid; 900 not paid yet; 901 declined; 902 data mismatch;
 //   903 payment time expired; 904 cancelled; 001-007 in progress.
@@ -164,4 +192,4 @@ async function verifyToken(token) {
   return { ...out, status: "pending" };
 }
 
-module.exports = { enabled, config, createToken, verifyToken, serviceDate, nationalNumber };
+module.exports = { enabled, config, createToken, chargeMobile, verifyToken, serviceDate, nationalNumber, OPERATORS: Object.keys(MNO) };

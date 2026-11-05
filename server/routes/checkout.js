@@ -30,12 +30,21 @@ router.post("/", async (req, res, next) => {
     if (!fullName || fullName.length < 2) errors.full_name = "Please enter your full name.";
     if (!phone || !isPhone(phone)) errors.phone = "Please enter a valid WhatsApp number, e.g. 0977 123 456.";
     if (!email || !isEmail(email)) errors.email = "Please enter a valid email address.";
+    // Mobile money number for the PIN prompt (when online payment is on).
+    let pay = null;
+    if (checkout.operators().length) {
+      const operator = oneOf(req.body.mobile_operator, checkout.operators());
+      const payPhone = text(req.body.payment_phone, 30);
+      if (!operator) errors.mobile_operator = "Please choose your mobile money network.";
+      if (!payPhone || !isPhone(payPhone)) errors.payment_phone = "Please enter your mobile money number, e.g. 0977 123 456.";
+      pay = { operator, phone: payPhone };
+    }
     if (Object.keys(errors).length) {
       return res.status(422).json({ success: false, message: "Please correct the highlighted fields.", errors });
     }
     let created;
     try {
-      created = await checkout.create(req.body.items, { full_name: fullName, phone, email: email.toLowerCase() }, req.ip);
+      created = await checkout.create(req.body.items, { full_name: fullName, phone, email: email.toLowerCase() }, req.ip, pay);
     } catch (error) {
       if (error.code === "CART_CHANGED") {
         return res.status(409).json({ success: false, code: "CART_CHANGED", message: error.message });
@@ -52,7 +61,7 @@ router.post("/", async (req, res, next) => {
         total: Number(created.total),
         // Where the buyer pays. Today our own mobile money page; with a
         // gateway's hosted payment page this becomes their address.
-        pay_url: checkout.payUrl(created),
+        pay_url: created.mobile_operator ? `/pay.html?checkout=${created.id}&token=${created.public_token}` : checkout.payUrl(created),
       },
     });
   } catch (error) {
@@ -91,17 +100,30 @@ router.post("/:id/payment", async (req, res, next) => {
     if (Number(c.payment_attempts) >= checkout.MAX_ATTEMPTS) {
       throw badRequest("Too many attempts. Our team will contact you to arrange payment.");
     }
-    // DPO: open a new payment on DPO's page; the buyer is sent there.
+    // DPO with a number: send the PIN prompt to the phone.
+    if (providerNow === "dpo" && req.body.mobile_operator) {
+      const operator = oneOf(req.body.mobile_operator, checkout.operators());
+      const phone = text(req.body.payment_phone, 30);
+      const errors = {};
+      if (!operator) errors.mobile_operator = "Please choose your mobile money network.";
+      if (!phone || !isPhone(phone)) errors.payment_phone = "Please enter the mobile money number, e.g. 0977 123 456.";
+      if (Object.keys(errors).length) {
+        return res.status(422).json({ success: false, message: "Please correct the highlighted fields.", errors });
+      }
+      const sent = await checkout.startPayment(c, { operator, phone });
+      return res.json({ success: true, data: checkout.publicView(sent, await checkout.ordersOf(sent.id)) });
+    }
+    // DPO without a number: open a payment on DPO's page; the buyer is sent there.
     if (providerNow === "dpo") {
-      if (c.payment_status === "pending" && c.payment_provider === "dpo" && c.payment_url) {
+      if (c.payment_status === "pending" && c.payment_provider === "dpo" && c.payment_url && !c.mobile_operator) {
         return res.json({ success: true, data: { ...view, pay_url: c.payment_url } });
       }
-      const opened = await checkout.startDpo(c);
+      const opened = await checkout.startDpo({ ...c, mobile_operator: null });
       const v = checkout.publicView(opened, await checkout.ordersOf(opened.id));
       if (!v.pay_url) throw badRequest(opened.payment_failure || "We couldn't open the payment page. Please try again.");
       return res.json({ success: true, data: v });
     }
-    const operator = oneOf(req.body.mobile_operator, ["airtel", "mtn", "zamtel"]);
+    const operator = oneOf(req.body.mobile_operator, checkout.operators());
     const phone = text(req.body.payment_phone, 30);
     const errors = {};
     if (!operator) errors.mobile_operator = "Please choose your mobile money operator.";
