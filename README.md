@@ -277,6 +277,21 @@ Cattle breeds come from the client's cattle breed reference document. The other 
 
 ---
 
+## Policies and contact pages
+
+Linked from the footer on every public page (required for the payment gateway's website review):
+
+| Page | URL |
+|---|---|
+| Terms of Service | `/terms.html` |
+| Privacy Policy | `/privacy.html` |
+| Refund Policy | `/refund-policy.html` |
+| Return Policy | `/return-policy.html` |
+| Cancellation Policy | `/cancellation-policy.html` |
+| Contact Us | `/contact.html` |
+
+The company email, phone numbers and office address are in the footer (`renderSiteFooter` in `public/js/main.js`) and on each of these pages. Update both if they change.
+
 ## Project structure
 
 ```

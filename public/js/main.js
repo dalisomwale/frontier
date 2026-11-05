@@ -252,11 +252,22 @@ function renderSiteFooter() {
           ${link("/seller/register.html", "Register as a seller")}
           ${link("/seller/login.html", "Seller sign in")}
         </nav>
-        <nav class="site-footer-col" aria-label="Legal">
-          <h2>Legal</h2>
+        <nav class="site-footer-col" aria-label="Policies">
+          <h2>Policies</h2>
           ${link("/terms.html", "Terms of Service")}
           ${link("/privacy.html", "Privacy Policy")}
+          ${link("/refund-policy.html", "Refund Policy")}
+          ${link("/return-policy.html", "Return Policy")}
+          ${link("/cancellation-policy.html", "Cancellation Policy")}
         </nav>
+        <div class="site-footer-col site-footer-contact">
+          <h2>Contact us</h2>
+          <a href="mailto:info@frontierfc.co.zm">info@frontierfc.co.zm</a>
+          <a href="tel:+260974129569">+260 974 129 569</a>
+          <a href="tel:+260974594174">+260 974 594 174</a>
+          <p>Piziya Office Park, Plot 2374 Thabo Mbeki Road, Lusaka</p>
+          ${link("/contact.html", "All contact details")}
+        </div>
       </div>
       <div class="site-footer-bottom">
         <p>&copy; ${new Date().getFullYear()} Frontier Farms &amp; Consult. All rights reserved.</p>
