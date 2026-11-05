@@ -270,6 +270,9 @@ async function main() {
       ["public_token", "CHAR(32) NULL AFTER paid_at"],
       ["payment_reminder_at", "DATETIME NULL AFTER public_token"],
     ], "orders can now be paid by mobile money on the website (Lenco)");
+    await addColumns("orders", [
+      ["checkout_id", "INT UNSIGNED NULL AFTER payment_reminder_at, ADD INDEX idx_orders_checkout (checkout_id)"],
+    ], "orders can now be grouped into one cart checkout");
     const [[paymentColumn]] = await conn.query(
       "SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = ? AND table_name = 'orders' AND column_name = 'payment_method'",
       [DB_NAME],

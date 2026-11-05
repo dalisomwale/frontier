@@ -194,4 +194,5 @@ module.exports = {
   refresh,
   applyCollection,
   orderIdFromReference,
+  tellSeller,
 };

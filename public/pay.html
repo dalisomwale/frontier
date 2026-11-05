@@ -4,13 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
-    <title>Complete payment - Frontier Marketplace</title>
+    <title>Payment - Frontier Marketplace</title>
     <link rel="icon" href="/images/logo-icon.jpg" />
     <link rel="stylesheet" href="/css/tailwind.css" />
     <link rel="stylesheet" href="/css/style.css" />
     <script src="/js/main.js"></script>
     <script src="/js/icons.js"></script>
     <script src="/js/livestock.js"></script>
+    <script src="/js/cart.js"></script>
   </head>
   <body class="bg-gray-50">
     <nav id="page-topnav" class="bg-white shadow-md sticky top-0 z-50">
@@ -116,7 +117,7 @@
         return showRetry(p);
       }
 
-      document.addEventListener("DOMContentLoaded", async () => {
+      if (!q.checkout) document.addEventListener("DOMContentLoaded", async () => {
         try {
           render((await apiRequest(api)).data);
         } catch (error) {
@@ -129,6 +130,146 @@
           });
         }
       });
+    </script>
+
+    <script>
+      // Payment for a cart checkout (?checkout=&token=). Mobile money only: the
+      // buyer picks the operator and number, gets a PIN prompt on their phone,
+      // and this page waits until the payment goes through.
+      if (q.checkout) (function () {
+        const capi = `/api/checkout/${encodeURIComponent(q.checkout)}?token=${encodeURIComponent(q.token || "")}`;
+        const papi = `/api/checkout/${encodeURIComponent(q.checkout)}/payment?token=${encodeURIComponent(q.token || "")}`;
+        let ctimer = null;
+        let lastPhone = "";
+
+        const items = (c) => `<ul class="co-lines pay-items">${c.items.map((i) => `
+          <li class="co-line ${i.cancelled ? "is-cancelled" : ""}">
+            <span class="co-thumb">${i.thumb_path ? `<img src="${escapeHtml(i.thumb_path)}" alt="">` : livestockFallbackMedia("w-6 h-6")}</span>
+            <span class="co-info"><b>${escapeHtml(i.title)}</b><small>${escapeHtml(i.quantity)}${i.cancelled ? " · cancelled" : ""}</small></span>
+            <span class="co-price">${kwacha(i.total)}</span>
+          </li>`).join("")}</ul>`;
+
+        function page(inner, step = 2) {
+          clearTimeout(ctimer);
+          root.innerHTML = `${checkoutSteps(step)}<div class="pay-box">${inner}</div>`;
+        }
+
+        function head(c, title) {
+          return `<div class="pay-head">
+            <div><p class="pay-kicker">Order ${escapeHtml(c.reference)}</p><h1>${title}</h1></div>
+            <p class="pay-amount">${kwacha(c.total)}</p>
+          </div>`;
+        }
+
+        function payForm(c) {
+          const failed = c.status === "failed";
+          if (!c.online) {
+            return page(`${head(c, "Order placed")}${items(c)}
+              <p class="pay-text">Thank you, ${escapeHtml(c.first_name)}. Your items are reserved. Our team will contact you on WhatsApp to complete the mobile money payment.</p>
+              <a href="/" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to the marketplace</a>`, 3);
+          }
+          if (c.closed) {
+            return page(`${head(c, "This order is closed")}${items(c)}<p class="pay-text">There's nothing left to pay on this order. Questions? Email <a class="underline" href="mailto:info@frontierfc.co.zm">info@frontierfc.co.zm</a>.</p>`);
+          }
+          const canPay = c.attempts_left > 0;
+          page(`${head(c, "Pay with mobile money")}
+            ${failed ? `<div class="alert alert-error text-sm mt-4" role="alert"><b>Payment not completed.</b> ${escapeHtml(c.failure || "The payment was not approved.")}</div>` : ""}
+            <details class="pay-details"><summary>${c.items.length} item${c.items.length === 1 ? "" : "s"} in this order</summary>${items(c)}</details>
+            ${canPay ? `
+            <form class="pay-form" novalidate>
+              <p class="field-label">Choose your mobile money</p>
+              <div class="operator-grid" role="radiogroup" aria-label="Mobile money operator">
+                ${Object.entries(OPERATORS).map(([v, l]) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}" ${v === c.operator_key ? "checked" : ""}><span class="op-tick" aria-hidden="true"></span><span>${l}</span></label>`).join("")}
+              </div>
+              <label for="pay-phone" class="field-label mt-4">Mobile money number</label>
+              <input id="pay-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" autocomplete="tel" maxlength="25" placeholder="0977 123 456" value="${escapeHtml(lastPhone)}">
+              <p class="field-error hidden" data-pay-error></p>
+              <button type="submit" class="btn-checkout btn-lg w-full mt-5">Pay ${kwacha(c.total)}</button>
+              <p class="pay-secure">${phoneIcon}<span>You'll get a prompt on your phone. Enter your PIN to approve. We never see or store your PIN.</span></p>
+            </form>` : `<p class="pay-text">Too many attempts. Our team will contact you on WhatsApp to arrange payment.</p>`}
+          `);
+          const form = root.querySelector(".pay-form");
+          if (!form) return;
+          form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const err = form.querySelector("[data-pay-error]");
+            const btn = form.querySelector("button[type=submit]");
+            err.classList.add("hidden");
+            const operator = form.elements.mobile_operator.value;
+            const phone = form.elements.payment_phone.value.trim();
+            if (!operator || phone.replace(/\D/g, "").length < 9) {
+              err.textContent = !operator ? "Please choose your mobile money operator." : "Please enter the mobile money number, e.g. 0977 123 456.";
+              err.classList.remove("hidden");
+              return;
+            }
+            lastPhone = phone;
+            btn.disabled = true;
+            btn.innerHTML = `<span class="btn-spinner"></span> Sending the prompt…`;
+            try {
+              show((await apiRequest(papi, { method: "POST", body: { mobile_operator: operator, payment_phone: phone } })).data);
+            } catch (error) {
+              err.textContent = (error.errors && Object.values(error.errors)[0]) || error.message || "Please try again.";
+              err.classList.remove("hidden");
+              btn.disabled = false;
+              btn.textContent = `Pay ${kwacha(c.total)}`;
+            }
+          });
+        }
+
+        function waiting(c) {
+          page(`<div class="text-center">
+            <div class="pay-phone" style="margin:0 auto">${phoneIcon}</div>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Check your phone</h1>
+            <p class="text-sm text-gray-600 mt-2">We've sent a payment request of <b>${kwacha(c.total)}</b> to <b>${escapeHtml(c.operator || "your phone")} ${escapeHtml(c.phone || "")}</b>. Enter your PIN on your phone to approve it.</p>
+            <p class="pay-wait-status mt-5"><span class="btn-spinner"></span> <span data-wait-text>Waiting for your approval…</span></p>
+            <p class="text-xs text-gray-500 mt-5">Order ${escapeHtml(c.reference)} · please keep this page open.</p>
+          </div>`);
+          const started = Date.now();
+          const poll = async () => {
+            try {
+              const now = (await apiRequest(capi)).data;
+              if (now.status !== "pending") return show(now);
+            } catch {
+              // Network blip: keep waiting.
+            }
+            const waited = Date.now() - started;
+            const t = root.querySelector("[data-wait-text]");
+            if (t && waited > 90000) t.textContent = "Still waiting. If the prompt didn't come, it will time out shortly and you can try again.";
+            ctimer = setTimeout(poll, waited > 180000 ? 10000 : 4000);
+          };
+          ctimer = setTimeout(poll, 4000);
+        }
+
+        function paid(c) {
+          page(`<div class="text-center">
+            <div class="order-done-icon" style="margin:0 auto">${tick}</div>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Payment received</h1>
+            <p class="text-sm text-gray-600 mt-2">Thank you, ${escapeHtml(c.first_name)}. We've received ${kwacha(c.total)} for order ${escapeHtml(c.reference)}. We'll contact you on WhatsApp and email to arrange collection.</p>
+          </div>
+          ${items(c)}
+          <a href="/" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to the marketplace</a>`, 3);
+        }
+
+        function show(c) {
+          if (c.status === "paid") return paid(c);
+          if (c.status === "pending") return waiting(c);
+          return payForm(c);
+        }
+
+        document.addEventListener("DOMContentLoaded", async () => {
+          try {
+            show((await apiRequest(capi)).data);
+          } catch {
+            root.innerHTML = "";
+            renderEmptyState(root, {
+              title: "We couldn't find this payment",
+              message: "The link may be incomplete. Reply to the email we sent you and we'll help.",
+              icon: "alert",
+              action: `<a href="/" class="inline-block mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 font-medium">Back to the marketplace</a>`,
+            });
+          }
+        });
+      })();
     </script>
   </body>
 </html>

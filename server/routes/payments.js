@@ -4,6 +4,7 @@
 const express = require("express");
 const lenco = require("../services/lenco");
 const payments = require("../lib/payments");
+const checkout = require("../lib/checkout");
 
 const router = express.Router();
 
@@ -14,9 +15,16 @@ router.post("/lenco/webhook", async (req, res) => {
   try {
     const { event, data } = req.body || {};
     if (data && /^collection\./.test(String(event || ""))) {
-      const id = payments.orderIdFromReference(data.reference);
-      const order = id ? await payments.loadOrder(id) : null;
-      if (order) await payments.applyCollection(order, data);
+      // "FMC-1003-1": a cart checkout; "FM-1042-1": a single order.
+      const checkoutId = checkout.checkoutIdFromReference(data.reference);
+      if (checkoutId) {
+        const found = await checkout.load(checkoutId);
+        if (found) await checkout.applyCollection(found, data);
+      } else {
+        const id = payments.orderIdFromReference(data.reference);
+        const order = id ? await payments.loadOrder(id) : null;
+        if (order) await payments.applyCollection(order, data);
+      }
     }
   } catch (error) {
     console.error(`Lenco webhook: ${error.message}`);

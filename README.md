@@ -191,44 +191,56 @@ The same events also appear in the seller dashboard straight away: a bell with a
 
 ---
 
-## Prices and Buy Now
+## Prices, cart and checkout
 
 - Listings can have a price in Kwacha, **per head** or **for the lot**. Sellers
-  and admins set it in the listing form. With no
-  price the website shows "Price on request" and only Contact Seller.
-- Priced listings show **Buy Now** beside **Contact Seller**. Buy Now opens a
-  checkout page (/buy.html). The buyer picks a
-  quantity (a lot is bought whole) and mobile money or
-  a Visa/Mastercard card. Nothing is paid on the website: the order (reference FM-1001,
-  FM-1002, ...) is emailed to the team and the buyer gets a confirmation.
-- **Admin > Orders**: New -> Awaiting payment -> Paid -> Completed, or
-  Cancelled. Every status change emails the buyer, with any message you type
-  (e.g. payment details). The seller is told once, when you first confirm the
-  order, without the buyer's details.
-- Stock: placing an order takes the quantity off the listing straight away
+  and admins set it in the listing form. With no price the website shows
+  "Price on request" and only Contact Seller.
+- **Shopping cart.** Priced listings show **Add to cart** and **Buy Now** (Buy
+  Now adds the item and goes straight to checkout). The cart icon in the
+  header shows the number of items. The cart lives in the buyer's browser
+  (listing ids and quantities only); prices and availability always come from
+  the server. One cart can hold items from several sellers.
+- **Checkout journey:** `/cart.html` (quantities, remove, total) ->
+  `/checkout.html` (name, WhatsApp, email; payment method: mobile money) ->
+  **Continue to payment** -> `/pay.html?checkout=...` (choose Airtel Money,
+  MTN MoMo or Zamtel Kwacha, enter the number, approve the PIN prompt) ->
+  Payment received. Old `/buy.html?id=` links put the item in the cart and
+  open checkout.
+- **Mobile money only.** Card payments are no longer offered on the
+  marketplace (the payment gateway supports only mobile money for a
+  multi-vendor marketplace).
+- **One payment, one order per item.** Placing the order creates a checkout
+  (reference `FMC-1001`, table `checkouts`) and one order per cart line
+  (`FM-1451`, `FM-1452`, ... with `orders.checkout_id`), so each seller, Admin >
+  Orders and the order emails work per item as before. The buyer pays the
+  checkout once; when the payment succeeds every open order in it is marked
+  **Paid** and each seller is emailed about their part only. Admin > Orders
+  shows "Cart checkout FMC-1001, paid together with FM-1452", and searching
+  `FMC-1001` lists all its orders.
+- Stock: placing the order takes the quantities off the listings straight away
   (reserved for that buyer); a listing with nothing left comes off the
-  website. Cancelling the order puts the animals back, and a sold-out listing
-  goes back on the website.
-
-- **Mobile money on the website (Lenco):** with `LENCO_SECRET_KEY` set in
-  `.env`, a buyer who pays by Airtel Money, MTN MoMo or Zamtel Kwacha gets a
-  prompt on their phone to enter their PIN as soon as they place the order.
-  The checkout shows "Check your phone" and waits; when they approve, the
-  order is marked **Paid**, and the buyer and team are emailed. If it fails
-  (wrong PIN, not enough money, timed out) the order stays reserved and the
-  buyer can send the prompt again (up to 5 tries, optionally to another
-  number) or choose "Pay later". Lenco also confirms payments by webhook at
-  `/api/payments/lenco/webhook` (signed; set this URL in the Lenco
-  dashboard). An order is never marked paid for less than its total. Admin >
-  Orders shows "Paid online", "Waiting for PIN" or "Payment failed", with the
-  Lenco reference. Without a key, checkout works as before.
-  Test first with `LENCO_ENV=sandbox` and a sandbox key: Airtel test number
-  0971111111 approves, 0972222222 fails with "Incorrect Pin".
-- Card payments: the checkout shows card fields (number, name, expiry, CVV)
-  and checks them in the browser, but no payment gateway is connected yet, so
-  nothing is charged. Only the card type and last 4 digits reach the server;
-  the full number, expiry and CVV are never sent, stored or emailed. When a
-  gateway is added, its secure card fields should replace these.
+  website. If another buyer got there first, checkout says so and sends the
+  buyer back to the cart. Cancelling an order puts the animals back.
+- **Admin > Orders**: New -> Awaiting payment -> Paid -> Completed, or
+  Cancelled. Every status change emails the buyer.
+- **Emails:** buyer "Order FMC-1001 received" (with a Complete payment
+  button) and "Payment received"; team "New order FMC-1001" and "Order
+  FMC-1001 paid"; each seller "New order FM-1451" once paid. If the buyer
+  hasn't paid after 30 minutes they get one reminder with a link back to the
+  payment page, and the team is told.
+- **Payments (Lenco):** with `LENCO_SECRET_KEY` set, the payment page sends the
+  PIN prompt and waits; Lenco also confirms by webhook at
+  `/api/payments/lenco/webhook` (references `FMC-1001-1` for checkouts,
+  `FM-1042-1` for older single orders). Up to 5 attempts; never marked paid
+  for less than the amount due. Without a key, the order is placed and the
+  team arranges payment. Sandbox test numbers: Airtel 0971111111 approves,
+  0972222222 fails.
+- **Switching to a gateway's hosted payment page:** `POST /api/checkout`
+  returns `pay_url`, today our `/pay.html?checkout=...`. With a gateway that
+  has its own payment page, create the payment in `lib/checkout.js`
+  (`startCollection`) and return the gateway's page address as `pay_url`; the
+  cart and checkout pages don't change.
 
 ## Livestock and feed
 
@@ -344,6 +356,10 @@ npm run build:css
 | GET | `/api/livestock?animal_id=&category_id=&breed_id=&location=&page=&limit=` | Published listings |
 | GET | `/api/livestock/:id` | Listing details + photos |
 | POST | `/api/inquiries` | `{ livestock_id, full_name, phone, email, message }` |
+| POST | `/api/checkout/quote` | `{ items: [{ id, qty }] }`: prices and availability for the cart |
+| POST | `/api/checkout` | `{ items, full_name, phone, email }`: places the order, returns `pay_url` |
+| GET | `/api/checkout/:id?token=` | Payment status for the payment page |
+| POST | `/api/checkout/:id/payment?token=` | `{ mobile_operator, payment_phone }`: sends the PIN prompt |
 | GET | `/api/health` | Health check (app + database) |
 
 **Admin** (session cookie + header `X-Frontier-Admin: 1` on every request)

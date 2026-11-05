@@ -196,6 +196,7 @@ app.get("/api/health", async (req, res) => {
 app.use("/api", publicRoutes);
 app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/checkout", require("./routes/checkout"));
 app.use("/api/payments", require("./routes/payments"));
 app.use("/api/admin", adminRoutes);
 app.use("/api/seller", sellerRoutes);
@@ -248,7 +249,7 @@ app.use((err, req, res, next) => {
 // Tables added by later updates are created at startup if missing, so a
 // deploy that forgot "npm run db:setup" still works. Column changes still
 // need db:setup.
-const LATE_TABLES = ["seller_password_resets", "seller_sessions", "seller_notifications", "inquiry_messages", "orders", "app_state"];
+const LATE_TABLES = ["seller_password_resets", "seller_sessions", "seller_notifications", "inquiry_messages", "orders", "app_state", "checkouts"];
 // Columns added by later updates, added at startup when missing.
 const LATE_COLUMNS = [
   ["livestock", "price", "DECIMAL(12,2) NULL AFTER quantity"],
@@ -269,6 +270,7 @@ const LATE_COLUMNS = [
   ["orders", "paid_at", "DATETIME NULL AFTER payment_checked_at"],
   ["orders", "public_token", "CHAR(32) NULL AFTER paid_at"],
   ["orders", "payment_reminder_at", "DATETIME NULL AFTER public_token"],
+  ["orders", "checkout_id", "INT UNSIGNED NULL AFTER payment_reminder_at, ADD INDEX idx_orders_checkout (checkout_id)"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");

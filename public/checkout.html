@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Checkout - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/livestock.js"></script>
+    <script src="/js/cart.js"></script>
+  </head>
+  <body class="bg-gray-50">
+    <nav id="page-topnav" class="bg-white shadow-md sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <a href="/" class="flex items-center gap-3" aria-label="Frontier Marketplace home">
+            <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult" /></div>
+            <span class="hidden sm:block font-bold text-gray-900">Frontier Marketplace</span>
+          </a>
+          <div class="header-auth">
+            <a id="login-link" href="/seller/login.html" class="header-login-link">Login</a>
+            <a id="seller-link" href="/seller/register.html" class="header-seller-link">Register</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main id="checkout" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div class="checkout-loading"><span class="inline-block h-8 w-56 bg-gray-200 rounded animate-pulse"></span></div>
+    </main>
+
+    <script>
+      // Checkout: the buyer's details and a last look at the order. Placing it
+      // reserves the items and takes the buyer to the payment page.
+      const root = document.getElementById("checkout");
+      let quote = null;
+
+      function summaryLine(item) {
+        const lot = item.price_unit === "lot";
+        return `<li class="co-line">
+          <span class="co-thumb">${item.thumb_path ? `<img src="${escapeHtml(item.thumb_path)}" alt="">` : livestockFallbackMedia("w-6 h-6")}</span>
+          <span class="co-info"><b>${escapeHtml(item.title)}</b><small>${lot ? "The whole lot · " : ""}${escapeHtml(cartUnits(item, item.quantity))}</small></span>
+          <span class="co-price">${kwacha(item.line_total)}</span>
+        </li>`;
+      }
+
+      async function load() {
+        const lines = readCart();
+        if (!lines.length) { window.location.replace("/cart.html"); return; }
+        try {
+          quote = (await apiRequest("/api/checkout/quote", { method: "POST", body: { items: lines } })).data;
+        } catch (error) {
+          root.innerHTML = `<div class="alert alert-error text-sm">${escapeHtml(error.message)}</div>`;
+          return;
+        }
+        if (quote.items.some((i) => !i.available) || !quote.items.length) { window.location.replace("/cart.html"); return; }
+        quote.items.forEach((i) => { if (i.adjusted) setCartQty(i.id, i.quantity); });
+        render();
+      }
+
+      function render() {
+        root.innerHTML = `
+          ${checkoutSteps(1)}
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mb-5">Checkout</h1>
+          <form id="checkout-form" class="checkout" novalidate>
+            <div class="checkout-main">
+              <div id="co-alert" class="hidden alert alert-error text-sm" role="alert"></div>
+              <section class="checkout-section">
+                <h2>Your details</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label for="co-name" class="field-label">Full name</label>
+                    <input id="co-name" name="full_name" type="text" class="field-input" autocomplete="name" maxlength="120" required>
+                    <p class="field-error hidden" data-error-for="full_name"></p>
+                  </div>
+                  <div>
+                    <label for="co-phone" class="field-label">WhatsApp Number</label>
+                    <input id="co-phone" name="phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" required placeholder="0977 123 456">
+                    <p class="field-error hidden" data-error-for="phone"></p>
+                  </div>
+                  <div class="sm:col-span-2">
+                    <label for="co-email" class="field-label">Email</label>
+                    <input id="co-email" name="email" type="email" class="field-input" autocomplete="email" inputmode="email" maxlength="255" required>
+                    <p class="field-error hidden" data-error-for="email"></p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="checkout-section">
+                <h2>Collection</h2>
+                <p class="text-sm text-gray-600">Collect from the farm${quote.sellers > 1 ? "s" : ""}. After payment we contact you on WhatsApp and email to arrange a time${quote.sellers > 1 ? " with each seller" : ""}.</p>
+              </section>
+
+              <section class="checkout-section">
+                <h2>Payment method</h2>
+                <div class="co-method">
+                  <span class="choice-dot co-dot" aria-hidden="true"></span>
+                  <div>
+                    <p class="font-semibold text-gray-900 text-sm">Mobile money</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Airtel Money, MTN MoMo or Zamtel Kwacha. You'll choose on the next page and approve the payment with your PIN.</p>
+                  </div>
+                  <span class="pay-names"><i class="pay-airtel">Airtel</i><i class="pay-mtn">MTN</i><i class="pay-zamtel">Zamtel</i></span>
+                </div>
+              </section>
+
+              <p class="text-xs text-gray-500">By placing this order you agree to our <a href="/terms.html" class="underline">Terms</a>, <a href="/refund-policy.html" class="underline">Refund</a>, <a href="/return-policy.html" class="underline">Return</a> and <a href="/cancellation-policy.html" class="underline">Cancellation</a> policies.</p>
+              <div class="honeypot" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+              <button type="submit" class="btn-checkout btn-lg w-full checkout-submit-mobile" data-submit></button>
+            </div>
+
+            <aside class="cart-summary">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="!mb-0">Your order</h2>
+                <a href="/cart.html" class="text-sm font-semibold text-green-800 hover:underline">Edit cart</a>
+              </div>
+              <ul class="co-lines">${quote.items.map(summaryLine).join("")}</ul>
+              <div class="buy-total"><span>Total</span><strong>${kwacha(quote.total)}</strong></div>
+              <button type="submit" class="btn-checkout btn-lg w-full checkout-submit-desktop" data-submit></button>
+            </aside>
+          </form>`;
+        const form = root.querySelector("#checkout-form");
+        const submits = root.querySelectorAll("[data-submit]");
+        const label = `Continue to payment · ${kwacha(quote.total)}`;
+        submits.forEach((b) => { b.textContent = label; });
+        form.addEventListener("submit", (e) => { e.preventDefault(); place(form, submits, label); });
+      }
+
+      function showErrors(form, errors) {
+        form.querySelectorAll("[data-error-for]").forEach((el) => {
+          const msg = errors[el.dataset.errorFor];
+          const input = form.elements[el.dataset.errorFor];
+          el.textContent = msg || "";
+          el.classList.toggle("hidden", !msg);
+          if (input) { input.classList.toggle("has-error", Boolean(msg)); input.setAttribute("aria-invalid", msg ? "true" : "false"); }
+        });
+        const first = Object.keys(errors).find((k) => form.elements[k]);
+        if (first) form.elements[first].focus();
+      }
+
+      function check(v) {
+        const e = {};
+        if (v.full_name.length < 2) e.full_name = "Please enter your full name.";
+        if (v.phone.replace(/\D/g, "").length < 9) e.phone = "Please enter a valid WhatsApp number, e.g. 0977 123 456.";
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) e.email = "Please enter a valid email address.";
+        return e;
+      }
+
+      async function place(form, submits, label) {
+        const alertBox = root.querySelector("#co-alert");
+        alertBox.classList.add("hidden");
+        const values = {
+          full_name: form.elements.full_name.value.trim(),
+          phone: form.elements.phone.value.trim(),
+          email: form.elements.email.value.trim(),
+        };
+        const errors = check(values);
+        showErrors(form, errors);
+        if (Object.keys(errors).length) return;
+        submits.forEach((b) => { b.disabled = true; b.innerHTML = `<span class="btn-spinner"></span> Placing your order…`; });
+        try {
+          const res = await apiRequest("/api/checkout", {
+            method: "POST",
+            body: { ...values, items: readCart(), website: form.elements.website.value },
+          });
+          clearCart();
+          window.location.href = res.data.pay_url;
+        } catch (error) {
+          if (error.errors) showErrors(form, error.errors);
+          alertBox.innerHTML = escapeHtml(error.message || "Your order could not be placed. Please try again.")
+            + (error.status === 409 ? ` <a href="/cart.html" class="underline font-semibold">Review your cart</a>` : "");
+          alertBox.classList.remove("hidden");
+          alertBox.scrollIntoView({ behavior: "smooth", block: "center" });
+          submits.forEach((b) => { b.disabled = false; b.textContent = label; });
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", load);
+    </script>
+
+    <footer id="site-footer" class="mt-10"></footer>
+  </body>
+</html>

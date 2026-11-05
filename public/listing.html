@@ -12,7 +12,7 @@
     <script src="/js/app-shell.js"></script>
     <script src="/js/livestock.js"></script>
     <script src="/js/inquiry.js"></script>
-    <script src="/js/order.js"></script>
+    <script src="/js/cart.js"></script>
   </head>
   <body class="bg-gray-50">
     <nav id="page-topnav" class="bg-white shadow-md sticky top-0 z-50">
@@ -79,9 +79,10 @@
               </div>
               <div id="buy-total" class="buy-total hidden"><span>Total</span><strong></strong></div>
               <div id="buy-actions" class="buy-row">
+                <button id="cart-btn" type="button" class="btn-cart btn-lg hidden">Add to cart</button>
                 <button id="buy-btn" type="button" class="btn-buy btn-lg hidden">Buy Now</button>
-                <button id="inquire-btn" type="button" disabled class="btn-contact btn-inquire btn-lg">Contact Seller</button>
               </div>
+              <button id="inquire-btn" type="button" disabled class="btn-contact btn-inquire btn-lg w-full mt-2">Contact Seller</button>
             </div>
 
           </div>
@@ -98,6 +99,7 @@
 
     <div id="mobile-inquire" class="mobile-buy-bar hidden lg:hidden">
       <div class="buy-row">
+        <button type="button" data-mobile-cart class="btn-cart btn-lg hidden">Add to cart</button>
         <button type="button" data-mobile-buy class="btn-buy btn-lg hidden">Buy Now</button>
         <button type="button" data-mobile-contact class="btn-contact btn-inquire btn-lg">Contact Seller</button>
       </div>
@@ -168,11 +170,17 @@
         const mobile = document.getElementById("mobile-inquire");
         mobile.classList.remove("hidden");
         document.body.classList.add("has-buy-bar");
-        mobile.querySelector("[data-mobile-contact]").addEventListener("click", inquire);
+        const mobileContact = mobile.querySelector("[data-mobile-contact]");
+        mobileContact.addEventListener("click", inquire);
         const mobileBuy = mobile.querySelector("[data-mobile-buy]");
+        const mobileCart = mobile.querySelector("[data-mobile-cart]");
         if (hasPrice(item)) {
+          // Priced: Add to cart and Buy Now; Contact Seller stays in the page.
           mobileBuy.classList.remove("hidden");
+          mobileCart.classList.remove("hidden");
+          mobileContact.classList.add("hidden");
           mobileBuy.addEventListener("click", buy);
+          mobileCart.addEventListener("click", () => addItem(mobileCart));
         } else {
           mobile.querySelector(".buy-row").classList.add("buy-row-single");
         }
@@ -186,7 +194,14 @@
 
       let buyQty = 1;
       function buy() {
-        openBuyModal(listing, buyQty);
+        buyNow(listing, buyQty);
+      }
+      function addItem() {
+        addToCart(listing.id, listing.price_unit === "lot" ? Number(listing.quantity) || 1 : buyQty);
+        showCartToast(listing.title);
+        document.querySelectorAll("#cart-btn, [data-mobile-cart]").forEach((b) => { b.textContent = "Added to cart ✓"; });
+        clearTimeout(addItem.timer);
+        addItem.timer = setTimeout(() => document.querySelectorAll("#cart-btn, [data-mobile-cart]").forEach((b) => { b.textContent = "Add to cart"; }), 2500);
       }
 
       function renderBuyBox(item) {
@@ -194,7 +209,7 @@
         const actions = document.getElementById("buy-actions");
         if (!hasPrice(item)) {
           priceBox.innerHTML = `<span class="lv-price-request">Price on request</span>`;
-          actions.classList.add("buy-row-single");
+          actions.classList.add("hidden");
           return;
         }
         priceBox.innerHTML = `
@@ -231,6 +246,9 @@
         const buyBtn = document.getElementById("buy-btn");
         buyBtn.classList.remove("hidden");
         buyBtn.addEventListener("click", buy);
+        const cartBtn = document.getElementById("cart-btn");
+        cartBtn.classList.remove("hidden");
+        cartBtn.addEventListener("click", addItem);
       }
 
       function renderGallery() {

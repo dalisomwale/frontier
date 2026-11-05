@@ -34,6 +34,7 @@ function present(row) {
   return {
     ...row,
     reference: orderRef(row.id),
+    checkout_reference: row.checkout_id ? `FMC-${1000 + Number(row.checkout_id)}` : null,
     unit_price: Number(row.unit_price),
     total: Number(row.total),
     status_label: STATUS_LABELS[row.status],
@@ -51,7 +52,13 @@ async function loadOrder(id) {
     [id],
   );
   if (!rows.length) throw notFound("Order not found.");
-  return present(rows[0]);
+  const order = present(rows[0]);
+  // Other orders bought in the same cart checkout.
+  if (order.checkout_id) {
+    const [others] = await pool.query("SELECT id FROM orders WHERE checkout_id = ? AND id <> ? ORDER BY id", [order.checkout_id, order.id]);
+    order.checkout_orders = others.map((r) => ({ id: r.id, reference: orderRef(r.id) }));
+  }
+  return order;
 }
 
 async function summary() {
@@ -76,9 +83,12 @@ router.get("/", async (req, res, next) => {
     const q = text(req.query.q, 100);
     if (q) {
       const like = `%${q.replace(/[\\%_]/g, "\\$&")}%`;
-      const refId = parseOrderRef(q);
-      where.push(`(o.full_name LIKE ? OR o.livestock_title LIKE ? OR o.phone LIKE ? OR o.email LIKE ?${refId ? " OR o.id = ?" : ""})`);
-      params.push(like, like, like, like, ...(refId ? [refId] : []));
+      // "FMC-1001" finds every order from that cart checkout.
+      const cart = q.trim().match(/^fmc-?(\d+)$/i);
+      const cartId = cart ? Number(cart[1]) - 1000 : null;
+      const refId = cart ? null : parseOrderRef(q);
+      where.push(`(o.full_name LIKE ? OR o.livestock_title LIKE ? OR o.phone LIKE ? OR o.email LIKE ?${refId ? " OR o.id = ?" : ""}${cartId ? " OR o.checkout_id = ?" : ""})`);
+      params.push(like, like, like, like, ...(refId ? [refId] : []), ...(cartId ? [cartId] : []));
     }
     const condition = where.join(" AND ");
     const [rows] = await pool.query(

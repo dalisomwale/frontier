@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Your cart - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/livestock.js"></script>
+    <script src="/js/cart.js"></script>
+  </head>
+  <body class="bg-gray-50">
+    <nav id="page-topnav" class="bg-white shadow-md sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <a href="/" class="flex items-center gap-3" aria-label="Frontier Marketplace home">
+            <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult" /></div>
+            <span class="hidden sm:block font-bold text-gray-900">Frontier Marketplace</span>
+          </a>
+          <div class="header-auth">
+            <a id="login-link" href="/seller/login.html" class="header-login-link">Login</a>
+            <a id="seller-link" href="/seller/register.html" class="header-seller-link">Register</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main id="cart" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div class="checkout-loading"><span class="inline-block h-8 w-56 bg-gray-200 rounded animate-pulse"></span></div>
+    </main>
+
+    <script>
+      // The cart: what's in it, quantities, and the way to checkout. Prices and
+      // availability come from the server every time the page opens.
+      const root = document.getElementById("cart");
+
+      function empty() {
+        root.innerHTML = checkoutSteps(0);
+        const box = document.createElement("div");
+        root.appendChild(box);
+        renderEmptyState(box, {
+          title: "Your cart is empty",
+          message: "Browse livestock and animal feed, and add what you'd like to buy.",
+          icon: "cattle",
+          action: `<div class="flex flex-wrap gap-2 justify-center mt-4"><a href="/#listings" class="btn-buy btn-lg px-5">Browse livestock</a><a href="/#feed" class="btn-contact btn-inquire btn-lg px-5">Browse feed</a></div>`,
+        });
+      }
+
+      function line(item) {
+        if (!item.available) {
+          return `<li class="cart-line cart-line-gone">
+            <div class="cart-thumb">${livestockFallbackMedia("w-8 h-8")}</div>
+            <div class="cart-info">
+              <p class="cart-title">${escapeHtml(item.title || "This listing")}</p>
+              <p class="cart-gone">No longer available</p>
+            </div>
+            <button type="button" class="cart-remove" data-remove="${item.id}">Remove</button>
+          </li>`;
+        }
+        const lot = item.price_unit === "lot";
+        return `<li class="cart-line">
+          <a href="${listingUrl(item.id)}" class="cart-thumb">${item.thumb_path ? `<img src="${escapeHtml(item.thumb_path)}" alt="">` : livestockFallbackMedia("w-8 h-8")}</a>
+          <div class="cart-info">
+            <a href="${listingUrl(item.id)}" class="cart-title">${escapeHtml(item.title)}</a>
+            <p class="cart-meta">${kwacha(item.price)} ${priceUnitLabel(item)} · Collect in ${escapeHtml(item.location)}</p>
+            ${item.adjusted ? `<p class="cart-note">Only ${escapeHtml(cartUnits(item, item.max))} available, so we've lowered the quantity.</p>` : ""}
+            <div class="cart-controls">
+              ${lot ? `<span class="cart-lot">The whole lot · ${escapeHtml(cartUnits(item, item.quantity))}</span>` : `
+              <div class="qty-stepper qty-stepper-sm" role="group" aria-label="Quantity of ${escapeHtml(item.title)}">
+                <button type="button" data-step="-1" data-id="${item.id}" aria-label="Fewer" ${item.quantity <= 1 ? "disabled" : ""}>&minus;</button>
+                <input type="number" inputmode="numeric" min="1" max="${item.max}" value="${item.quantity}" data-qty="${item.id}" aria-label="Quantity">
+                <button type="button" data-step="1" data-id="${item.id}" aria-label="More" ${item.quantity >= item.max ? "disabled" : ""}>+</button>
+              </div>`}
+              <button type="button" class="cart-remove" data-remove="${item.id}">Remove</button>
+            </div>
+          </div>
+          <p class="cart-line-total">${kwacha(item.line_total)}</p>
+        </li>`;
+      }
+
+      async function load() {
+        const lines = readCart();
+        if (!lines.length) return empty();
+        let quote;
+        try {
+          quote = (await apiRequest("/api/checkout/quote", { method: "POST", body: { items: lines } })).data;
+        } catch (error) {
+          root.innerHTML = `${checkoutSteps(0)}<div class="alert alert-error text-sm">${escapeHtml(error.message || "We couldn't load your cart. Please refresh the page.")}</div>`;
+          return;
+        }
+        // Keep the stored quantities in step with what's available.
+        quote.items.forEach((i) => { if (i.available && i.adjusted) setCartQty(i.id, i.quantity); });
+        const ok = quote.items.filter((i) => i.available);
+        const gone = quote.items.length - ok.length;
+        root.innerHTML = `
+          ${checkoutSteps(0)}
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mb-5">Your cart</h1>
+          <div class="checkout">
+            <div class="checkout-main">
+              ${gone ? `<div class="alert alert-error text-sm">${gone === 1 ? "One item is" : `${gone} items are`} no longer available. Remove ${gone === 1 ? "it" : "them"} to continue.</div>` : ""}
+              <ul class="cart-list">${quote.items.map(line).join("")}</ul>
+              <a href="/#listings" class="cart-continue">${uiIcon("chevronLeft")}<span>Continue shopping</span></a>
+            </div>
+            <aside class="cart-summary">
+              <h2>Order summary</h2>
+              <div class="cart-sum-row"><span>Items</span><span>${ok.length}</span></div>
+              ${quote.sellers > 1 ? `<div class="cart-sum-row"><span>Sellers</span><span>${quote.sellers}</span></div>` : ""}
+              <div class="cart-sum-row"><span>Collection</span><span>From the farm</span></div>
+              <div class="buy-total"><span>Total</span><strong>${kwacha(quote.total)}</strong></div>
+              ${quote.sellers > 1 ? `<p class="cart-sum-note">Your cart has items from ${quote.sellers} sellers. You pay once and we arrange collection from each farm.</p>` : ""}
+              <a href="/checkout.html" class="btn-checkout btn-lg w-full ${ok.length && !gone ? "" : "is-disabled"}" ${ok.length && !gone ? "" : 'aria-disabled="true" tabindex="-1"'}>Proceed to checkout</a>
+              <p class="cart-pay-with"><span>Pay with mobile money</span><span class="pay-names"><i class="pay-airtel">Airtel</i><i class="pay-mtn">MTN</i><i class="pay-zamtel">Zamtel</i></span></p>
+            </aside>
+          </div>`;
+        bind(quote);
+      }
+
+      function bind(quote) {
+        root.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", () => { removeFromCart(b.dataset.remove); load(); }));
+        root.querySelectorAll("[data-step]").forEach((b) => b.addEventListener("click", () => {
+          const item = quote.items.find((i) => String(i.id) === b.dataset.id);
+          setCartQty(item.id, Math.min(item.max, Math.max(1, item.quantity + Number(b.dataset.step))));
+          load();
+        }));
+        root.querySelectorAll("[data-qty]").forEach((input) => input.addEventListener("change", () => {
+          const item = quote.items.find((i) => String(i.id) === input.dataset.qty);
+          const n = Number.parseInt(input.value, 10);
+          setCartQty(item.id, Math.min(item.max, Math.max(1, Number.isFinite(n) ? n : item.quantity)));
+          load();
+        }));
+      }
+
+      document.addEventListener("DOMContentLoaded", load);
+    </script>
+
+    <footer id="site-footer" class="mt-10"></footer>
+  </body>
+</html>

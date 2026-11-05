@@ -20,7 +20,7 @@ async function paymentReminders() {
     `SELECT * FROM orders
      WHERE payment_method = 'mobile_money' AND payment_attempts > 0 AND public_token IS NOT NULL
        AND payment_status IN ('failed', 'pending') AND payment_reminder_at IS NULL
-       AND status IN ('new', 'confirmed')
+       AND status IN ('new', 'confirmed') AND checkout_id IS NULL
        AND created_at < NOW() - INTERVAL ? MINUTE
      ORDER BY id LIMIT 20`,
     [REMINDER_AFTER_MIN],
@@ -37,6 +37,8 @@ async function paymentReminders() {
     await emails.paymentReminder(order);
     await emails.unpaidOrder(order);
   }
+  // Cart checkouts are reminded as a whole (lib/checkout.js).
+  await require("../lib/checkout").sendReminders(REMINDER_AFTER_MIN);
 }
 
 function localNow() {
