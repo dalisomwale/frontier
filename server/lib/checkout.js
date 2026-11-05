@@ -7,12 +7,15 @@
 // order. The payment belongs to the checkout: when it succeeds, every open
 // order in it is marked paid and each seller is told about their part.
 //
-// The payment page is ours for now (Lenco sends the PIN prompt). A payment
-// gateway with its own hosted payment page plugs in at payUrl() and
-// startCollection().
+// Payment, by whichever provider is switched on in .env:
+//   DPO Pay  the buyer is sent to DPO's hosted payment page (mobile money);
+//            we confirm the payment with DPO's verifyToken.
+//   Lenco    our own payment page sends a PIN prompt to the buyer's phone.
+//   neither  the order is placed and the team arranges payment.
 const crypto = require("crypto");
 const pool = require("../db");
 const lenco = require("../services/lenco");
+const dpo = require("../services/dpo");
 const { sendEmail, recipients, appUrl } = require("../services/mailer");
 const { orderRef, kwacha, headCount, OPERATOR_LABELS } = require("./orders");
 const payments = require("./payments");
@@ -29,7 +32,12 @@ function checkoutIdFromReference(reference) {
   const match = String(reference || "").match(/^FMC-(\d+)-\d+$/);
   return match ? Number(match[1]) - 1000 : null;
 }
-const payUrl = (checkout) => `/pay.html?checkout=${checkout.id}&token=${checkout.public_token}`;
+const ourPayPage = (checkout) => `/pay.html?checkout=${checkout.id}&token=${checkout.public_token}`;
+// Where the buyer pays: DPO's page while a DPO payment is open, else ours.
+const payUrl = (checkout) => (checkout.payment_provider === "dpo" && checkout.payment_status === "pending" && checkout.payment_url
+  ? checkout.payment_url
+  : ourPayPage(checkout));
+const provider = () => (dpo.enabled() ? "dpo" : lenco.enabled() ? "lenco" : null);
 const newToken = () => crypto.randomBytes(16).toString("hex");
 
 // Listing details needed to price a cart line. Only published listings with
@@ -168,7 +176,9 @@ async function create(lines, buyer, ip) {
     conn.release();
   }
 
-  const checkout = await load(checkoutId);
+  let checkout = await load(checkoutId);
+  // DPO: create the payment now, so checkout goes straight to DPO's page.
+  if (provider() === "dpo") checkout = await startDpo(checkout);
   notifyCreated(checkout, created).catch((error) => console.error(`Checkout ${checkoutRef(checkoutId)}: emails failed (${error.message})`));
   return checkout;
 }
@@ -180,7 +190,7 @@ const unitsText = (o) => {
 
 async function notifyCreated(checkout, created) {
   const ref = checkoutRef(checkout.id);
-  const online = lenco.enabled();
+  const online = Boolean(provider());
   const itemRows = created.map((o) => [`${orderRef(o.id)} · ${o.l.title}`, `${unitsText(o)} · ${kwacha(o.total)}`]);
   const sellers = new Set(created.map((o) => o.l.seller_id || "frontier")).size;
   const [team] = await Promise.all([
@@ -218,7 +228,7 @@ async function notifyCreated(checkout, created) {
         "We confirm everything with the seller.",
         "We contact you on WhatsApp and email to arrange collection.",
       ],
-      button: online ? { label: "Complete payment", url: appUrl(payUrl(checkout)) } : undefined,
+      button: online ? { label: "Complete payment", url: appUrl(ourPayPage(checkout)) } : undefined,
     }),
   ]);
   await pool.query("UPDATE orders SET email_status = ?, email_error = ? WHERE checkout_id = ?", [
@@ -261,7 +271,11 @@ function maskPhone(phone) {
 // What the payment page is told.
 function publicView(checkout, orders) {
   const amount = checkout.payment_status === "paid" ? Number(checkout.total) : due(orders);
+  const current = provider();
   return {
+    provider: current,
+    // DPO: the open payment on DPO's page (null when a new one is needed).
+    pay_url: current === "dpo" && checkout.payment_provider === "dpo" && checkout.payment_status === "pending" ? checkout.payment_url : null,
     id: checkout.id,
     reference: checkoutRef(checkout.id),
     status: checkout.payment_status,
@@ -272,7 +286,7 @@ function publicView(checkout, orders) {
     total: amount,
     attempts_left: Math.max(0, MAX_ATTEMPTS - Number(checkout.payment_attempts || 0)),
     closed: checkout.payment_status !== "paid" && !orders.some(isOpen),
-    online: lenco.enabled(),
+    online: Boolean(current),
     first_name: String(checkout.full_name).trim().split(/\s+/)[0],
     items: orders.map((o) => ({
       reference: orderRef(o.id),
@@ -298,7 +312,7 @@ async function syncOrders(checkout) {
 }
 
 async function markPaid(checkout, data) {
-  const providerRef = data.lencoReference || (data.mobileMoneyDetails && data.mobileMoneyDetails.operatorTransactionId) || null;
+  const providerRef = data.providerRef || data.lencoReference || (data.mobileMoneyDetails && data.mobileMoneyDetails.operatorTransactionId) || null;
   const [result] = await pool.query(
     `UPDATE checkouts SET payment_status = 'paid', payment_failure = NULL, paid_at = NOW(),
        payment_provider_ref = COALESCE(?, payment_provider_ref)
@@ -316,7 +330,9 @@ async function markPaid(checkout, data) {
   );
   const ref = checkoutRef(checkout.id);
   const amount = kwacha(data.amount || checkout.total);
-  const how = `${OPERATOR_LABELS[checkout.mobile_operator] || "Mobile money"} (${lenco.localPhone(checkout.payment_phone)})`;
+  const how = checkout.payment_provider === "dpo"
+    ? `Mobile money via DPO Pay${checkout.payment_phone ? ` (${lenco.localPhone(checkout.payment_phone)})` : ""}`
+    : `${OPERATOR_LABELS[checkout.mobile_operator] || "Mobile money"} (${lenco.localPhone(checkout.payment_phone)})`;
   const itemRows = orders.map((o) => [`${orderRef(o.id)} · ${o.livestock_title}`, kwacha(o.total)]);
   const rows = [["Order", ref], ...itemRows, ["Amount paid", amount], ["Paid with", how]];
   if (providerRef) rows.push(["Payment reference", providerRef]);
@@ -388,9 +404,81 @@ async function startCollection(checkout, { operator, phone }) {
   return load(checkout.id);
 }
 
-// Asks Lenco for news on a pending payment (at most every few seconds).
+// DPO: opens a payment for whatever is still owed and returns the checkout
+// with payment_url set to DPO's page. A new payment each time (a cancelled or
+// expired DPO token can't be paid again).
+async function startDpo(checkout) {
+  const orders = await ordersOf(checkout.id);
+  const amount = due(orders);
+  if (!amount) return checkout;
+  const attempt = Number(checkout.payment_attempts || 0) + 1;
+  const base = (path) => appUrl(`/pay/${path}/${checkout.id}/${checkout.public_token}`);
+  try {
+    const items = orders.filter((o) => isOpen(o) && o.payment_status !== "paid");
+    const made = await dpo.createToken({
+      amount,
+      reference: paymentReference(checkout.id, attempt),
+      description: `Frontier Marketplace order ${checkoutRef(checkout.id)}: ${items.map((o) => o.livestock_title).join(", ")}`,
+      redirectUrl: base("return"),
+      backUrl: base("back"),
+      customer: { name: checkout.full_name, email: checkout.email, phone: checkout.phone },
+    });
+    await pool.query(
+      `UPDATE checkouts SET payment_provider = 'dpo', payment_status = 'pending', payment_reference = ?,
+         payment_provider_ref = ?, payment_url = ?, payment_failure = NULL, total = ?, payment_attempts = ?,
+         payment_checked_at = NULL
+       WHERE id = ? AND payment_status <> 'paid'`,
+      [made.token, made.transRef, made.payUrl, amount, attempt, checkout.id],
+    );
+  } catch (error) {
+    console.error(`Checkout ${checkoutRef(checkout.id)}: DPO payment not created (${error.message})`);
+    await pool.query(
+      `UPDATE checkouts SET payment_provider = 'dpo', payment_status = 'failed', payment_url = NULL,
+         payment_failure = ?, payment_attempts = ?
+       WHERE id = ? AND payment_status <> 'paid'`,
+      [`We couldn't open the payment page: ${error.message}`.slice(0, 255), attempt, checkout.id],
+    );
+  }
+  const fresh = await load(checkout.id);
+  await syncOrders(fresh);
+  return fresh;
+}
+
+// Asks DPO whether the open payment has been paid.
+async function refreshDpo(checkout) {
+  await pool.query("UPDATE checkouts SET payment_checked_at = NOW() WHERE id = ?", [checkout.id]);
+  try {
+    const v = await dpo.verifyToken(checkout.payment_reference);
+    if (v.status === "paid") {
+      if (v.currency && v.currency !== "ZMW") {
+        await markFailed(checkout, "The payment was made in the wrong currency. Our team will contact you.", checkout.payment_reference);
+      } else {
+        await applyCollection(checkout, {
+          status: "successful",
+          amount: v.amount || checkout.total,
+          reference: checkout.payment_reference,
+          providerRef: v.approval || checkout.payment_provider_ref,
+        });
+      }
+    } else if (v.status === "failed") {
+      await markFailed(checkout, v.reason, checkout.payment_reference);
+    }
+  } catch (error) {
+    console.error(`Checkout ${checkoutRef(checkout.id)}: DPO check failed (${error.message})`);
+  }
+  return load(checkout.id);
+}
+
+// Asks the provider for news on a pending payment (at most every few seconds).
 async function refresh(checkout) {
-  if (checkout.payment_status !== "pending" || !checkout.payment_reference || !lenco.enabled()) return checkout;
+  if (checkout.payment_status !== "pending" || !checkout.payment_reference) return checkout;
+  if (checkout.payment_provider === "dpo") {
+    if (!dpo.enabled()) return checkout;
+    const lastDpo = checkout.payment_checked_at ? new Date(checkout.payment_checked_at).getTime() : 0;
+    if (Date.now() - lastDpo < CHECK_EVERY_MS) return checkout;
+    return refreshDpo(checkout);
+  }
+  if (!lenco.enabled()) return checkout;
   const last = checkout.payment_checked_at ? new Date(checkout.payment_checked_at).getTime() : 0;
   if (Date.now() - last < CHECK_EVERY_MS) return checkout;
   await pool.query("UPDATE checkouts SET payment_checked_at = NOW() WHERE id = ?", [checkout.id]);
@@ -409,7 +497,7 @@ function reminderEmails(checkout, orders) {
   const ref = checkoutRef(checkout.id);
   const amount = kwacha(due(orders));
   const items = orders.filter(isOpen).map((o) => [`${orderRef(o.id)} · ${o.livestock_title}`, kwacha(o.total)]);
-  const tried = Number(checkout.payment_attempts) > 0;
+  const tried = checkout.payment_status === "failed";
   return Promise.all([
     sendEmail({
       to: checkout.email,
@@ -422,7 +510,7 @@ function reminderEmails(checkout, orders) {
           : `Your items are reserved for you, but we haven't received your payment for order ${ref} yet.`,
       ],
       rows: [...items, ["Amount", amount]],
-      button: { label: "Complete payment", url: appUrl(payUrl(checkout)) },
+      button: { label: "Complete payment", url: appUrl(ourPayPage(checkout)) },
       after: ["Prefer to pay another way? Reply to this email and we'll help."],
     }),
     sendEmail({
@@ -436,8 +524,22 @@ function reminderEmails(checkout, orders) {
   ]);
 }
 
+// DPO payments can finish while the buyer is away from our site (closed the
+// tab after paying), so open ones are checked in the background.
+async function checkOpenPayments() {
+  if (!dpo.enabled()) return;
+  const [rows] = await pool.query(
+    `SELECT * FROM checkouts
+     WHERE payment_provider = 'dpo' AND payment_status = 'pending' AND payment_reference IS NOT NULL
+       AND created_at > NOW() - INTERVAL 3 DAY
+       AND (payment_checked_at IS NULL OR payment_checked_at < NOW() - INTERVAL 2 MINUTE)
+     ORDER BY id LIMIT 20`,
+  );
+  for (const c of rows) await refreshDpo(c);
+}
+
 async function sendReminders(afterMinutes) {
-  if (!lenco.enabled()) return;
+  if (!provider()) return;
   const [rows] = await pool.query(
     `SELECT * FROM checkouts
      WHERE payment_status IN ('unpaid', 'failed', 'pending') AND payment_reminder_at IS NULL
@@ -460,6 +562,9 @@ async function sendReminders(afterMinutes) {
 
 module.exports = {
   MAX_ATTEMPTS,
+  provider,
+  startDpo,
+  checkOpenPayments,
   checkoutRef,
   checkoutIdFromReference,
   payUrl,

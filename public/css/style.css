@@ -5645,3 +5645,7 @@ a.cart-title:hover { text-decoration: underline; }
   .header-auth { gap: 3px; }
   .header-cart { width: 28px; }
 }
+.pay-dpo { margin-top: 18px; }
+.pay-dpo .pay-names { display: flex; flex-wrap: wrap; gap: 6px; }
+.pay-dpo .pay-names i { font-size: 12px; padding: 4px 10px; }
+.btn-checkout svg { width: 17px; height: 17px; flex-shrink: 0; }

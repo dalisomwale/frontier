@@ -197,6 +197,8 @@ app.use("/api", publicRoutes);
 app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/checkout", require("./routes/checkout"));
+// DPO sends buyers back here after its payment page (lib/checkout.js).
+app.use("/pay", require("./routes/checkout").pages);
 app.use("/api/payments", require("./routes/payments"));
 app.use("/api/admin", adminRoutes);
 app.use("/api/seller", sellerRoutes);
@@ -271,6 +273,8 @@ const LATE_COLUMNS = [
   ["orders", "public_token", "CHAR(32) NULL AFTER paid_at"],
   ["orders", "payment_reminder_at", "DATETIME NULL AFTER public_token"],
   ["orders", "checkout_id", "INT UNSIGNED NULL AFTER payment_reminder_at, ADD INDEX idx_orders_checkout (checkout_id)"],
+  ["checkouts", "payment_provider", "VARCHAR(20) NULL AFTER payment_status"],
+  ["checkouts", "payment_url", "VARCHAR(500) NULL AFTER payment_provider"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");

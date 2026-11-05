@@ -37,8 +37,10 @@ async function paymentReminders() {
     await emails.paymentReminder(order);
     await emails.unpaidOrder(order);
   }
-  // Cart checkouts are reminded as a whole (lib/checkout.js).
-  await require("../lib/checkout").sendReminders(REMINDER_AFTER_MIN);
+  // Cart checkouts: DPO payments finished away from the site, then reminders.
+  const checkout = require("../lib/checkout");
+  await checkout.checkOpenPayments();
+  await checkout.sendReminders(REMINDER_AFTER_MIN);
 }
 
 function localNow() {

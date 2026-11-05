@@ -340,6 +340,8 @@ CREATE TABLE IF NOT EXISTS checkouts (
   mobile_operator     ENUM('airtel', 'mtn', 'zamtel') NULL,
   payment_phone       VARCHAR(30) NULL,
   payment_status      ENUM('unpaid', 'pending', 'paid', 'failed') NOT NULL DEFAULT 'unpaid',
+  payment_provider    VARCHAR(20) NULL,
+  payment_url         VARCHAR(500) NULL,
   payment_reference   VARCHAR(64) NULL,
   payment_provider_ref VARCHAR(80) NULL,
   payment_failure     VARCHAR(255) NULL,

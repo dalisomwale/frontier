@@ -250,8 +250,87 @@
           <a href="/" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to the marketplace</a>`, 3);
         }
 
+        // --- DPO Pay: the buyer pays on DPO's own payment page ---------------
+        const lock = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>`;
+
+        function dpoForm(c, note) {
+          if (c.closed) return payForm(c);
+          const failed = c.status === "failed";
+          const canPay = c.attempts_left > 0;
+          page(`${head(c, "Pay with mobile money")}
+            ${note ? `<div class="alert alert-info text-sm mt-4" role="status">${note}</div>` : ""}
+            ${failed ? `<div class="alert alert-error text-sm mt-4" role="alert"><b>Payment not completed.</b> ${escapeHtml(c.failure || "The payment was not approved.")}</div>` : ""}
+            <details class="pay-details" ${note || failed ? "" : "open"}><summary>${c.items.length} item${c.items.length === 1 ? "" : "s"} in this order</summary>${items(c)}</details>
+            ${canPay ? `
+            <div class="pay-dpo">
+              <p class="pay-names"><i class="pay-airtel">Airtel Money</i><i class="pay-mtn">MTN MoMo</i><i class="pay-zamtel">Zamtel Kwacha</i></p>
+              <button type="button" class="btn-checkout btn-lg w-full mt-4" data-dpo-pay>${lock}<span>Continue to secure payment · ${kwacha(c.total)}</span></button>
+              <p class="field-error hidden" data-pay-error></p>
+              <p class="pay-secure">${lock}<span>You'll pay on DPO Pay's secure payment page, then come back here. Approve the payment on your phone with your mobile money PIN; we never see your PIN.</span></p>
+            </div>` : `<p class="pay-text">Too many attempts. Our team will contact you on WhatsApp to arrange payment.</p>`}
+          `);
+          const btn = root.querySelector("[data-dpo-pay]");
+          if (!btn) return;
+          btn.addEventListener("click", async () => {
+            const err = root.querySelector("[data-pay-error]");
+            err.classList.add("hidden");
+            btn.disabled = true;
+            btn.innerHTML = `<span class="btn-spinner"></span> Opening the payment page…`;
+            try {
+              const target = c.pay_url || (await apiRequest(papi, { method: "POST", body: {} })).data.pay_url;
+              if (!target) throw new Error("We couldn't open the payment page. Please try again.");
+              window.location.href = target;
+            } catch (error) {
+              err.textContent = error.message || "Please try again.";
+              err.classList.remove("hidden");
+              btn.disabled = false;
+              btn.innerHTML = `${lock}<span>Continue to secure payment · ${kwacha(c.total)}</span>`;
+            }
+          });
+        }
+
+        // Back from DPO: confirm the payment with DPO before showing anything.
+        function dpoChecking(c) {
+          page(`<div class="text-center">
+            <div class="pay-phone" style="margin:0 auto">${phoneIcon}</div>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Checking your payment</h1>
+            <p class="text-sm text-gray-600 mt-2">We're confirming your payment of <b>${kwacha(c.total)}</b> with DPO Pay. If you haven't approved it on your phone yet, please do so now.</p>
+            <p class="pay-wait-status mt-5"><span class="btn-spinner"></span> <span>Checking…</span></p>
+            <p class="text-xs text-gray-500 mt-5">Order ${escapeHtml(c.reference)} · please keep this page open.</p>
+          </div>`);
+          const started = Date.now();
+          const poll = async () => {
+            let now = null;
+            try { now = (await apiRequest(capi)).data; } catch { /* keep trying */ }
+            if (now && now.status !== "pending") return show(now);
+            if (Date.now() - started > 75000) {
+              dpoForm(now || c, "We haven't received your payment yet. If you've just approved it, this page will update by itself in a moment. Otherwise, continue to the payment page.");
+              slowPoll();
+              return;
+            }
+            ctimer = setTimeout(poll, 4000);
+          };
+          ctimer = setTimeout(poll, 2500);
+        }
+
+        // Keeps checking quietly while the buyer looks at the payment form.
+        function slowPoll() {
+          clearTimeout(slowPoll.timer);
+          slowPoll.timer = setTimeout(async () => {
+            try {
+              const now = (await apiRequest(capi)).data;
+              if (now.status === "paid") return paid(now);
+            } catch { /* ignore */ }
+            slowPoll();
+          }, 15000);
+        }
+
         function show(c) {
           if (c.status === "paid") return paid(c);
+          if (c.provider === "dpo") {
+            if (c.status === "pending" && q.returned) return dpoChecking(c);
+            return dpoForm(c, q.cancelled && c.status === "pending" ? "You left the payment page before paying. Your items are still reserved; continue whenever you're ready." : "");
+          }
           if (c.status === "pending") return waiting(c);
           return payForm(c);
         }
