@@ -8,6 +8,18 @@ const express = require("express");
 const { text, isEmail, isPhone, oneOf, positiveInt, badRequest, notFound } = require("../lib/validate");
 const checkout = require("../lib/checkout");
 const lenco = require("../services/lenco");
+const lipila = require("../services/lipila");
+const { appUrl } = require("../services/mailer");
+
+// Whether Lipila's card page can open inside our checkout page.
+async function embeddable(url) {
+  if (!url) return false;
+  try {
+    return await lipila.canEmbed(url, new URL(appUrl("/")).origin);
+  } catch {
+    return false;
+  }
+}
 
 const router = express.Router();
 
@@ -63,6 +75,7 @@ router.post("/", async (req, res, next) => {
       }
       throw error;
     }
+    const cardUrl = created.payment_method === "card" && created.payment_status === "pending" ? created.payment_url : null;
     res.status(201).json({
       success: true,
       message: `Order ${checkout.checkoutRef(created.id)} received.`,
@@ -74,9 +87,11 @@ router.post("/", async (req, res, next) => {
         // Where the buyer pays. Today our own mobile money page; with a
         // gateway's hosted payment page this becomes their address.
         // Card: straight to Lipila's card page. Otherwise our payment page.
-        pay_url: created.payment_method === "card" && created.payment_status === "pending" && created.payment_url
-          ? created.payment_url
-          : checkout.payUrl(created),
+        pay_url: cardUrl || checkout.payUrl(created),
+        // Card: open Lipila's card form inside the checkout page when it allows it.
+        card_url: cardUrl,
+        card_embed: await embeddable(cardUrl),
+        page_url: checkout.payUrl(created),
       },
     });
   } catch (error) {
@@ -128,7 +143,7 @@ router.post("/:id/payment", async (req, res, next) => {
       const opened = await checkout.startCard(c, { address, city });
       const v = checkout.publicView(opened, await checkout.ordersOf(opened.id));
       if (!v.pay_url) throw badRequest(opened.payment_failure || "We couldn't open the card payment page. Please try again.");
-      return res.json({ success: true, data: v });
+      return res.json({ success: true, data: { ...v, card_embed: await embeddable(v.pay_url) } });
     }
     const operator = oneOf(req.body.mobile_operator, checkout.operators());
     const phone = text(req.body.payment_phone, 30);

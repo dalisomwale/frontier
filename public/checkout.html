@@ -145,7 +145,8 @@
                       <p class="field-error hidden" data-error-for="city"></p>
                     </div>
                   </div>
-                  <p class="co-pay-note">${lockSvg}<span>You'll enter your card details on Lipila's secure payment page, then come back here. Your card details never reach Frontier.</span></p>
+                  <p class="co-pay-note" data-card-note>${lockSvg}<span>When you tap Pay, Lipila's secure card form opens right here for your card number, expiry and CVV. Your card details never reach Frontier.</span></p>
+                  <div data-card-slot></div>
                 </div>` : ""}
 
                 ${methods.includes("bank_transfer") ? `
@@ -176,7 +177,7 @@
         const method = () => (form.elements.payment_method ? form.elements.payment_method.value : methods[0]) || "";
         const labelFor = (m) => ({
           mobile_money: `Pay ${kwacha(quote.total)}`,
-          card: `Continue to card payment · ${kwacha(quote.total)}`,
+          card: `Pay ${kwacha(quote.total)}`,
           bank_transfer: `Place order · ${kwacha(quote.total)}`,
         }[m] || `Place order · ${kwacha(quote.total)}`);
         let label = labelFor(method());
@@ -250,7 +251,7 @@
         const errors = check(values);
         showErrors(form, errors);
         if (Object.keys(errors).length) return;
-        const busy = { mobile_money: "Sending the payment request…", card: "Opening the card payment page…" }[chosen] || "Placing your order…";
+        const busy = { mobile_money: "Sending the payment request…", card: "Opening the secure card form…" }[chosen] || "Placing your order…";
         submits.forEach((b) => { b.disabled = true; b.innerHTML = `<span class="btn-spinner"></span> ${busy}`; });
         try {
           const res = await apiRequest("/api/checkout", {
@@ -258,7 +259,9 @@
             body: { ...values, items: readCart(), website: form.elements.website.value },
           });
           clearCart();
-          window.location.href = res.data.pay_url;
+          const d = res.data;
+          if (chosen === "card" && d.card_url && d.card_embed) return showCardForm(form, submits, d);
+          window.location.href = d.pay_url;
         } catch (error) {
           if (error.errors) showErrors(form, error.errors);
           alertBox.innerHTML = escapeHtml(error.message || "Your order could not be placed. Please try again.")
@@ -267,6 +270,19 @@
           alertBox.scrollIntoView({ behavior: "smooth", block: "center" });
           submits.forEach((b) => { b.disabled = false; b.textContent = label; });
         }
+      }
+
+      // Order placed: Lipila's card form opens under the address and town. The
+      // details above are locked, since the order now exists.
+      function showCardForm(form, submits, d) {
+        form.querySelectorAll("input, select, textarea").forEach((el) => { el.disabled = true; });
+        submits.forEach((b) => { b.style.display = "none"; });
+        const note = form.querySelector("[data-card-note]");
+        if (note) note.remove();
+        const slot = form.querySelector("[data-card-slot]");
+        slot.innerHTML = `<p class="co-pay-note">${lockSvg}<span>Order <b>${escapeHtml(d.reference)}</b> is reserved for you. Enter your card details below to pay.</span></p>${cardFrame(d.card_url, d.total)}`;
+        slot.scrollIntoView({ behavior: "smooth", block: "start" });
+        watchCardPayment(d.id, d.token, () => { window.location.href = d.page_url; });
       }
 
       document.addEventListener("DOMContentLoaded", load);

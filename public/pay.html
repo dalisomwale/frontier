@@ -32,6 +32,9 @@
     <footer id="site-footer" class="mt-10"></footer>
 
     <script>
+      // Back from Lipila's card form shown inside the checkout page: show this
+      // page full size, not inside the card box.
+      try { if (window.top !== window.self && window.top.location.origin === location.origin) window.top.location.replace(location.href); } catch {}
       // "Try the payment again" from the reminder email: shows the order's
       // mobile money payment and lets the buyer send a new PIN prompt.
       const OPERATORS = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
@@ -291,9 +294,10 @@
               <label for="pay-city" class="field-label mt-4">Town / city</label>
               <input id="pay-city" name="city" type="text" class="field-input" autocomplete="address-level2" maxlength="60" placeholder="e.g. Lusaka">
               <p class="field-error hidden" data-pay-error></p>
-              <button type="submit" class="btn-checkout btn-lg w-full mt-5">${lockIcon}<span>Continue to card payment · ${kwacha(c.total)}</span></button>
-            </form>`}
-            <p class="pay-secure">${lockIcon}<span>You'll enter your card details on Lipila's secure payment page, then come back here. Your card details never reach Frontier.</span></p>
+              <button type="submit" class="btn-checkout btn-lg w-full mt-5">${lockIcon}<span>Pay ${kwacha(c.total)}</span></button>
+            </form>
+            <div data-card-slot></div>`}
+            <p class="pay-secure" data-card-note>${lockIcon}<span>When you tap Pay, Lipila's secure card form opens here for your card details. Your card details never reach Frontier.</span></p>
             ${otherWays(c, "card")}`);
           bindSwitch(c);
           const form = root.querySelector(".pay-form");
@@ -311,16 +315,22 @@
               return;
             }
             btn.disabled = true;
-            btn.innerHTML = `<span class="btn-spinner"></span> Opening the card payment page…`;
+            btn.innerHTML = `<span class="btn-spinner"></span> Opening the secure card form…`;
             try {
               const v = (await apiRequest(papi, { method: "POST", body: { payment_method: "card", address, city } })).data;
               if (!v.pay_url) throw new Error(v.failure || "We couldn't open the card payment page. Please try again.");
-              window.location.href = v.pay_url;
+              if (!v.card_embed) { window.location.href = v.pay_url; return; }
+              form.hidden = true;
+              const slot = root.querySelector("[data-card-slot]");
+              root.querySelector("[data-card-note]")?.remove();
+              slot.innerHTML = cardFrame(v.pay_url, v.total);
+              slot.scrollIntoView({ behavior: "smooth", block: "start" });
+              watchCardPayment(q.checkout, q.token, (paidView) => show(paidView));
             } catch (error) {
               err.textContent = (error.errors && Object.values(error.errors)[0]) || error.message || "Please try again.";
               err.classList.remove("hidden");
               btn.disabled = false;
-              btn.innerHTML = `${lockIcon}<span>Continue to card payment · ${kwacha(c.total)}</span>`;
+              btn.innerHTML = `${lockIcon}<span>Pay ${kwacha(c.total)}</span>`;
             }
           });
         }

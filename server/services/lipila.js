@@ -202,4 +202,55 @@ function cardsEnabled() {
   return enabled() && /^(on|true|1|yes)$/i.test(String(process.env.LIPILA_CARDS || "").trim());
 }
 
-module.exports = { enabled, cardsEnabled, isSandbox, baseUrl, msisdn, collect, collectCard, checkStatus };
+// Can Lipila's card page be shown inside our checkout (in an iframe)? We read
+// the page's own X-Frame-Options and frame-ancestors headers; if it refuses,
+// or we can't tell, the buyer is sent to the page instead. The answer is kept
+// per site for a while. LIPILA_CARD_EMBED=off always sends buyers to the page.
+const embedCache = new Map();
+function framingAllowed(headers, ourOrigin) {
+  const xfo = String(headers.get("x-frame-options") || "").trim().toLowerCase();
+  if (xfo === "deny" || xfo === "sameorigin") return false;
+  const csp = String(headers.get("content-security-policy") || "");
+  const fa = csp.split(";").map((d) => d.trim()).find((d) => /^frame-ancestors\s/i.test(d));
+  if (!fa) return true;
+  const sources = fa.split(/\s+/).slice(1).map((s) => s.replace(/^'|'$/g, "").toLowerCase());
+  if (sources.includes("none")) return false;
+  if (sources.includes("*")) return true;
+  const ours = String(ourOrigin || "").toLowerCase().replace(/\/+$/, "");
+  const host = ours.replace(/^https?:\/\//, "");
+  return sources.some((s) => {
+    if (s === ours || s === host) return true;
+    if (s === "https:" && ours.startsWith("https://")) return true;
+    const wild = s.match(/^(https?:\/\/)?\*\.(.+)$/);
+    return Boolean(wild && host.endsWith(`.${wild[2]}`));
+  });
+}
+
+async function canEmbed(url, ourOrigin) {
+  if (/^(off|false|0|no)$/i.test(String(process.env.LIPILA_CARD_EMBED || "").trim())) return false;
+  let origin;
+  try {
+    origin = new URL(url).origin;
+  } catch {
+    return false;
+  }
+  const cached = embedCache.get(origin);
+  if (cached && cached.until > Date.now()) return cached.ok;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+  let ok = false;
+  try {
+    // Opening the page charges nothing; it only shows the card form.
+    const res = await fetch(url, { method: "GET", redirect: "follow", signal: controller.signal });
+    ok = res.status < 400 && framingAllowed(res.headers, ourOrigin);
+    if (res.body && res.body.cancel) res.body.cancel().catch(() => {});
+  } catch {
+    ok = false;
+  } finally {
+    clearTimeout(timer);
+  }
+  embedCache.set(origin, { ok, until: Date.now() + (ok ? 60 : 10) * 60 * 1000 });
+  return ok;
+}
+
+module.exports = { enabled, cardsEnabled, isSandbox, baseUrl, msisdn, collect, collectCard, checkStatus, canEmbed, framingAllowed };

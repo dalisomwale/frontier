@@ -44,6 +44,8 @@ app.use(
         "style-src": ["'self'", "'unsafe-inline'"],
         "img-src": ["'self'", "data:", "blob:", "https://images.unsplash.com"],
         "connect-src": ["'self'"],
+        // Lipila's secure card form can be shown inside the checkout page.
+        "frame-src": ["'self'", "https:", ...(isProduction ? [] : ["http://127.0.0.1:*"])],
         "upgrade-insecure-requests": isProduction ? [] : null,
       },
     },

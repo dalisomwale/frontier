@@ -116,3 +116,34 @@ function checkoutSteps(current) {
 function cartUnits(item, n) {
   return quantityLabel(n, item.animal_name, item.animal_kind);
 }
+
+// Visa / Mastercard: Lipila's secure card form shown inside our page. The card
+// number, expiry and CVV are typed into Lipila's page in this box; they never
+// pass through Frontier.
+function cardFrame(url, total) {
+  const lock = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
+  return `<div class="card-frame" data-card-frame>
+      <div class="card-frame-head">${lock}<span>Secure card payment</span>${total ? `<span class="card-frame-amount">${kwacha(total)}</span>` : ""}</div>
+      <iframe src="${escapeHtml(url)}" title="Secure card payment by Lipila" allow="payment" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      <p class="card-frame-foot">Visa and Mastercard, secured by Lipila. Your card details never reach Frontier.
+        <a href="${escapeHtml(url)}">Form not showing? Open it on its own page</a></p>
+    </div>`;
+}
+
+// Checks the order every few seconds while the card box is open and calls
+// onPaid once Lipila has confirmed the payment.
+function watchCardPayment(id, token, onPaid) {
+  let stopped = false;
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const v = (await apiRequest(`/api/checkout/${encodeURIComponent(id)}?token=${encodeURIComponent(token)}`)).data;
+      if (v.status === "paid") { stopped = true; return onPaid(v); }
+    } catch {
+      // Try again on the next tick.
+    }
+    setTimeout(tick, 5000);
+  };
+  setTimeout(tick, 5000);
+  return () => { stopped = true; };
+}
