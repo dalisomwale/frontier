@@ -266,15 +266,18 @@ async function notifyCreated(checkout, created) {
       ],
       stepsTitle: "What happens next",
       steps: [
-        bank
-          ? `Pay ${kwacha(checkout.total)} by bank transfer to the account above, using ${ref} as the payment reference.`
+        ...(bank
+          ? [
+            `Pay ${kwacha(checkout.total)} by bank transfer to the account above, using ${ref} as the payment reference.`,
+            "You'll get an email as soon as your transfer reaches our account.",
+          ]
           : online
-            ? "Complete your payment on the payment page, if you haven't yet."
-            : "We contact you to arrange mobile money payment.",
-        "We confirm everything with the seller.",
-        "We contact you on WhatsApp and email to arrange collection.",
+            ? ["You'll get an email as soon as your payment is confirmed."]
+            : ["We'll contact you on WhatsApp to arrange payment."]),
+        "We'll contact you on WhatsApp and email to arrange collection from the farm.",
+        `At collection, check the animals or feed before you accept them, and have your order number ${ref} ready.`,
       ],
-      button: online ? { label: "Complete payment", url: appUrl(ourPayPage(checkout)) } : bank ? { label: "View your order", url: appUrl(ourPayPage(checkout)) } : undefined,
+      button: online || bank ? { label: "View your order", url: appUrl(ourPayPage(checkout)) } : undefined,
     }),
   ]);
   await pool.query("UPDATE orders SET email_status = ?, email_error = ? WHERE checkout_id = ?", [
