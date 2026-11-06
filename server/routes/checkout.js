@@ -96,66 +96,24 @@ router.post("/:id/payment", async (req, res, next) => {
     const view = checkout.publicView(c, orders);
     if (c.payment_status === "paid") return res.json({ success: true, data: view });
     if (view.closed || !view.total) throw badRequest("There's nothing left to pay on this order.");
+    // Lenco: one prompt at a time. Lipila: the buyer may send it again.
     if (c.payment_status === "pending" && providerNow === "lenco") throw badRequest("A payment request is already waiting on your phone.");
     if (Number(c.payment_attempts) >= checkout.MAX_ATTEMPTS) {
       throw badRequest("Too many attempts. Our team will contact you to arrange payment.");
     }
-    // DPO with a number: send the PIN prompt to the phone.
-    if (providerNow === "dpo" && req.body.mobile_operator) {
-      const operator = oneOf(req.body.mobile_operator, checkout.operators());
-      const phone = text(req.body.payment_phone, 30);
-      const errors = {};
-      if (!operator) errors.mobile_operator = "Please choose your mobile money network.";
-      if (!phone || !isPhone(phone)) errors.payment_phone = "Please enter the mobile money number, e.g. 0977 123 456.";
-      if (Object.keys(errors).length) {
-        return res.status(422).json({ success: false, message: "Please correct the highlighted fields.", errors });
-      }
-      const sent = await checkout.startPayment(c, { operator, phone });
-      return res.json({ success: true, data: checkout.publicView(sent, await checkout.ordersOf(sent.id)) });
-    }
-    // DPO without a number: open a payment on DPO's page; the buyer is sent there.
-    if (providerNow === "dpo") {
-      if (c.payment_status === "pending" && c.payment_provider === "dpo" && c.payment_url && !c.mobile_operator) {
-        return res.json({ success: true, data: { ...view, pay_url: c.payment_url } });
-      }
-      const opened = await checkout.startDpo({ ...c, mobile_operator: null });
-      const v = checkout.publicView(opened, await checkout.ordersOf(opened.id));
-      if (!v.pay_url) throw badRequest(opened.payment_failure || "We couldn't open the payment page. Please try again.");
-      return res.json({ success: true, data: v });
-    }
     const operator = oneOf(req.body.mobile_operator, checkout.operators());
     const phone = text(req.body.payment_phone, 30);
     const errors = {};
-    if (!operator) errors.mobile_operator = "Please choose your mobile money operator.";
+    if (!operator) errors.mobile_operator = "Please choose your mobile money network.";
     if (!phone || !isPhone(phone)) errors.payment_phone = "Please enter the mobile money number, e.g. 0977 123 456.";
     if (Object.keys(errors).length) {
       return res.status(422).json({ success: false, message: "Please correct the highlighted fields.", errors });
     }
-    const updated = await checkout.startCollection(c, { operator, phone });
+    const updated = await checkout.startPayment(c, { operator, phone });
     res.json({ success: true, data: checkout.publicView(updated, await checkout.ordersOf(updated.id)) });
   } catch (error) {
     next(error);
   }
 });
 
-// Pages DPO sends the buyer back to: /pay/return/:id/:token after paying,
-// /pay/back/:id/:token if they cancel. The payment is checked with DPO here;
-// what DPO adds to the address is not trusted.
-const pages = express.Router();
-async function back(req, res, cancelled) {
-  const id = positiveInt(req.params.id);
-  const token = String(req.params.token || "");
-  const page = `/pay.html?checkout=${id}&token=${encodeURIComponent(token)}`;
-  try {
-    const found = id && /^[a-f0-9]{32}$/.test(token) ? await checkout.load(id) : null;
-    if (found && found.public_token === token && !cancelled) await checkout.refresh({ ...found, payment_checked_at: null });
-  } catch (error) {
-    console.error(`DPO return: ${error.message}`);
-  }
-  res.redirect(303, `${page}${cancelled ? "&cancelled=1" : "&returned=1"}`);
-}
-pages.get("/return/:id/:token", (req, res) => back(req, res, false));
-pages.get("/back/:id/:token", (req, res) => back(req, res, true));
-
 module.exports = router;
-module.exports.pages = pages;

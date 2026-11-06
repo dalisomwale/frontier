@@ -197,8 +197,6 @@ app.use("/api", publicRoutes);
 app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/checkout", require("./routes/checkout"));
-// DPO sends buyers back here after its payment page (lib/checkout.js).
-app.use("/pay", require("./routes/checkout").pages);
 app.use("/api/payments", require("./routes/payments"));
 app.use("/api/admin", adminRoutes);
 app.use("/api/seller", sellerRoutes);

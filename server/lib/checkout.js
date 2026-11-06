@@ -7,15 +7,15 @@
 // order. The payment belongs to the checkout: when it succeeds, every open
 // order in it is marked paid and each seller is told about their part.
 //
-// Payment, by whichever provider is switched on in .env:
-//   DPO Pay  the buyer is sent to DPO's hosted payment page (mobile money);
-//            we confirm the payment with DPO's verifyToken.
-//   Lenco    our own payment page sends a PIN prompt to the buyer's phone.
+// Payment, by whichever provider is switched on in .env (Lipila first):
+//   Lipila   the PIN prompt goes straight to the buyer's phone (Airtel, MTN,
+//            Zamtel); confirmed with Lipila's check-status.
+//   Lenco    the same, through Lenco.
 //   neither  the order is placed and the team arranges payment.
 const crypto = require("crypto");
 const pool = require("../db");
 const lenco = require("../services/lenco");
-const dpo = require("../services/dpo");
+const lipila = require("../services/lipila");
 const { sendEmail, recipients, appUrl } = require("../services/mailer");
 const { orderRef, kwacha, headCount, OPERATOR_LABELS } = require("./orders");
 const payments = require("./payments");
@@ -32,14 +32,12 @@ function checkoutIdFromReference(reference) {
   const match = String(reference || "").match(/^FMC-(\d+)-\d+$/);
   return match ? Number(match[1]) - 1000 : null;
 }
+// Where the buyer pays (and waits for the PIN prompt): our payment page.
 const ourPayPage = (checkout) => `/pay.html?checkout=${checkout.id}&token=${checkout.public_token}`;
-// Where the buyer pays: DPO's page while a DPO payment is open, else ours.
-const payUrl = (checkout) => (checkout.payment_provider === "dpo" && checkout.payment_status === "pending" && checkout.payment_url
-  ? checkout.payment_url
-  : ourPayPage(checkout));
-const provider = () => (dpo.enabled() ? "dpo" : lenco.enabled() ? "lenco" : null);
-// Mobile money operators the buyer can choose with the current provider.
-const operators = () => ({ dpo: dpo.OPERATORS, lenco: ["airtel", "mtn", "zamtel"] }[provider()] || []);
+const payUrl = ourPayPage;
+const provider = () => (lipila.enabled() ? "lipila" : lenco.enabled() ? "lenco" : null);
+// Mobile money networks the buyer can choose.
+const operators = () => (provider() ? ["airtel", "mtn", "zamtel"] : []);
 const newToken = () => crypto.randomBytes(16).toString("hex");
 
 // Listing details needed to price a cart line. Only published listings with
@@ -180,14 +178,8 @@ async function create(lines, buyer, ip, pay = null) {
   }
 
   let checkout = await load(checkoutId);
-  // With a mobile money number, the PIN prompt goes to the buyer's phone right
-  // away. DPO without one: the payment opens on DPO's page.
-  const current = provider();
-  if (current && pay && pay.operator && pay.phone) {
-    checkout = await startPayment(checkout, pay);
-  } else if (current === "dpo") {
-    checkout = await startDpo(checkout);
-  }
+  // With a mobile money number, the PIN prompt goes to the buyer's phone right away.
+  if (provider() && pay && pay.operator && pay.phone) checkout = await startPayment(checkout, pay);
   notifyCreated(checkout, created).catch((error) => console.error(`Checkout ${checkoutRef(checkoutId)}: emails failed (${error.message})`));
   return checkout;
 }
@@ -284,10 +276,6 @@ function publicView(checkout, orders) {
   return {
     provider: current,
     operators: operators(),
-    // DPO: the prompt was sent to the phone (not paid on DPO's page).
-    push: Boolean(checkout.mobile_operator),
-    // DPO: the open payment on DPO's page (null when a new one is needed).
-    pay_url: current === "dpo" && checkout.payment_provider === "dpo" && checkout.payment_status === "pending" ? checkout.payment_url : null,
     id: checkout.id,
     reference: checkoutRef(checkout.id),
     status: checkout.payment_status,
@@ -342,9 +330,7 @@ async function markPaid(checkout, data) {
   );
   const ref = checkoutRef(checkout.id);
   const amount = kwacha(data.amount || checkout.total);
-  const how = checkout.payment_provider === "dpo"
-    ? `Mobile money via DPO Pay${checkout.payment_phone ? ` (${lenco.localPhone(checkout.payment_phone)})` : ""}`
-    : `${OPERATOR_LABELS[checkout.mobile_operator] || "Mobile money"} (${lenco.localPhone(checkout.payment_phone)})`;
+  const how = `${OPERATOR_LABELS[checkout.mobile_operator] || "Mobile money"} (${lenco.localPhone(checkout.payment_phone)})`;
   const itemRows = orders.map((o) => [`${orderRef(o.id)} · ${o.livestock_title}`, kwacha(o.total)]);
   const rows = [["Order", ref], ...itemRows, ["Amount paid", amount], ["Paid with", how]];
   if (providerRef) rows.push(["Payment reference", providerRef]);
@@ -416,91 +402,78 @@ async function startCollection(checkout, { operator, phone }) {
   return load(checkout.id);
 }
 
-// DPO: opens a payment for whatever is still owed and returns the checkout
-// with payment_url set to DPO's page. A new payment each time (a cancelled or
-// expired DPO token can't be paid again).
-async function startDpo(checkout) {
-  if (!checkout.mobile_operator) await pool.query("UPDATE checkouts SET mobile_operator = NULL WHERE id = ?", [checkout.id]);
+// Lipila: sends the PIN prompt for whatever is still owed (a new payment
+// reference for each attempt).
+async function startLipila(checkout, { operator, phone }) {
   const orders = await ordersOf(checkout.id);
   const amount = due(orders);
   if (!amount) return checkout;
   const attempt = Number(checkout.payment_attempts || 0) + 1;
-  const base = (path) => appUrl(`/pay/${path}/${checkout.id}/${checkout.public_token}`);
+  const reference = paymentReference(checkout.id, attempt);
+  await pool.query(
+    `UPDATE checkouts SET payment_provider = 'lipila', payment_status = 'pending', payment_reference = ?,
+       payment_provider_ref = NULL, payment_url = NULL, payment_failure = NULL, total = ?, payment_attempts = ?,
+       payment_checked_at = NOW(), mobile_operator = ?, payment_phone = ?
+     WHERE id = ? AND payment_status <> 'paid'`,
+    [reference, amount, attempt, operator, phone, checkout.id],
+  );
+  const current = await load(checkout.id);
+  await syncOrders(current);
+  const site = appUrl("/");
   try {
     const items = orders.filter((o) => isOpen(o) && o.payment_status !== "paid");
-    const made = await dpo.createToken({
+    const res = await lipila.collect({
+      reference,
       amount,
-      reference: paymentReference(checkout.id, attempt),
-      description: `Frontier Marketplace order ${checkoutRef(checkout.id)}: ${items.map((o) => o.livestock_title).join(", ")}`,
-      redirectUrl: base("return"),
-      backUrl: base("back"),
-      customer: { name: checkout.full_name, email: checkout.email, phone: checkout.phone },
+      phone,
+      email: checkout.email,
+      narration: `Frontier Marketplace ${checkoutRef(checkout.id)}: ${items.map((o) => o.livestock_title).join(", ")}`,
+      // Lipila only calls a public https address.
+      callbackUrl: /^https:\/\//.test(site) ? appUrl("/api/payments/lipila/callback") : undefined,
     });
-    await pool.query(
-      `UPDATE checkouts SET payment_provider = 'dpo', payment_status = 'pending', payment_reference = ?,
-         payment_provider_ref = ?, payment_url = ?, payment_failure = NULL, total = ?, payment_attempts = ?,
-         payment_checked_at = NULL
-       WHERE id = ? AND payment_status <> 'paid'`,
-      [made.token, made.transRef, made.payUrl, amount, attempt, checkout.id],
-    );
+    if (res.identifier) await pool.query("UPDATE checkouts SET payment_provider_ref = ? WHERE id = ?", [res.identifier, checkout.id]);
+    if (res.status === "failed") await markFailed(current, res.message || "The payment was not completed.", reference);
+    // "Successful" straight away is confirmed with check-status, never trusted as is.
+    if (res.status === "paid") await refreshLipila({ ...current, payment_checked_at: null });
   } catch (error) {
-    console.error(`Checkout ${checkoutRef(checkout.id)}: DPO payment not created (${error.message})`);
-    await pool.query(
-      `UPDATE checkouts SET payment_provider = 'dpo', payment_status = 'failed', payment_url = NULL,
-         payment_failure = ?, payment_attempts = ?
-       WHERE id = ? AND payment_status <> 'paid'`,
-      [`We couldn't open the payment page: ${error.message}`.slice(0, 255), attempt, checkout.id],
-    );
+    if (error.unknownOutcome) {
+      // No clear answer: the prompt may have gone out. Keep waiting and check.
+      console.error(`Checkout ${checkoutRef(checkout.id)}: Lipila didn't answer clearly (${error.message}); will check the status`);
+    } else {
+      console.error(`Checkout ${checkoutRef(checkout.id)}: Lipila payment not started (${error.message})`);
+      await markFailed(current, `We couldn't send the payment request: ${error.message}`, reference);
+    }
   }
-  const fresh = await load(checkout.id);
-  await syncOrders(fresh);
-  return fresh;
-}
-
-// DPO: a new payment, and DPO sends the PIN prompt to the buyer's phone.
-async function startDpoPush(checkout, { operator, phone }) {
-  await pool.query("UPDATE checkouts SET mobile_operator = ?, payment_phone = ? WHERE id = ?", [operator, phone, checkout.id]);
-  const opened = await startDpo({ ...checkout, mobile_operator: operator, payment_phone: phone });
-  if (opened.payment_status !== "pending" || !opened.payment_reference) return opened;
-  try {
-    await dpo.chargeMobile({ token: opened.payment_reference, phone, operator });
-    await pool.query("UPDATE checkouts SET payment_checked_at = NOW() WHERE id = ?", [checkout.id]);
-  } catch (error) {
-    console.error(`Checkout ${checkoutRef(checkout.id)}: DPO prompt not sent (${error.message})`);
-    await markFailed(opened, `We couldn't send the payment request to your phone: ${error.message}`, opened.payment_reference);
-  }
-  const fresh = await load(checkout.id);
-  await syncOrders(fresh);
-  return fresh;
+  return load(checkout.id);
 }
 
 // Sends the PIN prompt with whichever provider is on.
 function startPayment(checkout, pay) {
-  if (provider() === "dpo") return startDpoPush(checkout, pay);
+  if (provider() === "lipila") return startLipila(checkout, pay);
   return startCollection(checkout, pay);
 }
 
-// Asks DPO whether the open payment has been paid.
-async function refreshDpo(checkout) {
+// Asks Lipila whether the open payment has been paid.
+async function refreshLipila(checkout) {
   await pool.query("UPDATE checkouts SET payment_checked_at = NOW() WHERE id = ?", [checkout.id]);
   try {
-    const v = await dpo.verifyToken(checkout.payment_reference);
+    const v = await lipila.checkStatus(checkout.payment_reference);
     if (v.status === "paid") {
-      if (v.currency && v.currency !== "ZMW") {
+      if (v.currency && String(v.currency).toUpperCase() !== "ZMW") {
         await markFailed(checkout, "The payment was made in the wrong currency. Our team will contact you.", checkout.payment_reference);
       } else {
         await applyCollection(checkout, {
           status: "successful",
-          amount: v.amount || checkout.total,
+          amount: v.amount ?? checkout.total,
           reference: checkout.payment_reference,
-          providerRef: v.approval || checkout.payment_provider_ref,
+          providerRef: v.externalId || v.identifier || checkout.payment_provider_ref,
         });
       }
     } else if (v.status === "failed") {
-      await markFailed(checkout, v.reason, checkout.payment_reference);
+      await markFailed(checkout, v.message || "The payment was not approved.", checkout.payment_reference);
     }
   } catch (error) {
-    console.error(`Checkout ${checkoutRef(checkout.id)}: DPO check failed (${error.message})`);
+    console.error(`Checkout ${checkoutRef(checkout.id)}: Lipila status check failed (${error.message})`);
   }
   return load(checkout.id);
 }
@@ -508,11 +481,11 @@ async function refreshDpo(checkout) {
 // Asks the provider for news on a pending payment (at most every few seconds).
 async function refresh(checkout) {
   if (checkout.payment_status !== "pending" || !checkout.payment_reference) return checkout;
-  if (checkout.payment_provider === "dpo") {
-    if (!dpo.enabled()) return checkout;
-    const lastDpo = checkout.payment_checked_at ? new Date(checkout.payment_checked_at).getTime() : 0;
-    if (Date.now() - lastDpo < CHECK_EVERY_MS) return checkout;
-    return refreshDpo(checkout);
+  if (checkout.payment_provider === "lipila") {
+    if (!lipila.enabled()) return checkout;
+    const last = checkout.payment_checked_at ? new Date(checkout.payment_checked_at).getTime() : 0;
+    if (Date.now() - last < CHECK_EVERY_MS) return checkout;
+    return refreshLipila(checkout);
   }
   if (!lenco.enabled()) return checkout;
   const last = checkout.payment_checked_at ? new Date(checkout.payment_checked_at).getTime() : 0;
@@ -560,18 +533,18 @@ function reminderEmails(checkout, orders) {
   ]);
 }
 
-// DPO payments can finish while the buyer is away from our site (closed the
-// tab after paying), so open ones are checked in the background.
+// Payments can finish while the buyer is away from our site (closed the tab
+// before approving), so open Lipila payments are checked in the background.
 async function checkOpenPayments() {
-  if (!dpo.enabled()) return;
+  if (!lipila.enabled()) return;
   const [rows] = await pool.query(
     `SELECT * FROM checkouts
-     WHERE payment_provider = 'dpo' AND payment_status = 'pending' AND payment_reference IS NOT NULL
+     WHERE payment_provider = 'lipila' AND payment_status = 'pending' AND payment_reference IS NOT NULL
        AND created_at > NOW() - INTERVAL 3 DAY
        AND (payment_checked_at IS NULL OR payment_checked_at < NOW() - INTERVAL 2 MINUTE)
      ORDER BY id LIMIT 20`,
   );
-  for (const c of rows) await refreshDpo(c);
+  for (const c of rows) await refreshLipila(c);
 }
 
 async function sendReminders(afterMinutes) {
@@ -600,9 +573,9 @@ module.exports = {
   MAX_ATTEMPTS,
   provider,
   operators,
-  startDpo,
   startPayment,
   checkOpenPayments,
+  refreshLipila,
   checkoutRef,
   checkoutIdFromReference,
   payUrl,

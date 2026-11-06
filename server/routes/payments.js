@@ -32,4 +32,24 @@ router.post("/lenco/webhook", async (req, res) => {
   res.json({ success: true });
 });
 
+// Lipila calls this when a mobile money payment finishes. The call itself is
+// not trusted: we look up our open payment by its reference and ask Lipila's
+// check-status, which is what marks the orders paid.
+router.post("/lipila/callback", async (req, res) => {
+  res.status(200).json({ received: true });
+  try {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const event = body.data && typeof body.data === "object" ? body.data : body;
+    const reference = String(event.referenceId || event.referenceData || "").trim();
+    const id = checkout.checkoutIdFromReference(reference);
+    if (!id) return;
+    const found = await checkout.load(id);
+    if (found && found.payment_provider === "lipila" && found.payment_status === "pending" && found.payment_reference === reference) {
+      await checkout.refreshLipila(found);
+    }
+  } catch (error) {
+    console.error("Lipila callback:", error.message);
+  }
+});
+
 module.exports = router;

@@ -207,9 +207,7 @@ The same events also appear in the seller dashboard straight away: a bell with a
   MTN MoMo or Zamtel Kwacha, enter the number, approve the PIN prompt) ->
   Payment received. Old `/buy.html?id=` links put the item in the cart and
   open checkout.
-- **Mobile money only.** Card payments are no longer offered on the
-  marketplace (the payment gateway supports only mobile money for a
-  multi-vendor marketplace).
+- **Mobile money only.** Card payments are not offered on the marketplace.
 - **One payment, one order per item.** Placing the order creates a checkout
   (reference `FMC-1001`, table `checkouts`) and one order per cart line
   (`FM-1451`, `FM-1452`, ... with `orders.checkout_id`), so each seller, Admin >
@@ -236,23 +234,23 @@ The same events also appear in the seller dashboard straight away: a bell with a
   for less than the amount due. Without a key, the order is placed and the
   team arranges payment. Sandbox test numbers: Airtel 0971111111 approves,
   0972222222 fails.
-- **DPO Pay:** with `DPO_COMPANY_TOKEN` and `DPO_SERVICE_TYPE` set in `.env`,
-  DPO takes over from Lenco for cart checkouts.
-  - **Prompt straight to the phone (normal way).** At checkout the buyer
-    picks Airtel Money or MTN MoMo (DPO's Zambian networks) and enters the
-    mobile money number (filled in from their WhatsApp number). **Pay**
-    places the order, creates the DPO payment (`createToken`) and asks DPO to
-    send the PIN prompt (`chargeTokenMobile`, `AirtelZM`/`MTNZM`, number as
-    `260...`). The buyer stays on our "Check your phone" page, which checks
-    with DPO (`verifyToken`) every few seconds and shows Payment received.
-    Declined or no prompt: send again or change the number.
-  - **DPO's payment page (fallback).** "Or pay on DPO Pay's payment page"
-    opens DPO's hosted page (`payv3.php?ID=`); DPO returns the buyer to
-    `/pay/return/<id>/<token>` (or `/pay/back/...`).
-  - Orders are only marked paid when `verifyToken` confirms the full amount.
-    Open DPO payments are checked every 5 minutes in case the buyer left.
-  - Test with DPO's test company token and its "Test Product" service type;
-    use the live values once DPO approves the account.
+- **Lipila (mobile money):** with `LIPILA_API_KEY` in `.env`, Lipila takes
+  over from Lenco for cart checkouts. At checkout the buyer picks Airtel
+  Money, MTN MoMo or Zamtel Kwacha and enters the number (filled in from their
+  WhatsApp number). **Pay** places the order and sends the PIN prompt through
+  Lipila (`POST /collections/mobile-money`, reference `FMC-1001-1`, number as
+  `260...`, ZMW). The buyer stays on our "Check your phone" page, which asks
+  Lipila (`GET /collections/check-status`) every few seconds and shows
+  Payment received. Lipila also calls `/api/payments/lipila/callback`; that
+  call is never trusted on its own, it only triggers a status check. Open
+  payments are re-checked every 5 minutes. Failed or no prompt: send again or
+  change the number (a new reference each time). Orders are marked paid only
+  when Lipila confirms the full amount.
+  - `lsk_` keys are test (sandbox, `api.lipila.dev`), `lpk_` keys are live
+    (`blz.lipila.io`); the address follows the key. Sandbox test numbers:
+    0977000001 succeeds, 0977000002 fails, 0977000003 stays pending.
+  - Money collected goes to Frontier's Lipila wallet; payouts are set up in
+    the Lipila dashboard, not in this code.
 
 ## Livestock and feed
 

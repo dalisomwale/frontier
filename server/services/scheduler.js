@@ -37,7 +37,7 @@ async function paymentReminders() {
     await emails.paymentReminder(order);
     await emails.unpaidOrder(order);
   }
-  // Cart checkouts: DPO payments finished away from the site, then reminders.
+  // Cart checkouts: Lipila payments finished away from the site, then reminders.
   const checkout = require("../lib/checkout");
   await checkout.checkOpenPayments();
   await checkout.sendReminders(REMINDER_AFTER_MIN);
