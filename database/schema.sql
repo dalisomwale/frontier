@@ -348,6 +348,7 @@ CREATE TABLE IF NOT EXISTS checkouts (
   payment_failure     VARCHAR(255) NULL,
   payment_attempts    TINYINT UNSIGNED NOT NULL DEFAULT 0,
   payment_checked_at  DATETIME NULL,
+  payment_started_at  DATETIME NULL,
   paid_at             DATETIME NULL,
   payment_reminder_at DATETIME NULL,
   ip_address          VARCHAR(45) NULL,

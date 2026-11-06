@@ -25,6 +25,9 @@ const { badRequest } = require("./validate");
 const MAX_ATTEMPTS = 5;
 const MAX_LINES = 20;
 const CHECK_EVERY_MS = 4000;
+// How long to wait for Lipila to confirm a payment before marking it not completed.
+const MOBILE_WAIT_MS = 30 * 60 * 1000;
+const CARD_WAIT_MS = 2 * 60 * 60 * 1000;
 
 const checkoutRef = (id) => `FMC-${1000 + Number(id)}`;
 const paymentReference = (id, attempt) => `${checkoutRef(id)}-${attempt}`;
@@ -472,7 +475,7 @@ async function startLipila(checkout, { operator, phone }) {
   await pool.query(
     `UPDATE checkouts SET payment_provider = 'lipila', payment_method = 'mobile_money', payment_status = 'pending',
        payment_reference = ?, payment_provider_ref = NULL, payment_url = NULL, payment_failure = NULL, total = ?,
-       payment_attempts = ?, payment_checked_at = NOW(), mobile_operator = ?, payment_phone = ?
+       payment_attempts = ?, payment_checked_at = NOW(), payment_started_at = NOW(), mobile_operator = ?, payment_phone = ?
      WHERE id = ? AND payment_status <> 'paid'`,
     [reference, amount, attempt, operator, phone, checkout.id],
   );
@@ -517,7 +520,7 @@ async function startCard(checkout, details = {}) {
   await pool.query(
     `UPDATE checkouts SET payment_provider = 'lipila', payment_method = 'card', payment_status = 'pending',
        payment_reference = ?, payment_provider_ref = NULL, payment_url = NULL, payment_failure = NULL, total = ?,
-       payment_attempts = ?, payment_checked_at = NOW(), mobile_operator = NULL, payment_phone = NULL
+       payment_attempts = ?, payment_checked_at = NOW(), payment_started_at = NOW(), mobile_operator = NULL, payment_phone = NULL
      WHERE id = ? AND payment_status <> 'paid'`,
     [reference, amount, attempt, checkout.id],
   );
@@ -572,7 +575,26 @@ async function refreshLipila(checkout) {
   } catch (error) {
     console.error(`Checkout ${checkoutRef(checkout.id)}: Lipila status check failed (${error.message})`);
   }
-  return load(checkout.id);
+  // No confirmation for too long: a PIN prompt expires within minutes, so
+  // stop waiting and let the buyer try again. If Lipila later reports the
+  // payment as successful (callback), it is still accepted.
+  const fresh = await load(checkout.id);
+  if (fresh && fresh.payment_status === "pending" && fresh.payment_reference === checkout.payment_reference) {
+    // The database works out the age, so its clock and time zone are used throughout.
+    const [[age]] = await pool.query(
+      "SELECT TIMESTAMPDIFF(SECOND, COALESCE(payment_started_at, created_at), NOW()) AS s FROM checkouts WHERE id = ?",
+      [checkout.id],
+    );
+    const limit = fresh.payment_method === "card" ? CARD_WAIT_MS : MOBILE_WAIT_MS;
+    if (Number(age.s) * 1000 > limit) {
+      console.error(`Checkout ${checkoutRef(checkout.id)}: no payment confirmation after ${Math.round(limit / 60000)} minutes; marked not completed`);
+      await markFailed(fresh, fresh.payment_method === "card"
+        ? "We didn't receive confirmation of your card payment. You can try again. If money was taken from your account, contact us and we'll check."
+        : "The payment request expired before it was approved. You can try again. If money was taken from your account, contact us and we'll check.", fresh.payment_reference);
+      return load(checkout.id);
+    }
+  }
+  return fresh;
 }
 
 // Asks the provider for news on a pending payment (at most every few seconds).

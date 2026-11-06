@@ -277,6 +277,7 @@ const LATE_COLUMNS = [
   ["orders", "checkout_id", "INT UNSIGNED NULL AFTER payment_reminder_at, ADD INDEX idx_orders_checkout (checkout_id)"],
   ["checkouts", "payment_provider", "VARCHAR(20) NULL AFTER payment_status"],
   ["checkouts", "payment_url", "VARCHAR(500) NULL AFTER payment_provider"],
+  ["checkouts", "payment_started_at", "DATETIME NULL AFTER payment_checked_at"],
   ["checkouts", "payment_method", "ENUM('mobile_money', 'card', 'bank_transfer') NOT NULL DEFAULT 'mobile_money' AFTER payment_status"],
 ];
 async function ensureLateTables() {

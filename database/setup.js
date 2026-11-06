@@ -276,6 +276,7 @@ async function main() {
     await addColumns("checkouts", [
       ["payment_provider", "VARCHAR(20) NULL AFTER payment_status"],
       ["payment_url", "VARCHAR(500) NULL AFTER payment_provider"],
+      ["payment_started_at", "DATETIME NULL AFTER payment_checked_at"],
     ], "cart checkouts can record the payment provider");
     await addColumns("checkouts", [
       ["payment_method", "ENUM('mobile_money', 'card', 'bank_transfer') NOT NULL DEFAULT 'mobile_money' AFTER payment_status"],

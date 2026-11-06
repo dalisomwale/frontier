@@ -44,7 +44,7 @@ router.post("/lipila/callback", async (req, res) => {
     const id = checkout.checkoutIdFromReference(reference);
     if (!id) return;
     const found = await checkout.load(id);
-    if (found && found.payment_provider === "lipila" && found.payment_status === "pending" && found.payment_reference === reference) {
+    if (found && found.payment_provider === "lipila" && ["pending", "failed"].includes(found.payment_status) && found.payment_reference === reference) {
       await checkout.refreshLipila(found);
     }
   } catch (error) {
