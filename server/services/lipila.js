@@ -130,7 +130,9 @@ async function checkStatus(reference) {
   const res = await request("GET", `/collections/check-status?referenceId=${encodeURIComponent(reference)}`);
   if (res.status === 404) return { status: "pending", notFound: true };
   if (!res.ok || !res.data) {
-    const e = new Error(message(res));
+    // Lipila sometimes answers with an error while a payment is still being
+    // set up; the caller treats this as "no news yet" and checks again.
+    const e = new Error(`HTTP ${res.status}: ${message(res)}`);
     e.status = res.status;
     throw e;
   }
