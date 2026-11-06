@@ -246,9 +246,9 @@ The same events also appear in the seller dashboard straight away: a bell with a
   payments are re-checked every 5 minutes. Failed or no prompt: send again or
   change the number (a new reference each time). Orders are marked paid only
   when Lipila confirms the full amount.
-  - `lsk_` keys are test (sandbox, `api.lipila.dev`), `lpk_` keys are live
-    (`blz.lipila.io`); the address follows the key. Sandbox test numbers:
-    0977000001 succeeds, 0977000002 fails, 0977000003 stays pending.
+  - Live by default (`blz.lipila.io`): payments are real. `LIPILA_ENV=sandbox`
+    switches to Lipila's test system (`api.lipila.dev`, needs a test key),
+    where 0977000001 succeeds, 0977000002 fails and 0977000003 stays pending.
   - Money collected goes to Frontier's Lipila wallet; payouts are set up in
     the Lipila dashboard, not in this code.
 

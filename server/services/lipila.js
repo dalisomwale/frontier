@@ -9,12 +9,13 @@
 //                finishes; we then ask checkStatus rather than trust the call.
 //
 // Settings (.env):
-//   LIPILA_API_KEY   from the Lipila dashboard. lsk_... = test (sandbox),
-//                    lpk_... = live. The right Lipila address follows the key.
+//   LIPILA_API_KEY   from the Lipila dashboard (live merchant account)
+//   LIPILA_ENV       optional: "sandbox" to use Lipila's test system with a
+//                    test key; anything else (default) is live
 //   LIPILA_BASE_URL  optional override of the API address
 //
-// Sandbox test numbers: 0977000001 succeeds, 0977000002 fails,
-// 0977000003 stays pending.
+// Live payments are real. Sandbox test numbers: 0977000001 succeeds,
+// 0977000002 fails, 0977000003 stays pending.
 
 const SANDBOX_URL = "https://api.lipila.dev/api/v1";
 const LIVE_URL = "https://blz.lipila.io/api/v1";
@@ -27,13 +28,14 @@ function enabled() {
   return Boolean(apiKey());
 }
 
-function isSandbox() {
-  return /^lsk_/i.test(apiKey());
-}
-
 function baseUrl() {
   const override = (process.env.LIPILA_BASE_URL || "").trim().replace(/\/+$/, "");
-  return override || (isSandbox() ? SANDBOX_URL : LIVE_URL);
+  if (override) return override;
+  return String(process.env.LIPILA_ENV || "").trim().toLowerCase() === "sandbox" ? SANDBOX_URL : LIVE_URL;
+}
+
+function isSandbox() {
+  return /lipila\.dev/i.test(baseUrl());
 }
 
 // "0977 123 456" / "+260 977 123 456" -> "260977123456"
