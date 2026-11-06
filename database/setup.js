@@ -276,7 +276,7 @@ async function main() {
     await addColumns("checkouts", [
       ["payment_provider", "VARCHAR(20) NULL AFTER payment_status"],
       ["payment_url", "VARCHAR(500) NULL AFTER payment_provider"],
-    ], "cart checkouts can now be paid on DPO Pay");
+    ], "cart checkouts can record the payment provider");
     const [[paymentColumn]] = await conn.query(
       "SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = ? AND table_name = 'orders' AND column_name = 'payment_method'",
       [DB_NAME],
