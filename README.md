@@ -251,6 +251,17 @@ The same events also appear in the seller dashboard straight away: a bell with a
     where 0977000001 succeeds, 0977000002 fails and 0977000003 stays pending.
   - Money collected goes to Frontier's Lipila wallet; payouts are set up in
     the Lipila dashboard, not in this code.
+  - **Visa / Mastercard** (`LIPILA_CARDS=on`, once Lipila enables cards for
+    the account): the buyer gives an address and town, goes to Lipila's card
+    page (`POST /collections/card`), and returns to `/pay/return/<id>/<token>`,
+    where the payment is checked with Lipila before anything is marked paid.
+    A declined card can be tried again, or the buyer switches to mobile money.
+- **Bank transfer (manual):** offered when `BANK_ACCOUNT_NUMBER` (and the other
+  `BANK_*` details) are set. The order is placed and reserved; the buyer sees
+  Frontier's bank details on screen and by email, with the order number
+  (`FMC-1001`) as the payment reference. No reminder emails are sent for bank
+  transfers. When the money arrives, the team marks each order **Paid** in
+  Admin > Orders, and the buyer's order page then shows it as paid.
 
 ## Livestock and feed
 

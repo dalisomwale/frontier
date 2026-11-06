@@ -197,6 +197,8 @@ app.use("/api", publicRoutes);
 app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/checkout", require("./routes/checkout"));
+// Lipila's card page sends buyers back here (routes/checkout.js).
+app.use("/pay", require("./routes/checkout").pages);
 app.use("/api/payments", require("./routes/payments"));
 app.use("/api/admin", adminRoutes);
 app.use("/api/seller", sellerRoutes);
@@ -273,6 +275,7 @@ const LATE_COLUMNS = [
   ["orders", "checkout_id", "INT UNSIGNED NULL AFTER payment_reminder_at, ADD INDEX idx_orders_checkout (checkout_id)"],
   ["checkouts", "payment_provider", "VARCHAR(20) NULL AFTER payment_status"],
   ["checkouts", "payment_url", "VARCHAR(500) NULL AFTER payment_provider"],
+  ["checkouts", "payment_method", "ENUM('mobile_money', 'card', 'bank_transfer') NOT NULL DEFAULT 'mobile_money' AFTER payment_status"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");

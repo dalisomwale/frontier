@@ -277,6 +277,9 @@ async function main() {
       ["payment_provider", "VARCHAR(20) NULL AFTER payment_status"],
       ["payment_url", "VARCHAR(500) NULL AFTER payment_provider"],
     ], "cart checkouts can record the payment provider");
+    await addColumns("checkouts", [
+      ["payment_method", "ENUM('mobile_money', 'card', 'bank_transfer') NOT NULL DEFAULT 'mobile_money' AFTER payment_status"],
+    ], "cart checkouts can be paid by card or bank transfer");
     const [[paymentColumn]] = await conn.query(
       "SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = ? AND table_name = 'orders' AND column_name = 'payment_method'",
       [DB_NAME],

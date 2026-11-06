@@ -30,14 +30,26 @@ router.post("/", async (req, res, next) => {
     if (!fullName || fullName.length < 2) errors.full_name = "Please enter your full name.";
     if (!phone || !isPhone(phone)) errors.phone = "Please enter a valid WhatsApp number, e.g. 0977 123 456.";
     if (!email || !isEmail(email)) errors.email = "Please enter a valid email address.";
-    // Mobile money number for the PIN prompt (when online payment is on).
+    // How the buyer pays: mobile money (network + number for the PIN prompt),
+    // card (address and town for the card page) or bank transfer.
+    const allowed = checkout.methods();
+    const method = allowed.length ? oneOf(req.body.payment_method || "mobile_money", allowed) : null;
     let pay = null;
-    if (checkout.operators().length) {
+    if (allowed.length && !method) errors.payment_method = "Please choose how you'd like to pay.";
+    if (method === "mobile_money") {
       const operator = oneOf(req.body.mobile_operator, checkout.operators());
       const payPhone = text(req.body.payment_phone, 30);
       if (!operator) errors.mobile_operator = "Please choose your mobile money network.";
       if (!payPhone || !isPhone(payPhone)) errors.payment_phone = "Please enter your mobile money number, e.g. 0977 123 456.";
-      pay = { operator, phone: payPhone };
+      pay = { method, operator, phone: payPhone };
+    } else if (method === "card") {
+      const address = text(req.body.address, 120);
+      const city = text(req.body.city, 60);
+      if (!address || address.length < 3) errors.address = "Please enter your address.";
+      if (!city || city.length < 2) errors.city = "Please enter your town or city.";
+      pay = { method, address, city };
+    } else if (method === "bank_transfer") {
+      pay = { method };
     }
     if (Object.keys(errors).length) {
       return res.status(422).json({ success: false, message: "Please correct the highlighted fields.", errors });
@@ -61,7 +73,10 @@ router.post("/", async (req, res, next) => {
         total: Number(created.total),
         // Where the buyer pays. Today our own mobile money page; with a
         // gateway's hosted payment page this becomes their address.
-        pay_url: created.mobile_operator ? `/pay.html?checkout=${created.id}&token=${created.public_token}` : checkout.payUrl(created),
+        // Card: straight to Lipila's card page. Otherwise our payment page.
+        pay_url: created.payment_method === "card" && created.payment_status === "pending" && created.payment_url
+          ? created.payment_url
+          : checkout.payUrl(created),
       },
     });
   } catch (error) {
@@ -101,6 +116,20 @@ router.post("/:id/payment", async (req, res, next) => {
     if (Number(c.payment_attempts) >= checkout.MAX_ATTEMPTS) {
       throw badRequest("Too many attempts. Our team will contact you to arrange payment.");
     }
+    // Card: a new payment on Lipila's card page (address and town needed).
+    if (req.body.payment_method === "card") {
+      if (!checkout.methods().includes("card")) throw badRequest("Card payments aren't available right now.");
+      const address = text(req.body.address, 120);
+      const city = text(req.body.city, 60);
+      const errs = {};
+      if (!address || address.length < 3) errs.address = "Please enter your address.";
+      if (!city || city.length < 2) errs.city = "Please enter your town or city.";
+      if (Object.keys(errs).length) return res.status(422).json({ success: false, message: "Please correct the highlighted fields.", errors: errs });
+      const opened = await checkout.startCard(c, { address, city });
+      const v = checkout.publicView(opened, await checkout.ordersOf(opened.id));
+      if (!v.pay_url) throw badRequest(opened.payment_failure || "We couldn't open the card payment page. Please try again.");
+      return res.json({ success: true, data: v });
+    }
     const operator = oneOf(req.body.mobile_operator, checkout.operators());
     const phone = text(req.body.payment_phone, 30);
     const errors = {};
@@ -116,4 +145,22 @@ router.post("/:id/payment", async (req, res, next) => {
   }
 });
 
+// Lipila's card page sends the buyer back here: /pay/return/:id/:token. The
+// payment is checked with Lipila; nothing in the address is trusted.
+const pages = express.Router();
+pages.get("/return/:id/:token", async (req, res) => {
+  const id = positiveInt(req.params.id);
+  const token = String(req.params.token || "");
+  try {
+    const found = id && /^[a-f0-9]{32}$/.test(token) ? await checkout.load(id) : null;
+    if (found && found.public_token === token && found.payment_status === "pending" && found.payment_provider === "lipila") {
+      await checkout.refreshLipila(found);
+    }
+  } catch (error) {
+    console.error(`Card return: ${error.message}`);
+  }
+  res.redirect(303, `/pay.html?checkout=${id}&token=${encodeURIComponent(token)}&returned=1`);
+});
+
 module.exports = router;
+module.exports.pages = pages;

@@ -39,6 +39,14 @@
       const root = document.getElementById("checkout");
       let quote = null;
       let ops = [];
+      let methods = [];
+      const METHOD_NAMES = {
+        mobile_money: ["Mobile money", "Airtel Money, MTN MoMo or Zamtel Kwacha"],
+        card: ["Visa / Mastercard", "Pay by card on a secure page"],
+        bank_transfer: ["Bank transfer", "Pay into Frontier's bank account"],
+      };
+      const lockSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>`;
+      const bankSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10h18L12 4 3 10Z"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/></svg>`;
       const OP_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
       const phoneSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></svg>`;
 
@@ -63,6 +71,7 @@
         if (quote.items.some((i) => !i.available) || !quote.items.length) { window.location.replace("/cart.html"); return; }
         quote.items.forEach((i) => { if (i.adjusted) setCartQty(i.id, i.quantity); });
         ops = (quote.payment && quote.payment.operators) || [];
+        methods = (quote.payment && quote.payment.methods) || [];
         render();
       }
 
@@ -100,18 +109,51 @@
               </section>
 
               <section class="checkout-section">
-                <h2>Pay with mobile money</h2>
-                ${ops.length ? `
-                <p class="field-label" id="co-op-label">Your network</p>
-                <div class="operator-grid ${ops.length === 2 ? "co-ops" : ""}" role="radiogroup" aria-labelledby="co-op-label">
-                  ${ops.map((v) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}"><span class="op-tick" aria-hidden="true"></span><span>${OP_NAMES[v]}</span></label>`).join("")}
+                <h2>Payment</h2>
+                ${methods.length > 1 ? `
+                <div class="pm-choices" role="radiogroup" aria-label="How you'd like to pay">
+                  ${methods.map((m, n) => `<label class="pm-choice"><input type="radio" name="payment_method" value="${m}" ${n === 0 ? "checked" : ""}>
+                    <span class="pm-dot" aria-hidden="true"></span>
+                    <span class="pm-text"><b>${METHOD_NAMES[m][0]}</b><small>${METHOD_NAMES[m][1]}</small></span></label>`).join("")}
                 </div>
-                <p class="field-error hidden" data-error-for="mobile_operator"></p>
-                <label for="co-pay-phone" class="field-label mt-4">Mobile money number</label>
-                <input id="co-pay-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" autocomplete="tel" maxlength="25" placeholder="0977 123 456">
-                <p class="field-error hidden" data-error-for="payment_phone"></p>
-                <p class="co-pay-note">${phoneSvg}<span>When you tap Pay, a payment request goes straight to this phone. Enter your mobile money PIN on the phone to approve it. We never see your PIN.</span></p>` : `
-                <p class="text-sm text-gray-600">Our team will contact you on WhatsApp to arrange mobile money payment.</p>`}
+                <p class="field-error hidden" data-error-for="payment_method"></p>` : ""}
+
+                ${methods.includes("mobile_money") ? `
+                <div data-method-panel="mobile_money" class="pm-panel">
+                  <p class="field-label" id="co-op-label">Your network</p>
+                  <div class="operator-grid ${ops.length === 2 ? "co-ops" : ""}" role="radiogroup" aria-labelledby="co-op-label">
+                    ${ops.map((v) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}"><span class="op-tick" aria-hidden="true"></span><span>${OP_NAMES[v]}</span></label>`).join("")}
+                  </div>
+                  <p class="field-error hidden" data-error-for="mobile_operator"></p>
+                  <label for="co-pay-phone" class="field-label mt-4">Mobile money number</label>
+                  <input id="co-pay-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" autocomplete="tel" maxlength="25" placeholder="0977 123 456">
+                  <p class="field-error hidden" data-error-for="payment_phone"></p>
+                  <p class="co-pay-note">${phoneSvg}<span>When you tap Pay, a payment request goes straight to this phone. Enter your mobile money PIN on the phone to approve it. We never see your PIN.</span></p>
+                </div>` : ""}
+
+                ${methods.includes("card") ? `
+                <div data-method-panel="card" class="pm-panel" hidden>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="sm:col-span-2">
+                      <label for="co-address" class="field-label">Address</label>
+                      <input id="co-address" name="address" type="text" class="field-input" autocomplete="street-address" maxlength="120" placeholder="e.g. Plot 12, Kabulonga Road">
+                      <p class="field-error hidden" data-error-for="address"></p>
+                    </div>
+                    <div>
+                      <label for="co-city" class="field-label">Town / city</label>
+                      <input id="co-city" name="city" type="text" class="field-input" autocomplete="address-level2" maxlength="60" placeholder="e.g. Lusaka">
+                      <p class="field-error hidden" data-error-for="city"></p>
+                    </div>
+                  </div>
+                  <p class="co-pay-note">${lockSvg}<span>You'll enter your card details on Lipila's secure payment page, then come back here. Your card details never reach Frontier.</span></p>
+                </div>` : ""}
+
+                ${methods.includes("bank_transfer") ? `
+                <div data-method-panel="bank_transfer" class="pm-panel" hidden>
+                  <p class="co-pay-note">${bankSvg}<span>After you place the order we'll show Frontier's bank details, and email them to you. Pay the total using your order number as the reference. Your items stay reserved while we wait for the transfer, and we'll confirm once it arrives.</span></p>
+                </div>` : ""}
+
+                ${!methods.length ? `<p class="text-sm text-gray-600">Our team will contact you on WhatsApp to arrange payment.</p>` : ""}
               </section>
 
               <p class="text-xs text-gray-500">By placing this order you agree to our <a href="/terms.html" class="underline">Terms</a>, <a href="/refund-policy.html" class="underline">Refund</a>, <a href="/return-policy.html" class="underline">Return</a> and <a href="/cancellation-policy.html" class="underline">Cancellation</a> policies.</p>
@@ -131,7 +173,22 @@
           </form>`;
         const form = root.querySelector("#checkout-form");
         const submits = root.querySelectorAll("[data-submit]");
-        const label = ops.length ? `Pay ${kwacha(quote.total)}` : `Place order · ${kwacha(quote.total)}`;
+        const method = () => (form.elements.payment_method ? form.elements.payment_method.value : methods[0]) || "";
+        const labelFor = (m) => ({
+          mobile_money: `Pay ${kwacha(quote.total)}`,
+          card: `Continue to card payment · ${kwacha(quote.total)}`,
+          bank_transfer: `Place order · ${kwacha(quote.total)}`,
+        }[m] || `Place order · ${kwacha(quote.total)}`);
+        let label = labelFor(method());
+        // Show the fields for the chosen way to pay.
+        const showPanel = () => {
+          const m = method();
+          form.querySelectorAll("[data-method-panel]").forEach((panel) => { panel.hidden = panel.dataset.methodPanel !== m; });
+          label = labelFor(m);
+          submits.forEach((b) => { if (!b.disabled) b.textContent = label; });
+        };
+        form.querySelectorAll('input[name="payment_method"]').forEach((r) => r.addEventListener("change", showPanel));
+        showPanel();
         // The mobile money number starts as the WhatsApp number.
         const wa = form.elements.phone;
         const pp = form.elements.payment_phone;
@@ -143,7 +200,7 @@
           pp.addEventListener("input", () => { pp.dataset.edited = "1"; });
         }
         submits.forEach((b) => { b.textContent = label; });
-        form.addEventListener("submit", (e) => { e.preventDefault(); place(form, submits, label); });
+        form.addEventListener("submit", (e) => { e.preventDefault(); place(form, submits, label, method()); });
       }
 
       function showErrors(form, errors) {
@@ -166,27 +223,35 @@
         if (v.full_name.length < 2) e.full_name = "Please enter your full name.";
         if (v.phone.replace(/\D/g, "").length < 9) e.phone = "Please enter a valid WhatsApp number, e.g. 0977 123 456.";
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) e.email = "Please enter a valid email address.";
-        if (ops.length) {
+        if (v.payment_method === "mobile_money") {
           if (!v.mobile_operator) e.mobile_operator = "Please choose your mobile money network.";
           if (v.payment_phone.replace(/\D/g, "").length < 9) e.payment_phone = "Please enter your mobile money number, e.g. 0977 123 456.";
+        }
+        if (v.payment_method === "card") {
+          if (v.address.length < 3) e.address = "Please enter your address.";
+          if (v.city.length < 2) e.city = "Please enter your town or city.";
         }
         return e;
       }
 
-      async function place(form, submits, label) {
+      async function place(form, submits, label, chosen) {
         const alertBox = root.querySelector("#co-alert");
         alertBox.classList.add("hidden");
         const values = {
           full_name: form.elements.full_name.value.trim(),
           phone: form.elements.phone.value.trim(),
           email: form.elements.email.value.trim(),
-          mobile_operator: ops.length ? (form.elements.mobile_operator.value || "") : "",
-          payment_phone: ops.length ? form.elements.payment_phone.value.trim() : "",
+          payment_method: chosen || "",
+          mobile_operator: chosen === "mobile_money" ? (form.elements.mobile_operator.value || "") : "",
+          payment_phone: chosen === "mobile_money" ? form.elements.payment_phone.value.trim() : "",
+          address: chosen === "card" ? form.elements.address.value.trim() : "",
+          city: chosen === "card" ? form.elements.city.value.trim() : "",
         };
         const errors = check(values);
         showErrors(form, errors);
         if (Object.keys(errors).length) return;
-        submits.forEach((b) => { b.disabled = true; b.innerHTML = `<span class="btn-spinner"></span> ${ops.length ? "Sending the payment request…" : "Placing your order…"}`; });
+        const busy = { mobile_money: "Sending the payment request…", card: "Opening the card payment page…" }[chosen] || "Placing your order…";
+        submits.forEach((b) => { b.disabled = true; b.innerHTML = `<span class="btn-spinner"></span> ${busy}`; });
         try {
           const res = await apiRequest("/api/checkout", {
             method: "POST",

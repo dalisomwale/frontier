@@ -187,7 +187,9 @@
               <button type="submit" class="btn-checkout btn-lg w-full mt-5">Pay ${kwacha(c.total)}</button>
               <p class="pay-secure">${phoneIcon}<span>You'll get a prompt on your phone. Enter your PIN to approve. We never see or store your PIN.</span></p>
             </form>` : `<p class="pay-text">Too many attempts. Our team will contact you on WhatsApp to arrange payment.</p>`}
+            ${c.methods ? otherWays(c, "mobile_money") : ""}
           `);
+          if (c.methods) bindSwitch(c);
           const form = root.querySelector(".pay-form");
           if (!form) return;
           form.addEventListener("submit", async (e) => {
@@ -258,8 +260,116 @@
           <a href="/" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to the marketplace</a>`, 3);
         }
 
-        function show(c) {
+        // --- Visa / Mastercard (Lipila's card page) ------------------------
+        const lockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>`;
+        const otherWays = (c, current) => {
+          const links = [];
+          if (current !== "mobile_money" && c.methods.includes("mobile_money")) links.push(`<button type="button" class="pay-alt" data-switch="mobile_money">Pay with mobile money instead</button>`);
+          if (current !== "card" && c.methods.includes("card")) links.push(`<button type="button" class="pay-alt" data-switch="card">Pay by Visa / Mastercard instead</button>`);
+          return links.join("");
+        };
+        function bindSwitch(c) {
+          root.querySelectorAll("[data-switch]").forEach((b) => b.addEventListener("click", () => {
+            clearTimeout(ctimer);
+            if (b.dataset.switch === "card") cardForm({ ...c, status: "unpaid", pay_url: null });
+            else payForm({ ...c, status: "unpaid" });
+          }));
+        }
+
+        function cardForm(c, note) {
+          const failed = c.status === "failed";
+          const canPay = c.attempts_left > 0;
+          page(`${head(c, "Pay by Visa / Mastercard")}
+            ${note ? `<div class="alert alert-info text-sm mt-4" role="status">${note}</div>` : ""}
+            ${failed ? `<div class="alert alert-error text-sm mt-4" role="alert"><b>Payment not completed.</b> ${escapeHtml(c.failure || "The card payment was not approved.")}</div>` : ""}
+            <details class="pay-details"><summary>${c.items.length} item${c.items.length === 1 ? "" : "s"} in this order</summary>${items(c)}</details>
+            ${!canPay ? `<p class="pay-text">Too many attempts. Our team will contact you on WhatsApp to arrange payment.</p>` : c.pay_url ? `
+            <a href="${escapeHtml(c.pay_url)}" class="btn-checkout btn-lg w-full mt-5">${lockIcon}<span>Continue to card payment · ${kwacha(c.total)}</span></a>` : `
+            <form class="pay-form" novalidate>
+              <label for="pay-address" class="field-label">Address</label>
+              <input id="pay-address" name="address" type="text" class="field-input" autocomplete="street-address" maxlength="120" placeholder="e.g. Plot 12, Kabulonga Road">
+              <label for="pay-city" class="field-label mt-4">Town / city</label>
+              <input id="pay-city" name="city" type="text" class="field-input" autocomplete="address-level2" maxlength="60" placeholder="e.g. Lusaka">
+              <p class="field-error hidden" data-pay-error></p>
+              <button type="submit" class="btn-checkout btn-lg w-full mt-5">${lockIcon}<span>Continue to card payment · ${kwacha(c.total)}</span></button>
+            </form>`}
+            <p class="pay-secure">${lockIcon}<span>You'll enter your card details on Lipila's secure payment page, then come back here. Your card details never reach Frontier.</span></p>
+            ${otherWays(c, "card")}`);
+          bindSwitch(c);
+          const form = root.querySelector(".pay-form");
+          if (!form) return;
+          form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const err = form.querySelector("[data-pay-error]");
+            const btn = form.querySelector("button[type=submit]");
+            const address = form.elements.address.value.trim();
+            const city = form.elements.city.value.trim();
+            err.classList.add("hidden");
+            if (address.length < 3 || city.length < 2) {
+              err.textContent = address.length < 3 ? "Please enter your address." : "Please enter your town or city.";
+              err.classList.remove("hidden");
+              return;
+            }
+            btn.disabled = true;
+            btn.innerHTML = `<span class="btn-spinner"></span> Opening the card payment page…`;
+            try {
+              const v = (await apiRequest(papi, { method: "POST", body: { payment_method: "card", address, city } })).data;
+              if (!v.pay_url) throw new Error(v.failure || "We couldn't open the card payment page. Please try again.");
+              window.location.href = v.pay_url;
+            } catch (error) {
+              err.textContent = (error.errors && Object.values(error.errors)[0]) || error.message || "Please try again.";
+              err.classList.remove("hidden");
+              btn.disabled = false;
+              btn.innerHTML = `${lockIcon}<span>Continue to card payment · ${kwacha(c.total)}</span>`;
+            }
+          });
+        }
+
+        // Back from the card page: confirm with Lipila before showing anything.
+        function cardChecking(c) {
+          page(`<div class="text-center">
+            <div class="pay-phone" style="margin:0 auto">${lockIcon}</div>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Checking your payment</h1>
+            <p class="text-sm text-gray-600 mt-2">We're confirming your card payment of <b>${kwacha(c.total)}</b>.</p>
+            <p class="pay-wait-status mt-5"><span class="btn-spinner"></span> <span>Checking…</span></p>
+            <p class="text-xs text-gray-500 mt-5">Order ${escapeHtml(c.reference)} · please keep this page open.</p>
+          </div>`);
+          const started = Date.now();
+          const poll = async () => {
+            let now = null;
+            try { now = (await apiRequest(capi)).data; } catch { /* keep trying */ }
+            if (now && now.status !== "pending") return show(now, true);
+            if (Date.now() - started > 60000) {
+              return cardForm(now || c, "We haven't received confirmation of your card payment yet. If you completed it, this page will update by itself shortly. Otherwise, continue to the card payment page.");
+            }
+            ctimer = setTimeout(poll, 4000);
+          };
+          ctimer = setTimeout(poll, 2500);
+        }
+
+        // --- Bank transfer -------------------------------------------------
+        function bankView(c) {
+          page(`${head(c, "Order placed: pay by bank transfer")}
+            <p class="pay-text">Thank you, ${escapeHtml(c.first_name)}. Your items are reserved. Please transfer <b>${kwacha(c.total)}</b> to the account below, using <b>${escapeHtml(c.reference)}</b> as the payment reference. We've also emailed these details to you.</p>
+            <dl class="bank-box">
+              ${(c.bank || []).map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join("")}
+              <div><dt>Amount</dt><dd>${kwacha(c.total)}</dd></div>
+              <div class="bank-ref"><dt>Payment reference</dt><dd>${escapeHtml(c.reference)}</dd></div>
+            </dl>
+            <p class="pay-text">Once the money arrives we'll confirm by email and contact you on WhatsApp to arrange collection.</p>
+            ${items(c)}
+            ${c.online && c.methods.length > 1 ? `<div class="mt-4">${otherWays({ ...c }, "bank_transfer")}</div>` : ""}
+            <a href="/" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to the marketplace</a>`, 3);
+          bindSwitch(c);
+        }
+
+        function show(c, back) {
           if (c.status === "paid") return paid(c);
+          if (c.method === "bank_transfer" && c.status !== "pending") return bankView(c);
+          if (c.method === "card") {
+            if (c.status === "pending" && (q.returned || back) && !show.leftCard) { show.leftCard = true; return cardChecking(c); }
+            return cardForm(c);
+          }
           if (c.status === "pending") return waiting(c);
           return payForm(c);
         }

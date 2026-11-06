@@ -38,6 +38,31 @@ const payUrl = ourPayPage;
 const provider = () => (lipila.enabled() ? "lipila" : lenco.enabled() ? "lenco" : null);
 // Mobile money networks the buyer can choose.
 const operators = () => (provider() ? ["airtel", "mtn", "zamtel"] : []);
+
+// Frontier's bank account for bank transfers (.env). Bank transfer is offered
+// only when the account number is set.
+function bankDetails() {
+  const e = (k) => (process.env[k] || "").trim();
+  if (!e("BANK_ACCOUNT_NUMBER")) return null;
+  return [
+    ["Bank", e("BANK_NAME")],
+    ["Account name", e("BANK_ACCOUNT_NAME")],
+    ["Account number", e("BANK_ACCOUNT_NUMBER")],
+    ["Branch", e("BANK_BRANCH")],
+    ["Branch code", e("BANK_BRANCH_CODE")],
+    ["SWIFT code", e("BANK_SWIFT")],
+  ].filter(([, v]) => v);
+}
+
+// How buyers can pay at checkout, in order.
+function methods() {
+  const out = [];
+  if (provider()) out.push("mobile_money");
+  if (lipila.cardsEnabled()) out.push("card");
+  if (bankDetails()) out.push("bank_transfer");
+  return out;
+}
+const METHOD_LABELS = { mobile_money: "Mobile money", card: "Visa / Mastercard", bank_transfer: "Bank transfer" };
 const newToken = () => crypto.randomBytes(16).toString("hex");
 
 // Listing details needed to price a cart line. Only published listings with
@@ -105,7 +130,7 @@ async function quote(items) {
   });
   const ok = out.filter((i) => i.available);
   return {
-    payment: { provider: provider(), operators: operators() },
+    payment: { provider: provider(), operators: operators(), methods: methods() },
     items: out,
     total: Math.round(ok.reduce((s, i) => s + i.line_total, 0) * 100) / 100,
     sellers: new Set(ok.map((i) => i.seller_key)).size,
@@ -115,6 +140,7 @@ async function quote(items) {
 // Creates the checkout and one order per cart line in one transaction,
 // taking the animals or feed off the listings so nobody else can buy them.
 async function create(lines, buyer, ip, pay = null) {
+  const method = pay && methods().includes(pay.method) ? pay.method : "mobile_money";
   const clean = cleanLines(lines);
   if (!clean.length) throw badRequest("Your cart is empty.");
   const token = newToken();
@@ -147,9 +173,9 @@ async function create(lines, buyer, ip, pay = null) {
     }
     total = Math.round(total * 100) / 100;
     const [c] = await conn.query(
-      `INSERT INTO checkouts (public_token, full_name, phone, email, item_count, total, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [token, buyer.full_name, buyer.phone, buyer.email, priced.length, total, ip],
+      `INSERT INTO checkouts (public_token, full_name, phone, email, item_count, total, payment_method, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [token, buyer.full_name, buyer.phone, buyer.email, priced.length, total, method, ip],
     );
     checkoutId = c.insertId;
     for (const { l, quantity, lineTotal } of priced) {
@@ -158,9 +184,9 @@ async function create(lines, buyer, ip, pay = null) {
         `INSERT INTO orders
            (livestock_id, livestock_title, seller_id, seller_name, quantity, unit_price, price_unit, total,
             full_name, phone, email, delivery, payment_method, stock_deducted, ip_address, public_token, checkout_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'collect', 'mobile_money', 1, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'collect', ?, 1, ?, ?, ?)`,
         [l.id, l.title, l.seller_id, sellerName, quantity, Number(l.price), l.price_unit, lineTotal,
-          buyer.full_name, buyer.phone, buyer.email, ip, newToken(), checkoutId],
+          buyer.full_name, buyer.phone, buyer.email, method, ip, newToken(), checkoutId],
       );
       const soldOut = Number(l.quantity) - quantity === 0;
       await conn.query(
@@ -178,8 +204,11 @@ async function create(lines, buyer, ip, pay = null) {
   }
 
   let checkout = await load(checkoutId);
-  // With a mobile money number, the PIN prompt goes to the buyer's phone right away.
-  if (provider() && pay && pay.operator && pay.phone) checkout = await startPayment(checkout, pay);
+  // Mobile money: the PIN prompt goes to the buyer's phone right away.
+  // Card: the payment opens on Lipila's card page. Bank transfer: the buyer
+  // gets Frontier's bank details and the team confirms the payment.
+  if (method === "card") checkout = await startCard(checkout, pay);
+  else if (method === "mobile_money" && provider() && pay && pay.operator && pay.phone) checkout = await startPayment(checkout, pay);
   notifyCreated(checkout, created).catch((error) => console.error(`Checkout ${checkoutRef(checkoutId)}: emails failed (${error.message})`));
   return checkout;
 }
@@ -191,7 +220,9 @@ const unitsText = (o) => {
 
 async function notifyCreated(checkout, created) {
   const ref = checkoutRef(checkout.id);
-  const online = Boolean(provider());
+  const method = checkout.payment_method || "mobile_money";
+  const online = method !== "bank_transfer" && Boolean(provider());
+  const bank = method === "bank_transfer" ? bankDetails() : null;
   const itemRows = created.map((o) => [`${orderRef(o.id)} · ${o.l.title}`, `${unitsText(o)} · ${kwacha(o.total)}`]);
   const sellers = new Set(created.map((o) => o.l.seller_id || "frontier")).size;
   const [team] = await Promise.all([
@@ -201,11 +232,16 @@ async function notifyCreated(checkout, created) {
       heading: `New order ${ref}`,
       paragraphs: [
         `${checkout.full_name} checked out ${created.length} item${created.length === 1 ? "" : "s"}${sellers > 1 ? ` from ${sellers} sellers` : ""}. Each item is its own order in Admin > Orders. The stock has been taken off the listings; cancelling an order puts it back.`,
-        online ? "The buyer is paying by mobile money on the website. You'll get another email when the payment goes through." : "Online payment is switched off, so please arrange payment with the buyer.",
+        bank
+          ? "The buyer chose bank transfer and has been sent Frontier's bank details. When the money arrives, mark each order Paid in Admin > Orders."
+          : online
+            ? `The buyer is paying by ${method === "card" ? "card" : "mobile money"} on the website. You'll get another email when the payment goes through.`
+            : "Online payment is switched off, so please arrange payment with the buyer.",
       ],
       rows: [
         ...itemRows,
         ["Total", kwacha(checkout.total)],
+        ["Payment", METHOD_LABELS[method]],
         ["Buyer", checkout.full_name],
         ["WhatsApp", checkout.phone],
         ["Email", checkout.email],
@@ -222,14 +258,23 @@ async function notifyCreated(checkout, created) {
         `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]},`,
         `Thank you for your order. ${created.length === 1 ? "Your item is" : "Your items are"} now reserved for you.`,
       ],
-      rows: [...itemRows, ["Total", kwacha(checkout.total)], ["Collection", "Collect from the farm. We'll arrange it with you."]],
+      rows: [
+        ...itemRows,
+        ["Total", kwacha(checkout.total)],
+        ["Collection", "Collect from the farm. We'll arrange it with you."],
+        ...(bank ? [["Pay by bank transfer to", ""], ...bank, ["Payment reference", ref]] : []),
+      ],
       stepsTitle: "What happens next",
       steps: [
-        online ? "Pay by mobile money (Airtel, MTN or Zamtel) on the payment page, if you haven't yet." : "We contact you to arrange mobile money payment.",
+        bank
+          ? `Pay ${kwacha(checkout.total)} by bank transfer to the account above, using ${ref} as the payment reference.`
+          : online
+            ? "Complete your payment on the payment page, if you haven't yet."
+            : "We contact you to arrange mobile money payment.",
         "We confirm everything with the seller.",
         "We contact you on WhatsApp and email to arrange collection.",
       ],
-      button: online ? { label: "Complete payment", url: appUrl(ourPayPage(checkout)) } : undefined,
+      button: online ? { label: "Complete payment", url: appUrl(ourPayPage(checkout)) } : bank ? { label: "View your order", url: appUrl(ourPayPage(checkout)) } : undefined,
     }),
   ]);
   await pool.query("UPDATE orders SET email_status = ?, email_error = ? WHERE checkout_id = ?", [
@@ -271,14 +316,23 @@ function maskPhone(phone) {
 
 // What the payment page is told.
 function publicView(checkout, orders) {
-  const amount = checkout.payment_status === "paid" ? Number(checkout.total) : due(orders);
+  // Paid when the provider confirmed it, or when the team has marked every
+  // open order paid (bank transfer).
+  const open = orders.filter((o) => o.status !== "cancelled");
+  const settled = checkout.payment_status === "paid" || (open.length > 0 && open.every((o) => o.payment_status === "paid"));
+  const amount = settled ? (checkout.payment_status === "paid" ? Number(checkout.total) : open.reduce((s, o) => s + Number(o.total), 0)) : due(orders);
   const current = provider();
   return {
     provider: current,
     operators: operators(),
+    method: checkout.payment_method || "mobile_money",
+    methods: methods(),
+    bank: checkout.payment_method === "bank_transfer" ? bankDetails() : null,
+    // Card: Lipila's card page for the open payment.
+    pay_url: checkout.payment_method === "card" && checkout.payment_status === "pending" ? checkout.payment_url : null,
     id: checkout.id,
     reference: checkoutRef(checkout.id),
-    status: checkout.payment_status,
+    status: settled ? "paid" : checkout.payment_status,
     failure: checkout.payment_status === "failed" ? checkout.payment_failure : null,
     operator: OPERATOR_LABELS[checkout.mobile_operator] || null,
     operator_key: checkout.mobile_operator,
@@ -286,7 +340,7 @@ function publicView(checkout, orders) {
     total: amount,
     attempts_left: Math.max(0, MAX_ATTEMPTS - Number(checkout.payment_attempts || 0)),
     closed: checkout.payment_status !== "paid" && !orders.some(isOpen),
-    online: Boolean(current),
+    online: Boolean(current) && checkout.payment_method !== "bank_transfer",
     first_name: String(checkout.full_name).trim().split(/\s+/)[0],
     items: orders.map((o) => ({
       reference: orderRef(o.id),
@@ -304,10 +358,10 @@ function publicView(checkout, orders) {
 async function syncOrders(checkout) {
   await pool.query(
     `UPDATE orders SET payment_status = ?, payment_failure = ?, mobile_operator = ?, payment_phone = ?,
-       payment_attempts = ?, payment_reference = ?
+       payment_attempts = ?, payment_reference = ?, payment_method = ?
      WHERE checkout_id = ? AND payment_status <> 'paid' AND status <> 'cancelled'`,
     [checkout.payment_status, checkout.payment_failure, checkout.mobile_operator, checkout.payment_phone,
-      checkout.payment_attempts, checkout.payment_reference, checkout.id],
+      checkout.payment_attempts, checkout.payment_reference, checkout.payment_method || "mobile_money", checkout.id],
   );
 }
 
@@ -322,15 +376,17 @@ async function markPaid(checkout, data) {
   if (!result.affectedRows) return;
   const orders = (await ordersOf(checkout.id)).filter((o) => isOpen(o) && o.payment_status !== "paid");
   await pool.query(
-    `UPDATE orders SET payment_status = 'paid', payment_failure = NULL, paid_at = NOW(), payment_method = 'mobile_money',
+    `UPDATE orders SET payment_status = 'paid', payment_failure = NULL, paid_at = NOW(), payment_method = ?,
        payment_provider_ref = COALESCE(?, payment_provider_ref), mobile_operator = ?, payment_phone = ?,
        status = IF(status IN ('new', 'confirmed'), 'paid', status)
      WHERE checkout_id = ? AND payment_status <> 'paid' AND status NOT IN ('cancelled', 'completed')`,
-    [providerRef, checkout.mobile_operator, checkout.payment_phone, checkout.id],
+    [checkout.payment_method || "mobile_money", providerRef, checkout.mobile_operator, checkout.payment_phone, checkout.id],
   );
   const ref = checkoutRef(checkout.id);
   const amount = kwacha(data.amount || checkout.total);
-  const how = `${OPERATOR_LABELS[checkout.mobile_operator] || "Mobile money"} (${lenco.localPhone(checkout.payment_phone)})`;
+  const how = checkout.payment_method === "card"
+    ? "Visa / Mastercard"
+    : `${OPERATOR_LABELS[checkout.mobile_operator] || "Mobile money"} (${lenco.localPhone(checkout.payment_phone)})`;
   const itemRows = orders.map((o) => [`${orderRef(o.id)} · ${o.livestock_title}`, kwacha(o.total)]);
   const rows = [["Order", ref], ...itemRows, ["Amount paid", amount], ["Paid with", how]];
   if (providerRef) rows.push(["Payment reference", providerRef]);
@@ -411,9 +467,9 @@ async function startLipila(checkout, { operator, phone }) {
   const attempt = Number(checkout.payment_attempts || 0) + 1;
   const reference = paymentReference(checkout.id, attempt);
   await pool.query(
-    `UPDATE checkouts SET payment_provider = 'lipila', payment_status = 'pending', payment_reference = ?,
-       payment_provider_ref = NULL, payment_url = NULL, payment_failure = NULL, total = ?, payment_attempts = ?,
-       payment_checked_at = NOW(), mobile_operator = ?, payment_phone = ?
+    `UPDATE checkouts SET payment_provider = 'lipila', payment_method = 'mobile_money', payment_status = 'pending',
+       payment_reference = ?, payment_provider_ref = NULL, payment_url = NULL, payment_failure = NULL, total = ?,
+       payment_attempts = ?, payment_checked_at = NOW(), mobile_operator = ?, payment_phone = ?
      WHERE id = ? AND payment_status <> 'paid'`,
     [reference, amount, attempt, operator, phone, checkout.id],
   );
@@ -447,6 +503,44 @@ async function startLipila(checkout, { operator, phone }) {
   return load(checkout.id);
 }
 
+// Card: opens a payment on Lipila's card page for whatever is still owed and
+// returns the checkout with payment_url set to that page.
+async function startCard(checkout, details = {}) {
+  const orders = await ordersOf(checkout.id);
+  const amount = due(orders);
+  if (!amount) return checkout;
+  const attempt = Number(checkout.payment_attempts || 0) + 1;
+  const reference = paymentReference(checkout.id, attempt);
+  await pool.query(
+    `UPDATE checkouts SET payment_provider = 'lipila', payment_method = 'card', payment_status = 'pending',
+       payment_reference = ?, payment_provider_ref = NULL, payment_url = NULL, payment_failure = NULL, total = ?,
+       payment_attempts = ?, payment_checked_at = NOW(), mobile_operator = NULL, payment_phone = NULL
+     WHERE id = ? AND payment_status <> 'paid'`,
+    [reference, amount, attempt, checkout.id],
+  );
+  const current = await load(checkout.id);
+  await syncOrders(current);
+  const site = appUrl("/");
+  try {
+    const items = orders.filter((o) => isOpen(o) && o.payment_status !== "paid");
+    const made = await lipila.collectCard({
+      reference,
+      amount,
+      phone: checkout.phone,
+      email: checkout.email,
+      narration: `Frontier Marketplace ${checkoutRef(checkout.id)}: ${items.map((o) => o.livestock_title).join(", ")}`,
+      customer: { name: checkout.full_name, address: details.address, city: details.city },
+      backUrl: appUrl(`/pay/return/${checkout.id}/${checkout.public_token}`),
+      callbackUrl: /^https:\/\//.test(site) ? appUrl("/api/payments/lipila/callback") : undefined,
+    });
+    await pool.query("UPDATE checkouts SET payment_url = ?, payment_provider_ref = ? WHERE id = ?", [made.url, made.identifier, checkout.id]);
+  } catch (error) {
+    console.error(`Checkout ${checkoutRef(checkout.id)}: card payment not started (${error.message})`);
+    await markFailed(current, `We couldn't open the card payment page: ${error.message}`, reference);
+  }
+  return load(checkout.id);
+}
+
 // Sends the PIN prompt with whichever provider is on.
 function startPayment(checkout, pay) {
   if (provider() === "lipila") return startLipila(checkout, pay);
@@ -457,7 +551,7 @@ function startPayment(checkout, pay) {
 async function refreshLipila(checkout) {
   await pool.query("UPDATE checkouts SET payment_checked_at = NOW() WHERE id = ?", [checkout.id]);
   try {
-    const v = await lipila.checkStatus(checkout.payment_reference);
+    const v = await lipila.checkStatus(checkout.payment_reference, checkout.payment_provider_ref);
     if (v.status === "paid") {
       if (v.currency && String(v.currency).toUpperCase() !== "ZMW") {
         await markFailed(checkout, "The payment was made in the wrong currency. Our team will contact you.", checkout.payment_reference);
@@ -552,6 +646,7 @@ async function sendReminders(afterMinutes) {
   const [rows] = await pool.query(
     `SELECT * FROM checkouts
      WHERE payment_status IN ('unpaid', 'failed', 'pending') AND payment_reminder_at IS NULL
+       AND payment_method <> 'bank_transfer'
        AND created_at < NOW() - INTERVAL ? MINUTE AND created_at > NOW() - INTERVAL 3 DAY
      ORDER BY id LIMIT 20`,
     [afterMinutes],
@@ -573,7 +668,9 @@ module.exports = {
   MAX_ATTEMPTS,
   provider,
   operators,
+  methods,
   startPayment,
+  startCard,
   checkOpenPayments,
   refreshLipila,
   checkoutRef,

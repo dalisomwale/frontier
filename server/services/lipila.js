@@ -125,9 +125,58 @@ async function collect({ reference, amount, phone, narration, email, callbackUrl
   };
 }
 
+// Card (Visa / Mastercard): Lipila's hosted card page. Returns
+// { status, url, identifier }; the buyer is sent to url and comes back to
+// backUrl. Card details are entered on Lipila's page only.
+async function collectCard({ reference, amount, phone, narration, email, customer, backUrl, callbackUrl }) {
+  const [first, ...rest] = String(customer.name || "").trim().split(/\s+/);
+  const res = await request("POST", "/collections/card", {
+    body: {
+      customerInfo: {
+        firstName: first || "Customer",
+        lastName: rest.join(" ") || first || "Customer",
+        phoneNumber: msisdn(phone),
+        email,
+        city: String(customer.city || "Lusaka").slice(0, 60),
+        country: "ZM",
+        address: String(customer.address || customer.city || "Zambia").slice(0, 120),
+        zip: String(customer.zip || "10101"),
+      },
+      collectionRequest: {
+        referenceId: reference,
+        amount: Math.round(Number(amount) * 100) / 100,
+        narration: String(narration).slice(0, 100),
+        accountNumber: msisdn(phone),
+        currency: "ZMW",
+        backUrl,
+        referenceData: reference,
+      },
+    },
+    headers: callbackUrl ? { callbackUrl } : {},
+  });
+  if (res.status >= 500 || res.status === 408) {
+    const e = new Error(message(res));
+    e.unknownOutcome = true;
+    throw e;
+  }
+  if (!res.ok || !res.data) {
+    const e = new Error(message(res));
+    e.status = res.status;
+    throw e;
+  }
+  const url = res.data.cardRedirectionUrl;
+  // Only a secure Lipila page (a local test page is allowed for development).
+  if (!url || !/^(https:\/\/|http:\/\/127\.0\.0\.1[:/])/.test(url)) throw new Error(res.data.message || "The card payment page wasn't created.");
+  return { status: classify(res.data.status), url, identifier: res.data.identifier || null, lipilaReference: res.data.referenceId || null };
+}
+
 // Returns { status: pending|paid|failed, amount, currency, message, identifier, externalId }.
-async function checkStatus(reference) {
-  const res = await request("GET", `/collections/check-status?referenceId=${encodeURIComponent(reference)}`);
+// Looks the payment up by our reference, or by Lipila's identifier.
+async function checkStatus(reference, identifier) {
+  let res = await request("GET", `/collections/check-status?referenceId=${encodeURIComponent(reference)}`);
+  if (res.status === 404 && identifier) {
+    res = await request("GET", `/collections/check-status?identifier=${encodeURIComponent(identifier)}`);
+  }
   if (res.status === 404) return { status: "pending", notFound: true };
   if (!res.ok || !res.data) {
     // Lipila sometimes answers with an error while a payment is still being
@@ -147,4 +196,10 @@ async function checkStatus(reference) {
   };
 }
 
-module.exports = { enabled, isSandbox, baseUrl, msisdn, collect, checkStatus };
+// Card payments are offered only once Lipila has enabled them for the
+// account: LIPILA_CARDS=on.
+function cardsEnabled() {
+  return enabled() && /^(on|true|1|yes)$/i.test(String(process.env.LIPILA_CARDS || "").trim());
+}
+
+module.exports = { enabled, cardsEnabled, isSandbox, baseUrl, msisdn, collect, collectCard, checkStatus };
