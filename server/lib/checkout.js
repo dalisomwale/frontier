@@ -654,14 +654,16 @@ function reminderEmails(checkout, orders) {
 
 // Payments can finish while the buyer is away from our site (closed the tab
 // before approving), so open Lipila payments are checked in the background.
-async function checkOpenPayments() {
+// Asks Lipila about pending payments not checked in the last `everySeconds`.
+async function checkOpenPayments(everySeconds = 60) {
   if (!lipila.enabled()) return;
   const [rows] = await pool.query(
     `SELECT * FROM checkouts
      WHERE payment_provider = 'lipila' AND payment_status = 'pending' AND payment_reference IS NOT NULL
        AND created_at > NOW() - INTERVAL 3 DAY
-       AND (payment_checked_at IS NULL OR payment_checked_at < NOW() - INTERVAL 2 MINUTE)
+       AND (payment_checked_at IS NULL OR payment_checked_at < NOW() - INTERVAL ? SECOND)
      ORDER BY id LIMIT 20`,
+    [Math.max(5, Number(everySeconds) || 60)],
   );
   for (const c of rows) await refreshLipila(c);
 }

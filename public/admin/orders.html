@@ -125,17 +125,23 @@
           ${isOpen ? `<tr class="order-detail-row"><td colspan="7"><div class="order-detail" data-detail="${o.id}"><span class="btn-spinner chat-spinner"></span></div></td></tr>` : ""}`;
       }
 
-      async function loadList(page = state.page) {
-        state.page = page;
-        const list = document.getElementById("list");
+      function listParams(page) {
         const params = new URLSearchParams({ page, limit: 25 });
         if (state.status) params.set("status", state.status);
         if (state.q) params.set("q", state.q);
-        let res;
-        try {
-          res = await adminApi(`/api/admin/orders?${params}`);
-        } catch (error) {
-          return renderEmptyState(list, { title: "Could not load orders", message: error.message, icon: "alert" });
+        return params;
+      }
+
+      async function loadList(page = state.page, preloaded) {
+        state.page = page;
+        const list = document.getElementById("list");
+        let res = preloaded;
+        if (!res) {
+          try {
+            res = await adminApi(`/api/admin/orders?${listParams(page)}`);
+          } catch (error) {
+            return renderEmptyState(list, { title: "Could not load orders", message: error.message, icon: "alert" });
+          }
         }
         state.summary = res.summary;
         state.rows = res.data;
@@ -312,6 +318,36 @@
         clearTimeout(searchTimer);
         searchTimer = setTimeout(() => { state.q = e.target.value.trim(); loadList(1); }, 300);
       });
+
+      // Keep the list up to date (payments confirmed, new orders) without a
+      // page reload. Skipped while the team is typing, picking a status or
+      // answering a confirmation, so nothing they're doing is lost.
+      function busy() {
+        const el = document.activeElement;
+        if (el && el.closest && el.closest("#list") && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return true;
+        if ([...document.querySelectorAll("#list textarea, #list input")].some((f) => f.value.trim())) return true;
+        if (document.querySelector(".fixed.inset-0.z-\\[150\\]")) return true;
+        return false;
+      }
+      let refreshing = false;
+      async function refreshQuietly() {
+        if (refreshing || document.visibilityState !== "visible" || busy()) return;
+        refreshing = true;
+        const page = state.page;
+        const key = `${state.status}|${state.q}|${page}`;
+        try {
+          const res = await adminApi(`/api/admin/orders?${listParams(page)}`);
+          // Only redraw when something changed and the view is still the same.
+          const changed = JSON.stringify(res.data) !== JSON.stringify(state.rows) || JSON.stringify(res.summary) !== JSON.stringify(state.summary);
+          if (changed && key === `${state.status}|${state.q}|${state.page}` && !busy()) await loadList(page, res);
+        } catch {
+          // Try again on the next round.
+        } finally {
+          refreshing = false;
+        }
+      }
+      setInterval(refreshQuietly, 15000);
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshQuietly(); });
 
       (async () => {
         await initAdminPage("orders");

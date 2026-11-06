@@ -69,8 +69,22 @@ async function summary() {
   return out;
 }
 
+// Before the team sees the list, ask Lipila about pending payments (at most
+// every 10 seconds, and never holding the page up more than 5 seconds).
+let lastPaymentCheck = 0;
+async function freshPayments() {
+  if (Date.now() - lastPaymentCheck < 10 * 1000) return;
+  lastPaymentCheck = Date.now();
+  const checkout = require("../../lib/checkout");
+  await Promise.race([
+    checkout.checkOpenPayments(10).catch((error) => console.error("Payment check:", error.message)),
+    new Promise((resolve) => setTimeout(resolve, 5000)),
+  ]);
+}
+
 router.get("/", async (req, res, next) => {
   try {
+    await freshPayments();
     const page = positiveInt(req.query.page, 1);
     const limit = Math.min(positiveInt(req.query.limit, 25), 100);
     const where = ["1 = 1"];

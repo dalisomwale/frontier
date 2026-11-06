@@ -96,9 +96,26 @@ async function tick() {
   }
 }
 
+// Pending website payments are checked with Lipila every minute, so orders
+// show as paid soon after the buyer approves, even if Lipila's callback
+// doesn't reach us.
+let checking = false;
+async function checkPayments() {
+  if (checking) return;
+  checking = true;
+  try {
+    await require("../lib/checkout").checkOpenPayments(50);
+  } catch (error) {
+    console.error("Payment check:", error.message);
+  } finally {
+    checking = false;
+  }
+}
+
 function start() {
   setTimeout(tick, 30 * 1000).unref();
   setInterval(tick, EVERY_MS).unref();
+  setInterval(checkPayments, 60 * 1000).unref();
 }
 
 module.exports = { start, tick, paymentReminders, dailySummary, summaryStats };
