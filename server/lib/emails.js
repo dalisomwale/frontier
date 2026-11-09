@@ -255,6 +255,7 @@ async function sellerOrder(order, event, { units, leftOnListing } = {}) {
   return sendEmail({
     to: seller.email,
     subject: content.subject,
+    log: true,
     heading: content.heading,
     paragraphs: [hi(seller.name), content.text],
     rows: content.rows,

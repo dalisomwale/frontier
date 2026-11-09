@@ -53,7 +53,7 @@
         card(`<div class="order-done-icon" style="margin:0 auto">${tick}</div>
           <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Payment received</h1>
           <p class="text-sm text-gray-600 mt-2">Order ${escapeHtml(p.reference)} (${escapeHtml(p.title)}) is paid. We'll contact you on WhatsApp and email to arrange collection.</p>
-          <a href="/" class="btn-contact btn-inquire btn-lg w-full mt-6">Back to the marketplace</a>`);
+          <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-6">Back to listings</a>`);
       }
 
       function showWaiting(p) {
@@ -129,7 +129,7 @@
             title: "We couldn't find this payment",
             message: "The link may be incomplete. Reply to the email we sent you and we'll help.",
             icon: "alert",
-            action: `<a href="/" class="inline-block mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 font-medium">Back to the marketplace</a>`,
+            action: `<a href="/#listings" class="inline-block mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 font-medium">Back to listings</a>`,
           });
         }
       });
@@ -169,7 +169,7 @@
           if (!c.online) {
             return page(`${head(c, "Order placed")}${items(c)}
               <p class="pay-text">Thank you, ${escapeHtml(c.first_name)}. Your items are reserved. Our team will contact you on WhatsApp to complete the mobile money payment.</p>
-              <a href="/" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to the marketplace</a>`, 3);
+              <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to listings</a>`, 3);
           }
           if (c.closed) {
             return page(`${head(c, "This order is closed")}${items(c)}<p class="pay-text">There's nothing left to pay on this order. Questions? Email <a class="underline" href="mailto:info@frontierfc.co.zm">info@frontierfc.co.zm</a>.</p>`);
@@ -261,7 +261,7 @@
             <p class="text-sm text-gray-600 mt-2">Thank you, ${escapeHtml(c.first_name)}. We've received ${kwacha(c.total)} for order ${escapeHtml(c.reference)}. We'll contact you on WhatsApp and email to arrange collection.</p>
           </div>
           ${items(c)}
-          <a href="/" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to the marketplace</a>`, 3);
+          <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to listings</a>`, 3);
         }
 
         // --- Visa / Mastercard (Lipila's card page) ------------------------
@@ -370,7 +370,7 @@
             <p class="pay-text">Once the money arrives we'll confirm by email and contact you on WhatsApp to arrange collection.</p>
             ${items(c)}
             ${c.online && c.methods.length > 1 ? `<div class="mt-4">${otherWays({ ...c }, "bank_transfer")}</div>` : ""}
-            <a href="/" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to the marketplace</a>`, 3);
+            <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to listings</a>`, 3);
           bindSwitch(c);
         }
 
@@ -394,7 +394,7 @@
               title: "We couldn't find this payment",
               message: "The link may be incomplete. Reply to the email we sent you and we'll help.",
               icon: "alert",
-              action: `<a href="/" class="inline-block mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 font-medium">Back to the marketplace</a>`,
+              action: `<a href="/#listings" class="inline-block mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 font-medium">Back to listings</a>`,
             });
           }
         });

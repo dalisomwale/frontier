@@ -99,12 +99,19 @@ async function markPaid(order, data) {
 // The seller hears about an order once (here, or when the team confirms it),
 // without the buyer's contact details.
 async function tellSeller(order) {
-  if (!order.seller_id) return;
+  const ref0 = orderRef(order.id);
+  if (!order.seller_id) {
+    console.log(`Order ${ref0}: no seller email (Frontier's own listing)`);
+    return;
+  }
   const [claim] = await pool.query(
     "UPDATE orders SET seller_notified_at = NOW() WHERE id = ? AND seller_notified_at IS NULL",
     [order.id],
   );
-  if (!claim.affectedRows) return;
+  if (!claim.affectedRows) {
+    console.log(`Order ${ref0}: seller was already told earlier`);
+    return;
+  }
   const [[info]] = await pool.query(
     `SELECT l.quantity AS left_qty, a.name AS animal, a.kind
      FROM livestock l JOIN categories c ON c.id = l.category_id JOIN animals a ON a.id = c.animal_id WHERE l.id = ?`,

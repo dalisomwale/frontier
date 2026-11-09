@@ -507,6 +507,7 @@ async function markPaid(checkout, data) {
   sendEmail({
     to: recipients(),
     subject: `New paid order ${ref}: ${amount}`,
+    log: true,
     heading: `New paid order ${ref}`,
     paragraphs: [
       `${checkout.full_name} paid ${amount} by ${how}. ${orders.length === 1 ? "The order is" : `All ${orders.length} orders are`} now marked Paid, the stock has been taken off the listings, and each seller has been told.`,
