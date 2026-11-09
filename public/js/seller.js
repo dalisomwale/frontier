@@ -171,20 +171,61 @@ const sellerNotifications = {
     document.title = `${n ? `(${n}) ` : ""}My Dashboard - Frontier Marketplace`;
   },
 
+  filter: "all",
+
   render() {
     const list = document.getElementById("notifications-list");
     if (!list) return;
-    list.innerHTML = this.items.length
-      ? this.items.map((n) => `
-          <a href="${escapeHtml(notifLink(n))}" data-notif="${n.id}" class="notif-item ${n.read_at ? "" : "is-unread"}">
-            <span class="notif-dot" aria-hidden="true"></span>
-            <span class="min-w-0 flex-1">
-              <span class="block text-sm font-semibold text-gray-900">${escapeHtml(n.title)}</span>
-              ${n.body ? `<span class="block text-sm text-gray-600 mt-0.5 line-clamp-2">${escapeHtml(n.body)}</span>` : ""}
-              <span class="block text-xs text-gray-400 mt-1">${timeAgo(n.created_at)}</span>
+    const KINDS = {
+      order: { label: "Orders", icon: "cart" },
+      listing: { label: "Listings", icon: "listings" },
+      message: { label: "Messages", icon: "inbox" },
+      account: { label: "Account", icon: "users" },
+    };
+    const kindOf = (n) => (KINDS[n.type] ? n.type : "account");
+    const tabs = [{ key: "all", label: "All" }, ...Object.entries(KINDS).map(([key, k]) => ({ key, label: k.label }))];
+    const count = (key) => (key === "all" ? this.items.length : this.items.filter((n) => kindOf(n) === key).length);
+    const rows = this.items.filter((n) => this.filter === "all" || kindOf(n) === this.filter);
+
+    // Grouped by day: Today, Yesterday, then dates.
+    const dayKey = (v) => new Date(v).toDateString();
+    const today = new Date();
+    const yesterday = new Date(Date.now() - 86400000);
+    const dayLabel = (v) => {
+      const k = dayKey(v);
+      if (k === today.toDateString()) return "Today";
+      if (k === yesterday.toDateString()) return "Yesterday";
+      return new Date(v).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+    };
+    let lastDay = "";
+    const items = rows.map((n) => {
+      const kind = kindOf(n);
+      const day = dayLabel(n.created_at);
+      const head = day !== lastDay ? `<li class="nt-day">${day}</li>` : "";
+      lastDay = day;
+      return `${head}
+        <li>
+          <a href="${escapeHtml(notifLink(n))}" data-notif="${n.id}" class="nt-item ${n.read_at ? "" : "is-unread"}">
+            <span class="nt-icon nt-${kind}" aria-hidden="true">${uiIcon(KINDS[kind].icon)}</span>
+            <span class="nt-text">
+              <span class="nt-title">${escapeHtml(n.title)}</span>
+              ${n.body ? `<span class="nt-body">${escapeHtml(n.body)}</span>` : ""}
+              <span class="nt-time">${timeAgo(n.created_at)}</span>
             </span>
-          </a>`).join("")
-      : `<div class="empty-state"><p class="font-semibold text-gray-800">No notifications yet</p><p class="text-sm mt-1">Updates about your account, listings and messages appear here.</p></div>`;
+            ${n.read_at ? "" : `<span class="nt-new">New</span>`}
+            <span class="nt-chev" aria-hidden="true">${uiIcon("chevronRight")}</span>
+          </a>
+        </li>`;
+    }).join("");
+
+    list.innerHTML = `
+      <div class="sl-toolbar">
+        <div class="seg">${tabs.map((t) => `<button type="button" data-nfilter="${t.key}" class="${t.key === this.filter ? "active" : ""}">${t.label}<span class="count">${count(t.key)}</span></button>`).join("")}</div>
+      </div>
+      ${rows.length
+        ? `<ul class="nt-list">${items}</ul>`
+        : `<div class="empty-state"><p class="font-semibold text-gray-800">${this.items.length ? "Nothing here" : "No notifications yet"}</p><p class="text-sm mt-1">${this.items.length ? "Try another filter." : "Updates about your account, listings, orders and messages appear here."}</p></div>`}`;
+    list.querySelectorAll("[data-nfilter]").forEach((b) => b.addEventListener("click", () => { this.filter = b.dataset.nfilter; this.render(); }));
     list.querySelectorAll("[data-notif]").forEach((a) => a.addEventListener("click", (e) => {
       const target = new URL(a.href, location.origin);
       if (target.pathname === location.pathname) {

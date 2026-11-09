@@ -6087,3 +6087,31 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 @media (max-width: 767px) { .ins-kpi-link[class*="kpi-"] .ins-kpi-value { font-size: 1.6rem; } }
 .listing-card-s { transition: box-shadow .3s, border-color .3s; }
 .listing-card-s.is-pointed { border-color: #facc15; box-shadow: 0 0 0 3px rgba(250, 204, 21, .45); }
+
+/* Seller > Notifications */
+.nt-list { list-style: none; margin: 0; padding: 0 0 6px; }
+.nt-day { padding: 14px 18px 6px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #6b7280; }
+.nt-item { position: relative; display: flex; align-items: flex-start; gap: 14px; margin: 2px 8px; padding: 12px 10px; border-radius: 12px; transition: background-color .15s; }
+.nt-item:hover { background: #f6faf4; }
+.nt-item.is-unread { background: #f3f9ef; }
+.nt-item.is-unread::before { content: ""; position: absolute; left: -8px; top: 14px; bottom: 14px; width: 3px; border-radius: 3px; background: #166534; }
+.nt-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; }
+.nt-icon svg { width: 19px; height: 19px; }
+.nt-order { background: linear-gradient(135deg, #fde047 0%, #bef264 100%); color: #14532d; }
+.nt-listing { background: #166534; color: #fff; }
+.nt-message { background: #0f766e; color: #fff; }
+.nt-account { background: #0f1f12; color: #bef264; }
+.nt-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nt-title { font-size: 14.5px; font-weight: 600; color: #111827; line-height: 1.35; }
+.nt-item.is-unread .nt-title { font-weight: 700; }
+.nt-body { font-size: 13.5px; color: #4b5563; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.nt-time { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+.nt-new { flex-shrink: 0; align-self: center; font-size: 11px; font-weight: 700; color: #14532d; background: #dcfce7; border-radius: 9999px; padding: 2px 8px; }
+.nt-chev { flex-shrink: 0; align-self: center; width: 18px; height: 18px; color: #9ca3af; }
+.nt-chev svg { width: 100%; height: 100%; }
+@media (max-width: 639px) {
+  .nt-item { gap: 12px; margin: 2px 4px; padding: 10px 8px; }
+  .nt-item.is-unread::before { left: -4px; }
+  .nt-icon { width: 36px; height: 36px; border-radius: 10px; }
+  .nt-chev { display: none; }
+}
