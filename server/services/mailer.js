@@ -287,16 +287,21 @@ function buildSimpleEmail(content) {
 // the action that triggered them, so failures are logged and reported.
 // Team emails (sent to the notification list) get the team layout unless
 // the caller says otherwise. Customer and seller emails carry REPLY_TO_EMAIL.
-async function sendEmail({ to, subject, replyTo, ...content }) {
+// log: true also writes a line to the app log when the email goes out.
+async function sendEmail({ to, subject, replyTo, log, ...content }) {
   const list = (Array.isArray(to) ? to : [to]).filter(Boolean);
   if (!list.length) return { sent: false, error: "No recipient" };
-  if (!emailConfig().configured) return { sent: false, error: "Email is not set up" };
+  if (!emailConfig().configured) {
+    if (log) console.error(`Email "${subject}" not sent: email is not set up`);
+    return { sent: false, error: "Email is not set up" };
+  }
   const team = recipients();
   const audience = content.audience || (list.every((address) => team.includes(address)) ? "team" : "public");
   const reply = replyTo || (audience === "public" ? contactSettings().replyTo : "") || undefined;
   try {
     const { text, html } = renderEmail({ ...content, audience });
     await getTransporter().sendMail({ from: emailConfig().from, to: list.join(", "), replyTo: reply, subject, text, html });
+    if (log) console.log(`Email "${subject}" sent to ${list.join(", ")}`);
     return { sent: true };
   } catch (error) {
     console.error(`Email "${subject}" failed:`, error.message);

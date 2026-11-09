@@ -261,15 +261,9 @@ const unitsText = (o) => {
 
 async function notifyCreated(checkout, created) {
   const method0 = checkout.payment_method || "mobile_money";
-  // Mobile money and card: the team hears once the payment is confirmed; the
-  // buyer is told what to do now. If the payment couldn't even be started,
-  // the buyer sees that on the page and nothing is sent.
-  if (holdsStock(method0)) {
-    // Card buyers pay on the page there and then, so only mobile money buyers
-    // get this email (they may approve the prompt later).
-    if (checkout.payment_status === "pending" && method0 === "mobile_money") await paymentStartedEmail(checkout, created);
-    return;
-  }
+  // Mobile money and card: no email yet. The buyer's only email is
+  // "Payment received", and the team hears once the payment is confirmed.
+  if (holdsStock(method0)) return;
   const ref = checkoutRef(checkout.id);
   const method = method0;
   const online = method !== "bank_transfer" && Boolean(provider());
@@ -339,34 +333,6 @@ async function notifyCreated(checkout, created) {
   for (const o of created) {
     if (o.soldOut && o.l.seller_id) emails.listingSoldOut(o.l.seller_id, { id: o.l.id, title: o.l.title });
   }
-}
-
-// Buyer: "Approve the payment on your phone" / "Complete your card payment".
-async function paymentStartedEmail(checkout, created) {
-  const ref = checkoutRef(checkout.id);
-  const card = checkout.payment_method === "card";
-  const itemRows = created.map((o) => [`${orderRef(o.id)} · ${o.l.title}`, `${unitsText(o)} · ${kwacha(o.total)}`]);
-  const network = OPERATOR_LABELS[checkout.mobile_operator] || "mobile money";
-  await sendEmail({
-    to: checkout.email,
-    subject: card ? `Complete your card payment for order ${ref}` : `Approve the payment for order ${ref} on your phone`,
-    heading: card ? "Complete your card payment" : "Approve the payment on your phone",
-    paragraphs: [
-      `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]},`,
-      card
-        ? `Thank you for your order. Enter your card details on the secure card form to pay ${kwacha(checkout.total)}.`
-        : `Thank you for your order. We've sent a ${network} payment request for ${kwacha(checkout.total)} to ${maskPhone(checkout.payment_phone)}. Enter your PIN on your phone to approve it.`,
-    ],
-    rows: [...itemRows, ["Total", kwacha(checkout.total)], ["Order", ref]],
-    stepsTitle: "What happens next",
-    steps: [
-      `Your ${created.length === 1 ? "item is" : "items are"} held for you for ${HOLD_MINUTES} minutes while you pay.`,
-      "You'll get an email as soon as your payment is confirmed, and the seller is told.",
-      "We'll contact you on WhatsApp and email to arrange collection from the farm.",
-    ],
-    button: { label: card ? "Complete payment" : "View your order", url: appUrl(ourPayPage(checkout)) },
-    after: ["Didn't get the prompt, or it expired? Open your order and send it again."],
-  });
 }
 
 async function load(id) {
@@ -527,6 +493,7 @@ async function markPaid(checkout, data) {
   sendEmail({
     to: checkout.email,
     subject: `Payment received for order ${ref}`,
+    log: true,
     heading: "Payment received",
     paragraphs: [
       `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]}, we've received your payment of ${amount} for order ${ref}. Thank you.`,
@@ -565,8 +532,8 @@ async function markPaid(checkout, data) {
 }
 
 // The payment didn't go through. The held items are released right away so
-// others can buy them; with notify, the buyer is emailed (once per attempt).
-async function markFailed(checkout, reason, reference, notify = false) {
+// others can buy them.
+async function markFailed(checkout, reason, reference) {
   await pool.query(
     `UPDATE checkouts SET payment_status = 'failed', payment_failure = ?
      WHERE id = ? AND payment_status <> 'paid' AND (? IS NULL OR payment_reference = ?)`,
@@ -576,30 +543,11 @@ async function markFailed(checkout, reason, reference, notify = false) {
   if (!fresh || fresh.payment_status !== "failed") return;
   await syncOrders(fresh);
   await pool.query("UPDATE orders SET hold_until = NULL WHERE checkout_id = ? AND stock_deducted = 0", [checkout.id]);
-  if (!notify || !fresh.payment_reference) return;
-  const [claim] = await pool.query(
-    "UPDATE checkouts SET failure_emailed_ref = ? WHERE id = ? AND (failure_emailed_ref IS NULL OR failure_emailed_ref <> ?)",
-    [fresh.payment_reference, fresh.id, fresh.payment_reference],
-  );
-  if (!claim.affectedRows) return;
-  const orders = await ordersOf(fresh.id);
-  const ref = checkoutRef(fresh.id);
-  sendEmail({
-    to: fresh.email,
-    subject: `Your payment for order ${ref} didn't go through`,
-    heading: "Your payment didn't go through",
-    paragraphs: [
-      `Hi ${String(fresh.full_name).trim().split(/\s+/)[0]},`,
-      `Your ${fresh.payment_method === "card" ? "card" : "mobile money"} payment of ${kwacha(due(orders))} for order ${ref} wasn't completed${fresh.payment_failure ? ` (${fresh.payment_failure.replace(/\.$/, "")})` : ""}.`,
-      "You can try again from your order page while the items are still available.",
-    ],
-    rows: [...orders.filter(isOpen).map((o) => [`${orderRef(o.id)} · ${o.livestock_title}`, kwacha(o.total)]), ["Amount", kwacha(due(orders))]],
-    button: { label: "Try again", url: appUrl(ourPayPage(fresh)) },
-    after: ["If money left your account anyway, reply to this email and we'll check it with the payment provider."],
-  });
+  // The buyer sees the failure on their payment page and can try again
+  // there; they are only emailed once a payment succeeds.
 }
 
-async function applyCollection(checkout, data, notify = false) {
+async function applyCollection(checkout, data) {
   const status = data && data.status;
   if (status === "successful") {
     if (Number(data.amount) + 0.005 < Number(checkout.total)) {
@@ -607,7 +555,7 @@ async function applyCollection(checkout, data, notify = false) {
     }
     return markPaid(checkout, data);
   }
-  if (status === "failed") return markFailed(checkout, data.reasonForFailure, data.reference, notify);
+  if (status === "failed") return markFailed(checkout, data.reasonForFailure, data.reference);
 }
 
 // Before another payment attempt: hold the items again for HOLD_MINUTES,
@@ -801,7 +749,7 @@ async function refreshLipila(checkout) {
         });
       }
     } else if (v.status === "failed") {
-      await markFailed(checkout, v.message || "The payment was not approved.", checkout.payment_reference, true);
+      await markFailed(checkout, v.message || "The payment was not approved.", checkout.payment_reference);
     }
   } catch (error) {
     await pool.query("UPDATE checkouts SET payment_check_error = ? WHERE id = ?", [String(error.message).slice(0, 255), checkout.id]);
@@ -813,7 +761,8 @@ async function refreshLipila(checkout) {
 }
 
 // No clear answer after ALERT_AFTER_MIN minutes: tell the team (check the
-// Lipila dashboard) and the buyer (don't pay twice). Sent once per attempt.
+// Lipila dashboard). Sent once per attempt. The buyer's page says the payment
+// is being confirmed and not to pay twice.
 // Mobile money prompts expire within minutes, so a long "pending" is unusual;
 // a card page left open is normal, so cards only count when checks fail.
 async function alertIfUnconfirmed(checkout) {
@@ -847,18 +796,6 @@ async function alertIfUnconfirmed(checkout) {
     button: orders[0] ? { label: "Open order", url: appUrl(`/admin/orders.html?id=${orders[0].id}`) } : undefined,
     replyTo: checkout.email,
   });
-  sendEmail({
-    to: checkout.email,
-    subject: `We're confirming your payment for order ${ref}`,
-    heading: "We're confirming your payment",
-    paragraphs: [
-      `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]},`,
-      `We haven't yet received confirmation of your ${checkout.payment_method === "card" ? "card" : "mobile money"} payment of ${amount} for order ${ref}. Our team is checking it with the payment provider.`,
-      "If money has left your account, please don't pay again. We'll email you as soon as it's confirmed. If you didn't approve the payment, you can try again from your order page.",
-    ],
-    rows: [...items, ["Amount", amount]],
-    button: { label: "View your order", url: appUrl(ourPayPage(checkout)) },
-  });
 }
 
 // Asks the provider for news on a pending payment (at most every few seconds).
@@ -876,7 +813,7 @@ async function refresh(checkout) {
   await pool.query("UPDATE checkouts SET payment_checked_at = NOW() WHERE id = ?", [checkout.id]);
   try {
     const data = await lenco.collectionStatus(checkout.payment_reference);
-    await applyCollection(checkout, { ...data, reference: data.reference || checkout.payment_reference }, true);
+    await applyCollection(checkout, { ...data, reference: data.reference || checkout.payment_reference });
   } catch (error) {
     if (error.status !== 404) console.error(`Checkout ${checkoutRef(checkout.id)}: status check failed (${error.message})`);
   }
@@ -891,20 +828,6 @@ function reminderEmails(checkout, orders) {
   const items = orders.filter(isOpen).map((o) => [`${orderRef(o.id)} · ${o.livestock_title}`, kwacha(o.total)]);
   const tried = checkout.payment_status === "failed";
   return Promise.all([
-    sendEmail({
-      to: checkout.email,
-      subject: tried ? `Your payment for order ${ref} didn't go through` : `Complete your payment for order ${ref}`,
-      heading: tried ? "Your payment didn't go through" : "Complete your payment",
-      paragraphs: [
-        `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]},`,
-        tried
-          ? `Your mobile money payment for order ${ref} wasn't completed${checkout.payment_failure ? ` (reason: ${checkout.payment_failure})` : ""}.`
-          : `We haven't received your payment for order ${ref} yet. Complete it to secure your items.`,
-      ],
-      rows: [...items, ["Amount", amount]],
-      button: { label: "Complete payment", url: appUrl(ourPayPage(checkout)) },
-      after: ["Prefer to pay another way? Reply to this email and we'll help."],
-    }),
     sendEmail({
       to: recipients(),
       subject: `Unpaid order ${ref}: ${amount}`,
