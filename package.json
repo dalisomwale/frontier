@@ -10,6 +10,7 @@
     "create-admin": "node scripts/create-admin.js",
     "test-email": "node scripts/test-email.js",
     "lipila:status": "node scripts/lipila-status.js",
+    "lipila:card-test": "node scripts/lipila-card-test.js",
     "build:css": "tailwindcss -i ./src/tailwind.css -o ./public/css/tailwind.css --minify"
   },
   "engines": {

@@ -130,10 +130,9 @@ async function collect({ reference, amount, phone, narration, email, callbackUrl
 // Card (Visa / Mastercard): Lipila's hosted card page. Returns
 // { status, url, identifier }; the buyer is sent to url and comes back to
 // backUrl. Card details are entered on Lipila's page only.
-async function collectCard({ reference, amount, phone, narration, email, customer, backUrl, callbackUrl }) {
+function cardBody({ reference, amount, phone, narration, email, customer, backUrl }) {
   const [first, ...rest] = String(customer.name || "").trim().split(/\s+/);
-  const res = await request("POST", "/collections/card", {
-    body: {
+  return {
       customerInfo: {
         firstName: first || "Customer",
         lastName: rest.join(" ") || first || "Customer",
@@ -153,7 +152,12 @@ async function collectCard({ reference, amount, phone, narration, email, custome
         backUrl,
         referenceData: reference,
       },
-    },
+  };
+}
+
+async function collectCard({ callbackUrl, ...details }) {
+  const res = await request("POST", "/collections/card", {
+    body: cardBody(details),
     headers: callbackUrl ? { callbackUrl } : {},
   });
   if (res.status >= 500 || res.status === 408) {
@@ -257,9 +261,12 @@ async function canEmbed(url, ourOrigin) {
   const timer = setTimeout(() => controller.abort(), 6000);
   let ok = false;
   try {
-    // Opening the page charges nothing; it only shows the card form.
-    const res = await fetch(url, { method: "GET", redirect: "follow", signal: controller.signal });
-    ok = res.status < 400 && framingAllowed(res.headers, ourOrigin);
+    // We never open the buyer's own payment link (it may work only once):
+    // the same page without its payment details carries the site's framing
+    // headers too.
+    const u = new URL(url);
+    const res = await fetch(`${u.origin}${u.pathname}`, { method: "GET", redirect: "manual", signal: controller.signal });
+    ok = res.status < 500 && framingAllowed(res.headers, ourOrigin);
     if (res.body && res.body.cancel) res.body.cancel().catch(() => {});
   } catch {
     ok = false;
@@ -270,4 +277,4 @@ async function canEmbed(url, ourOrigin) {
   return ok;
 }
 
-module.exports = { enabled, cardsEnabled, isSandbox, baseUrl, msisdn, collect, collectCard, checkStatus, canEmbed, framingAllowed };
+module.exports = { enabled, cardsEnabled, isSandbox, baseUrl, msisdn, collect, collectCard, cardBody, checkStatus, canEmbed, framingAllowed };
