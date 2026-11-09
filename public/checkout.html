@@ -41,13 +41,14 @@
       let ops = [];
       let methods = [];
       const METHOD_NAMES = {
-        mobile_money: ["Mobile money", "Airtel Money, MTN MoMo or Zamtel Kwacha"],
-        card: ["Visa / Mastercard", "Pay by card on a secure page"],
-        bank_transfer: ["Bank transfer", "Pay into Frontier's bank account"],
+        mobile_money: ["Mobile money", "Airtel, MTN or Zamtel"],
+        card: ["Visa / Mastercard", "Secure card page"],
+        bank_transfer: ["Bank transfer", "Into Frontier's account"],
       };
       const lockSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>`;
       const bankSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10h18L12 4 3 10Z"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/></svg>`;
       const OP_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
+      const cardSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19M6.5 15h4"/></svg>`;
       const phoneSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></svg>`;
 
       function summaryLine(item) {
@@ -95,6 +96,22 @@
                     <input id="co-email" name="email" type="email" class="field-input" autocomplete="email" inputmode="email" maxlength="255" required>
                     <p class="field-error hidden" data-error-for="email"></p>
                   </div>
+                  <div>
+                    <label for="co-phone" class="field-label">Phone number</label>
+                    <input id="co-phone" name="phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" required placeholder="0977 123 456">
+                    <p class="field-error hidden" data-error-for="phone"></p>
+                  </div>
+                  ${methods.includes("card") ? `
+                  <div data-card-only hidden>
+                    <label for="co-city" class="field-label">Town / city</label>
+                    <input id="co-city" name="city" type="text" class="field-input" autocomplete="address-level2" maxlength="60" placeholder="e.g. Lusaka">
+                    <p class="field-error hidden" data-error-for="city"></p>
+                  </div>
+                  <div class="sm:col-span-2" data-card-only hidden>
+                    <label for="co-address" class="field-label">Address</label>
+                    <input id="co-address" name="address" type="text" class="field-input" autocomplete="street-address" maxlength="120" placeholder="e.g. Plot 12, Kabulonga Road">
+                    <p class="field-error hidden" data-error-for="address"></p>
+                  </div>` : ""}
                 </div>
               </section>
 
@@ -103,8 +120,9 @@
                 ${methods.length > 1 ? `
                 <div class="pm-choices" role="radiogroup" aria-label="How you'd like to pay">
                   ${methods.map((m, n) => `<label class="pm-choice"><input type="radio" name="payment_method" value="${m}" ${n === 0 ? "checked" : ""}>
-                    <span class="pm-dot" aria-hidden="true"></span>
-                    <span class="pm-text"><b>${METHOD_NAMES[m][0]}</b><small>${METHOD_NAMES[m][1]}</small></span></label>`).join("")}
+                    <span class="pm-icon">${METHOD_ICONS[m]}</span>
+                    <span class="pm-text"><b>${METHOD_NAMES[m][0]}</b><small>${METHOD_NAMES[m][1]}</small></span>
+                    <span class="pm-dot" aria-hidden="true"></span></label>`).join("")}
                 </div>
                 <p class="field-error hidden" data-error-for="payment_method"></p>` : ""}
 
@@ -123,40 +141,16 @@
 
                 ${methods.includes("card") ? `
                 <div data-method-panel="card" class="pm-panel" hidden>
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="sm:col-span-2">
-                      <label for="co-address" class="field-label">Address</label>
-                      <input id="co-address" name="address" type="text" class="field-input" autocomplete="street-address" maxlength="120" placeholder="e.g. Plot 12, Kabulonga Road">
-                      <p class="field-error hidden" data-error-for="address"></p>
-                    </div>
-                    <div>
-                      <label for="co-city" class="field-label">Town / city</label>
-                      <input id="co-city" name="city" type="text" class="field-input" autocomplete="address-level2" maxlength="60" placeholder="e.g. Lusaka">
-                      <p class="field-error hidden" data-error-for="city"></p>
-                    </div>
-                    <div>
-                      <label for="co-card-phone" class="field-label">Phone number</label>
-                      <input id="co-card-phone" name="card_phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" placeholder="0977 123 456">
-                      <p class="field-error hidden" data-error-for="card_phone"></p>
-                    </div>
-                  </div>
                   <p class="co-pay-note" data-card-note>${lockSvg}<span>When you tap Pay, you'll enter your card details on Lipila's secure card page, then come back here. Your card details never reach Frontier.</span></p>
                   <div data-card-slot></div>
                 </div>` : ""}
 
                 ${methods.includes("bank_transfer") ? `
                 <div data-method-panel="bank_transfer" class="pm-panel" hidden>
-                  <label for="co-bank-phone" class="field-label">Phone number</label>
-                  <input id="co-bank-phone" name="bank_phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" placeholder="0977 123 456">
-                  <p class="field-error hidden" data-error-for="bank_phone"></p>
                   <p class="co-pay-note">${bankSvg}<span>After you place the order we'll show Frontier's bank details, and email them to you. Pay the total using your order number as the reference. Your items stay reserved while we wait for the transfer, and we'll confirm once it arrives.</span></p>
                 </div>` : ""}
 
-                ${!methods.length ? `
-                  <label for="co-other-phone" class="field-label">Phone number</label>
-                  <input id="co-other-phone" name="other_phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" placeholder="0977 123 456">
-                  <p class="field-error hidden" data-error-for="other_phone"></p>
-                  <p class="text-sm text-gray-600 mt-3">Our team will contact you to arrange payment.</p>` : ""}
+                ${!methods.length ? `<p class="text-sm text-gray-600">Our team will contact you to arrange payment.</p>` : ""}
               </section>
 
               <p class="text-xs text-gray-500">By placing this order you agree to our <a href="/terms.html" class="underline">Terms</a>, <a href="/refund-policy.html" class="underline">Refund</a>, <a href="/return-policy.html" class="underline">Return</a> and <a href="/cancellation-policy.html" class="underline">Cancellation</a> policies.</p>
@@ -187,15 +181,22 @@
         const showPanel = () => {
           const m = method();
           form.querySelectorAll("[data-method-panel]").forEach((panel) => { panel.hidden = panel.dataset.methodPanel !== m; });
+          // Address and town: only card payments need them.
+          form.querySelectorAll("[data-card-only]").forEach((el) => { el.hidden = m !== "card"; });
           label = labelFor(m);
           submits.forEach((b) => { if (!b.disabled) b.textContent = label; });
         };
         form.querySelectorAll('input[name="payment_method"]').forEach((r) => r.addEventListener("change", showPanel));
         showPanel();
-        if (form.elements.payment_phone) {
+        // The mobile money number starts as the phone number; the buyer can change it.
+        const ph = form.elements.phone;
+        const pp = form.elements.payment_phone;
+        if (pp) {
           form.querySelectorAll('input[name="mobile_operator"]').forEach((r) => r.addEventListener("change", () => {
             form.querySelector('[data-error-for="mobile_operator"]').classList.add("hidden");
           }));
+          ph.addEventListener("input", () => { if (!pp.dataset.edited) pp.value = ph.value; });
+          pp.addEventListener("input", () => { pp.dataset.edited = "1"; });
         }
         submits.forEach((b) => { b.textContent = label; });
         form.addEventListener("submit", (e) => { e.preventDefault(); place(form, submits, label, method()); });
@@ -216,14 +217,10 @@
         }
       }
 
-      // Where the buyer's contact number is typed, by payment method.
-      const PHONE_FIELD = { mobile_money: "payment_phone", card: "card_phone", bank_transfer: "bank_phone" };
-
       function check(v) {
         const e = {};
         if (v.full_name.length < 2) e.full_name = "Please enter your full name.";
-        // Mobile money: the paying number is also the contact number.
-        if (v.payment_method !== "mobile_money" && v.phone.replace(/\D/g, "").length < 9) e[PHONE_FIELD[v.payment_method] || "other_phone"] = "Please enter your phone number, e.g. 0977 123 456.";
+        if (v.phone.replace(/\D/g, "").length < 9) e.phone = "Please enter your phone number, e.g. 0977 123 456.";
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) e.email = "Please enter a valid email address.";
         if (v.payment_method === "mobile_money") {
           if (!v.mobile_operator) e.mobile_operator = "Please choose your mobile money network.";
@@ -241,7 +238,7 @@
         alertBox.classList.add("hidden");
         const values = {
           full_name: form.elements.full_name.value.trim(),
-          phone: ((form.elements[PHONE_FIELD[chosen] || "other_phone"] || {}).value || "").trim(),
+          phone: form.elements.phone.value.trim(),
           email: form.elements.email.value.trim(),
           payment_method: chosen || "",
           mobile_operator: chosen === "mobile_money" ? (form.elements.mobile_operator.value || "") : "",
@@ -264,11 +261,7 @@
           if (chosen === "card" && d.card_url && d.card_embed) return showCardForm(form, submits, d);
           window.location.href = d.pay_url;
         } catch (error) {
-          if (error.errors) {
-            const errs = { ...error.errors };
-            if (errs.phone) { errs[PHONE_FIELD[chosen] || "other_phone"] = errs[PHONE_FIELD[chosen] || "other_phone"] || errs.phone; delete errs.phone; }
-            showErrors(form, errs);
-          }
+          if (error.errors) showErrors(form, error.errors);
           alertBox.innerHTML = escapeHtml(error.message || "Your order could not be placed. Please try again.")
             + (error.status === 409 ? ` <a href="/cart.html" class="underline font-semibold">Review your cart</a>` : "");
           alertBox.classList.remove("hidden");
@@ -289,6 +282,8 @@
         slot.scrollIntoView({ behavior: "smooth", block: "start" });
         watchCardPayment(d.id, d.token, () => { window.location.href = d.page_url; });
       }
+
+      const METHOD_ICONS = { mobile_money: phoneSvg, card: cardSvg, bank_transfer: bankSvg };
 
       document.addEventListener("DOMContentLoaded", load);
     </script>
