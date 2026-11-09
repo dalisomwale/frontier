@@ -274,6 +274,8 @@
       function openEditor(s = {}, after) {
         openFormModal({
           title: s.id ? "Edit Seller" : "Add Seller",
+          crumb: s.id && !document.querySelector(".seller-view") ? s.name : undefined,
+          params: s.id ? undefined : { new: 1 },
           submitText: s.id ? "Save Changes" : "Add Seller",
           wide: true,
           body: `
@@ -316,154 +318,148 @@
         } catch (error) {
           return showNotification(error.message, "error");
         }
-        document.getElementById("seller-modal")?.remove();
-        const backdrop = document.createElement("div");
-        backdrop.id = "seller-modal";
-        backdrop.className = "modal-backdrop";
+        const view = openAdminView({ title: s.name, params: { id: s.id } });
+        view.el.classList.add("seller-view");
+        const refresh = async () => {
+          try {
+            s = (await adminApi(`/api/admin/sellers/${s.id}`)).data;
+          } catch (error) {
+            return showNotification(error.message, "error");
+          }
+          view.setTitle(s.name);
+          paint();
+        };
+        const paint = () => {
+          const listingRows = s.listings.map((l) => `
+            <a href="/admin/livestock.html?edit=${l.id}" class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
+              <span class="w-14 h-10 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : livestockFallbackMedia("w-6 h-6")}</span>
+              <div class="min-w-0 flex-1">
+                <p class="font-semibold text-gray-900 truncate">${escapeHtml(l.title)}</p>
+                <p class="text-xs text-gray-500 truncate">${escapeHtml([l.breed_name, l.location].filter(Boolean).join(", "))}</p>
+              </div>
+              <div class="flex flex-col items-end gap-1 flex-shrink-0 text-xs">
+                ${l.review_status === "pending" ? `<span class="status-pill st-pending">In review</span>`
+                  : l.review_status === "rejected" ? `<span class="status-pill st-rejected">Changes requested</span>`
+                  : `<span class="status-pill ${l.status === "published" ? "st-published" : "st-unpublished"}">${l.status === "published" ? "Published" : "Unpublished"}</span>`}
+                <span class="${l.verification === "verified" ? "text-blue-700" : "text-amber-700"} font-semibold">${l.verification === "verified" ? "Verified" : "Unverified"}</span>
+              </div>
+            </a>`).join("");
 
-        const listingRows = s.listings.map((l) => `
-          <a href="/admin/livestock.html?edit=${l.id}" class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
-            <span class="w-14 h-10 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : livestockFallbackMedia("w-6 h-6")}</span>
-            <div class="min-w-0 flex-1">
-              <p class="font-semibold text-gray-900 truncate">${escapeHtml(l.title)}</p>
-              <p class="text-xs text-gray-500 truncate">${escapeHtml([l.breed_name, l.location].filter(Boolean).join(", "))}</p>
-            </div>
-            <div class="flex flex-col items-end gap-1 flex-shrink-0 text-xs">
-              ${l.review_status === "pending" ? `<span class="status-pill st-pending">In review</span>`
-                : l.review_status === "rejected" ? `<span class="status-pill st-rejected">Changes requested</span>`
-                : `<span class="status-pill ${l.status === "published" ? "st-published" : "st-unpublished"}">${l.status === "published" ? "Published" : "Unpublished"}</span>`}
-              <span class="${l.verification === "verified" ? "text-blue-700" : "text-amber-700"} font-semibold">${l.verification === "verified" ? "Verified" : "Unverified"}</span>
-            </div>
-          </a>`).join("");
+          const inquiryRows = s.inquiries.map((i) => `
+            <a href="/admin/inquiries.html?id=${i.id}" class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
+              <span class="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0">${escapeHtml(i.full_name.charAt(0).toUpperCase())}</span>
+              <div class="min-w-0 flex-1">
+                <p class="font-semibold text-gray-900 truncate">${escapeHtml(i.full_name)}</p>
+                <p class="text-xs text-gray-500 truncate">${escapeHtml(i.livestock_title)}</p>
+              </div>
+              <div class="text-right flex-shrink-0">
+                ${statusPill(i.status, STATUS_LABELS[i.status])}
+                <p class="text-xs text-gray-400 mt-1">${i.is_archived ? "Archived, " : ""}${timeAgo(i.created_at)}</p>
+              </div>
+            </a>`).join("");
 
-        const inquiryRows = s.inquiries.map((i) => `
-          <a href="/admin/inquiries.html?id=${i.id}" class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
-            <span class="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0">${escapeHtml(i.full_name.charAt(0).toUpperCase())}</span>
-            <div class="min-w-0 flex-1">
-              <p class="font-semibold text-gray-900 truncate">${escapeHtml(i.full_name)}</p>
-              <p class="text-xs text-gray-500 truncate">${escapeHtml(i.livestock_title)}</p>
-            </div>
-            <div class="text-right flex-shrink-0">
-              ${statusPill(i.status, STATUS_LABELS[i.status])}
-              <p class="text-xs text-gray-400 mt-1">${i.is_archived ? "Archived, " : ""}${timeAgo(i.created_at)}</p>
-            </div>
-          </a>`).join("");
+          const stat = (label, value, tone = "text-gray-900") => `
+            <div class="rounded-lg border border-gray-200 p-3 text-center">
+              <p class="text-xl font-bold ${tone}">${Number(value)}</p>
+              <p class="text-xs text-gray-500">${label}</p>
+            </div>`;
 
-        const stat = (label, value, tone = "text-gray-900") => `
-          <div class="rounded-lg border border-gray-200 p-3 text-center">
-            <p class="text-xl font-bold ${tone}">${Number(value)}</p>
-            <p class="text-xs text-gray-500">${label}</p>
-          </div>`;
 
-        backdrop.innerHTML = `
-          <div class="modal-panel modal-wide" role="dialog" aria-modal="true" aria-labelledby="seller-title">
-            <div class="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100">
+          view.body.innerHTML = `
+            <div class="sv-head">
               <div class="min-w-0">
-                <div class="flex items-center gap-2">
-                  <h2 id="seller-title" class="text-lg font-bold text-gray-900 truncate">${escapeHtml(s.name)}</h2>
+                <div class="flex flex-wrap items-center gap-2">
+                  <h1 class="admin-view-title !mb-0">${escapeHtml(s.name)}</h1>
                   ${sellerStatusPill(s.status)}
                   ${accountPill(s)}
                 </div>
-                ${s.business_name ? `<p class="text-sm text-gray-500">${escapeHtml(s.business_name)}</p>` : ""}
+                ${s.business_name ? `<p class="text-sm text-gray-500 mt-1">${escapeHtml(s.business_name)}</p>` : ""}
               </div>
-              <button type="button" data-close class="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 flex-shrink-0" aria-label="Close"><span class="w-5 h-5">${uiIcon("close")}</span></button>
-            </div>
-            <div class="p-5 space-y-5">
-              ${s.account_status ? `
-                <div class="rounded-lg border ${s.account_status === "pending" ? "border-amber-200 bg-amber-50" : s.account_status === "rejected" ? "border-red-200 bg-red-50" : "border-gray-200 bg-gray-50"} p-4 text-sm">
-                  <div class="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p class="font-semibold text-gray-900">${s.account_status === "pending" ? "Registered online, waiting for your approval" : s.account_status === "rejected" ? "Account not approved" : "Seller account approved"}</p>
-                      <p class="text-gray-600 mt-0.5">Registered ${formatDateShort(s.created_at)}${s.approved_at ? `, approved ${formatDateShort(s.approved_at)}` : ""}${s.last_login_at ? `, last signed in ${timeAgo(s.last_login_at)}` : ""}</p>
-                      ${s.account_note ? `<p class="text-gray-700 mt-1">Note: ${escapeHtml(s.account_note)}</p>` : ""}
-                    </div>
-                    <div class="flex gap-2">
-                      ${s.account_status !== "approved" ? `<button type="button" data-account="approve" class="px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 font-semibold">Approve</button>` : ""}
-                      ${s.account_status !== "rejected" ? `<button type="button" data-account="reject" class="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium">${s.account_status === "approved" ? "Revoke" : "Reject"}</button>` : ""}
-                    </div>
-                  </div>
-                </div>` : ""}
-              <div class="grid ${s.email ? "grid-cols-3" : "grid-cols-2"} gap-2">
-                <a href="tel:${escapeHtml(s.phone.replace(/[^\d+]/g, ""))}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-blue-600">${uiIcon("phone")}</span>Call</a>
-                <a href="https://wa.me/${whatsappNumber(s.phone)}" target="_blank" rel="noopener" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-green-500 hover:bg-green-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-green-600">${uiIcon("inquire")}</span>WhatsApp</a>
-                ${s.email ? `<a href="mailto:${escapeHtml(s.email)}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-blue-600">${uiIcon("mail")}</span>Email</a>` : ""}
-              </div>
-
-              <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                <div><dt class="text-gray-500">Phone</dt><dd class="font-semibold text-gray-900">${escapeHtml(s.phone)}</dd></div>
-                <div><dt class="text-gray-500">Email</dt><dd class="font-semibold text-gray-900 break-all">${s.email ? escapeHtml(s.email) : "-"}</dd></div>
-                <div><dt class="text-gray-500">Province</dt><dd class="font-semibold text-gray-900">${s.province ? escapeHtml(s.province) : "-"}</dd></div>
-                <div><dt class="text-gray-500">Town / address</dt><dd class="font-semibold text-gray-900">${s.address ? escapeHtml(s.address) : "-"}</dd></div>
-                <div><dt class="text-gray-500">Added</dt><dd class="font-semibold text-gray-900">${formatDateShort(s.created_at)}</dd></div>
-              </dl>
-
-              ${s.notes ? `
-                <div>
-                  <p class="text-sm text-gray-500 mb-1">Notes</p>
-                  <div class="bg-gray-50 border border-gray-100 rounded-lg p-4 text-gray-800 whitespace-pre-line text-sm">${escapeHtml(s.notes)}</div>
-                </div>` : ""}
-
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                ${stat("Listings", s.listing_count)}
-                ${stat("Published", s.published_count, "text-green-700")}
-                ${stat("Inquiries", s.inquiry_count)}
-                ${stat("New inquiries", s.new_inquiry_count, Number(s.new_inquiry_count) ? "text-red-600" : "text-gray-900")}
-              </div>
-
-              <section>
-                <div class="flex items-center justify-between mb-2">
-                  <h3 class="font-bold text-gray-900">Listings</h3>
-                  <div class="flex items-center gap-3 text-sm">
-                    ${s.listings.length ? `<a href="/admin/livestock.html?seller_id=${s.id}" class="font-medium text-blue-600 hover:text-blue-700">View all</a>` : ""}
-                    <a href="/admin/livestock.html?new=1&seller_id=${s.id}" class="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700"><span class="w-4 h-4">${uiIcon("plus")}</span>Add listing</a>
-                  </div>
-                </div>
-                <div class="rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden">
-                  ${listingRows || `<p class="px-3 py-4 text-sm text-gray-500">No listings for this seller yet.</p>`}
-                </div>
-              </section>
-
-              <section>
-                <div class="flex items-center justify-between mb-2">
-                  <h3 class="font-bold text-gray-900">Inquiries</h3>
-                  ${s.inquiries.length ? `<a href="/admin/inquiries.html?seller_id=${s.id}" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>` : ""}
-                </div>
-                <div class="rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden">
-                  ${inquiryRows || `<p class="px-3 py-4 text-sm text-gray-500">No inquiries about this seller's listings yet.</p>`}
-                </div>
-              </section>
-            </div>
-            <div class="flex flex-wrap justify-between gap-3 px-5 py-4 border-t border-gray-100">
-              <button type="button" data-delete class="inline-flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-700"><span class="w-4 h-4">${uiIcon("trash")}</span>Delete</button>
-              <div class="flex flex-wrap gap-2">
-                <button type="button" data-toggle class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium text-sm">${s.status === "active" ? "Deactivate" : "Activate"}</button>
+              <div class="sv-actions">
+                <button type="button" data-delete class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"><span class="w-4 h-4">${uiIcon("trash")}</span>Delete</button>
+                <button type="button" data-toggle class="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium text-sm">${s.status === "active" ? "Deactivate" : "Activate"}</button>
                 <button type="button" data-edit class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold text-sm"><span class="w-4 h-4">${uiIcon("edit")}</span>Edit</button>
               </div>
             </div>
-          </div>`;
-        document.body.appendChild(backdrop);
-        document.body.classList.add("modal-open");
 
-        const close = () => {
-          document.removeEventListener("keydown", onKey);
-          backdrop.remove();
-          if (!document.querySelector(".modal-backdrop")) document.body.classList.remove("modal-open");
-          if (getQueryParams().id) history.replaceState(null, "", location.pathname);
+            ${s.account_status ? `
+              <div class="rounded-xl border ${s.account_status === "pending" ? "border-amber-200 bg-amber-50" : s.account_status === "rejected" ? "border-red-200 bg-red-50" : "border-gray-200 bg-white"} p-4 text-sm mb-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p class="font-semibold text-gray-900">${s.account_status === "pending" ? "Registered online, waiting for your approval" : s.account_status === "rejected" ? "Account not approved" : "Seller account approved"}</p>
+                    <p class="text-gray-600 mt-0.5">Registered ${formatDateShort(s.created_at)}${s.approved_at ? `, approved ${formatDateShort(s.approved_at)}` : ""}${s.last_login_at ? `, last signed in ${timeAgo(s.last_login_at)}` : ""}</p>
+                    ${s.account_note ? `<p class="text-gray-700 mt-1">Note: ${escapeHtml(s.account_note)}</p>` : ""}
+                  </div>
+                  <div class="flex gap-2">
+                    ${s.account_status !== "approved" ? `<button type="button" data-account="approve" class="px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 font-semibold">Approve</button>` : ""}
+                    ${s.account_status !== "rejected" ? `<button type="button" data-account="reject" class="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium">${s.account_status === "approved" ? "Revoke" : "Reject"}</button>` : ""}
+                  </div>
+                </div>
+              </div>` : ""}
+
+            <div class="sv-grid">
+              <div class="space-y-4">
+                <div class="txd-card">
+                  <h3 class="txd-card-title">Contact</h3>
+                  <div class="grid ${s.email ? "grid-cols-3" : "grid-cols-2"} gap-2 mb-4">
+                    <a href="tel:${escapeHtml(s.phone.replace(/[^\d+]/g, ""))}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-blue-600">${uiIcon("phone")}</span>Call</a>
+                    <a href="https://wa.me/${whatsappNumber(s.phone)}" target="_blank" rel="noopener" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-green-500 hover:bg-green-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-green-600">${uiIcon("inquire")}</span>WhatsApp</a>
+                    ${s.email ? `<a href="mailto:${escapeHtml(s.email)}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-blue-600">${uiIcon("mail")}</span>Email</a>` : ""}
+                  </div>
+                  <dl class="sv-facts">
+                    <div><dt>Phone</dt><dd>${escapeHtml(s.phone)}</dd></div>
+                    <div><dt>Email</dt><dd class="break-all">${s.email ? escapeHtml(s.email) : "-"}</dd></div>
+                    <div><dt>Province</dt><dd>${s.province ? escapeHtml(s.province) : "-"}</dd></div>
+                    <div><dt>Town / address</dt><dd>${s.address ? escapeHtml(s.address) : "-"}</dd></div>
+                    <div><dt>Added</dt><dd>${formatDateShort(s.created_at)}</dd></div>
+                  </dl>
+                </div>
+                ${s.notes ? `
+                  <div class="txd-card">
+                    <h3 class="txd-card-title">Notes</h3>
+                    <p class="text-gray-800 whitespace-pre-line text-sm">${escapeHtml(s.notes)}</p>
+                  </div>` : ""}
+              </div>
+
+              <div class="space-y-4 min-w-0">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  ${stat("Listings", s.listing_count)}
+                  ${stat("Published", s.published_count, "text-green-700")}
+                  ${stat("Inquiries", s.inquiry_count)}
+                  ${stat("New inquiries", s.new_inquiry_count, Number(s.new_inquiry_count) ? "text-red-600" : "text-gray-900")}
+                </div>
+
+                <section class="txd-card">
+                  <div class="flex items-center justify-between mb-2">
+                    <h3 class="txd-card-title !mb-0">Listings</h3>
+                    <div class="flex items-center gap-3 text-sm">
+                      ${s.listings.length ? `<a href="/admin/livestock.html?seller_id=${s.id}" class="font-medium text-blue-600 hover:text-blue-700">View all</a>` : ""}
+                      <a href="/admin/livestock.html?new=1&seller_id=${s.id}" class="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700"><span class="w-4 h-4">${uiIcon("plus")}</span>Add listing</a>
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+                    ${listingRows || `<p class="px-3 py-4 text-sm text-gray-500">No listings for this seller yet.</p>`}
+                  </div>
+                </section>
+
+                <section class="txd-card">
+                  <div class="flex items-center justify-between mb-2">
+                    <h3 class="txd-card-title !mb-0">Inquiries</h3>
+                    ${s.inquiries.length ? `<a href="/admin/inquiries.html?seller_id=${s.id}" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>` : ""}
+                  </div>
+                  <div class="rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+                    ${inquiryRows || `<p class="px-3 py-4 text-sm text-gray-500">No inquiries about this seller's listings yet.</p>`}
+                  </div>
+                </section>
+              </div>
+            </div>`;
+          const b = view.body;
+          b.querySelector("[data-edit]").addEventListener("click", () => openEditor(s, refresh));
+          b.querySelector("[data-toggle]").addEventListener("click", () => toggleSeller(s, refresh));
+          b.querySelector("[data-delete]").addEventListener("click", () => deleteSeller(s, () => view.close(true)));
+          b.querySelectorAll("[data-account]").forEach((btn) => btn.addEventListener("click", () => reviewAccount(s, btn.dataset.account, refresh)));
         };
-        const onKey = (e) => {
-          if (e.key !== "Escape") return;
-          if (document.querySelector("[aria-labelledby=confirm-action-title]")) return;
-          if (document.querySelectorAll(".modal-backdrop").length > 1) return;
-          close();
-        };
-        document.addEventListener("keydown", onKey);
-        backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
-        backdrop.querySelector("[data-close]").addEventListener("click", close);
-        const reopen = () => { close(); openSeller(s.id); };
-        backdrop.querySelector("[data-edit]").addEventListener("click", () => openEditor(s, reopen));
-        backdrop.querySelector("[data-toggle]").addEventListener("click", () => toggleSeller(s, reopen));
-        backdrop.querySelector("[data-delete]").addEventListener("click", () => deleteSeller(s, close));
-        backdrop.querySelectorAll("[data-account]").forEach((b) => b.addEventListener("click", () => reviewAccount(s, b.dataset.account, reopen)));
+        paint();
       }
 
       let searchTimer;

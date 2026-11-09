@@ -5936,3 +5936,35 @@ a.btn-checkout { text-decoration: none; }
 
 /* Tick boxes and radios in the brand green */
 body { accent-color: #166534; }
+
+/* Admin: forms and details as full pages with a path at the top */
+main.has-view > :not(.admin-view) { display: none !important; }
+main.has-view > .admin-view:not(:last-child) { display: none; }
+.admin-view-title { margin: 0 0 16px; font-size: 24px; font-weight: 800; color: #111827; }
+.admin-form-page { max-width: 760px; }
+.admin-form-page.admin-form-wide { max-width: 980px; }
+.admin-form-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 22px; }
+.admin-form-actions {
+  position: sticky; bottom: 0; z-index: 5;
+  display: flex; justify-content: flex-end; gap: 12px;
+  margin-top: 16px; padding: 14px 0;
+  background: linear-gradient(180deg, rgba(249, 250, 251, 0) 0%, #f9fafb 30%);
+}
+@media (max-width: 1023px) {
+  .admin-form-actions { bottom: calc(66px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 767px) {
+  .admin-form-card { padding: 16px; border-radius: 14px; }
+  .admin-form-actions > * { flex: 1; justify-content: center; }
+  .admin-view-title { font-size: 20px; }
+}
+.txd-card-title { margin: 0 0 12px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; }
+.sv-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.sv-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.sv-grid { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 16px; align-items: start; }
+.sv-facts { display: grid; gap: 10px; margin: 0; font-size: 14px; }
+.sv-facts > div { display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid #f3f4f6; padding-top: 10px; }
+.sv-facts > div:first-child { border-top: 0; padding-top: 0; }
+.sv-facts dt { color: #6b7280; }
+.sv-facts dd { margin: 0; font-weight: 600; color: #111827; text-align: right; min-width: 0; }
+@media (max-width: 1023px) { .sv-grid { grid-template-columns: 1fr; } }

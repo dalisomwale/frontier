@@ -429,6 +429,8 @@
 
         openFormModal({
           title: `${id ? "Edit" : "Add"} ${NOUN}`,
+          crumb: id ? item.title : `Add ${NOUN}`,
+          params: id ? { edit: id } : { new: 1 },
           submitText: id ? "Save Changes" : "Create Listing",
           wide: true,
           body,

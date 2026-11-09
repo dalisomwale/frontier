@@ -79,7 +79,132 @@ function statusPill(status, label) {
   return `<span class="status-pill st-${escapeHtml(status)}">${escapeHtml(text)}</span>`;
 }
 
-function openFormModal({ title, body, submitText = "Save", wide = false, onSubmit, onOpen }) {
+// Full-page views inside the admin layout, in place of pop-up windows.
+// Each view replaces the page content and shows a path at the top
+// (Section / ... / Title); the browser's Back button closes it too.
+const adminViews = [];
+let adminViewPopBusy = false;
+
+function adminSectionLabel() {
+  const active = document.querySelector(".app-sidebar-nav > a.active span");
+  return (active && active.textContent.trim()) || (document.querySelector("main h1")?.textContent.trim()) || "Admin";
+}
+
+function adminViewHost() {
+  return document.querySelector("main.app-content-shifted") || document.querySelector("main");
+}
+
+function renderAdminCrumbs() {
+  adminViews.forEach((view, depth) => {
+    const parts = [`<a href="${location.pathname}" data-crumb="-1">${escapeHtml(adminSectionLabel())}</a>`];
+    adminViews.slice(0, depth).forEach((v, i) => parts.push(`<a href="#" data-crumb="${i}">${escapeHtml(v.title)}</a>`));
+    parts.push(`<b>${escapeHtml(view.title)}</b>`);
+    const nav = view.el.querySelector(":scope > .admin-crumbs");
+    nav.innerHTML = parts.join('<span aria-hidden="true">/</span>');
+    nav.querySelectorAll("[data-crumb]").forEach((a) => a.addEventListener("click", (e) => {
+      e.preventDefault();
+      closeAdminViewsTo(Number(a.dataset.crumb));
+    }));
+  });
+}
+
+// Close views until only `keep + 1` are left (-1 closes them all).
+async function closeAdminViewsTo(keep) {
+  let closed = 0;
+  for (let i = adminViews.length - 1; i > keep; i--) {
+    if (!(await adminViews[i].close(false, false))) break;
+    closed++;
+  }
+  if (closed && history.state && history.state.adminView) {
+    adminViewPopBusy = true;
+    history.go(-Math.min(closed, history.state.adminView));
+  }
+}
+
+// openAdminView({ title, params, html, onClose, canLeave }) -> { el, close, setTitle }
+//   params    optional address for this view (e.g. { id: 3 }), so it can be shared
+//   canLeave  optional async check before closing (unsaved changes)
+const VIEW_PARAMS = ["edit", "new", "id"];
+function adminListUrl() {
+  const q = new URLSearchParams(location.search);
+  VIEW_PARAMS.forEach((k) => q.delete(k));
+  return location.pathname + (q.toString() ? `?${q}` : "");
+}
+function adminViewUrl(params) {
+  const q = new URLSearchParams(adminListUrl().split("?")[1] || "");
+  Object.entries(params || {}).forEach(([k, v]) => q.set(k, v));
+  return location.pathname + (q.toString() ? `?${q}` : "");
+}
+
+function openAdminView({ title, params, html = "", onClose, canLeave }) {
+  const host = adminViewHost();
+  // Opened from a link (?edit=5): the page underneath is the plain list.
+  if (!adminViews.length && VIEW_PARAMS.some((k) => new URLSearchParams(location.search).has(k))) {
+    history.replaceState(null, "", adminListUrl());
+  }
+  const url = params ? adminViewUrl(params) : location.pathname + location.search;
+  const el = document.createElement("section");
+  el.className = "admin-view";
+  el.innerHTML = `<nav class="admin-crumbs tx-crumbs" aria-label="Breadcrumb"></nav><div class="admin-view-body">${html}</div>`;
+  host.appendChild(el);
+  host.classList.add("has-view");
+  const view = { el, title, scroll: window.scrollY, closed: false };
+  const depth = adminViews.length;
+  adminViews.push(view);
+  history.pushState({ adminView: depth + 1 }, "", url);
+  view.pushed = true;
+  renderAdminCrumbs();
+  window.scrollTo(0, 0);
+
+  const remove = () => {
+    if (view.closed) return;
+    view.closed = true;
+    adminViews.splice(adminViews.indexOf(view), 1);
+    el.remove();
+    if (!adminViews.length) host.classList.remove("has-view");
+    renderAdminCrumbs();
+    requestAnimationFrame(() => window.scrollTo(0, view.scroll));
+    if (onClose) onClose();
+  };
+  // Returns true when closed (false if the admin chose to stay).
+  view.close = async (force = false, moveHistory = true) => {
+    if (view.closed) return true;
+    if (!force && canLeave && !(await canLeave())) return false;
+    remove();
+    if (moveHistory && history.state && history.state.adminView === depth + 1) {
+      adminViewPopBusy = true;
+      history.back();
+    }
+    return true;
+  };
+  view.removeOnPop = async () => {
+    if (canLeave && !(await canLeave())) {
+      history.pushState({ adminView: depth + 1 }, "", url);
+      return;
+    }
+    remove();
+  };
+  return {
+    el,
+    body: el.querySelector(".admin-view-body"),
+    close: (force) => view.close(force),
+    setTitle(t) { view.title = t; renderAdminCrumbs(); },
+  };
+}
+
+window.addEventListener("popstate", async (e) => {
+  if (adminViewPopBusy) { adminViewPopBusy = false; return; }
+  const want = (e.state && e.state.adminView) || 0;
+  while (adminViews.length > want) {
+    const top = adminViews[adminViews.length - 1];
+    const before = adminViews.length;
+    await top.removeOnPop();
+    if (adminViews.length === before) break;
+  }
+});
+
+// The seller dashboard keeps forms in a pop-up window.
+function openFormPopup({ title, body, submitText = "Save", wide = false, onSubmit, onOpen }) {
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
   backdrop.innerHTML = `
@@ -158,6 +283,75 @@ function openFormModal({ title, body, submitText = "Save", wide = false, onSubmi
   if (onOpen) onOpen(form);
   setTimeout(() => form.querySelector("input:not([type=hidden]):not([type=file]), select, textarea")?.focus(), 50);
   return { form, close };
+}
+
+// A form shown as its own page (Section / Title), with Cancel and Save.
+function openFormModal({ title, crumb, body, submitText = "Save", wide = false, onSubmit, onOpen, params }) {
+  if (!location.pathname.startsWith("/admin/")) return openFormPopup({ title, body, submitText, wide, onSubmit, onOpen });
+  let dirty = false;
+  const view = openAdminView({
+    title: crumb || title,
+    params,
+    canLeave: async () => !dirty || confirmAction({ title: "Discard changes?", message: "Your unsaved changes will be lost.", confirmText: "Discard", variant: "danger" }),
+    html: `
+      <form novalidate class="admin-form-page ${wide ? "admin-form-wide" : ""}">
+        <h1 class="admin-view-title">${escapeHtml(title)}</h1>
+        <div class="admin-form-card">
+          <div class="space-y-4">
+            <div data-form-alert class="hidden alert alert-error text-sm mb-0" role="alert"></div>
+            ${body}
+          </div>
+        </div>
+        <div class="admin-form-actions">
+          <button type="button" data-close class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium bg-white">Cancel</button>
+          <button type="submit" data-submit class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-70">${escapeHtml(submitText)}</button>
+        </div>
+      </form>`,
+  });
+
+  const form = view.el.querySelector("form");
+  const submit = form.querySelector("[data-submit]");
+  const alertBox = form.querySelector("[data-form-alert]");
+  form.addEventListener("input", () => (dirty = true));
+  form.addEventListener("change", () => (dirty = true));
+  const close = (force = false) => view.close(force);
+  form.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => close()));
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    alertBox.classList.add("hidden");
+    form.querySelectorAll(".field-error").forEach((el) => el.classList.add("hidden"));
+    form.querySelectorAll(".has-error").forEach((el) => el.classList.remove("has-error"));
+    submit.disabled = true;
+    const label = submit.innerHTML;
+    submit.innerHTML = `<span class="btn-spinner"></span> Saving…`;
+    try {
+      await onSubmit(form);
+      await close(true);
+    } catch (error) {
+      if (error.errors) {
+        for (const [field, message] of Object.entries(error.errors)) {
+          const input = form.elements[field];
+          if (input?.classList) input.classList.add("has-error");
+          const holder = form.querySelector(`[data-error-for="${field}"]`);
+          if (holder) {
+            holder.textContent = message;
+            holder.classList.remove("hidden");
+          }
+        }
+      }
+      alertBox.textContent = error.message;
+      alertBox.classList.remove("hidden");
+      alertBox.scrollIntoView({ block: "nearest" });
+    } finally {
+      submit.disabled = false;
+      submit.innerHTML = label;
+    }
+  });
+
+  if (onOpen) onOpen(form);
+  setTimeout(() => form.querySelector("input:not([type=hidden]):not([type=file]), select, textarea")?.focus({ preventScroll: true }), 50);
+  return { form, close, view };
 }
 
 // <option>s for a select; options with a `group` are put in <optgroup>s.
