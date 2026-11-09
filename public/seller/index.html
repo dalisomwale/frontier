@@ -258,17 +258,8 @@
           </div>
           ${st.key === "rejected" && l.review_note ? `<div class="alert alert-error text-sm mb-4"><strong>Frontier:</strong> ${escapeHtml(l.review_note)}</div>` : ""}
           ${approved() && st.key === "unpublished" ? `<div class="alert alert-info text-sm mb-4 flex flex-wrap items-center justify-between gap-3"><span>This listing is not on the website.</span><button type="button" data-resubmit class="seller-action">Submit for review</button></div>` : ""}
-          <div class="so-detail">
-            <div class="space-y-4 min-w-0">
-              <div class="txd-card ml-gallery">
-                ${photos.length
-                  ? `<img class="ml-main" src="${escapeHtml(photos[0].image_path || photos[0].thumb_path)}" alt="">
-                     ${photos.length > 1 ? `<div class="ml-thumbs">${photos.map((p, i) => `<button type="button" data-photo="${escapeHtml(p.image_path || p.thumb_path)}" class="${i === 0 ? "is-on" : ""}"><img src="${escapeHtml(p.thumb_path || p.image_path)}" alt=""></button>`).join("")}</div>` : ""}`
-                  : `<div class="ml-nophoto">${livestockFallbackMedia("w-12 h-12")}<p>No photos yet</p></div>`}
-              </div>
-              ${l.description ? `<div class="txd-card"><h3 class="txd-card-title">Description</h3><p class="text-sm text-gray-800 whitespace-pre-line">${escapeHtml(l.description)}</p></div>` : ""}
-            </div>
-            <div class="txd-card">
+          <div class="ml-layout">
+            <div class="txd-card ml-details">
               <h3 class="txd-card-title">Details</h3>
               <dl class="sv-facts">
                 ${fact("Price", unit(l.price))}
@@ -282,7 +273,14 @@
                 ${fact("Inquiries", l.inquiry_count)}
                 ${fact("Added", formatDateShort(l.created_at))}
               </dl>
+              ${l.description ? `<div class="ml-desc"><h3 class="txd-card-title">Description</h3><p class="text-sm text-gray-800 whitespace-pre-line">${escapeHtml(l.description)}</p></div>` : ""}
             </div>
+              <div class="txd-card ml-gallery ml-photos">
+                ${photos.length
+                  ? `<img class="ml-main" src="${escapeHtml(photos[0].image_path || photos[0].thumb_path)}" alt="">
+                     ${photos.length > 1 ? `<div class="ml-thumbs">${photos.map((p, i) => `<button type="button" data-photo="${escapeHtml(p.image_path || p.thumb_path)}" class="${i === 0 ? "is-on" : ""}"><img src="${escapeHtml(p.thumb_path || p.image_path)}" alt=""></button>`).join("")}</div>` : ""}`
+                  : `<div class="ml-nophoto">${livestockFallbackMedia("w-12 h-12")}<p>No photos yet</p></div>`}
+              </div>
           </div>`;
         const b = view.body;
         b.querySelectorAll("[data-photo]").forEach((btn) => btn.addEventListener("click", () => {
