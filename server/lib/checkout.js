@@ -451,6 +451,12 @@ async function takeStock(checkoutId) {
   return { soldOut, short };
 }
 
+// "Tray of eggs" / "Tray of eggs and Grower pellets" / "A, B and C"
+function listingNames(orders) {
+  const names = [...new Set(orders.map((o) => o.livestock_title))];
+  return names.length < 2 ? names[0] || "order" : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 // The payment is confirmed: orders become Paid, the stock comes off the
 // listings, and the buyer, the team and each seller are emailed.
 async function markPaid(checkout, data) {
@@ -496,10 +502,8 @@ async function markPaid(checkout, data) {
     log: true,
     heading: "Payment received",
     paragraphs: [
-      `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]}, we've received your payment of ${amount} for order ${ref}. Thank you.`,
-      shortIds.size
-        ? "One of your items sold out just before your payment came through. We'll contact you today to offer a replacement or a refund."
-        : "Your order is confirmed and the seller has been told. We'll contact you on both WhatsApp and email to arrange collection.",
+      `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]}, we've received your payment of ${amount} for the ${listingNames(orders)} with the reference number ${ref}. Your order has been confirmed, kindly advise your mode of collection of the ${orders.length === 1 ? "listing" : "listings"}. Thank you!`,
+      ...(shortIds.size ? ["One of your items sold out just before your payment came through. We'll contact you today to offer a replacement or a refund."] : []),
     ],
     rows,
     button: { label: "View your order", url: appUrl(ourPayPage(checkout)) },
