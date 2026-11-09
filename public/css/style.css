@@ -6067,3 +6067,22 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 .ins-kpi-link { display: block; transition: border-color .15s, box-shadow .15s; }
 .ins-kpi-link:hover { border-color: #bbd7c2; box-shadow: 0 4px 14px -8px rgba(20, 83, 45, .35); }
 .sins-head { justify-content: flex-end; }
+
+/* Seller dashboard: full-colour cards in the hero palette */
+.ins-kpi-link[class*="kpi-"] { position: relative; overflow: hidden; border: 0; color: #fff; }
+.ins-kpi-link[class*="kpi-"] .ins-kpi-label { color: rgba(255, 255, 255, .82); }
+.ins-kpi-link[class*="kpi-"] .ins-kpi-value { color: #fff; }
+.ins-kpi-link[class*="kpi-"] .ins-kpi-hint { color: rgba(255, 255, 255, .75); }
+.ins-kpi-link[class*="kpi-"]:hover { box-shadow: 0 10px 22px -12px rgba(15, 31, 18, .55); transform: translateY(-1px); }
+.ins-kpi-link { transition: box-shadow .15s, transform .15s; }
+.kpi-forest { background: linear-gradient(135deg, #166534 0%, #14532d 100%); }
+.kpi-night { background: linear-gradient(135deg, #1c3a22 0%, #0f1f12 100%); }
+.kpi-night .ins-kpi-value { color: #bef264 !important; }
+.kpi-teal { background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); }
+.ins-kpi-link.kpi-gold { background: linear-gradient(135deg, #fde047 0%, #bef264 100%); color: #14532d; }
+.ins-kpi-link.kpi-gold .ins-kpi-label, .ins-kpi-link.kpi-gold .ins-kpi-hint { color: rgba(20, 83, 45, .8); }
+.ins-kpi-link.kpi-gold .ins-kpi-value { color: #14532d; }
+.kpi-icon { position: absolute; right: 12px; top: 12px; width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, .14); }
+.kpi-gold .kpi-icon { background: rgba(20, 83, 45, .1); }
+.kpi-icon svg { width: 18px; height: 18px; }
+.ins-kpi-link[class*="kpi-"] .ins-kpi-label, .ins-kpi-link[class*="kpi-"] .ins-kpi-value { padding-right: 40px; }
