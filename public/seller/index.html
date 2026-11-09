@@ -201,29 +201,111 @@
         unpublished: "Not on the website. Submit it for review to bring it back.",
       };
 
+      // My Listings: a card per listing (photo, name, status); the rest is on
+      // the listing's own page.
       function listingCard(l) {
         const st = sellerState(l);
-        const detail = [l.breed_name, l.category_name, l.animal_name].filter(Boolean).join(" · ");
         return `
-          <article data-listing="${l.id}" class="bg-white rounded-xl border border-gray-100 p-3 sm:p-4 flex gap-3 sm:gap-4 listing-card-s">
-            <div class="w-24 h-20 sm:w-32 sm:h-24 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-              ${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : ""}
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-start justify-between gap-2">
-                <h3 class="font-semibold text-gray-900 leading-snug">${escapeHtml(l.title)}</h3>
+          <button type="button" data-listing="${l.id}" class="ml-card listing-card-s">
+            <span class="ml-photo">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" loading="lazy">` : livestockFallbackMedia("w-8 h-8")}</span>
+            <span class="ml-foot">
+              <span class="ml-name">${escapeHtml(l.title)}</span>
+              ${statusPill(st.key, st.label)}
+            </span>
+          </button>`;
+      }
+
+      // One listing on its own page: My Listings / title, with View, Edit and Delete.
+      async function openListing(id) {
+        let l;
+        try {
+          l = (await sellerApi(`/api/seller/listings/${id}`)).data;
+        } catch (error) {
+          return showNotification(error.message, "error");
+        }
+        const view = openAdminView({ title: l.title, params: { id: l.id } });
+        view.el.classList.add("listing-view");
+        paintListing(view, l);
+      }
+
+      function paintListing(view, l) {
+        const st = sellerState(l);
+        view.setTitle(l.title);
+        const refresh = async () => {
+          try {
+            paintListing(view, (await sellerApi(`/api/seller/listings/${l.id}`)).data);
+          } catch (error) {
+            showNotification(error.message, "error");
+          }
+        };
+        const unit = (n) => (Number(n) > 0 ? `${kwacha(n)} ${l.price_unit === "lot" ? "for the lot" : l.animal_kind === "feed" ? "per bag" : "per head"}` : "Price on request");
+        const fact = (label, value) => (value === null || value === undefined || value === "" ? "" : `<div><dt>${label}</dt><dd>${escapeHtml(String(value))}</dd></div>`);
+        const photos = l.images || [];
+        view.body.innerHTML = `
+          <div class="sv-head">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <h1 class="admin-view-title !mb-0">${escapeHtml(l.title)}</h1>
                 ${statusPill(st.key, st.label)}
               </div>
-              <p class="text-xs text-gray-500 mt-0.5">${escapeHtml(detail)} · ${escapeHtml(l.location)} · Qty ${Number(l.quantity)}</p>
-              <p class="text-xs text-gray-500 mt-1">${escapeHtml(stateHelp[st.key])}${st.key === "published" && l.published_at ? ` Since ${formatDateShort(l.published_at)}.` : ""}</p>
-              ${st.key === "rejected" && l.review_note ? `<div class="mt-2 text-sm rounded-lg bg-red-50 text-red-800 px-3 py-2"><strong>Frontier:</strong> ${escapeHtml(l.review_note)}</div>` : ""}
-              <div class="flex flex-wrap gap-2 mt-3">
-                ${approved() ? `<button type="button" data-edit="${l.id}" class="seller-action">Edit</button>` : ""}
-                ${st.key === "published" ? `<a href="/listing.html?id=${l.id}" target="_blank" class="seller-action">View</a>` : ""}
-                ${approved() && st.key === "unpublished" ? `<button type="button" data-resubmit="${l.id}" class="seller-action">Submit for review</button>` : ""}
-              </div>
+              <p class="text-sm text-gray-500 mt-1">${escapeHtml(stateHelp[st.key])}${st.key === "published" && l.published_at ? ` Since ${formatDateShort(l.published_at)}.` : ""}</p>
             </div>
-          </article>`;
+            <div class="sv-actions">
+              ${st.key === "published" ? `<a href="/listing.html?id=${l.id}" target="_blank" rel="noopener" class="sv-icon-btn" title="View on the website" aria-label="View on the website"><span>${uiIcon("eye")}</span></a>` : ""}
+              ${approved() ? `<button type="button" data-edit class="sv-icon-btn sv-icon-primary" title="Edit" aria-label="Edit"><span>${uiIcon("edit")}</span></button>` : ""}
+              <button type="button" data-delete class="sv-icon-btn sv-icon-danger" title="Delete" aria-label="Delete"><span>${uiIcon("trash")}</span></button>
+            </div>
+          </div>
+          ${st.key === "rejected" && l.review_note ? `<div class="alert alert-error text-sm mb-4"><strong>Frontier:</strong> ${escapeHtml(l.review_note)}</div>` : ""}
+          ${approved() && st.key === "unpublished" ? `<div class="alert alert-info text-sm mb-4 flex flex-wrap items-center justify-between gap-3"><span>This listing is not on the website.</span><button type="button" data-resubmit class="seller-action">Submit for review</button></div>` : ""}
+          <div class="so-detail">
+            <div class="space-y-4 min-w-0">
+              <div class="txd-card ml-gallery">
+                ${photos.length
+                  ? `<img class="ml-main" src="${escapeHtml(photos[0].image_path || photos[0].thumb_path)}" alt="">
+                     ${photos.length > 1 ? `<div class="ml-thumbs">${photos.map((p, i) => `<button type="button" data-photo="${escapeHtml(p.image_path || p.thumb_path)}" class="${i === 0 ? "is-on" : ""}"><img src="${escapeHtml(p.thumb_path || p.image_path)}" alt=""></button>`).join("")}</div>` : ""}`
+                  : `<div class="ml-nophoto">${livestockFallbackMedia("w-12 h-12")}<p>No photos yet</p></div>`}
+              </div>
+              ${l.description ? `<div class="txd-card"><h3 class="txd-card-title">Description</h3><p class="text-sm text-gray-800 whitespace-pre-line">${escapeHtml(l.description)}</p></div>` : ""}
+            </div>
+            <div class="txd-card">
+              <h3 class="txd-card-title">Details</h3>
+              <dl class="sv-facts">
+                ${fact("Price", unit(l.price))}
+                ${fact("Quantity", l.quantity)}
+                ${fact("Category", l.animal_name)}
+                ${fact("Production purpose", l.category_name)}
+                ${fact("Breed", l.breed_name)}
+                ${fact("Type", l.livestock_type)}
+                ${fact("Age", l.age_months ? `${l.age_months} months` : "")}
+                ${fact("Province", l.location)}
+                ${fact("Inquiries", l.inquiry_count)}
+                ${fact("Added", formatDateShort(l.created_at))}
+              </dl>
+            </div>
+          </div>`;
+        const b = view.body;
+        b.querySelectorAll("[data-photo]").forEach((btn) => btn.addEventListener("click", () => {
+          b.querySelector(".ml-main").src = btn.dataset.photo;
+          b.querySelectorAll("[data-photo]").forEach((x) => x.classList.toggle("is-on", x === btn));
+        }));
+        b.querySelector("[data-edit]")?.addEventListener("click", () => openEditor(l.id, refresh));
+        b.querySelector("[data-resubmit]")?.addEventListener("click", async () => {
+          await runAction(() => sellerApi(`/api/seller/listings/${l.id}/resubmit`, { method: "POST" }), "Sent for review.");
+          refresh();
+        });
+        b.querySelector("[data-delete]").addEventListener("click", async () => {
+          const ok = await confirmAction({ title: `Delete ${l.title}?`, message: "It will be removed from the website and your listings. This can't be undone.", confirmText: "Delete", variant: "danger" });
+          if (!ok) return;
+          try {
+            await sellerApi(`/api/seller/listings/${l.id}`, { method: "DELETE" });
+            showNotification("Listing deleted.", "success");
+            await view.close(true);
+            await Promise.all([loadListings(), loadSummary()]);
+          } catch (error) {
+            showNotification(error.message, "error");
+          }
+        });
       }
 
       async function loadListings() {
@@ -275,16 +357,13 @@
           && (!q || [l.title, l.breed_name, l.category_name, l.animal_name, l.location].filter(Boolean).join(" ").toLowerCase().includes(q)));
         const grid = document.getElementById("listing-grid");
         grid.innerHTML = rows.length
-          ? `<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${rows.map(listingCard).join("")}</div>`
+          ? `<div class="ml-grid">${rows.map(listingCard).join("")}</div>`
           : `<div class="bg-white rounded-xl border border-gray-100"><div class="empty-state"><p class="font-semibold text-gray-800">No matching listings</p><p class="text-sm mt-1">Try a different search or filter.</p></div></div>`;
         bindListingActions(box);
       }
 
       function bindListingActions(box) {
-        box.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openEditor(b.dataset.edit)));
-        box.querySelectorAll("[data-resubmit]").forEach((b) => b.addEventListener("click", async () => {
-          await runAction(() => sellerApi(`/api/seller/listings/${b.dataset.resubmit}/resubmit`, { method: "POST" }), "Sent for review.");
-        }));
+        box.querySelectorAll("#listing-grid [data-listing]").forEach((c) => c.addEventListener("click", () => openListing(c.dataset.listing)));
       }
 
       async function runAction(task, message) {
@@ -324,7 +403,7 @@
         return [{ value: "", label: "Not specified" }, ...values.map((t) => ({ value: t, label: t }))];
       }
 
-      async function openEditor(id) {
+      async function openEditor(id, after) {
         let item = {};
         if (id) {
           try {
@@ -373,7 +452,7 @@
 
         openFormModal({
           title: id ? "Edit Listing" : "Add Listing",
-          crumb: id ? item.title : "Add Listing",
+          crumb: id ? (document.querySelector(".listing-view") ? "Edit" : item.title) : "Add Listing",
           params: id ? { edit: id } : { new: 1 },
           submitText: id ? "Save and send for review" : "Submit for review",
           wide: true,
@@ -486,6 +565,7 @@
             photos.forEach((p) => p.url && URL.revokeObjectURL(p.url));
             showNotification("Sent for review. We'll email you when it's approved.", "success");
             await Promise.all([loadListings(), loadSummary()]);
+            if (after) after();
           },
         });
       }
@@ -930,20 +1010,9 @@
           if (orderState.rows.some((o) => String(o.id) === String(q.id))) openOrder(q.id);
           else showNotification("That order isn't in your list any more.", "info");
         }
-        if (q.tab === "listings" && q.listing) {
-          listingFilter.tab = "all";
-          listingFilter.q = "";
-          const search = document.getElementById("listing-search");
-          if (search) search.value = "";
-          if (document.getElementById("listing-grid")) renderListingGrid();
-          const card = document.querySelector(`#listing-grid [data-listing="${q.listing}"]`);
-          if (card) {
-            card.scrollIntoView({ behavior: "smooth", block: "center" });
-            card.classList.add("is-pointed");
-            setTimeout(() => card.classList.remove("is-pointed"), 2600);
-          } else {
-            showNotification("That listing is no longer in your list.", "info");
-          }
+        if (q.tab === "listings" && (q.listing || q.id)) {
+          if (!listings.some((l) => String(l.id) === String(q.listing || q.id))) return showNotification("That listing is no longer in your list.", "info");
+          await openListing(q.listing || q.id);
         }
       }
 

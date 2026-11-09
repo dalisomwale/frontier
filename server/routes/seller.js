@@ -592,6 +592,38 @@ router.put("/listings/:id", requireSeller, requireApproved, uploadImages, async 
   }
 });
 
+// A seller deletes their own listing. Not while an order on it is still open
+// (paid or confirmed, not yet handed over or cancelled) or stock is held for a
+// buyer who is paying. Frontier's team is emailed.
+router.delete("/listings/:id", requireSeller, async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id);
+    const listing = await ownListing(pool, id, req.seller.id);
+    const [[open]] = await pool.query(
+      `SELECT COUNT(*) AS n FROM orders WHERE livestock_id = ?
+         AND (status IN ('confirmed', 'paid') OR (status = 'new' AND hold_until > NOW()))`,
+      [id],
+    );
+    if (Number(open.n)) {
+      throw new HttpError(409, `This listing has ${Number(open.n) === 1 ? "an order" : `${open.n} orders`} still to hand over, so it can't be deleted yet. Please contact Frontier.`);
+    }
+    const [images] = await pool.query("SELECT image_path, thumb_path FROM livestock_images WHERE livestock_id = ?", [id]);
+    await pool.query("DELETE FROM livestock WHERE id = ? AND seller_id = ?", [id, req.seller.id]);
+    images.forEach((row) => deleteImageFiles(row.image_path, row.thumb_path));
+    const [[seller]] = await pool.query(`SELECT ${SELLER_FIELDS} FROM sellers WHERE id = ?`, [req.seller.id]);
+    notifyAdmins(
+      `Listing deleted by seller: ${listing.title}`,
+      "A seller deleted a listing",
+      [`${sellerLabel(seller)} deleted a listing. It is no longer on the website.`],
+      [["Listing", listing.title], ["Seller", sellerLabel(seller)], ["Phone", seller.phone]],
+      "/admin/livestock.html",
+    ).catch((error) => console.error(`Listing deleted email: ${error.message}`));
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post("/listings/:id/resubmit", requireSeller, requireApproved, async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);

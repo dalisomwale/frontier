@@ -6165,3 +6165,22 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
   .seller-inbox .chat-listing-thumb { background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .25); }
   .seller-inbox .sm-view { color: #14532d; border-color: transparent; background: linear-gradient(90deg, #fde047 0%, #bef264 100%); }
 }
+
+/* Seller > My Listings: photo cards */
+.ml-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 768px) { .ml-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
+@media (min-width: 1200px) { .ml-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.ml-card { display: flex; flex-direction: column; text-align: left; background: #fff; border: 1px solid #eef0ec; border-radius: 14px; overflow: hidden; transition: box-shadow .15s, transform .15s, border-color .15s; }
+.ml-card:hover { border-color: #bbd7c2; box-shadow: 0 10px 22px -14px rgba(15, 31, 18, .45); transform: translateY(-1px); }
+.ml-photo { display: flex; align-items: center; justify-content: center; aspect-ratio: 4 / 3; background: #f3f7f1; overflow: hidden; }
+.ml-photo img { width: 100%; height: 100%; object-fit: cover; }
+.ml-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 12px 12px; }
+.ml-name { font-weight: 700; color: #111827; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ml-gallery { padding: 10px; }
+.ml-main { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; background: #f3f7f1; }
+.ml-thumbs { display: flex; gap: 8px; margin-top: 10px; overflow-x: auto; }
+.ml-thumbs button { flex-shrink: 0; width: 64px; height: 52px; border-radius: 8px; overflow: hidden; border: 2px solid transparent; opacity: .75; }
+.ml-thumbs button.is-on { border-color: #166534; opacity: 1; }
+.ml-thumbs img { width: 100%; height: 100%; object-fit: cover; }
+.ml-nophoto { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; aspect-ratio: 4 / 3; border-radius: 10px; background: #f3f7f1; color: #6b7280; font-size: 13px; }
+.ml-nophoto > div { width: auto !important; height: auto !important; background: none !important; }
