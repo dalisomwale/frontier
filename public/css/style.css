@@ -5696,7 +5696,7 @@ a.btn-checkout { text-decoration: none; }
 
 /* Payment logos (official files in /images/pay/) */
 .pm-logos { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
-.pay-logo { height: 20px; width: auto; max-width: 64px; object-fit: contain; display: none; }
+.pay-logo { height: 26px; width: auto; max-width: 64px; object-fit: contain; display: none; }
 .pay-logo.is-loaded { display: block; }
 .op-logo { height: 22px; width: 22px; object-fit: contain; border-radius: 5px; display: none; flex-shrink: 0; }
 .op-logo.is-loaded { display: block; }

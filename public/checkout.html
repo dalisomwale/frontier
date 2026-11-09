@@ -119,7 +119,7 @@
                 <div class="pm-choices" role="radiogroup" aria-label="How you'd like to pay">
                   ${methods.map((m, n) => `<label class="pm-choice"><input type="radio" name="payment_method" value="${m}" ${n === 0 ? "checked" : ""}>
                     <span class="pm-icon">${METHOD_ICONS[m]}</span>
-                    <span class="pm-text"><b>${METHOD_NAMES[m][0]}</b><small class="pm-sub"><span class="pm-logos" hidden>${METHOD_LOGOS[m].map(([f, alt]) => payLogo(f, alt)).join("")}</span><span class="pm-sub-text">${METHOD_NAMES[m][1]}</span></small></span>
+                    <span class="pm-text"><b>${METHOD_NAMES[m][0]}</b><small class="pm-sub"><span class="pm-logos" data-logo-group hidden>${METHOD_LOGOS[m].map(([f, alt]) => payLogo(f, alt)).join("")}</span><span class="pm-sub-text">${METHOD_NAMES[m][1]}</span></small></span>
                     <span class="pm-dot" aria-hidden="true"></span></label>`).join("")}
                 </div>
                 <p class="field-error hidden" data-error-for="payment_method"></p>` : ""}
@@ -127,7 +127,7 @@
                 ${methods.includes("mobile_money") ? `
                 <div data-method-panel="mobile_money" class="pm-panel">
                   <p class="field-label" id="co-op-label">Your network</p>
-                  <div class="operator-grid ${ops.length === 2 ? "co-ops" : ""}" role="radiogroup" aria-labelledby="co-op-label">
+                  <div class="operator-grid ${ops.length === 2 ? "co-ops" : ""}" data-logo-group role="radiogroup" aria-labelledby="co-op-label">
                     ${ops.map((v) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}"><span class="op-tick" aria-hidden="true"></span>${payLogo(v, "", "op-logo")}<span>${OP_NAMES[v]}</span></label>`).join("")}
                   </div>
                   <p class="field-error hidden" data-error-for="mobile_operator"></p>
@@ -276,30 +276,35 @@
       }
 
       // Payment logos: official files in /images/pay/ (airtel, mtn, zamtel,
-      // visa, mastercard; .png or .svg). Until a file is there, the text shows.
+      // visa, mastercard; .svg or .png). Until a file is there, the text shows.
       const METHOD_LOGOS = {
         mobile_money: [["airtel", "Airtel Money"], ["mtn", "MTN MoMo"], ["zamtel", "Zamtel Kwacha"]],
         card: [["visa", "Visa"], ["mastercard", "Mastercard"]],
       };
-      const payLogo = (file, alt, cls = "pay-logo") => `<img class="${cls}" src="/images/pay/${file}.png" data-logo="${file}" alt="${escapeHtml(alt)}">`;
+      const payLogo = (file, alt, cls = "pay-logo") => `<img class="${cls}" src="/images/pay/${file}.svg" data-logo="${file}" alt="${escapeHtml(alt)}">`;
+      // A group of logos (the networks, or Visa and Mastercard) shows only once
+      // every logo in it has loaded, so one brand never stands in for all.
       function showPayLogos(scope) {
-        scope.querySelectorAll("img[data-logo]").forEach((img) => {
-          const shown = () => {
-            img.classList.add("is-loaded");
-            const box = img.closest(".pm-logos");
-            if (box) {
-              box.hidden = false;
-              box.parentElement.querySelector(".pm-sub-text").hidden = true;
+        scope.querySelectorAll("[data-logo-group]").forEach((group) => {
+          const imgs = [...group.querySelectorAll("img[data-logo]")];
+          let loaded = 0;
+          const done = () => {
+            if (++loaded < imgs.length) return;
+            imgs.forEach((img) => img.classList.add("is-loaded"));
+            if (group.classList.contains("pm-logos")) {
+              group.hidden = false;
+              group.parentElement.querySelector(".pm-sub-text").hidden = true;
             }
           };
-          const missing = () => {
-            if (!img.dataset.triedSvg) { img.dataset.triedSvg = "1"; img.src = `/images/pay/${img.dataset.logo}.svg`; return; }
-            img.remove();
-          };
-          img.addEventListener("load", shown);
-          img.addEventListener("error", missing);
-          if (img.complete && img.naturalWidth) shown();
-          else if (img.complete) missing();
+          imgs.forEach((img) => {
+            const missing = () => {
+              if (!img.dataset.triedPng) { img.dataset.triedPng = "1"; img.src = `/images/pay/${img.dataset.logo}.png`; }
+            };
+            img.addEventListener("load", done, { once: true });
+            img.addEventListener("error", missing);
+            if (img.complete && img.naturalWidth) { img.removeEventListener("load", done); done(); }
+            else if (img.complete) missing();
+          });
         });
       }
       const METHOD_ICONS = { mobile_money: phoneSvg, card: cardSvg };
