@@ -53,7 +53,9 @@ async function request(method, path, { body, headers = {} } = {}) {
   try {
     const res = await fetch(`${baseUrl()}${path}`, {
       method,
-      headers: { accept: "application/json", "content-type": "application/json", "x-api-key": apiKey(), ...headers },
+      // Content-Type only with a body: Lipila rejects a GET that says it has
+      // JSON but doesn't ("The input does not contain any JSON tokens").
+      headers: { accept: "application/json", ...(body ? { "content-type": "application/json" } : {}), "x-api-key": apiKey(), ...headers },
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
