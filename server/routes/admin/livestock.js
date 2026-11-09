@@ -432,8 +432,8 @@ router.delete("/:id", async (req, res, next) => {
   }
 });
 
-// Review of listings submitted by sellers: approve (verified and published)
-// or send back with a note. The seller is emailed either way.
+// Review of listings submitted by sellers: approve (published) or send back
+// with a note. Approving does not verify: Verified is a separate choice. The seller is emailed either way.
 router.post("/:id/review", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
@@ -450,7 +450,7 @@ router.post("/:id/review", async (req, res, next) => {
     if (!row) throw notFound("Livestock listing not found.");
     if (action === "approve") {
       await pool.query(
-        `UPDATE livestock SET ${PUBLISHED_AT_SQL}, status = 'published', verification = 'verified',
+        `UPDATE livestock SET ${PUBLISHED_AT_SQL}, status = 'published',
            review_status = 'approved', review_note = NULL WHERE id = ?`,
         ["published", id],
       );

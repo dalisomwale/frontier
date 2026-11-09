@@ -286,7 +286,7 @@
           if (after) after();
         };
         if (action === "approve") {
-          const ok = await confirmAction({ title: "Approve this listing?", message: `"${title}" will be marked verified and published on the website.`, confirmText: "Approve and publish" });
+          const ok = await confirmAction({ title: "Approve this listing?", message: `"${title}" will be published on the website. Verification is set separately.`, confirmText: "Approve and publish" });
           if (!ok) return false;
           try {
             done(await adminApi(`/api/admin/livestock/${id}/review`, { method: "POST", body: { action } }));
