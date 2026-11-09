@@ -14,6 +14,8 @@
     <script src="/js/livestock.js"></script>
     <script src="/js/seller.js"></script>
     <script src="/js/password-rules.js"></script>
+    <script src="/vendor/chart-4.4.1.umd.min.js"></script>
+    <script src="/js/seller-insights.js"></script>
   </head>
   <body class="bg-gray-50">
     <div id="app-sidebar"></div>
@@ -35,7 +37,41 @@
       <div id="account-banner"></div>
 
       <section id="tab-overview">
-        <div id="stats" class="seller-stats mb-8"></div>
+        <div id="stats" class="seller-stats mb-6"></div>
+
+        <section id="seller-insights" class="ins mb-6">
+          <div class="ins-head">
+            <h2 class="ins-title">How your sales are doing</h2>
+            <select id="sins-range" class="ins-select" aria-label="Time period">
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+            </select>
+          </div>
+          <div id="sins-kpis" class="ins-kpis"></div>
+          <div class="ins-grid">
+            <article class="ins-card ins-span-2">
+              <header><h3>Sales over time</h3><p>Value of your orders (bars) and number of orders (line)</p></header>
+              <div class="ins-chart"><canvas id="sch-sales"></canvas></div>
+            </article>
+            <article class="ins-card">
+              <header><h3>Orders by status</h3><p>Where your orders in this period stand now</p></header>
+              <div class="ins-chart"><canvas id="sch-orders"></canvas></div>
+            </article>
+            <article class="ins-card">
+              <header><h3>Sales by category</h3><p>Share of your sales by animal or feed type</p></header>
+              <div class="ins-chart"><canvas id="sch-kind"></canvas></div>
+            </article>
+            <article class="ins-card">
+              <header><h3>Best-selling listings</h3><p>Sales in this period</p></header>
+              <div class="ins-chart ins-tall"><canvas id="sch-top"></canvas></div>
+            </article>
+            <article class="ins-card">
+              <header><h3>My listings</h3><p>All your listings by status</p></header>
+              <div class="ins-chart ins-tall"><canvas id="sch-listings"></canvas></div>
+            </article>
+          </div>
+        </section>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <section class="bg-white rounded-xl border border-gray-100">
             <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -59,8 +95,12 @@
         <div class="sl-card">
           <div class="sl-toolbar">
             <div class="seg" id="order-tabs"></div>
-            <p class="so-note md:ml-auto">Frontier handles the buyer and payment. We'll contact you to arrange each handover.</p>
+            <div class="relative md:ml-auto md:w-72">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+              <input id="order-search" type="search" placeholder="Search order number or listing" class="field-input !py-2 !pl-9 !text-sm" />
+            </div>
           </div>
+          <p class="so-note">Frontier handles the buyer and payment, and will contact you to arrange each handover.</p>
           <div id="orders-list"></div>
         </div>
       </section>
@@ -225,7 +265,49 @@
           box.querySelector("[data-add]")?.addEventListener("click", () => openEditor());
           return;
         }
-        box.innerHTML = `<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${listings.map(listingCard).join("")}</div>`;
+        if (!box.querySelector("#listing-tabs")) {
+          box.innerHTML = `
+            <div class="sl-card mb-4">
+              <div class="sl-toolbar">
+                <div class="seg" id="listing-tabs"></div>
+                <div class="relative md:ml-auto md:w-72">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400">${uiIcon("search")}</span>
+                  <input id="listing-search" type="search" placeholder="Search title, breed, province" class="field-input !py-2 !pl-9 !text-sm" />
+                </div>
+              </div>
+            </div>
+            <div id="listing-grid"></div>`;
+          box.querySelector("#listing-search").addEventListener("input", (e) => { listingFilter.q = e.target.value.trim().toLowerCase(); renderListingGrid(); });
+        }
+        renderListingGrid();
+      }
+
+      const LISTING_TABS = [
+        { key: "all", label: "All" },
+        { key: "published", label: "Live" },
+        { key: "pending", label: "In review" },
+        { key: "rejected", label: "Changes needed" },
+        { key: "unpublished", label: "Hidden" },
+      ];
+      const listingFilter = { tab: "all", q: "" };
+
+      function renderListingGrid() {
+        const box = document.getElementById("tab-listings");
+        const counts = Object.fromEntries(LISTING_TABS.map((t) => [t.key, listings.filter((l) => t.key === "all" || sellerState(l).key === t.key).length]));
+        document.getElementById("listing-tabs").innerHTML = LISTING_TABS.map((t) =>
+          `<button type="button" data-ltab="${t.key}" class="${t.key === listingFilter.tab ? "active" : ""}">${t.label}<span class="count">${counts[t.key]}</span></button>`).join("");
+        document.querySelectorAll("[data-ltab]").forEach((b) => b.addEventListener("click", () => { listingFilter.tab = b.dataset.ltab; renderListingGrid(); }));
+        const q = listingFilter.q;
+        const rows = listings.filter((l) => (listingFilter.tab === "all" || sellerState(l).key === listingFilter.tab)
+          && (!q || [l.title, l.breed_name, l.category_name, l.animal_name, l.location].filter(Boolean).join(" ").toLowerCase().includes(q)));
+        const grid = document.getElementById("listing-grid");
+        grid.innerHTML = rows.length
+          ? `<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">${rows.map(listingCard).join("")}</div>`
+          : `<div class="bg-white rounded-xl border border-gray-100"><div class="empty-state"><p class="font-semibold text-gray-800">No matching listings</p><p class="text-sm mt-1">Try a different search or filter.</p></div></div>`;
+        bindListingActions(box);
+      }
+
+      function bindListingActions(box) {
         box.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openEditor(b.dataset.edit)));
         box.querySelectorAll("[data-resubmit]").forEach((b) => b.addEventListener("click", async () => {
           await runAction(() => sellerApi(`/api/seller/listings/${b.dataset.resubmit}/resubmit`, { method: "POST" }), "Sent for review.");
@@ -652,7 +734,10 @@
         history.replaceState(null, "", url);
         window.scrollTo({ top: 0 });
         if (name === "messages") loadMessages().catch((e) => showNotification(e.message, "error"));
-        if (name === "overview") loadOverview().catch(() => {});
+        if (name === "overview") {
+          loadOverview().catch(() => {});
+          if (window.initSellerInsights) initSellerInsights();
+        }
         if (name === "orders") loadOrders().catch((e) => showNotification(e.message, "error"));
         if (name === "notifications") {
           sellerNotifications.render();
@@ -749,12 +834,12 @@
 
       // Orders on this seller's listings (no buyer details: Frontier handles them).
       const ORDER_TABS = [
+        { key: "all", label: "All" },
         { key: "open", label: "To hand over" },
         { key: "completed", label: "Completed" },
         { key: "cancelled", label: "Cancelled" },
-        { key: "all", label: "All" },
       ];
-      const orderState = { tab: "open", rows: [] };
+      const orderState = { tab: "all", rows: [], q: "" };
       const isOpen = (o) => !["completed", "cancelled"].includes(o.status);
       const inTab = (o, tab) => tab === "all" || (tab === "open" ? isOpen(o) : o.status === tab);
 
@@ -793,7 +878,12 @@
           `<button type="button" data-otab="${t.key}" class="${t.key === orderState.tab ? "active" : ""}">${t.label}<span class="count">${counts[t.key]}</span></button>`).join("");
         document.querySelectorAll("[data-otab]").forEach((b) => b.addEventListener("click", () => { orderState.tab = b.dataset.otab; renderOrders(); }));
         const list = document.getElementById("orders-list");
-        const rows = orderState.rows.filter((o) => inTab(o, orderState.tab));
+        const q = orderState.q;
+        const rows = orderState.rows.filter((o) => inTab(o, orderState.tab) && (!q || `${o.reference} ${o.title} ${o.location || ""}`.toLowerCase().includes(q)));
+        if (!rows.length && q) {
+          list.innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">No matching orders</p><p class="text-sm mt-1">Try a different search or filter.</p></div>`;
+          return;
+        }
         if (!rows.length) {
           const empty = {
             open: ["Nothing to hand over right now", "When a buyer orders and pays for one of your listings, it appears here and we email you."],
@@ -807,12 +897,13 @@
         list.innerHTML = `<ul class="so-list">${rows.map(orderRow).join("")}</ul>`;
       }
 
+      document.getElementById("order-search").addEventListener("input", (e) => { orderState.q = e.target.value.trim().toLowerCase(); renderOrders(); });
+
       async function loadOrders() {
         const list = document.getElementById("orders-list");
         if (!orderState.loaded) list.innerHTML = `<div class="empty-state"><span class="btn-spinner chat-spinner"></span></div>`;
         orderState.rows = (await sellerApi("/api/seller/orders")).data;
         orderState.loaded = true;
-        if (orderState.tab === "open" && !orderState.rows.some(isOpen) && orderState.rows.length) orderState.tab = "all";
         renderOrders();
       }
 

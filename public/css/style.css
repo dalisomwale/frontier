@@ -6028,7 +6028,7 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 @media (min-width: 640px) { .seller-stats { gap: 16px; } }
 @media (min-width: 768px) { .seller-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (min-width: 1100px) { .seller-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
-.so-note { font-size: 13px; color: #6b7280; max-width: 360px; }
+.so-note { font-size: 13px; color: #6b7280; padding: 10px 16px; background: #f8faf7; border-bottom: 1px solid #f1f3ef; }
 .so-list { list-style: none; margin: 0; padding: 0; }
 .so-row { display: flex; gap: 14px; padding: 16px; border-top: 1px solid #f1f3ef; }
 .so-row:first-child { border-top: 0; }
@@ -6052,3 +6052,4 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
   .so-thumb { width: 56px; height: 56px; border-radius: 10px; }
   .so-top { flex-direction: column; gap: 6px; }
 }
+@media (max-width: 767px) { .seller-stats > :last-child:nth-child(odd) { grid-column: span 2; } }

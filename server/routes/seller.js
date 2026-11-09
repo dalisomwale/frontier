@@ -349,6 +349,102 @@ router.get("/summary", requireSeller, async (req, res, next) => {
   }
 });
 
+// Dashboard charts for one seller: sales over time, orders by status,
+// listings by status, top listings and messages. Only orders the seller has
+// been told about count (paid or confirmed by Frontier).
+const INSIGHT_RANGES = { "7d": 7, "30d": 30, "90d": 90 };
+router.get("/insights", requireSeller, async (req, res, next) => {
+  try {
+    const range = Object.prototype.hasOwnProperty.call(INSIGHT_RANGES, req.query.range) ? req.query.range : "30d";
+    const days = INSIGHT_RANGES[range];
+    const id = req.seller.id;
+    const since = "o.seller_notified_at >= CURDATE() - INTERVAL ? DAY";
+    const [[totals]] = await pool.query(
+      `SELECT COUNT(*) AS orders,
+              COALESCE(SUM(IF(o.status <> 'cancelled', o.total, 0)), 0) AS sales,
+              COALESCE(SUM(o.status <> 'cancelled'), 0) AS kept,
+              COALESCE(SUM(o.status NOT IN ('completed', 'cancelled')), 0) AS open
+       FROM orders o WHERE o.seller_id = ? AND o.seller_notified_at IS NOT NULL AND ${since}`,
+      [id, days - 1],
+    );
+    const [[msgs]] = await pool.query(
+      `SELECT COUNT(*) AS n FROM inquiries WHERE seller_id = ? AND forwarded_at >= CURDATE() - INTERVAL ? DAY`,
+      [id, days - 1],
+    );
+    // Sales per day (7 and 30 days) or per week (90 days), empty days included.
+    const weekly = days > 30;
+    const [series] = await pool.query(
+      `SELECT ${weekly ? "DATE(o.seller_notified_at - INTERVAL WEEKDAY(o.seller_notified_at) DAY)" : "DATE(o.seller_notified_at)"} AS day,
+              COALESCE(SUM(IF(o.status <> 'cancelled', o.total, 0)), 0) AS sales,
+              COALESCE(SUM(o.status <> 'cancelled'), 0) AS orders
+       FROM orders o WHERE o.seller_id = ? AND o.seller_notified_at IS NOT NULL AND ${since}
+       GROUP BY day ORDER BY day`,
+      [id, days - 1],
+    );
+    const key = (d) => {
+      const x = new Date(d);
+      return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+    };
+    const byDay = new Map(series.map((r) => [key(r.day), r]));
+    const buckets = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(today);
+    start.setDate(start.getDate() - (days - 1));
+    if (weekly) start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    for (let d = new Date(start); d <= today; d.setDate(d.getDate() + (weekly ? 7 : 1))) {
+      const r = byDay.get(key(d));
+      buckets.push({ date: key(d), sales: r ? Number(r.sales) : 0, orders: r ? Number(r.orders) : 0 });
+    }
+    const [status] = await pool.query(
+      `SELECT CASE WHEN o.status = 'completed' THEN 'completed' WHEN o.status = 'cancelled' THEN 'cancelled' ELSE 'open' END AS label, COUNT(*) AS value
+       FROM orders o WHERE o.seller_id = ? AND o.seller_notified_at IS NOT NULL AND ${since} GROUP BY label`,
+      [id, days - 1],
+    );
+    const [listingStates] = await pool.query(
+      `SELECT CASE WHEN review_status = 'pending' THEN 'in_review' WHEN review_status = 'rejected' THEN 'changes'
+                   WHEN status = 'published' THEN 'live' ELSE 'hidden' END AS label, COUNT(*) AS value
+       FROM livestock WHERE seller_id = ? GROUP BY label`,
+      [id],
+    );
+    const [top] = await pool.query(
+      `SELECT o.livestock_id AS id, MAX(o.livestock_title) AS title, COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS sales
+       FROM orders o WHERE o.seller_id = ? AND o.seller_notified_at IS NOT NULL AND o.status <> 'cancelled' AND ${since}
+       GROUP BY o.livestock_id ORDER BY sales DESC LIMIT 6`,
+      [id, days - 1],
+    );
+    const [byKind] = await pool.query(
+      `SELECT COALESCE(a.name, 'Other') AS label, COALESCE(SUM(o.total), 0) AS value
+       FROM orders o LEFT JOIN livestock l ON l.id = o.livestock_id LEFT JOIN categories c ON c.id = l.category_id LEFT JOIN animals a ON a.id = c.animal_id
+       WHERE o.seller_id = ? AND o.seller_notified_at IS NOT NULL AND o.status <> 'cancelled' AND ${since}
+       GROUP BY label ORDER BY value DESC LIMIT 8`,
+      [id, days - 1],
+    );
+    const kept = Number(totals.kept);
+    res.json({
+      success: true,
+      data: {
+        range,
+        weekly,
+        kpis: {
+          sales: Number(totals.sales),
+          orders: Number(totals.orders),
+          open: Number(totals.open),
+          avg_order: kept ? Number(totals.sales) / kept : 0,
+          messages: Number(msgs.n),
+        },
+        sales: buckets,
+        orders_by_status: status.map((r) => ({ label: r.label, value: Number(r.value) })),
+        listings_by_status: listingStates.map((r) => ({ label: r.label, value: Number(r.value) })),
+        top_listings: top.map((r) => ({ id: r.id, title: r.title, orders: Number(r.orders), sales: Number(r.sales) })),
+        sales_by_kind: byKind.map((r) => ({ label: r.label, value: Number(r.value) })),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/taxonomy", requireSeller, async (req, res, next) => {
   try {
     const [animals] = await pool.query("SELECT id, name, kind FROM animals WHERE status = 'active' ORDER BY kind = 'feed', sort_order, name");
