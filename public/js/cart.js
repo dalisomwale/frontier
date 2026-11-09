@@ -152,6 +152,8 @@ function watchCardPayment(id, token, onPaid) {
 //   Airtel 097, 077, 057 · MTN 096, 076, 056 · Zamtel 095, 075, 055
 const MM_PREFIXES = { airtel: ["097", "077", "057"], mtn: ["096", "076", "056"], zamtel: ["095", "075", "055"] };
 const MM_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
+// Example number shown in the empty field for each network.
+const MM_EXAMPLES = { airtel: "0977 123 456", mtn: "0966 123 456", zamtel: "0955 123 456" };
 function mmLocal(phone) {
   const d = String(phone || "").replace(/\D/g, "");
   if (d.length === 12 && d.startsWith("260")) return `0${d.slice(3)}`;
@@ -185,6 +187,10 @@ function linkNetworkAndNumber(form, showError) {
   if (!phone) return;
   const radios = [...form.querySelectorAll('input[name="mobile_operator"]')];
   const chosen = () => (radios.find((r) => r.checked) || {}).value || "";
+  // The grey example in the field follows the chosen network.
+  const placeholder = () => { phone.placeholder = MM_EXAMPLES[chosen()] || "0977 123 456"; };
+  radios.forEach((r) => r.addEventListener("change", placeholder));
+  placeholder();
   const update = (final) => {
     const net = mmNetworkOf(phone.value);
     if (net && !chosen()) {
