@@ -150,6 +150,16 @@ function setBadge(selector, count) {
   });
 }
 
+// Where a notification leads. Older ones only had "/seller/": orders are found
+// from the order number in the title, the rest from their type.
+function notifLink(n) {
+  const link = n.link || "/seller/";
+  if (/[?&](id|listing)=/.test(link)) return link;
+  const order = String(n.title || "").match(/\bFM-(\d+)/);
+  if (n.type === "order" && order) return `/seller/?tab=orders&id=${Number(order[1]) - 1000}`;
+  return { order: "/seller/?tab=orders", message: "/seller/?tab=messages", listing: "/seller/?tab=listings" }[n.type] || link;
+}
+
 const sellerNotifications = {
   items: [],
   unread: 0,
@@ -166,7 +176,7 @@ const sellerNotifications = {
     if (!list) return;
     list.innerHTML = this.items.length
       ? this.items.map((n) => `
-          <a href="${escapeHtml(n.link || "/seller/")}" data-notif="${n.id}" class="notif-item ${n.read_at ? "" : "is-unread"}">
+          <a href="${escapeHtml(notifLink(n))}" data-notif="${n.id}" class="notif-item ${n.read_at ? "" : "is-unread"}">
             <span class="notif-dot" aria-hidden="true"></span>
             <span class="min-w-0 flex-1">
               <span class="block text-sm font-semibold text-gray-900">${escapeHtml(n.title)}</span>

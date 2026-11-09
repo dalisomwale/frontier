@@ -6085,3 +6085,5 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 .ins-kpi-link[class*="kpi-"] { padding: 1.1rem 1.15rem; }
 .ins-kpi-link[class*="kpi-"] .ins-kpi-value { font-size: 2.1rem; line-height: 1.1; margin-top: .45rem; }
 @media (max-width: 767px) { .ins-kpi-link[class*="kpi-"] .ins-kpi-value { font-size: 1.6rem; } }
+.listing-card-s { transition: box-shadow .3s, border-color .3s; }
+.listing-card-s.is-pointed { border-color: #facc15; box-shadow: 0 0 0 3px rgba(250, 204, 21, .45); }

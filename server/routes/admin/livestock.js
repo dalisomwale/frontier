@@ -387,8 +387,8 @@ router.patch("/:id/status", async (req, res, next) => {
     );
     if (before.status !== status) {
       await notifySeller(before.seller_id, status === "published"
-        ? { type: "listing", title: `Your listing is live: ${before.title}`, link: "/seller/" }
-        : { type: "listing", title: `Your listing was taken off the website: ${before.title}`, body: "Contact Frontier if you have questions.", link: "/seller/" });
+        ? { type: "listing", title: `Your listing is live: ${before.title}`, link: `/seller/?tab=listings&listing=${id}` }
+        : { type: "listing", title: `Your listing was taken off the website: ${before.title}`, body: "Contact Frontier if you have questions.", link: `/seller/?tab=listings&listing=${id}` });
       if (before.seller_id) emails.listingVisibility(before.seller_id, { id, title: before.title }, status === "published", { first: before.review_status === "pending" });
     }
     res.json({ success: true });
@@ -423,7 +423,7 @@ router.delete("/:id", async (req, res, next) => {
     // Images cascade in the DB; inquiries keep their copied title (FK SET NULL).
     const [result] = await pool.query("DELETE FROM livestock WHERE id = ?", [id]);
     if (!result.affectedRows) throw notFound("Livestock listing not found.");
-    await notifySeller(listing.seller_id, { type: "listing", title: `Your listing was removed: ${listing.title}`, body: "Contact Frontier if you have questions.", link: "/seller/" });
+    await notifySeller(listing.seller_id, { type: "listing", title: `Your listing was removed: ${listing.title}`, body: "Contact Frontier if you have questions.", link: "/seller/?tab=listings" });
     if (listing.seller_id) emails.listingRemoved(listing.seller_id, listing);
     images.forEach((row) => deleteImageFiles(row.image_path, row.thumb_path));
     res.json({ success: true });
@@ -462,8 +462,8 @@ router.post("/:id/review", async (req, res, next) => {
       );
     }
     await notifySeller(row.seller_id, action === "approve"
-      ? { type: "listing", title: `Your listing is live: ${row.title}`, body: note || null, link: "/seller/" }
-      : { type: "listing", title: `Changes needed: ${row.title}`, body: note, link: "/seller/" });
+      ? { type: "listing", title: `Your listing is live: ${row.title}`, body: note || null, link: `/seller/?tab=listings&listing=${id}` }
+      : { type: "listing", title: `Changes needed: ${row.title}`, body: note, link: `/seller/?tab=listings&listing=${id}` });
     let emailed = false;
     if (row.seller_email && row.has_account) {
       const result = await sendEmail({

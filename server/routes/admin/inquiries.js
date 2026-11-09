@@ -194,7 +194,7 @@ router.post("/:id/ask", async (req, res, next) => {
       [message, id],
     );
     if (hasAccount) {
-      await notifySeller(row.seller_id, { type: "message", title: `Question about ${row.livestock_title}`, body: message, link: "/seller/?tab=messages" });
+      await notifySeller(row.seller_id, { type: "message", title: `Question about ${row.livestock_title}`, body: message, link: `/seller/?tab=messages&id=${id}` });
     }
     res.json({ success: true, in_dashboard: hasAccount, emailed });
   } catch (error) {

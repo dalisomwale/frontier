@@ -196,7 +196,7 @@
         const st = sellerState(l);
         const detail = [l.breed_name, l.category_name, l.animal_name].filter(Boolean).join(" · ");
         return `
-          <article class="bg-white rounded-xl border border-gray-100 p-3 sm:p-4 flex gap-3 sm:gap-4">
+          <article data-listing="${l.id}" class="bg-white rounded-xl border border-gray-100 p-3 sm:p-4 flex gap-3 sm:gap-4 listing-card-s">
             <div class="w-24 h-20 sm:w-32 sm:h-24 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
               ${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : ""}
             </div>
@@ -883,6 +883,34 @@
         renderOrders();
       }
 
+      // Open a tab and, when given, the item in it: an order (id), a
+      // conversation (id), a listing to point out (listing) or a form (edit/new).
+      async function goTo(q = {}) {
+        if (q.tab === "messages" && q.id) selectedMsg = String(q.id);
+        setTab(q.tab || "overview");
+        if (q.tab === "listings" && approved() && (q.edit || q.new)) return openEditor(q.edit || undefined);
+        if (q.tab === "orders" && q.id) {
+          await loadOrders();
+          if (orderState.rows.some((o) => String(o.id) === String(q.id))) openOrder(q.id);
+          else showNotification("That order isn't in your list any more.", "info");
+        }
+        if (q.tab === "listings" && q.listing) {
+          listingFilter.tab = "all";
+          listingFilter.q = "";
+          const search = document.getElementById("listing-search");
+          if (search) search.value = "";
+          if (document.getElementById("listing-grid")) renderListingGrid();
+          const card = document.querySelector(`#listing-grid [data-listing="${q.listing}"]`);
+          if (card) {
+            card.scrollIntoView({ behavior: "smooth", block: "center" });
+            card.classList.add("is-pointed");
+            setTimeout(() => card.classList.remove("is-pointed"), 2600);
+          } else {
+            showNotification("That listing is no longer in your list.", "info");
+          }
+        }
+      }
+
       async function refreshAfterNotice(notice) {
         try {
           if (notice.type === "account") {
@@ -904,7 +932,7 @@
         setSellerHint(true);
         renderSellerShell(seller);
         initSellerNotifications({ onNotification: refreshAfterNotice });
-        window.addEventListener("seller:navigate", (e) => setTab(e.detail.tab || "overview"));
+        window.addEventListener("seller:navigate", (e) => goTo(e.detail).catch((err) => showNotification(err.message, "error")));
         const hour = new Date().getHours();
         document.getElementById("welcome-line").textContent = `${hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"}, ${seller.name.split(" ")[0]}.`;
         document.getElementById("seller-main").hidden = false;
@@ -912,10 +940,7 @@
         renderProfile();
         const [tax] = await Promise.all([sellerApi("/api/seller/taxonomy"), loadSummary(), loadListings()]);
         taxonomy = tax.data;
-        const q = getQueryParams();
-        setTab(q.tab || "overview");
-        if (q.tab === "listings" && approved() && (q.edit || q.new)) openEditor(q.edit || undefined);
-        if (q.tab === "orders" && q.id) { await loadOrders(); openOrder(q.id); }
+        await goTo(getQueryParams());
       })().catch((error) => showNotification(error.message, "error"));
     </script>
   </body>

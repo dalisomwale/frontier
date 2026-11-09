@@ -199,7 +199,7 @@ router.patch("/:id/account", async (req, res, next) => {
     }
     await notifySeller(id, action === "approve"
       ? { type: "account", title: "Your seller account is approved", body: "You can now add your livestock. Each listing is checked before it goes live.", link: "/seller/" }
-      : { type: "account", title: "Your seller account was not approved", body: note || "Please contact Frontier if you have questions.", link: "/seller/" });
+      : { type: "account", title: "Your seller account was not approved", body: note || "Please contact Frontier if you have questions.", link: "/seller/?tab=profile" });
     const result = await sendEmail({
       to: seller.email,
       subject: action === "approve" ? "Your seller account is approved" : "About your seller account",
