@@ -79,6 +79,7 @@
       const ACTOR = { buyer: "Buyer", lipila: "Lipila", website: "Website", admin: "Admin" };
       const EVENT = {
         order_placed: "Order placed",
+        terms_accepted: "Terms accepted",
         payment_requested: "Payment request sent",
         payment_request_unclear: "Payment request: no clear answer",
         payment_request_failed: "Payment request refused",
@@ -231,6 +232,7 @@
           row("Payment reference", t.payment_reference ? mono(t.payment_reference) : "", t.payment_reference),
           row("Lipila ID", t.payment_provider_ref ? mono(t.payment_provider_ref) : "", t.payment_provider_ref),
           row("Paid at", t.paid_at ? formatDate(t.paid_at) : ""),
+          row("Terms accepted", t.terms_accepted_at ? formatDate(t.terms_accepted_at) : ""),
         ].join("");
         const UNIT = (o) => (o.price_unit === "lot" ? `Whole lot (${o.quantity})` : `${o.quantity}`);
         const items = t.orders.map((o) => `

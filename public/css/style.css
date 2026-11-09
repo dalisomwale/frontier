@@ -5861,3 +5861,10 @@ a.btn-checkout { text-decoration: none; }
   .txd-grid { grid-template-columns: 1fr; }
   .txd-side { order: -1; }
 }
+
+/* Checkout: accept the terms and policies */
+.co-terms-box { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; cursor: pointer; font-size: 13.5px; color: #374151; line-height: 1.5; }
+.co-terms-box:has(input:checked) { border-color: #1f3d2b; background: #f6faf4; }
+.co-terms-box input { flex-shrink: 0; width: 18px; height: 18px; margin-top: 2px; accent-color: #1f3d2b; cursor: pointer; }
+.co-terms-box a { color: #1f3d2b; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.co-terms .field-error { margin-top: 6px; }

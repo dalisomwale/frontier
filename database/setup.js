@@ -283,6 +283,7 @@ async function main() {
       ["payment_alert_at", "DATETIME NULL AFTER payment_started_at"],
       ["payment_check_error", "VARCHAR(255) NULL AFTER payment_alert_at"],
       ["failure_emailed_ref", "VARCHAR(40) NULL AFTER payment_check_error"],
+      ["terms_accepted_at", "DATETIME NULL AFTER failure_emailed_ref"],
     ], "cart checkouts can record the payment provider");
     await addColumns("checkouts", [
       ["payment_method", "ENUM('mobile_money', 'card', 'bank_transfer') NOT NULL DEFAULT 'mobile_money' AFTER payment_status"],

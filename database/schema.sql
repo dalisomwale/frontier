@@ -353,6 +353,7 @@ CREATE TABLE IF NOT EXISTS checkouts (
   payment_alert_at    DATETIME NULL,
   payment_check_error VARCHAR(255) NULL,
   failure_emailed_ref VARCHAR(40) NULL,
+  terms_accepted_at   DATETIME NULL,
   paid_at             DATETIME NULL,
   payment_reminder_at DATETIME NULL,
   ip_address          VARCHAR(45) NULL,

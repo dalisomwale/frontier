@@ -145,7 +145,13 @@
                 ${!methods.length ? `<p class="text-sm text-gray-600">Our team will contact you to arrange payment.</p>` : ""}
               </section>
 
-              <p class="text-xs text-gray-500">By placing this order you agree to our <a href="/terms.html" class="underline">Terms</a>, <a href="/refund-policy.html" class="underline">Refund</a>, <a href="/return-policy.html" class="underline">Return</a> and <a href="/cancellation-policy.html" class="underline">Cancellation</a> policies.</p>
+              <div class="co-terms">
+                <label class="co-terms-box">
+                  <input type="checkbox" name="accept_terms" value="1">
+                  <span>I have read and accept the <a href="/terms.html" target="_blank" rel="noopener">Terms</a>, <a href="/refund-policy.html" target="_blank" rel="noopener">Refund</a>, <a href="/return-policy.html" target="_blank" rel="noopener">Return</a> and <a href="/cancellation-policy.html" target="_blank" rel="noopener">Cancellation</a> policies.</span>
+                </label>
+                <p class="field-error hidden" data-error-for="accept_terms"></p>
+              </div>
               <div class="honeypot" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
               <button type="submit" class="btn-checkout btn-lg w-full checkout-submit-mobile" data-submit></button>
             </div>
@@ -180,6 +186,9 @@
         form.querySelectorAll('input[name="payment_method"]').forEach((r) => r.addEventListener("change", showPanel));
         showPanel();
         showPayLogos(form);
+        form.elements.accept_terms.addEventListener("change", () => {
+          if (form.elements.accept_terms.checked) form.querySelector('[data-error-for="accept_terms"]').classList.add("hidden");
+        });
         // The mobile money number starts as the phone number; the buyer can change it.
         const ph = form.elements.phone;
         const pp = form.elements.payment_phone;
@@ -214,6 +223,7 @@
         if (v.full_name.length < 2) e.full_name = "Please enter your full name.";
         if (v.phone.replace(/\D/g, "").length < 9) e.phone = "Please enter your phone number, e.g. 0977 123 456.";
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) e.email = "Please enter a valid email address.";
+        if (!v.accept_terms) e.accept_terms = "Please tick the box to accept the terms and policies.";
         if (v.payment_method === "mobile_money") {
           if (!v.mobile_operator) e.mobile_operator = "Please choose your mobile money network.";
           if (v.payment_phone.replace(/\D/g, "").length < 9) e.payment_phone = "Please enter your mobile money number, e.g. 0977 123 456.";
@@ -237,6 +247,7 @@
           payment_phone: chosen === "mobile_money" ? form.elements.payment_phone.value.trim() : "",
           address: chosen === "card" ? form.elements.address.value.trim() : "",
           city: chosen === "card" ? form.elements.city.value.trim() : "",
+          accept_terms: form.elements.accept_terms.checked,
         };
         const errors = check(values);
         showErrors(form, errors);

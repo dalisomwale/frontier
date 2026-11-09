@@ -229,7 +229,11 @@ async function create(lines, buyer, ip, pay = null) {
     conn.release();
   }
 
+  if (buyer.acceptedTerms) await pool.query("UPDATE checkouts SET terms_accepted_at = NOW() WHERE id = ?", [checkoutId]);
   let checkout = await load(checkoutId);
+  if (buyer.acceptedTerms) {
+    txlog.record({ checkoutId, event: "terms_accepted", actor: "buyer", ip, detail: "Buyer ticked the box: read and accepted the Terms, Refund, Return and Cancellation policies." });
+  }
   txlog.record({
     checkoutId, event: "order_placed", actor: "buyer", amount: checkout.total, ip,
     status: holdsStock(method) ? "held" : "reserved",

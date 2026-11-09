@@ -144,7 +144,7 @@ router.get("/:id", async (req, res, next) => {
     const id = positiveInt(req.params.id);
     if (!id) throw badRequest("Invalid transaction.");
     const [[row]] = await pool.query(
-      `SELECT ${LIST_FIELDS}, c.payment_check_error, c.payment_started_at, c.payment_checked_at FROM checkouts c WHERE c.id = ?`,
+      `SELECT ${LIST_FIELDS}, c.payment_check_error, c.payment_started_at, c.payment_checked_at, c.terms_accepted_at FROM checkouts c WHERE c.id = ?`,
       [id],
     );
     if (!row) throw notFound("Transaction not found.");

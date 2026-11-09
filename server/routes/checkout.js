@@ -46,6 +46,8 @@ router.post("/", async (req, res, next) => {
     if (!fullName || fullName.length < 2) errors.full_name = "Please enter your full name.";
     if (!phone || !isPhone(phone)) errors.phone = "Please enter a valid phone number, e.g. 0977 123 456.";
     if (!email || !isEmail(email)) errors.email = "Please enter a valid email address.";
+    const acceptedTerms = req.body.accept_terms === true || req.body.accept_terms === "1" || req.body.accept_terms === "on";
+    if (!acceptedTerms) errors.accept_terms = "Please tick the box to accept the terms and policies.";
     // How the buyer pays: mobile money (network + number for the PIN prompt),
     // or card (address and town for the card page).
     const allowed = checkout.methods();
@@ -70,7 +72,7 @@ router.post("/", async (req, res, next) => {
     }
     let created;
     try {
-      created = await checkout.create(req.body.items, { full_name: fullName, phone, email: email.toLowerCase() }, req.ip, pay);
+      created = await checkout.create(req.body.items, { full_name: fullName, phone, email: email.toLowerCase(), acceptedTerms }, req.ip, pay);
     } catch (error) {
       if (error.code === "CART_CHANGED") {
         return res.status(409).json({ success: false, code: "CART_CHANGED", message: error.message });
