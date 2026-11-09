@@ -220,35 +220,65 @@
           bindBack();
           return;
         }
-        const facts = [
-          ["Buyer", `${escapeHtml(t.full_name)}<br>${escapeHtml(t.email)}<br>${escapeHtml(t.phone)}`],
-          ["Amount", kwacha(t.total)],
-          ["Paid with", `${escapeHtml(how(t))}${t.payment_phone ? ` ${escapeHtml(t.payment_phone)}` : ""}`],
-          ["Payment reference", t.payment_reference ? escapeHtml(t.payment_reference) : null],
-          ["Lipila ID", t.payment_provider_ref ? escapeHtml(t.payment_provider_ref) : null],
-          ["Paid at", t.paid_at ? formatDate(t.paid_at) : null],
-          ["Reason not completed", t.payment_status === "failed" && t.payment_failure ? escapeHtml(t.payment_failure) : null],
-        ].filter((f) => f[1]);
+        const row = (label, value, copy) => value ? `<div class="txd-row"><dt>${label}</dt><dd>${value}${copy ? `<button type="button" class="txd-copy" data-copy="${escapeHtml(copy)}" aria-label="Copy ${label}">Copy</button>` : ""}</dd></div>` : "";
+        const mono = (v) => `<span class="txd-mono">${escapeHtml(v)}</span>`;
+        const failedNote = t.payment_status === "failed" && t.payment_failure;
+        const payment = [
+          row("Method", escapeHtml(METHOD[t.payment_method] || t.payment_method || "-")),
+          row("Network", t.mobile_operator ? escapeHtml(NETWORK[t.mobile_operator] || t.mobile_operator) : ""),
+          row("Paying number", t.payment_phone ? escapeHtml(t.payment_phone) : ""),
+          row("Attempts", t.payment_attempts > 1 ? String(t.payment_attempts) : ""),
+          row("Payment reference", t.payment_reference ? mono(t.payment_reference) : "", t.payment_reference),
+          row("Lipila ID", t.payment_provider_ref ? mono(t.payment_provider_ref) : "", t.payment_provider_ref),
+          row("Paid at", t.paid_at ? formatDate(t.paid_at) : ""),
+        ].join("");
+        const UNIT = (o) => (o.price_unit === "lot" ? `Whole lot (${o.quantity})` : `${o.quantity}`);
+        const items = t.orders.map((o) => `
+          <li class="txd-item">
+            <div><a href="/admin/orders.html?id=${o.id}" class="txd-item-ref">${escapeHtml(o.reference)}</a>
+              <p>${escapeHtml(o.livestock_title)}</p>
+              <small>Qty ${escapeHtml(UNIT(o))}${o.seller_name ? ` · ${escapeHtml(o.seller_name)}` : ""}</small></div>
+            <b>${kwacha(o.total)}</b>
+          </li>`).join("");
         box.innerHTML = `
           ${crumbs(t.reference)}
           <div class="tx-head">
-            <div><h1>${escapeHtml(t.reference)}</h1><p>${escapeHtml(t.full_name)} · ${time(t.created_at)}</p></div>
+            <div><h1>${escapeHtml(t.reference)}</h1><p>Placed ${formatDate(t.created_at)}</p></div>
             <div class="tx-head-right"><b>${kwacha(t.total)}</b>${tag(t.payment_status)}</div>
           </div>
           ${pathHtml(t)}
-          <div class="tx-facts">${facts.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("")}</div>
-          <div class="tx-orders">${t.orders.map((o) => `<a href="/admin/orders.html?id=${o.id}">${escapeHtml(o.reference)} · ${escapeHtml(o.livestock_title)} · ${kwacha(o.total)}</a>`).join("")}</div>
-          <h3 class="tx-h">Timeline</h3>
-          ${t.rebuilt ? `<p class="tx-rebuilt">Rebuilt from the order's records: this payment was made before every step was recorded.</p>` : ""}
-          ${t.events.length ? `<ol class="tx-timeline">${t.events.map((e) => `
-            <li class="tx-ev tx-${TONE[e.event] || "plain"}">
-              <span class="tx-ev-time">${formatDate(e.created_at)}</span>
-              <div class="tx-ev-body">
-                <p class="tx-ev-title">${EVENT[e.event] || escapeHtml(e.event)} <span class="tx-actor">${e.actor === "admin" ? escapeHtml(e.admin_name || "Admin") : ACTOR[e.actor] || escapeHtml(e.actor)}</span>${e.reference ? `<span class="tx-ref">${escapeHtml(e.reference)}</span>` : ""}</p>
-                <p class="tx-ev-text">${escapeHtml(e.detail)}</p>
-                ${e.data ? `<details class="tx-raw"><summary>Lipila's full answer</summary><pre>${escapeHtml(pretty(e.data))}</pre></details>` : ""}
-              </div>
-            </li>`).join("")}</ol>` : `<p class="text-sm text-gray-500 px-4 pb-4">No steps recorded.</p>`}`;
+          ${failedNote ? `<div class="txd-alert"><b>Not completed:</b> ${escapeHtml(t.payment_failure)}</div>` : ""}
+          <div class="txd-grid">
+            <section class="txd-card txd-timeline">
+              <h2>Timeline</h2>
+              ${t.rebuilt ? `<p class="tx-rebuilt">Rebuilt from the order's records: this payment was made before every step was recorded.</p>` : ""}
+              ${t.events.length ? `<ol class="tx-timeline">${t.events.map((e) => `
+                <li class="tx-ev tx-${TONE[e.event] || "plain"}">
+                  <div class="tx-ev-body">
+                    <p class="tx-ev-title">${EVENT[e.event] || escapeHtml(e.event)} <span class="tx-actor">${e.actor === "admin" ? escapeHtml(e.admin_name || "Admin") : ACTOR[e.actor] || escapeHtml(e.actor)}</span></p>
+                    <p class="tx-ev-meta">${formatDate(e.created_at)}${e.reference ? ` · ${escapeHtml(e.reference)}` : ""}</p>
+                    <p class="tx-ev-text">${escapeHtml(e.detail)}</p>
+                    ${e.data ? `<details class="tx-raw"><summary>Lipila's full answer</summary><pre>${escapeHtml(pretty(e.data))}</pre></details>` : ""}
+                  </div>
+                </li>`).join("")}</ol>` : `<p class="text-sm text-gray-500">No steps recorded.</p>`}
+            </section>
+            <aside class="txd-side">
+              <section class="txd-card"><h2>Payment</h2><dl class="txd-list">${payment}</dl></section>
+              <section class="txd-card"><h2>Buyer</h2><dl class="txd-list">
+                ${row("Name", escapeHtml(t.full_name))}
+                ${row("Email", `<a href="mailto:${escapeHtml(t.email)}">${escapeHtml(t.email)}</a>`)}
+                ${row("Phone", `<a href="tel:${escapeHtml(String(t.phone).replace(/[^\d+]/g, ""))}">${escapeHtml(t.phone)}</a>`)}
+              </dl></section>
+              <section class="txd-card"><h2>Items</h2>
+                <ul class="txd-items">${items}</ul>
+                <div class="txd-total"><span>Total</span><b>${kwacha(t.total)}</b></div>
+              </section>
+            </aside>
+          </div>`;
+        box.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
+          try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; } catch { b.textContent = "Select it"; }
+          setTimeout(() => { b.textContent = "Copy"; }, 1500);
+        }));
         bindBack();
         document.title = `${t.reference} - Transactions - Frontier Marketplace Admin`;
       }

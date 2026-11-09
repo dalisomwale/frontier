@@ -38,7 +38,7 @@ function recordEmail(sending, { checkoutId, orderId = null, who, to }) {
   Promise.resolve(sending)
     .then((r) => record({
       checkoutId, orderId, event: r && r.sent ? "email_sent" : "email_failed",
-      detail: r && r.sent ? `"Payment received" email sent to the ${who} (${to})` : `Email to the ${who} (${to}) not sent: ${(r && r.error) || "unknown error"}`,
+      detail: r && r.sent ? `"${who === "team" ? "New paid order" : "Payment received"}" email sent to the ${who} (${to})` : `Email to the ${who} (${to}) not sent: ${(r && r.error) || "unknown error"}`,
     }))
     .catch(() => {});
 }
