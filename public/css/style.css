@@ -5693,3 +5693,10 @@ a.btn-checkout { text-decoration: none; }
 .order-check-pay span { font-size: 12px; color: #6b7280; flex: 1 1 220px; }
 /* Card: nothing to show under the options until the card box opens */
 [data-method-panel="card"]:has(> [data-card-slot]:empty) { margin: 0; padding: 0; border: 0; }
+
+/* Payment logos (official files in /images/pay/) */
+.pm-logos { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.pay-logo { height: 20px; width: auto; max-width: 64px; object-fit: contain; display: none; }
+.pay-logo.is-loaded { display: block; }
+.op-logo { height: 22px; width: 22px; object-fit: contain; border-radius: 5px; display: none; flex-shrink: 0; }
+.op-logo.is-loaded { display: block; }
