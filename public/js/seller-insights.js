@@ -56,20 +56,27 @@
   const axis = (extra = {}) => ({ grid: { color: C.grid, drawTicks: false }, border: { display: false }, ticks: { padding: 6 }, ...extra });
   const noGrid = (extra = {}) => ({ grid: { display: false }, border: { display: false }, ticks: { padding: 4, autoSkip: true, maxRotation: 0 }, ...extra });
 
-  function renderKpis(d) {
+  // Four cards: sales and orders for the chosen period, and the listings and
+  // messages as they stand now.
+  let last = null;
+  function renderKpis(d = last) {
+    if (!d) return;
+    last = d;
     const k = d.kpis;
+    const now = typeof sellerSummary !== "undefined" && sellerSummary ? sellerSummary : null;
     const kpis = [
-      { label: "Sales", value: k.sales >= 1e6 ? compactMoney(k.sales) : money(k.sales), title: money(k.sales), hint: "Orders not cancelled" },
-      { label: "Orders", value: k.orders.toLocaleString(), hint: `${k.open} to hand over` },
-      { label: "Average order", value: money(k.avg_order), hint: "Per order" },
-      { label: "Messages", value: k.messages.toLocaleString(), hint: "From Frontier about buyers" },
+      { label: "Sales", value: k.sales >= 1e6 ? compactMoney(k.sales) : money(k.sales), title: money(k.sales), hint: k.orders ? `Average ${money(k.avg_order)} per order` : "In this period", tab: "orders" },
+      { label: "Orders", value: k.orders.toLocaleString(), hint: k.open ? `${k.open} to hand over` : "In this period", tab: "orders" },
+      { label: "Live listings", value: now ? now.listings.live.toLocaleString() : "–", hint: now && now.listings.in_review ? `${now.listings.in_review} in review` : "On the website now", tab: "listings" },
+      { label: "Unread messages", value: now ? now.messages.unread.toLocaleString() : "–", hint: now ? `${now.messages.total} in total` : "", tab: "messages" },
     ];
-    document.getElementById("sins-kpis").innerHTML = kpis.map((x) => `<div class="ins-kpi">
+    document.getElementById("sins-kpis").innerHTML = kpis.map((x) => `<a href="/seller/?tab=${x.tab}" data-tab-link="${x.tab}" class="ins-kpi ins-kpi-link">
         <p class="ins-kpi-label">${x.label}</p>
         <p class="ins-kpi-value" title="${x.title || x.value}">${x.value}</p>
         <p class="ins-kpi-foot"><span class="ins-kpi-hint">${x.hint}</span></p>
-      </div>`).join("");
+      </a>`).join("");
   }
+  window.renderSellerKpis = () => renderKpis();
 
   function pie(id, rows, map, centerLabel, { format = (v) => String(v), donut = true } = {}) {
     const data = rows.filter((r) => r.value > 0);
