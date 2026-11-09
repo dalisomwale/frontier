@@ -144,6 +144,7 @@ CREATE TABLE IF NOT EXISTS livestock (
   description     TEXT NULL,
   status          ENUM('published', 'unpublished') NOT NULL DEFAULT 'unpublished',
   published_at    DATETIME NULL,
+  went_live_at    DATETIME NULL, -- first time it was published; never cleared
   verification    ENUM('unverified', 'verified') NOT NULL DEFAULT 'unverified',
   seller_id       INT UNSIGNED NULL,
   review_status   ENUM('approved', 'pending', 'rejected') NOT NULL DEFAULT 'approved',

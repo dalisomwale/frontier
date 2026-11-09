@@ -259,6 +259,7 @@ const LATE_COLUMNS = [
   ["livestock", "price", "DECIMAL(12,2) NULL AFTER quantity"],
   ["livestock", "price_unit", "ENUM('head', 'lot') NOT NULL DEFAULT 'head' AFTER price"],
   ["livestock", "price_negotiable", "TINYINT(1) NOT NULL DEFAULT 0 AFTER price_unit"],
+  ["livestock", "went_live_at", "DATETIME NULL AFTER published_at"],
   ["orders", "mobile_operator", "ENUM('airtel', 'mtn', 'zamtel') NULL AFTER payment_method"],
   ["orders", "payment_phone", "VARCHAR(30) NULL AFTER mobile_operator"],
   ["orders", "payment_bank", "VARCHAR(80) NULL AFTER payment_phone"],
@@ -306,6 +307,12 @@ async function ensureLateTables() {
     } catch (error) {
       console.error(`Could not add ${table}.${column}: ${error.message}. Run: npm run db:setup`);
     }
+  }
+  // Listings published before went_live_at existed count as having gone live.
+  try {
+    await pool.query("UPDATE livestock SET went_live_at = published_at WHERE went_live_at IS NULL AND published_at IS NOT NULL");
+  } catch (error) {
+    console.error(`Could not fill livestock.went_live_at: ${error.message}`);
   }
   // Card payments were added to the payment_method list later.
   try {

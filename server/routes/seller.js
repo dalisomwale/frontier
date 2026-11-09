@@ -461,7 +461,11 @@ function listingBody(body) {
 }
 
 async function ownListing(conn, id, sellerId) {
-  const [rows] = await conn.query("SELECT id, title, status, review_status FROM livestock WHERE id = ? AND seller_id = ?", [id, sellerId]);
+  const [rows] = await conn.query(
+    `SELECT l.id, l.title, l.status, l.review_status, l.went_live_at, l.quantity, l.price, l.price_unit, l.price_negotiable, c.animal_id
+     FROM livestock l JOIN categories c ON c.id = l.category_id WHERE l.id = ? AND l.seller_id = ?`,
+    [id, sellerId],
+  );
   if (!rows.length) throw notFound("Listing not found.");
   return rows[0];
 }
@@ -561,9 +565,22 @@ router.put("/listings/:id", requireSeller, requireApproved, uploadImages, async 
   const conn = await pool.getConnection();
   try {
     const id = positiveInt(req.params.id);
-    await ownListing(conn, id, req.seller.id);
+    const before = await ownListing(conn, id, req.seller.id);
     const p = await helpers.payload(listingBody(req.body));
     const photoChanges = helpers.parsePhotoChanges(req.body);
+    // Once a listing has been live on the website, its category, quantity and
+    // price stay as they are (only Frontier's team can change them).
+    if (before.went_live_at) {
+      const [[cat]] = await conn.query("SELECT animal_id FROM categories WHERE id = ?", [p.category_id]);
+      if (!cat || Number(cat.animal_id) !== Number(before.animal_id)) {
+        throw validationError({ animal_id: "The category can't be changed once the listing has been live. Please contact Frontier." });
+      }
+      p.quantity = before.quantity;
+      p.price_given = true;
+      p.price = before.price;
+      p.price_unit = before.price_unit;
+      p.price_negotiable = before.price_negotiable;
+    }
 
     await conn.beginTransaction();
     await conn.query(

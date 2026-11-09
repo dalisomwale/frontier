@@ -416,7 +416,7 @@
         const live = item.status === "published";
 
         const body = `
-          ${id ? `<div class="alert alert-info text-sm mb-0">${live ? "Saving changes made for this listing will be on the website when our team approves it." : "Saving sends this listing to our team for review."}</div>` : ""}
+          ${id ? `<div class="alert alert-info text-sm mb-0">${live ? "Saving changes made for this listing will be on the website when our team approves it." : "Saving sends this listing to our team for review."}${item.went_live_at ? " Category, quantity and price can't be changed once a listing has been live. Please contact Frontier if they need to change." : ""}</div>` : ""}
           ${field({ name: "title", label: "Title", value: item.title, required: true, placeholder: "e.g. 10 Boran heifers, in calf", attrs: 'maxlength="200"' })}
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             ${field({ name: "animal_id", label: "Category", value: animalId, required: true, options: animalOptions() })}
@@ -457,6 +457,19 @@
             const breedSelect = form.elements.breed_id;
             const typeSelect = form.elements.livestock_type;
             bindWordLimit(form.elements.description);
+            // Live before: category, quantity and price can't be changed here.
+            if (item.went_live_at) {
+              ["animal_id", "quantity", "price", "price_unit"].forEach((name) => {
+                const el = form.elements[name];
+                if (!el) return;
+                el.classList.add("is-locked");
+                el.setAttribute("aria-readonly", "true");
+                el.tabIndex = -1;
+                if (el.tagName === "INPUT") el.readOnly = true;
+                const keep = el.value;
+                el.addEventListener("change", () => { el.value = keep; el.dispatchEvent(new Event("input")); });
+              });
+            }
             const kindOf = (id) => (taxonomy.animals.find((a) => String(a.id) === String(id)) || {}).kind || "livestock";
             applyListingKind(form, kindOf(animalSelect.value));
             animalSelect.addEventListener("change", () => {

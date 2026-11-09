@@ -14,7 +14,9 @@ const VERIFICATIONS = ["unverified", "verified"];
 // date if it was already published) and clears it when unpublished. Must come
 // before "status = ?" in an UPDATE, as MySQL applies assignments in order.
 const PUBLISHED_AT_SQL =
-  "published_at = CASE WHEN ? = 'published' THEN IF(status = 'published' AND published_at IS NOT NULL, published_at, NOW()) ELSE NULL END";
+  "published_at = CASE WHEN ? = 'published' THEN IF(status = 'published' AND published_at IS NOT NULL, published_at, NOW()) ELSE NULL END, " +
+  // Assignments run left to right, so this sees the new published_at.
+  "went_live_at = IF(published_at IS NOT NULL, COALESCE(went_live_at, published_at), went_live_at)";
 const MAX_PAGE_SIZE = 50;
 const MAX_DESCRIPTION_WORDS = 50;
 const countWords = (value) => (String(value).trim().match(/\S+/g) || []).length;

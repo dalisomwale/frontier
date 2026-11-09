@@ -6200,3 +6200,6 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
   .ml-layout .ml-photos { order: -1; }
 }
 .ml-desc { margin-top: 16px; padding-top: 16px; border-top: 1px solid #f3f4f6; }
+/* Fields a seller can't change on a listing that has been live */
+.field-input.is-locked, select.is-locked, .price-input:has(.is-locked) { background-color: #f3f4f6 !important; color: #6b7280; pointer-events: none; }
+.price-input:has(.is-locked) span { color: #9ca3af; }

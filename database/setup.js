@@ -250,6 +250,10 @@ async function main() {
     ["price_unit", "ENUM('head', 'lot') NOT NULL DEFAULT 'head' AFTER price"],
     ["price_negotiable", "TINYINT(1) NOT NULL DEFAULT 0 AFTER price_unit"],
   ], "listings can now have a price");
+  await addColumns("livestock", [
+    ["went_live_at", "DATETIME NULL AFTER published_at"],
+  ], "listings remember when they first went live");
+  await conn.query("UPDATE livestock SET went_live_at = published_at WHERE went_live_at IS NULL AND published_at IS NOT NULL");
   if (await tableExists(conn, "orders")) {
     await addColumns("orders", [
       ["mobile_operator", "ENUM('airtel', 'mtn', 'zamtel') NULL AFTER payment_method"],
