@@ -6154,3 +6154,14 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 @media (max-width: 639px) { .seller-inbox .inbox-item { width: calc(100% - 8px); margin: 3px 4px; } }
 @media (max-width: 639px) { .sm-view-more { display: none; } }
 .seller-inbox .inbox-unread-dot { position: static; flex-shrink: 0; align-self: center; margin-left: 2px; }
+
+/* Seller on phones: coloured chat header */
+@media (max-width: 1023px) {
+  .seller-inbox .chat-head { background: linear-gradient(135deg, #166534 0%, #14532d 100%); border-bottom: 2px solid #d9f06a; }
+  .seller-inbox .chat-head .sm-chat-title { color: #fff; }
+  .seller-inbox .chat-head .text-xs { color: rgba(255, 255, 255, .78); }
+  .seller-inbox .chat-back { color: #fff; }
+  .seller-inbox .chat-back:hover { background: rgba(255, 255, 255, .12); }
+  .seller-inbox .chat-listing-thumb { background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .25); }
+  .seller-inbox .sm-view { color: #14532d; border-color: transparent; background: linear-gradient(90deg, #fde047 0%, #bef264 100%); }
+}

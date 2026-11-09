@@ -330,14 +330,14 @@ function renderSellerShell(seller) {
     </div>`;
 
   document.getElementById("seller-topbar").innerHTML = `
-    <nav id="page-topnav" class="bg-white border-b border-gray-100 sticky top-0 z-50">
+    <nav id="page-topnav" class="site-topnav sticky top-0 z-50">
       <div class="px-4 sm:px-6 h-16 flex justify-between items-center">
         <a href="/seller/" data-tab-link="overview" class="flex items-center gap-3">
           <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div>
-          <span class="font-bold text-gray-900">Seller</span>
+          <span class="font-bold site-topnav-name">Seller</span>
         </a>
         <div class="flex items-center gap-2">
-          <a href="/" target="_blank" rel="noopener" class="hidden sm:inline-flex text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2">View website</a>
+          <a href="/" target="_blank" rel="noopener" class="hidden sm:inline-flex site-topnav-back px-3 py-2">View website</a>
         </div>
       </div>
     </nav>`;
