@@ -6082,7 +6082,6 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 .ins-kpi-link.kpi-gold { background: linear-gradient(135deg, #fde047 0%, #bef264 100%); color: #14532d; }
 .ins-kpi-link.kpi-gold .ins-kpi-label, .ins-kpi-link.kpi-gold .ins-kpi-hint { color: rgba(20, 83, 45, .8); }
 .ins-kpi-link.kpi-gold .ins-kpi-value { color: #14532d; }
-.ins-kpi-link[class*="kpi-"] { text-align: center; padding: 1.1rem 1rem; }
+.ins-kpi-link[class*="kpi-"] { padding: 1.1rem 1.15rem; }
 .ins-kpi-link[class*="kpi-"] .ins-kpi-value { font-size: 2.1rem; line-height: 1.1; margin-top: .45rem; }
-.ins-kpi-link[class*="kpi-"] .ins-kpi-foot { justify-content: center; margin-top: .45rem; }
 @media (max-width: 767px) { .ins-kpi-link[class*="kpi-"] .ins-kpi-value { font-size: 1.6rem; } }
