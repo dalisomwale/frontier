@@ -6184,3 +6184,12 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 .ml-thumbs img { width: 100%; height: 100%; object-fit: cover; }
 .ml-nophoto { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; aspect-ratio: 4 / 3; border-radius: 10px; background: #f3f7f1; color: #6b7280; font-size: 13px; }
 .ml-nophoto > div { width: auto !important; height: auto !important; background: none !important; }
+/* Seller listing page: small icon actions without borders */
+.listing-view .sv-actions { gap: 4px; }
+.listing-view .sv-icon-btn { width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: #4b5563; }
+.listing-view .sv-icon-btn span, .listing-view .sv-icon-btn svg { width: 17px; height: 17px; }
+.listing-view .sv-icon-btn:hover { background: #f0f7f1; color: #166534; }
+.listing-view .sv-icon-btn.sv-icon-primary { background: transparent; color: #166534; }
+.listing-view .sv-icon-btn.sv-icon-primary:hover { background: #f0f7f1; }
+.listing-view .sv-icon-btn.sv-icon-danger { color: #dc2626; }
+.listing-view .sv-icon-btn.sv-icon-danger:hover { background: #fef2f2; color: #dc2626; }
