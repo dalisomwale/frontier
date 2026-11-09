@@ -5700,3 +5700,10 @@ a.btn-checkout { text-decoration: none; }
 .pay-logo.is-loaded { display: block; }
 .op-logo { height: 22px; width: 22px; object-fit: contain; border-radius: 5px; display: none; flex-shrink: 0; }
 .op-logo.is-loaded { display: block; }
+
+/* Payment methods side by side: icon, name and logos stacked in each tile */
+.pm-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pm-choice { flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px; }
+.pm-choice .pm-dot { position: absolute; top: 14px; right: 14px; margin: 0; }
+.pm-choice .pm-text b { font-size: 14px; }
+.pm-choices:has(> .pm-choice:only-child) { grid-template-columns: 1fr; }
