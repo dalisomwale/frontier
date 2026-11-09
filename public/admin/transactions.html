@@ -84,6 +84,7 @@
         lipila_callback: "Message from Lipila",
         status_check_error: "Status check failed",
         payment_confirmed: "Payment confirmed",
+        payment_waiting: "Waiting for confirmation",
         payment_failed: "Payment not completed",
         unconfirmed_alert: "Not confirmed after 30 minutes",
         stock_taken: "Stock taken",
@@ -146,25 +147,40 @@
         if (!res.data.length) {
           return renderEmptyState(list, { title: "No transactions", message: "Nothing matches these filters.", icon: "inbox" });
         }
-        list.innerHTML = `<ul class="tx-list">${res.data.map((t) => `
-          <li class="tx-item" data-id="${t.id}">
-            <button type="button" class="tx-row" data-open="${t.id}" aria-expanded="${state.open === t.id}">
-              <span class="tx-when">${time(t.created_at)}</span>
-              <span class="tx-main"><b>${escapeHtml(t.reference)}</b> · ${escapeHtml(t.full_name)}<small>${escapeHtml(t.titles || "")}</small></span>
-              <span class="tx-how">${escapeHtml(how(t))}${t.payment_attempts > 1 ? `<small>${t.payment_attempts} attempts</small>` : ""}</span>
-              <span class="tx-amt">${kwacha(t.total)}</span>
-              <span class="tx-st">${tag(t.payment_status)}${t.alerted && t.payment_status === "pending" ? `<small class="text-amber-700">Check in Lipila</small>` : ""}</span>
-            </button>
-            <div class="tx-detail" data-detail="${t.id}" ${state.open === t.id ? "" : "hidden"}></div>
-          </li>`).join("")}</ul>`;
-        list.querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => toggle(Number(b.dataset.open))));
+        const cols = 11;
+        list.innerHTML = `<div class="tx-table-wrap"><table class="tx-table">
+          <thead><tr>
+            <th>Date</th><th>Order</th><th>Buyer</th><th>Items</th><th>Method</th><th>Network</th><th>Paying number</th>
+            <th class="num">Amount</th><th>Status</th><th>Payment reference</th><th>Lipila ID</th>
+          </tr></thead>
+          <tbody>${res.data.map((t) => `
+            <tr class="tx-tr" data-open="${t.id}" tabindex="0" aria-expanded="${state.open === t.id}">
+              <td class="nowrap">${time(t.created_at)}</td>
+              <td class="nowrap"><b>${escapeHtml(t.reference)}</b></td>
+              <td><span class="tx-buyer">${escapeHtml(t.full_name)}</span><small>${escapeHtml(t.email)}</small></td>
+              <td class="tx-items">${escapeHtml(t.titles || "")}</td>
+              <td class="nowrap">${escapeHtml(METHOD[t.payment_method] || t.payment_method || "-")}${t.payment_attempts > 1 ? `<small>${t.payment_attempts} attempts</small>` : ""}</td>
+              <td class="nowrap">${escapeHtml(NETWORK[t.mobile_operator] || "-")}</td>
+              <td class="nowrap">${escapeHtml(t.payment_phone || "-")}</td>
+              <td class="num nowrap"><b>${kwacha(t.total)}</b></td>
+              <td class="nowrap">${tag(t.payment_status)}${t.alerted && t.payment_status === "pending" ? `<small class="text-amber-700">Check in Lipila</small>` : ""}</td>
+              <td class="nowrap mono">${escapeHtml(t.payment_reference || "-")}</td>
+              <td class="nowrap mono">${escapeHtml(t.payment_provider_ref || "-")}</td>
+            </tr>
+            <tr class="tx-detail-row" ${state.open === t.id ? "" : "hidden"} data-detail-row="${t.id}">
+              <td colspan="${cols}"><div class="tx-detail" data-detail="${t.id}"></div></td>
+            </tr>`).join("")}</tbody></table></div>`;
+        list.querySelectorAll("[data-open]").forEach((row) => {
+          row.addEventListener("click", () => toggle(Number(row.dataset.open)));
+          row.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(Number(row.dataset.open)); } });
+        });
         if (state.open && list.querySelector(`[data-detail="${state.open}"]`)) loadDetail(state.open);
         if (res.pages > 1) pag.appendChild(createPagination(res.page, res.pages, loadList));
       }
 
       function toggle(id) {
         const open = state.open === id ? null : id;
-        document.querySelectorAll("[data-detail]").forEach((d) => { d.hidden = Number(d.dataset.detail) !== open; });
+        document.querySelectorAll("[data-detail-row]").forEach((d) => { d.hidden = Number(d.dataset.detailRow) !== open; });
         document.querySelectorAll("[data-open]").forEach((b) => b.setAttribute("aria-expanded", Number(b.dataset.open) === open));
         state.open = open;
         if (open) loadDetail(open);
@@ -190,10 +206,13 @@
           ["Paid at", t.paid_at ? formatDate(t.paid_at) : null],
           ["Reason not completed", t.payment_status === "failed" && t.payment_failure ? escapeHtml(t.payment_failure) : null],
         ].filter((f) => f[1]);
+        fitDetail(box);
         box.innerHTML = `
+          ${pathHtml(t)}
           <div class="tx-facts">${facts.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("")}</div>
           <div class="tx-orders">${t.orders.map((o) => `<a href="/admin/orders.html?id=${o.id}">${escapeHtml(o.reference)} · ${escapeHtml(o.livestock_title)} · ${kwacha(o.total)}</a>`).join("")}</div>
           <h3 class="tx-h">Timeline</h3>
+          ${t.rebuilt ? `<p class="tx-rebuilt">Rebuilt from the order's records: this payment was made before every step was recorded.</p>` : ""}
           ${t.events.length ? `<ol class="tx-timeline">${t.events.map((e) => `
             <li class="tx-ev tx-${TONE[e.event] || "plain"}">
               <span class="tx-ev-time">${formatDate(e.created_at)}</span>
@@ -204,6 +223,35 @@
               </div>
             </li>`).join("")}</ol>` : `<p class="text-sm text-gray-500 px-4 pb-4">No steps recorded. This payment was made before the transaction history started.</p>`}`;
       }
+
+      // The journey at a glance: each stage done, failed, in progress or not reached.
+      function pathHtml(t) {
+        const has = (...names) => t.events.some((e) => names.includes(e.event));
+        const paid = t.payment_status === "paid";
+        const failed = t.payment_status === "failed";
+        const card = t.payment_method === "card";
+        const requested = has("payment_requested", "card_page_opened", "payment_request_unclear");
+        const stages = [
+          ["Order placed", "done"],
+          [card ? "Card page opened" : "Payment request sent", requested ? "done" : has("payment_request_failed") ? "fail" : paid ? "done" : "todo"],
+          has("admin_marked_paid") && !has("payment_confirmed")
+            ? ["Confirmed by your team", "done"]
+            : [card ? "Card accepted" : "PIN approved", paid ? "done" : failed && requested ? "fail" : requested ? "now" : "todo"],
+          ["Paid", paid ? "done" : "todo"],
+          ["Stock and emails", has("stock_taken", "email_sent", "admin_marked_paid") || (paid && t.rebuilt) ? "done" : paid ? "now" : "todo"],
+        ];
+        const mark = { done: "✓", fail: "✕", now: "…", todo: "" };
+        return `<ol class="tx-path" aria-label="Payment progress">${stages.map(([label, st], i) => `
+          <li class="tx-step is-${st}"><span class="tx-dot">${mark[st] || i + 1}</span><span class="tx-step-label">${label}</span></li>`).join("")}</ol>`;
+      }
+
+      // The opened panel stays within the visible width, even when the table
+      // itself is wider and scrolls sideways.
+      function fitDetail(box) {
+        const wrap = box.closest(".tx-table-wrap");
+        if (wrap) box.style.width = `${wrap.clientWidth}px`;
+      }
+      window.addEventListener("resize", () => document.querySelectorAll(".tx-detail-row:not([hidden]) .tx-detail").forEach(fitDetail));
 
       function pretty(data) {
         try { return JSON.stringify(JSON.parse(data), null, 2); } catch { return data; }

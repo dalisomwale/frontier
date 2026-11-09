@@ -15,6 +15,38 @@ const STATUSES = ["paid", "pending", "failed", "unpaid"];
 const METHODS = ["mobile_money", "card"];
 const RANGES = { today: 0, "7d": 7, "30d": 30, "90d": 90, all: null };
 const checkoutRef = (id) => `FMC-${1000 + Number(id)}`;
+const NETWORKS = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
+const kw = (n) => `K ${Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+
+// Payments made before the history started: the main steps rebuilt from the
+// order's own records (times, references, outcome). Marked as rebuilt.
+function rebuild(c, orders) {
+  const out = [];
+  const add = (event, actor, at, detail, extra = {}) => out.push({ id: `r${out.length}`, event, actor, created_at: at, detail, reference: null, data: null, ...extra });
+  add("order_placed", "buyer", c.created_at,
+    `${c.full_name} placed the order: ${orders.map((o) => `${o.livestock_title} (${orderRef(o.id)}, ${kw(o.total)})`).join("; ")}.`);
+  if (c.payment_reference) {
+    const attempts = Number(c.payment_attempts || 1);
+    const what = c.payment_method === "card"
+      ? `Card payment page for ${kw(c.total)} opened on Lipila`
+      : `Payment request for ${kw(c.total)} sent to ${NETWORKS[c.mobile_operator] || "mobile money"} ${c.payment_phone || ""}`.trim();
+    add(c.payment_method === "card" ? "card_page_opened" : "payment_requested", "buyer", c.payment_started_at || c.created_at,
+      `${attempts > 1 ? `Attempt ${attempts} of ${attempts}: ` : ""}${what}${c.payment_provider_ref ? `. Lipila ID ${c.payment_provider_ref}` : ""}.`,
+      { reference: c.payment_reference });
+  }
+  if (c.payment_status === "paid") {
+    add("payment_confirmed", "lipila", c.paid_at || c.payment_checked_at || c.created_at,
+      `Payment of ${kw(c.total)} confirmed. Orders marked Paid.`, { reference: c.payment_reference });
+    const taken = orders.filter((o) => o.stock_deducted);
+    if (taken.length) add("stock_taken", "website", c.paid_at || c.created_at, `Stock taken off the listings: ${taken.map((o) => o.livestock_title).join(", ")}.`);
+  } else if (c.payment_status === "failed") {
+    add("payment_failed", "lipila", c.payment_checked_at || c.payment_started_at || c.created_at,
+      `Payment not completed: ${c.payment_failure || "no reason given"}.`, { reference: c.payment_reference });
+  } else if (c.payment_status === "pending") {
+    add("payment_waiting", "website", c.payment_checked_at || c.created_at, "Waiting for the payment to be confirmed.", { reference: c.payment_reference });
+  }
+  return out;
+}
 
 // Filters shared by the list and the export.
 function filters(query) {
@@ -111,7 +143,10 @@ router.get("/:id", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
     if (!id) throw badRequest("Invalid transaction.");
-    const [[row]] = await pool.query(`SELECT ${LIST_FIELDS}, c.payment_check_error FROM checkouts c WHERE c.id = ?`, [id]);
+    const [[row]] = await pool.query(
+      `SELECT ${LIST_FIELDS}, c.payment_check_error, c.payment_started_at, c.payment_checked_at FROM checkouts c WHERE c.id = ?`,
+      [id],
+    );
     if (!row) throw notFound("Transaction not found.");
     const [orders] = await pool.query(
       `SELECT id, livestock_title, quantity, price_unit, total, status, payment_status, stock_deducted, seller_name
@@ -129,7 +164,8 @@ router.get("/:id", async (req, res, next) => {
         ...shape(row),
         check_error: row.payment_check_error,
         orders: orders.map((o) => ({ ...o, reference: orderRef(o.id), total: Number(o.total) })),
-        events: events.map((e) => ({ ...e, amount: e.amount === null ? null : Number(e.amount) })),
+        events: events.length ? events.map((e) => ({ ...e, amount: e.amount === null ? null : Number(e.amount) })) : rebuild(row, orders),
+        rebuilt: !events.length,
       },
     });
   } catch (error) {
