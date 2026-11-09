@@ -80,7 +80,16 @@
       </section>
       <section id="tab-messages" hidden>
         <div class="inbox-shell seller-inbox" id="seller-inbox">
-          <aside class="inbox-list-pane"><div id="msg-list" class="inbox-list"></div></aside>
+          <aside class="inbox-list-pane">
+            <div class="sm-list-head">
+              <div class="seg" id="msg-tabs"></div>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+                <input id="msg-search" type="search" placeholder="Search listing or message" class="field-input !py-2 !pl-9 !text-sm" />
+              </div>
+            </div>
+            <div id="msg-list" class="inbox-list"></div>
+          </aside>
           <section class="inbox-chat-pane" id="msg-chat"></section>
         </div>
       </section>
@@ -511,9 +520,21 @@
           </button>`;
       }
 
+      const msgFilter = { tab: "all", q: "" };
       function renderMsgList() {
         const list = document.getElementById("msg-list");
-        list.innerHTML = messages.map(msgListItem).join("");
+        const unread = messages.filter((m) => !m.seller_seen_at).length;
+        document.getElementById("msg-tabs").innerHTML = [["all", "All", messages.length], ["unread", "Unread", unread]]
+          .map(([k, label, n]) => `<button type="button" data-mtab="${k}" class="${msgFilter.tab === k ? "active" : ""}">${label}<span class="count">${n}</span></button>`).join("");
+        document.querySelectorAll("[data-mtab]").forEach((b) => b.addEventListener("click", () => { msgFilter.tab = b.dataset.mtab; renderMsgList(); }));
+        const q = msgFilter.q;
+        const rows = messages.filter((m) => (msgFilter.tab === "all" || !m.seller_seen_at || String(m.id) === selectedMsg)
+          && (!q || `${m.livestock_title} ${(m.messages || []).map((x) => x.body).join(" ")}`.toLowerCase().includes(q)));
+        if (!rows.length) {
+          list.innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">${q ? "No matching conversations" : "No unread messages"}</p><p class="text-sm mt-1">${q ? "Try a different search." : "You're all caught up."}</p></div>`;
+          return;
+        }
+        list.innerHTML = rows.map(msgListItem).join("");
         list.querySelectorAll("[data-msg]").forEach((b) => b.addEventListener("click", () => openConversation(b.dataset.msg)));
       }
 
@@ -531,25 +552,38 @@
         selectedMsg = String(id);
         document.getElementById("seller-inbox").classList.add("has-selection");
         const chat = document.getElementById("msg-chat");
+        const clock = (v) => new Date(v).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
         const bubble = (x) => x.sender === "seller"
-          ? `<div class="chat-row chat-right"><div class="chat-bubble chat-admin"><p class="chat-text">${escapeHtml(x.body)}</p><p class="chat-time">${shortTime(x.created_at)}</p></div></div>`
-          : `<div class="chat-row"><div class="chat-bubble chat-customer"><p class="chat-who">Frontier</p><p class="chat-text">${escapeHtml(x.body)}</p><p class="chat-time">${shortTime(x.created_at)}</p></div></div>`;
+          ? `<div class="chat-row chat-right"><div class="chat-bubble chat-admin"><p class="chat-text">${escapeHtml(x.body)}</p><p class="chat-time">${clock(x.created_at)}</p></div></div>`
+          : `<div class="chat-row sm-from-frontier"><span class="sm-avatar" aria-hidden="true">F</span><div class="chat-bubble chat-customer"><p class="chat-who">Frontier</p><p class="chat-text">${escapeHtml(x.body)}</p><p class="chat-time">${clock(x.created_at)}</p></div></div>`;
+        // A date pill whenever the day changes.
+        const dayName = (v) => {
+          const d = new Date(v);
+          if (d.toDateString() === new Date().toDateString()) return "Today";
+          if (d.toDateString() === new Date(Date.now() - 86400000).toDateString()) return "Yesterday";
+          return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+        };
+        let lastDay = "";
+        const thread = (m.messages || []).map((x) => {
+          const day = dayName(x.created_at);
+          const pill = day !== lastDay ? `<div class="chat-day">${day}</div>` : "";
+          lastDay = day;
+          return pill + bubble(x);
+        }).join("");
         chat.innerHTML = `
           <header class="chat-head">
             <button type="button" data-back class="chat-back" aria-label="Back to messages"><span class="w-5 h-5 block">${uiIcon("chevronRight")}</span></button>
             ${thumbHtml(m, "chat-listing-thumb")}
             <div class="min-w-0 flex-1">
-              <p class="text-sm font-semibold text-gray-900 truncate">${m.livestock_id ? `<a href="/listing.html?id=${m.livestock_id}" target="_blank" class="hover:underline">${escapeHtml(m.livestock_title)}</a>` : escapeHtml(m.livestock_title)}</p>
+              <p class="sm-chat-title truncate">${escapeHtml(m.livestock_title)}</p>
               <p class="text-xs text-gray-500">Conversation with Frontier</p>
             </div>
+            ${m.livestock_id ? `<a href="/listing.html?id=${m.livestock_id}" target="_blank" rel="noopener" class="sm-view">View<span class="sm-view-more"> listing</span></a>` : ""}
           </header>
-          <div class="chat-body" id="msg-body">
-            ${(m.messages || []).length ? `<div class="chat-day">${formatDateShort(m.messages[0].created_at)}</div>` : ""}
-            ${(m.messages || []).map(bubble).join("")}
-          </div>
+          <div class="chat-body" id="msg-body">${thread}</div>
           <form class="chat-composer chat-composer-row" id="msg-form" novalidate>
-            <textarea name="reply" rows="1" maxlength="2000" class="chat-input" placeholder="Reply to Frontier" aria-label="Reply to Frontier"></textarea>
-            <button type="submit" class="chat-send-btn">Send</button>
+            <textarea name="reply" rows="1" maxlength="2000" class="chat-input" placeholder="Write a reply to Frontier…" aria-label="Reply to Frontier"></textarea>
+            <button type="submit" class="chat-send-btn sm-send" aria-label="Send"><span>${uiIcon("send")}</span><span class="sm-send-label">Send</span></button>
           </form>`;
         const body = document.getElementById("msg-body");
         body.scrollTop = body.scrollHeight;
@@ -587,6 +621,8 @@
           sellerApi(`/api/seller/messages/${m.id}/seen`, { method: "POST" }).then(() => loadSummary()).catch(() => {});
         }
       }
+
+      document.getElementById("msg-search").addEventListener("input", (e) => { msgFilter.q = e.target.value.trim().toLowerCase(); if (messages.length) renderMsgList(); });
 
       async function loadMessages() {
         const box = document.getElementById("seller-inbox");
