@@ -192,6 +192,11 @@ function openAdminView({ title, params, html = "", onClose, canLeave }) {
   };
 }
 
+// Leave every open page view at once (e.g. when another menu item is chosen).
+function closeAllAdminViews() {
+  [...adminViews].reverse().forEach((v) => v.close(true, false));
+}
+
 window.addEventListener("popstate", async (e) => {
   if (adminViewPopBusy) { adminViewPopBusy = false; return; }
   const want = (e.state && e.state.adminView) || 0;
@@ -203,91 +208,8 @@ window.addEventListener("popstate", async (e) => {
   }
 });
 
-// The seller dashboard keeps forms in a pop-up window.
-function openFormPopup({ title, body, submitText = "Save", wide = false, onSubmit, onOpen }) {
-  const backdrop = document.createElement("div");
-  backdrop.className = "modal-backdrop";
-  backdrop.innerHTML = `
-    <div class="modal-panel ${wide ? "modal-wide" : ""}" role="dialog" aria-modal="true" aria-labelledby="form-modal-title">
-      <form novalidate>
-        <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
-          <h2 id="form-modal-title" class="text-lg font-bold text-gray-900">${escapeHtml(title)}</h2>
-          <button type="button" data-close class="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100" aria-label="Close"><span class="w-5 h-5">${uiIcon("close")}</span></button>
-        </div>
-        <div class="p-5 space-y-4">
-          <div data-form-alert class="hidden alert alert-error text-sm mb-0" role="alert"></div>
-          ${body}
-        </div>
-        <div class="flex justify-end gap-3 px-5 py-4 border-t border-gray-100 sticky bottom-0 bg-white">
-          <button type="button" data-close class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium">Cancel</button>
-          <button type="submit" data-submit class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-70">${escapeHtml(submitText)}</button>
-        </div>
-      </form>
-    </div>`;
-  document.body.appendChild(backdrop);
-  document.body.classList.add("modal-open");
-
-  const form = backdrop.querySelector("form");
-  const submit = form.querySelector("[data-submit]");
-  const alertBox = form.querySelector("[data-form-alert]");
-  let dirty = false;
-  form.addEventListener("input", () => (dirty = true));
-
-  const close = async (force = false) => {
-    if (!force && dirty && !(await confirmAction({ title: "Discard changes?", message: "Your unsaved changes will be lost.", confirmText: "Discard", variant: "danger" }))) return;
-    document.removeEventListener("keydown", onKey);
-    backdrop.remove();
-    if (!document.querySelector(".modal-backdrop")) document.body.classList.remove("modal-open");
-  };
-  const onKey = (e) => {
-    if (e.key === "Escape" && !document.querySelector("[aria-labelledby=confirm-action-title]")) close();
-  };
-  document.addEventListener("keydown", onKey);
-  backdrop.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => close()));
-  backdrop.addEventListener("mousedown", (e) => {
-    if (e.target === backdrop) close();
-  });
-
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    alertBox.classList.add("hidden");
-    form.querySelectorAll(".field-error").forEach((el) => el.classList.add("hidden"));
-    form.querySelectorAll(".has-error").forEach((el) => el.classList.remove("has-error"));
-    submit.disabled = true;
-    const label = submit.innerHTML;
-    submit.innerHTML = `<span class="btn-spinner"></span> Saving…`;
-    try {
-      await onSubmit(form);
-      close(true);
-    } catch (error) {
-      if (error.errors) {
-        for (const [field, message] of Object.entries(error.errors)) {
-          const input = form.elements[field];
-          if (input?.classList) input.classList.add("has-error");
-          const holder = form.querySelector(`[data-error-for="${field}"]`);
-          if (holder) {
-            holder.textContent = message;
-            holder.classList.remove("hidden");
-          }
-        }
-      }
-      alertBox.textContent = error.message;
-      alertBox.classList.remove("hidden");
-      alertBox.scrollIntoView({ block: "nearest" });
-    } finally {
-      submit.disabled = false;
-      submit.innerHTML = label;
-    }
-  });
-
-  if (onOpen) onOpen(form);
-  setTimeout(() => form.querySelector("input:not([type=hidden]):not([type=file]), select, textarea")?.focus(), 50);
-  return { form, close };
-}
-
 // A form shown as its own page (Section / Title), with Cancel and Save.
 function openFormModal({ title, crumb, body, submitText = "Save", wide = false, onSubmit, onOpen, params }) {
-  if (!location.pathname.startsWith("/admin/")) return openFormPopup({ title, body, submitText, wide, onSubmit, onOpen });
   let dirty = false;
   const view = openAdminView({
     title: crumb || title,

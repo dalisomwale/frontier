@@ -100,7 +100,6 @@
               <input id="order-search" type="search" placeholder="Search order number or listing" class="field-input !py-2 !pl-9 !text-sm" />
             </div>
           </div>
-          <p class="so-note">Frontier handles the buyer and payment, and will contact you to arrange each handover.</p>
           <div id="orders-list"></div>
         </div>
       </section>
@@ -400,6 +399,8 @@
 
         openFormModal({
           title: id ? "Edit Listing" : "Add Listing",
+          crumb: id ? item.title : "Add Listing",
+          params: id ? { edit: id } : { new: 1 },
           submitText: id ? "Save and send for review" : "Submit for review",
           wide: true,
           body,
@@ -722,6 +723,7 @@
 
       function setTab(name) {
         if (!TAB_TITLES[name]) name = "overview";
+        closeAllAdminViews();
         Object.keys(TAB_TITLES).forEach((t) => (document.getElementById(`tab-${t}`).hidden = t !== name));
         document.getElementById("page-title").textContent = TAB_TITLES[name];
         document.getElementById("welcome-line").hidden = name !== "overview";
@@ -731,6 +733,7 @@
         if (name === "overview") url.searchParams.delete("tab");
         else url.searchParams.set("tab", name);
         url.searchParams.delete("welcome");
+        ["edit", "new", "id"].forEach((k) => url.searchParams.delete(k));
         history.replaceState(null, "", url);
         window.scrollTo({ top: 0 });
         if (name === "messages") loadMessages().catch((e) => showNotification(e.message, "error"));
@@ -846,30 +849,68 @@
       function orderStatus(o) {
         if (o.status === "completed") return { cls: "so-done", label: "Completed", help: "Handed over. Thank you for selling on Frontier." };
         if (o.status === "cancelled") return { cls: "so-off", label: "Cancelled", help: "This order was cancelled. The quantity is back on your listing." };
-        return { cls: "so-open", label: o.paid ? "Paid, to hand over" : "Confirmed, to hand over",
+        return { cls: "so-open", label: "To hand over",
           help: "Please keep these aside for the buyer. Our team will contact you to arrange the handover." };
       }
 
       function orderRow(o) {
         const st = orderStatus(o);
         return `
-          <li class="so-row">
-            <div class="so-thumb">${o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="" loading="lazy">` : livestockFallbackMedia("w-6 h-6")}</div>
-            <div class="so-main">
-              <div class="so-top">
-                <div class="min-w-0">
-                  <p class="so-title">${escapeHtml(o.title)}</p>
-                  <p class="so-meta"><b>${escapeHtml(o.reference)}</b> · ${escapeHtml(formatDateShort(o.ordered_at))}${o.location ? ` · ${escapeHtml(o.location)}` : ""}</p>
-                </div>
+          <li>
+            <button type="button" class="so-row" data-order="${o.id}">
+              <span class="so-thumb">${o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="" loading="lazy">` : livestockFallbackMedia("w-6 h-6")}</span>
+              <span class="so-text">
+                <span class="so-title">${escapeHtml(o.title)}</span>
                 <span class="so-pill ${st.cls}">${st.label}</span>
-              </div>
-              <div class="so-facts">
-                <div><span>Quantity</span><b>${escapeHtml(o.price_unit === "lot" ? `Whole lot (${o.units})` : o.units)}</b></div>
-                <div><span>Order total</span><b>${kwacha(o.total)}</b></div>
-              </div>
-              <p class="so-help">${st.help}</p>
-            </div>
+              </span>
+              <span class="so-chev" aria-hidden="true">${uiIcon("chevronRight")}</span>
+            </button>
           </li>`;
+      }
+
+      // One order on its own page: Orders / FM-1234.
+      function openOrder(id) {
+        const o = orderState.rows.find((x) => String(x.id) === String(id));
+        if (!o) return;
+        const st = orderStatus(o);
+        const unitPrice = o.price_unit === "lot" ? `${kwacha(o.unit_price)} for the lot` : `${kwacha(o.unit_price)} each`;
+        const view = openAdminView({ title: o.reference, params: { id: o.id } });
+        view.body.innerHTML = `
+          <div class="sv-head">
+            <div class="min-w-0">
+              <h1 class="admin-view-title !mb-1">${escapeHtml(o.title)}</h1>
+              <p class="text-sm text-gray-500">Order ${escapeHtml(o.reference)} · ${escapeHtml(formatDate(o.ordered_at))}</p>
+            </div>
+            <span class="so-pill ${st.cls} so-pill-lg">${st.label}</span>
+          </div>
+          <div class="so-detail">
+            <div class="txd-card">
+              <h3 class="txd-card-title">Order details</h3>
+              <dl class="sv-facts">
+                <div><dt>Order number</dt><dd>${escapeHtml(o.reference)}</dd></div>
+                <div><dt>Listing</dt><dd>${escapeHtml(o.title)}</dd></div>
+                <div><dt>Quantity</dt><dd>${escapeHtml(o.price_unit === "lot" ? `Whole lot (${o.units})` : o.units)}</dd></div>
+                <div><dt>Price</dt><dd>${escapeHtml(unitPrice)}</dd></div>
+                <div><dt>Order total</dt><dd>${kwacha(o.total)}</dd></div>
+                <div><dt>Payment</dt><dd>${o.paid ? "Paid" : "Arranged by Frontier"}</dd></div>
+                ${o.location ? `<div><dt>Province</dt><dd>${escapeHtml(o.location)}</dd></div>` : ""}
+                <div><dt>Ordered</dt><dd>${escapeHtml(formatDate(o.ordered_at))}</dd></div>
+              </dl>
+            </div>
+            <div class="space-y-4">
+              <div class="txd-card">
+                <h3 class="txd-card-title">What happens next</h3>
+                <p class="text-sm text-gray-700">${st.help}</p>
+              </div>
+              <div class="txd-card so-listing-card">
+                <span class="so-thumb">${o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="" loading="lazy">` : livestockFallbackMedia("w-6 h-6")}</span>
+                <div class="min-w-0 flex-1">
+                  <p class="so-title">${escapeHtml(o.title)}</p>
+                  ${o.livestock_id ? `<a href="/listing.html?id=${o.livestock_id}" target="_blank" rel="noopener" class="text-sm font-semibold text-blue-600 hover:text-blue-700">View listing</a>` : `<p class="text-sm text-gray-500">This listing has been removed.</p>`}
+                </div>
+              </div>
+            </div>
+          </div>`;
       }
 
       function renderOrders() {
@@ -895,6 +936,7 @@
           return;
         }
         list.innerHTML = `<ul class="so-list">${rows.map(orderRow).join("")}</ul>`;
+        list.querySelectorAll("[data-order]").forEach((b) => b.addEventListener("click", () => openOrder(b.dataset.order)));
       }
 
       document.getElementById("order-search").addEventListener("input", (e) => { orderState.q = e.target.value.trim().toLowerCase(); renderOrders(); });
@@ -936,7 +978,10 @@
         renderProfile();
         const [tax] = await Promise.all([sellerApi("/api/seller/taxonomy"), loadSummary(), loadListings()]);
         taxonomy = tax.data;
-        setTab(getQueryParams().tab || "overview");
+        const q = getQueryParams();
+        setTab(q.tab || "overview");
+        if (q.tab === "listings" && approved() && (q.edit || q.new)) openEditor(q.edit || undefined);
+        if (q.tab === "orders" && q.id) { await loadOrders(); openOrder(q.id); }
       })().catch((error) => showNotification(error.message, "error"));
     </script>
   </body>
