@@ -2938,6 +2938,9 @@ body.admin-pending main {
 
 .site-header-home {
   transition: background-color 0.25s, box-shadow 0.25s, border-color 0.25s;
+  /* Scrolled past the hero: the same forest night as the other pages */
+  background: #0f1f12;
+  border-bottom: 2px solid #d9f06a;
 }
 
 .site-header-home.is-transparent {
@@ -2946,25 +2949,25 @@ body.admin-pending main {
   box-shadow: none;
 }
 
-.site-header-home.is-transparent .site-brand-name {
+.site-header-home .site-brand-name {
   color: #fff;
 }
 
-.site-header-home.is-transparent .brand-mark-full {
+.site-header-home .brand-mark-full {
   border-color: rgba(255, 255, 255, 0.4);
 }
 
-.site-header-home.is-transparent .nav-menu-btn {
+.site-header-home .nav-menu-btn {
   color: #fff;
 }
 
-.site-header-home.is-transparent .nav-menu-btn:hover,
-.site-header-home.is-transparent .nav-menu.open > .nav-menu-btn {
+.site-header-home .nav-menu-btn:hover,
+.site-header-home .nav-menu.open > .nav-menu-btn {
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
 }
 
-.site-header-home.is-transparent .site-search input {
+.site-header-home .site-search input {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.32);
   color: #fff;
@@ -2972,23 +2975,23 @@ body.admin-pending main {
   -webkit-backdrop-filter: blur(8px);
 }
 
-.site-header-home.is-transparent .site-search input::placeholder {
+.site-header-home .site-search input::placeholder {
   color: rgba(255, 255, 255, 0.8);
 }
 
-.site-header-home.is-transparent .site-search input:focus {
+.site-header-home .site-search input:focus {
   background: #fff;
   color: #111827;
   border-color: #fff;
 }
 
-.site-header-home.is-transparent .site-search-icon,
-.site-header-home.is-transparent .site-search-clear {
+.site-header-home .site-search-icon,
+.site-header-home .site-search-clear {
   color: rgba(255, 255, 255, 0.85);
 }
 
-.site-header-home.is-transparent .site-search:focus-within .site-search-icon,
-.site-header-home.is-transparent .site-search:focus-within .site-search-clear {
+.site-header-home .site-search:focus-within .site-search-icon,
+.site-header-home .site-search:focus-within .site-search-clear {
   color: #9ca3af;
 }
 
@@ -3442,13 +3445,13 @@ body.admin-pending main {
 }
 
 /* Over the hero video: light outline so Login reads on the footage */
-.site-header-home.is-transparent .header-login-link {
+.site-header-home .header-login-link {
   color: #fff;
   border-color: rgba(255, 255, 255, 0.75);
   background: rgba(0, 0, 0, 0.12);
 }
 
-.site-header-home.is-transparent .header-login-link:hover {
+.site-header-home .header-login-link:hover {
   color: #fde047;
   border-color: #fde047;
   background: rgba(0, 0, 0, 0.2);
@@ -5629,7 +5632,6 @@ a.cart-title:hover { text-decoration: underline; }
 /* Phones: keep logo, Browse Categories, cart, Login and Register on one line. */
 .site-header-home .header-cart { color: #fff; }
 .site-header-home .header-cart:hover { background: rgba(255, 255, 255, 0.12); }
-.site-header-home:not(.is-transparent) .header-cart { color: #166534; }
 @media (max-width: 430px) {
   .header-auth { gap: 6px; }
   .header-cart { width: 30px; height: 34px; }
@@ -5868,3 +5870,69 @@ a.btn-checkout { text-decoration: none; }
 .co-terms-box input { flex-shrink: 0; width: 18px; height: 18px; margin-top: 2px; accent-color: #166534; cursor: pointer; }
 .co-terms-box a { color: #166534; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 .co-terms .field-error { margin-top: 6px; }
+
+/* Inner pages: the hero's forest-night header with a gold-to-lime edge */
+.site-topnav {
+  position: relative;
+  background: #0f1f12;
+  box-shadow: 0 8px 24px -16px rgba(0, 0, 0, 0.6);
+}
+.site-topnav.sticky { position: sticky; }
+.site-topnav::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #fde047 0%, #bef264 100%);
+  opacity: 0.85;
+}
+.site-topnav .site-topnav-name { color: #fff; }
+.site-topnav .brand-mark-full { border-color: rgba(255, 255, 255, 0.4); }
+.site-topnav-back {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  transition: color 0.15s;
+}
+.site-topnav-back:hover { color: #fde047; }
+.site-topnav .header-login-link {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.7);
+}
+.site-topnav .header-login-link:hover {
+  color: #fde047;
+  border-color: #fde047;
+  background: rgba(255, 255, 255, 0.06);
+}
+.site-topnav .header-cart { color: #fff; }
+.site-topnav .header-cart:hover { background: rgba(255, 255, 255, 0.12); }
+
+/* Policy and contact pages: a short forest band for the title, like the hero */
+.page-band {
+  background:
+    radial-gradient(120% 140% at 85% 0%, rgba(190, 242, 100, 0.12) 0%, rgba(190, 242, 100, 0) 55%),
+    linear-gradient(180deg, #14532d 0%, #0f1f12 100%);
+  color: #fff;
+  padding: 40px 0 34px;
+}
+.page-band-title {
+  font-size: clamp(24px, 4vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+.page-band-swoosh {
+  display: block;
+  width: 96px;
+  height: 4px;
+  margin: 12px 0 12px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #fde047 0%, #bef264 100%);
+}
+.page-band-sub {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* Tick boxes and radios in the brand green */
+body { accent-color: #166534; }

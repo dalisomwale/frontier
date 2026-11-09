@@ -41,15 +41,15 @@ function sellerState(l) {
 
 function sellerPageHeader(seller) {
   return `
-    <nav class="site-header sticky top-0 z-50">
+    <nav class="${seller ? "site-header" : "site-topnav"} sticky top-0 z-50">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-3">
         <a href="/" class="flex items-center gap-3 flex-shrink-0" aria-label="Frontier Marketplace home">
           <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div>
-          <span class="hidden sm:block font-bold text-gray-900">Frontier Marketplace</span>
+          <span class="hidden sm:block font-bold ${seller ? "text-gray-900" : "site-topnav-name"}">Frontier Marketplace</span>
         </a>
         <div class="ml-auto flex items-center gap-2">
           ${seller ? `<span id="header-seller-name" class="hidden md:inline text-sm text-gray-500 mr-1">${escapeHtml(seller.business_name || seller.name)}</span>` : ""}
-          <a href="/" class="hidden sm:inline-flex text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2">View website</a>
+          <a href="/" class="hidden sm:inline-flex ${seller ? "text-sm font-medium text-gray-600 hover:text-gray-900" : "site-topnav-back"} px-3 py-2">View website</a>
           ${seller ? notifBellHtml() : ""}
           ${seller ? `<button type="button" data-seller-logout class="text-sm font-medium px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Logout</button>` : ""}
         </div>
