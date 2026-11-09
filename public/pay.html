@@ -298,7 +298,7 @@
               <button type="submit" class="btn-checkout btn-lg w-full mt-5">${lockIcon}<span>Pay ${kwacha(c.total)}</span></button>
             </form>
             <div data-card-slot></div>`}
-            <p class="pay-secure" data-card-note>${lockIcon}<span>When you tap Pay, Lipila's secure card form opens here for your card details. Your card details never reach Frontier.</span></p>
+            <p class="pay-secure" data-card-note>${lockIcon}<span>When you tap Pay, you'll enter your card details on Lipila's secure card page, then come back here. Your card details never reach Frontier.</span></p>
             ${otherWays(c, "card")}`);
           bindSwitch(c);
           const form = root.querySelector(".pay-form");
@@ -316,7 +316,7 @@
               return;
             }
             btn.disabled = true;
-            btn.innerHTML = `<span class="btn-spinner"></span> Opening the secure card form…`;
+            btn.innerHTML = `<span class="btn-spinner"></span> Opening the secure card page…`;
             try {
               const v = (await apiRequest(papi, { method: "POST", body: { payment_method: "card", address, city } })).data;
               if (!v.pay_url) throw new Error(v.failure || "We couldn't open the card payment page. Please try again.");

@@ -145,7 +145,7 @@
                       <p class="field-error hidden" data-error-for="city"></p>
                     </div>
                   </div>
-                  <p class="co-pay-note" data-card-note>${lockSvg}<span>When you tap Pay, Lipila's secure card form opens right here for your card number, expiry and CVV. Your card details never reach Frontier.</span></p>
+                  <p class="co-pay-note" data-card-note>${lockSvg}<span>When you tap Pay, you'll enter your card details on Lipila's secure card page, then come back here. Your card details never reach Frontier.</span></p>
                   <div data-card-slot></div>
                 </div>` : ""}
 
@@ -251,7 +251,7 @@
         const errors = check(values);
         showErrors(form, errors);
         if (Object.keys(errors).length) return;
-        const busy = { mobile_money: "Sending the payment request…", card: "Opening the secure card form…" }[chosen] || "Placing your order…";
+        const busy = { mobile_money: "Sending the payment request…", card: "Opening the secure card page…" }[chosen] || "Placing your order…";
         submits.forEach((b) => { b.disabled = true; b.innerHTML = `<span class="btn-spinner"></span> ${busy}`; });
         try {
           const res = await apiRequest("/api/checkout", {

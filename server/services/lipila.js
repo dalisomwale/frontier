@@ -223,10 +223,10 @@ function cardsEnabled() {
   return enabled() && /^(on|true|1|yes)$/i.test(String(process.env.LIPILA_CARDS || "").trim());
 }
 
-// Can Lipila's card page be shown inside our checkout (in an iframe)? We read
-// the page's own X-Frame-Options and frame-ancestors headers; if it refuses,
-// or we can't tell, the buyer is sent to the page instead. The answer is kept
-// per site for a while. LIPILA_CARD_EMBED=off always sends buyers to the page.
+// Can Lipila's card page be shown inside our checkout (in an iframe)? Only
+// with LIPILA_CARD_EMBED=on, and only if the card site's own X-Frame-Options
+// and frame-ancestors headers allow it; otherwise the buyer is sent to the
+// page and comes back. The answer is kept per site for a while.
 const embedCache = new Map();
 function framingAllowed(headers, ourOrigin) {
   const xfo = String(headers.get("x-frame-options") || "").trim().toLowerCase();
@@ -248,7 +248,11 @@ function framingAllowed(headers, ourOrigin) {
 }
 
 async function canEmbed(url, ourOrigin) {
-  if (/^(off|false|0|no)$/i.test(String(process.env.LIPILA_CARD_EMBED || "").trim())) return false;
+  // Off unless LIPILA_CARD_EMBED=on: Lipila's card page (PrimeNetPay) leads
+  // through the bank's 3-D Secure check and a Lipila page, which may refuse
+  // to be shown inside another site, so by default buyers go to the card
+  // page and come back.
+  if (!/^(on|true|1|yes)$/i.test(String(process.env.LIPILA_CARD_EMBED || "").trim())) return false;
   let origin;
   try {
     origin = new URL(url).origin;
@@ -261,11 +265,10 @@ async function canEmbed(url, ourOrigin) {
   const timer = setTimeout(() => controller.abort(), 6000);
   let ok = false;
   try {
-    // We never open the buyer's own payment link (it may work only once):
-    // the same page without its payment details carries the site's framing
-    // headers too.
+    // We never open the buyer's own payment link (it may work only once, and
+    // the session can be in the path): only the card site's home page.
     const u = new URL(url);
-    const res = await fetch(`${u.origin}${u.pathname}`, { method: "GET", redirect: "manual", signal: controller.signal });
+    const res = await fetch(`${u.origin}/`, { method: "GET", redirect: "manual", signal: controller.signal });
     ok = res.status < 500 && framingAllowed(res.headers, ourOrigin);
     if (res.body && res.body.cancel) res.body.cancel().catch(() => {});
   } catch {
