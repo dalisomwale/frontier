@@ -353,7 +353,8 @@ function priceFields(item = {}) {
       <p class="field-error hidden" data-error-for="price"></p>
     </div>
     ${field({ name: "price_unit", label: "Priced", value: item.price_unit || "head",
-        options: [{ value: "head", label: "Per head" }, { value: "lot", label: "For the lot" }] })}
+        // "For the lot" is no longer offered; kept only for older listings priced that way.
+        options: [{ value: "head", label: "Per head" }, ...(item.price_unit === "lot" ? [{ value: "lot", label: "For the lot" }] : [])] })}
   </div>`;
 }
 
