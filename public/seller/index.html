@@ -55,39 +55,15 @@
               <div class="ins-chart"><canvas id="sch-sales"></canvas></div>
             </article>
             <article class="ins-card">
-              <header><h3>Orders by status</h3><p>Where your orders in this period stand now</p></header>
-              <div class="ins-chart"><canvas id="sch-orders"></canvas></div>
-            </article>
-            <article class="ins-card">
               <header><h3>Sales by category</h3><p>Share of your sales by animal or feed type</p></header>
               <div class="ins-chart"><canvas id="sch-kind"></canvas></div>
             </article>
             <article class="ins-card">
               <header><h3>Best-selling listings</h3><p>Sales in this period</p></header>
-              <div class="ins-chart ins-tall"><canvas id="sch-top"></canvas></div>
-            </article>
-            <article class="ins-card">
-              <header><h3>My listings</h3><p>All your listings by status</p></header>
-              <div class="ins-chart ins-tall"><canvas id="sch-listings"></canvas></div>
+              <div class="ins-chart"><canvas id="sch-top"></canvas></div>
             </article>
           </div>
         </section>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <section class="bg-white rounded-xl border border-gray-100">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h2 class="text-base font-bold text-gray-900">Recent Messages</h2>
-              <a href="/seller/?tab=messages" data-tab-link="messages" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
-            </div>
-            <div id="recent-messages"></div>
-          </section>
-          <section class="bg-white rounded-xl border border-gray-100">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h2 class="text-base font-bold text-gray-900">My Listings</h2>
-              <a href="/seller/?tab=listings" data-tab-link="listings" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>
-            </div>
-            <div id="recent-listings"></div>
-          </section>
-        </div>
       </section>
 
       <section id="tab-listings" hidden></section>
@@ -753,42 +729,8 @@
         setTab(link.dataset.tabLink);
       });
 
-      async function loadOverview() {
-        const recentListings = document.getElementById("recent-listings");
-        recentListings.innerHTML = listings.length
-          ? listings.slice(0, 5).map((l) => {
-              const st = sellerState(l);
-              return `
-                <a href="/seller/?tab=listings" data-tab-link="listings" class="flex items-center gap-3 px-5 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                  <span class="w-14 h-10 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : ""}</span>
-                  <span class="min-w-0 flex-1">
-                    <span class="block font-semibold text-gray-900 truncate">${escapeHtml(l.title)}</span>
-                    <span class="block text-xs text-gray-500 truncate">${escapeHtml([l.breed_name, l.category_name, l.location].filter(Boolean).join(", "))}</span>
-                  </span>
-                  ${statusPill(st.key, st.label)}
-                </a>`;
-            }).join("")
-          : `<div class="empty-state"><p class="font-semibold text-gray-800">No listings yet</p><p class="text-sm mt-1">${approved() ? "Add your first listing from My Listings." : "You can add listings once your account is approved."}</p></div>`;
-
-        const recentMessages = document.getElementById("recent-messages");
-        const list = (await sellerApi("/api/seller/messages")).data;
-        recentMessages.innerHTML = list.length
-          ? list.slice(0, 5).map((m) => {
-              const last = (m.messages || [])[m.messages.length - 1];
-              return `
-                <a href="/seller/?tab=messages" data-tab-link="messages" class="flex items-start gap-3 px-5 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                  <span class="min-w-0 flex-1">
-                    <span class="block font-semibold text-gray-900 truncate">${escapeHtml(m.livestock_title)}</span>
-                    <span class="block text-sm text-gray-600 truncate">${last ? `${last.sender === "seller" ? "You: " : ""}${escapeHtml(last.body)}` : ""}</span>
-                  </span>
-                  <span class="flex flex-col items-end gap-1 flex-shrink-0">
-                    <span class="text-xs text-gray-400">${last ? timeAgo(last.created_at) : ""}</span>
-                    ${m.seller_seen_at ? "" : `<span class="status-pill st-new">New</span>`}
-                  </span>
-                </a>`;
-            }).join("")
-          : `<div class="empty-state"><p class="font-semibold text-gray-800">No messages yet</p><p class="text-sm mt-1">When a buyer is interested, Frontier will message you here.</p></div>`;
-      }
+      // The dashboard's lists were removed; the charts load in initSellerInsights.
+      async function loadOverview() {}
 
       document.getElementById("add-btn").addEventListener("click", () => {
         if (document.getElementById("tab-listings").hidden) setTab("listings");

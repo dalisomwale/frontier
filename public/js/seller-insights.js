@@ -6,8 +6,6 @@
     violet: "#8b5cf6", red: "#ef4444", teal: "#14b8a6", slate: "#94a3b8", grid: "#eef1ee", ink: "#374151", muted: "#6b7280",
   };
   const PALETTE = [C.leaf, C.gold, C.teal, C.violet, C.amber, C.green, C.red, C.slate];
-  const ORDER_STATUS = { open: ["To hand over", C.amber], completed: ["Completed", C.leaf], cancelled: ["Cancelled", C.slate] };
-  const LISTING_STATUS = { live: ["Live", C.leaf], in_review: ["In review", C.gold], changes: ["Changes needed", C.red], hidden: ["Hidden", C.slate] };
 
   const money = (n) => `K ${Math.round(Number(n) || 0).toLocaleString("en-US")}`;
   const compactMoney = (n) => {
@@ -145,8 +143,6 @@
       },
     });
 
-    pie("sch-orders", d.orders_by_status, ORDER_STATUS, "orders");
-    pie("sch-listings", d.listings_by_status, LISTING_STATUS, "listings");
     pie("sch-kind", d.sales_by_kind, null, "", { format: money, donut: false });
 
     const top = d.top_listings;

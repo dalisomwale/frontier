@@ -349,8 +349,8 @@ router.get("/summary", requireSeller, async (req, res, next) => {
   }
 });
 
-// Dashboard charts for one seller: sales over time, orders by status,
-// listings by status, top listings and messages. Only orders the seller has
+// Dashboard charts for one seller: sales over time, sales by category and
+// best-selling listings. Only orders the seller has
 // been told about count (paid or confirmed by Frontier).
 const INSIGHT_RANGES = { "7d": 7, "30d": 30, "90d": 90 };
 router.get("/insights", requireSeller, async (req, res, next) => {
@@ -396,17 +396,6 @@ router.get("/insights", requireSeller, async (req, res, next) => {
       const r = byDay.get(key(d));
       buckets.push({ date: key(d), sales: r ? Number(r.sales) : 0, orders: r ? Number(r.orders) : 0 });
     }
-    const [status] = await pool.query(
-      `SELECT CASE WHEN o.status = 'completed' THEN 'completed' WHEN o.status = 'cancelled' THEN 'cancelled' ELSE 'open' END AS label, COUNT(*) AS value
-       FROM orders o WHERE o.seller_id = ? AND o.seller_notified_at IS NOT NULL AND ${since} GROUP BY label`,
-      [id, days - 1],
-    );
-    const [listingStates] = await pool.query(
-      `SELECT CASE WHEN review_status = 'pending' THEN 'in_review' WHEN review_status = 'rejected' THEN 'changes'
-                   WHEN status = 'published' THEN 'live' ELSE 'hidden' END AS label, COUNT(*) AS value
-       FROM livestock WHERE seller_id = ? GROUP BY label`,
-      [id],
-    );
     const [top] = await pool.query(
       `SELECT o.livestock_id AS id, MAX(o.livestock_title) AS title, COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS sales
        FROM orders o WHERE o.seller_id = ? AND o.seller_notified_at IS NOT NULL AND o.status <> 'cancelled' AND ${since}
@@ -434,8 +423,6 @@ router.get("/insights", requireSeller, async (req, res, next) => {
           messages: Number(msgs.n),
         },
         sales: buckets,
-        orders_by_status: status.map((r) => ({ label: r.label, value: Number(r.value) })),
-        listings_by_status: listingStates.map((r) => ({ label: r.label, value: Number(r.value) })),
         top_listings: top.map((r) => ({ id: r.id, title: r.title, orders: Number(r.orders), sales: Number(r.sales) })),
         sales_by_kind: byKind.map((r) => ({ label: r.label, value: Number(r.value) })),
       },
