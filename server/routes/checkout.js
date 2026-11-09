@@ -36,7 +36,7 @@ router.post("/", async (req, res, next) => {
     // Honeypot: real visitors never see or fill this field.
     if (req.body.website) return res.status(201).json({ success: true, data: { reference: "FMC-0" } });
     const fullName = text(req.body.full_name, 120);
-    // Contact number: typed for card and bank transfer; for mobile money it's
+    // Contact number: typed at checkout; for mobile money it falls back to
     // the number that pays.
     const phone = text(req.body.phone, 30)
       || (req.body.payment_method === "mobile_money" ? text(req.body.payment_phone, 30) : "");
@@ -46,7 +46,7 @@ router.post("/", async (req, res, next) => {
     if (!phone || !isPhone(phone)) errors.phone = "Please enter a valid phone number, e.g. 0977 123 456.";
     if (!email || !isEmail(email)) errors.email = "Please enter a valid email address.";
     // How the buyer pays: mobile money (network + number for the PIN prompt),
-    // card (address and town for the card page) or bank transfer.
+    // or card (address and town for the card page).
     const allowed = checkout.methods();
     const method = allowed.length ? oneOf(req.body.payment_method || "mobile_money", allowed) : null;
     let pay = null;
@@ -63,8 +63,6 @@ router.post("/", async (req, res, next) => {
       if (!address || address.length < 3) errors.address = "Please enter your address.";
       if (!city || city.length < 2) errors.city = "Please enter your town or city.";
       pay = { method, address, city };
-    } else if (method === "bank_transfer") {
-      pay = { method };
     }
     if (Object.keys(errors).length) {
       return res.status(422).json({ success: false, message: "Please correct the highlighted fields.", errors });

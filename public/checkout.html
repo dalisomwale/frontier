@@ -43,10 +43,8 @@
       const METHOD_NAMES = {
         mobile_money: ["Mobile money", "Airtel, MTN or Zamtel"],
         card: ["Visa / Mastercard", "Secure card page"],
-        bank_transfer: ["Bank transfer", "Into Frontier's account"],
       };
       const lockSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>`;
-      const bankSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10h18L12 4 3 10Z"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/></svg>`;
       const OP_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
       const cardSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19M6.5 15h4"/></svg>`;
       const phoneSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></svg>`;
@@ -145,10 +143,6 @@
                   <div data-card-slot></div>
                 </div>` : ""}
 
-                ${methods.includes("bank_transfer") ? `
-                <div data-method-panel="bank_transfer" class="pm-panel" hidden>
-                  <p class="co-pay-note">${bankSvg}<span>After you place the order we'll show Frontier's bank details, and email them to you. Pay the total using your order number as the reference. Your items stay reserved while we wait for the transfer, and we'll confirm once it arrives.</span></p>
-                </div>` : ""}
 
                 ${!methods.length ? `<p class="text-sm text-gray-600">Our team will contact you to arrange payment.</p>` : ""}
               </section>
@@ -174,7 +168,6 @@
         const labelFor = (m) => ({
           mobile_money: `Pay ${kwacha(quote.total)}`,
           card: `Pay ${kwacha(quote.total)}`,
-          bank_transfer: `Place order · ${kwacha(quote.total)}`,
         }[m] || `Place order · ${kwacha(quote.total)}`);
         let label = labelFor(method());
         // Show the fields for the chosen way to pay.
@@ -283,7 +276,7 @@
         watchCardPayment(d.id, d.token, () => { window.location.href = d.page_url; });
       }
 
-      const METHOD_ICONS = { mobile_money: phoneSvg, card: cardSvg, bank_transfer: bankSvg };
+      const METHOD_ICONS = { mobile_money: phoneSvg, card: cardSvg };
 
       document.addEventListener("DOMContentLoaded", load);
     </script>

@@ -1,4 +1,4 @@
-// Shopping-cart checkout: mobile money, Visa / Mastercard or bank transfer.
+// Shopping-cart checkout: mobile money or Visa / Mastercard.
 //
 // The buyer fills a cart (kept in their browser), gives their details at
 // checkout and pays once for the whole cart on the payment page. Behind the
@@ -47,30 +47,14 @@ const provider = () => (lipila.enabled() ? "lipila" : lenco.enabled() ? "lenco" 
 // Mobile money networks the buyer can choose.
 const operators = () => (provider() ? ["airtel", "mtn", "zamtel"] : []);
 
-// Frontier's bank account for bank transfers (.env). Bank transfer is offered
-// only when the account number is set.
-function bankDetails() {
-  const e = (k) => (process.env[k] || "").trim();
-  if (!e("BANK_ACCOUNT_NUMBER")) return null;
-  return [
-    ["Bank", e("BANK_NAME")],
-    ["Account name", e("BANK_ACCOUNT_NAME")],
-    ["Account number", e("BANK_ACCOUNT_NUMBER")],
-    ["Branch", e("BANK_BRANCH")],
-    ["Branch code", e("BANK_BRANCH_CODE")],
-    ["SWIFT code", e("BANK_SWIFT")],
-  ].filter(([, v]) => v);
-}
-
 // How buyers can pay at checkout, in order.
 function methods() {
   const out = [];
   if (provider()) out.push("mobile_money");
   if (lipila.cardsEnabled()) out.push("card");
-  if (bankDetails()) out.push("bank_transfer");
   return out;
 }
-const METHOD_LABELS = { mobile_money: "Mobile money", card: "Visa / Mastercard", bank_transfer: "Bank transfer" };
+const METHOD_LABELS = { mobile_money: "Mobile money", card: "Visa / Mastercard" };
 const newToken = () => crypto.randomBytes(16).toString("hex");
 
 // Listing details needed to price a cart line. Only published listings with
@@ -266,8 +250,7 @@ async function notifyCreated(checkout, created) {
   if (holdsStock(method0)) return;
   const ref = checkoutRef(checkout.id);
   const method = method0;
-  const online = method !== "bank_transfer" && Boolean(provider());
-  const bank = method === "bank_transfer" ? bankDetails() : null;
+  const online = Boolean(provider());
   const itemRows = created.map((o) => [`${orderRef(o.id)} · ${o.l.title}`, `${unitsText(o)} · ${kwacha(o.total)}`]);
   const sellers = new Set(created.map((o) => o.l.seller_id || "frontier")).size;
   const [team] = await Promise.all([
@@ -277,9 +260,7 @@ async function notifyCreated(checkout, created) {
       heading: `New order ${ref}`,
       paragraphs: [
         `${checkout.full_name} checked out ${created.length} item${created.length === 1 ? "" : "s"}${sellers > 1 ? ` from ${sellers} sellers` : ""}. Each item is its own order in Admin > Orders. The stock has been taken off the listings; cancelling an order puts it back.`,
-        bank
-          ? "The buyer chose bank transfer and has been sent Frontier's bank details. When the money arrives, mark each order Paid in Admin > Orders."
-          : online
+        online
             ? `The buyer is paying by ${method === "card" ? "card" : "mobile money"} on the website. You'll get another email when the payment goes through.`
             : "Online payment is switched off, so please arrange payment with the buyer.",
       ],
@@ -307,22 +288,16 @@ async function notifyCreated(checkout, created) {
         ...itemRows,
         ["Total", kwacha(checkout.total)],
         ["Collection", "Collect from the farm. We'll arrange it with you."],
-        ...(bank ? [["Pay by bank transfer to", ""], ...bank, ["Payment reference", ref]] : []),
       ],
       stepsTitle: "What happens next",
       steps: [
-        ...(bank
-          ? [
-            `Pay ${kwacha(checkout.total)} by bank transfer to the account above, using ${ref} as the payment reference.`,
-            "You'll get an email as soon as your transfer reaches our account.",
-          ]
-          : online
+        ...(online
             ? ["You'll get an email as soon as your payment is confirmed."]
             : ["We'll contact you on WhatsApp to arrange payment."]),
         "We'll contact you to arrange collection.",
         `At collection, check the animals or feed before you accept them, and have your order number ${ref} ready.`,
       ],
-      button: online || bank ? { label: "View your order", url: appUrl(ourPayPage(checkout)) } : undefined,
+      button: online ? { label: "View your order", url: appUrl(ourPayPage(checkout)) } : undefined,
     }),
   ]);
   await pool.query("UPDATE orders SET email_status = ?, email_error = ? WHERE checkout_id = ?", [
@@ -375,7 +350,6 @@ function publicView(checkout, orders) {
     operators: operators(),
     method: checkout.payment_method || "mobile_money",
     methods: methods(),
-    bank: checkout.payment_method === "bank_transfer" ? bankDetails() : null,
     // Card: Lipila's card page for the open payment.
     pay_url: checkout.payment_method === "card" && checkout.payment_status === "pending" ? checkout.payment_url : null,
     id: checkout.id,
@@ -391,7 +365,7 @@ function publicView(checkout, orders) {
     // No answer from Lipila for a while: the team is checking it.
     checking: checkout.payment_status === "pending" && Boolean(checkout.payment_alert_at),
     hold_minutes: HOLD_MINUTES,
-    online: Boolean(current) && checkout.payment_method !== "bank_transfer",
+    online: Boolean(current),
     first_name: String(checkout.full_name).trim().split(/\s+/)[0],
     items: orders.map((o) => ({
       reference: orderRef(o.id),

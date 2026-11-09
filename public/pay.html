@@ -358,25 +358,8 @@
           ctimer = setTimeout(poll, 2500);
         }
 
-        // --- Bank transfer -------------------------------------------------
-        function bankView(c) {
-          page(`${head(c, "Order placed: pay by bank transfer")}
-            <p class="pay-text">Thank you, ${escapeHtml(c.first_name)}. Your items are reserved. Please transfer <b>${kwacha(c.total)}</b> to the account below, using <b>${escapeHtml(c.reference)}</b> as the payment reference. We've also emailed these details to you.</p>
-            <dl class="bank-box">
-              ${(c.bank || []).map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join("")}
-              <div><dt>Amount</dt><dd>${kwacha(c.total)}</dd></div>
-              <div class="bank-ref"><dt>Payment reference</dt><dd>${escapeHtml(c.reference)}</dd></div>
-            </dl>
-            <p class="pay-text">Once the money arrives we'll confirm by email and contact you on WhatsApp to arrange collection.</p>
-            ${items(c)}
-            ${c.online && c.methods.length > 1 ? `<div class="mt-4">${otherWays({ ...c }, "bank_transfer")}</div>` : ""}
-            <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to listings</a>`, 3);
-          bindSwitch(c);
-        }
-
         function show(c, back) {
           if (c.status === "paid") return paid(c);
-          if (c.method === "bank_transfer" && c.status !== "pending") return bankView(c);
           if (c.method === "card") {
             if (c.status === "pending" && (q.returned || back) && !show.leftCard) { show.leftCard = true; return cardChecking(c); }
             return cardForm(c);
