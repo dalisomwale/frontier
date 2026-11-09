@@ -139,7 +139,7 @@
 
                 ${methods.includes("card") ? `
                 <div data-method-panel="card" class="pm-panel" hidden>
-                  <p class="co-pay-note" data-card-note>${lockSvg}<span>When you tap Pay, you'll enter your card details on Lipila's secure card page, then come back here. Your card details never reach Frontier.</span></p>
+                  <p class="co-pay-note" data-card-note>${lockSvg}<span>You'll enter your card details on Lipila's secure card page, then come back here. Your card details never reach Frontier.</span></p>
                   <div data-card-slot></div>
                 </div>` : ""}
 
@@ -167,7 +167,7 @@
         const method = () => (form.elements.payment_method ? form.elements.payment_method.value : methods[0]) || "";
         const labelFor = (m) => ({
           mobile_money: `Pay ${kwacha(quote.total)}`,
-          card: `Pay ${kwacha(quote.total)}`,
+          card: "Enter card details",
         }[m] || `Place order · ${kwacha(quote.total)}`);
         let label = labelFor(method());
         // Show the fields for the chosen way to pay.

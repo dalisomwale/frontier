@@ -288,17 +288,17 @@
             ${failed ? `<div class="alert alert-error text-sm mt-4" role="alert"><b>Payment not completed.</b> ${escapeHtml(c.failure || "The card payment was not approved.")}</div>` : ""}
             <details class="pay-details"><summary>${c.items.length} item${c.items.length === 1 ? "" : "s"} in this order</summary>${items(c)}</details>
             ${!canPay ? `<p class="pay-text">Too many attempts. Our team will contact you on WhatsApp to arrange payment.</p>` : c.pay_url ? `
-            <a href="${escapeHtml(c.pay_url)}" class="btn-checkout btn-lg w-full mt-5">${lockIcon}<span>Continue to card payment · ${kwacha(c.total)}</span></a>` : `
+            <a href="${escapeHtml(c.pay_url)}" class="btn-checkout btn-lg w-full mt-5">${lockIcon}<span>Enter card details</span></a>` : `
             <form class="pay-form" novalidate>
               <label for="pay-address" class="field-label">Address</label>
               <input id="pay-address" name="address" type="text" class="field-input" autocomplete="street-address" maxlength="120" placeholder="e.g. Plot 12, Kabulonga Road">
               <label for="pay-city" class="field-label mt-4">Town / city</label>
               <input id="pay-city" name="city" type="text" class="field-input" autocomplete="address-level2" maxlength="60" placeholder="e.g. Lusaka">
               <p class="field-error hidden" data-pay-error></p>
-              <button type="submit" class="btn-checkout btn-lg w-full mt-5">${lockIcon}<span>Pay ${kwacha(c.total)}</span></button>
+              <button type="submit" class="btn-checkout btn-lg w-full mt-5">${lockIcon}<span>Enter card details</span></button>
             </form>
             <div data-card-slot></div>`}
-            <p class="pay-secure" data-card-note>${lockIcon}<span>When you tap Pay, you'll enter your card details on Lipila's secure card page, then come back here. Your card details never reach Frontier.</span></p>
+            <p class="pay-secure" data-card-note>${lockIcon}<span>You'll enter your card details on Lipila's secure card page, then come back here. Your card details never reach Frontier.</span></p>
             ${otherWays(c, "card")}`);
           bindSwitch(c);
           const form = root.querySelector(".pay-form");
@@ -331,7 +331,7 @@
               err.textContent = (error.errors && Object.values(error.errors)[0]) || error.message || "Please try again.";
               err.classList.remove("hidden");
               btn.disabled = false;
-              btn.innerHTML = `${lockIcon}<span>Pay ${kwacha(c.total)}</span>`;
+              btn.innerHTML = `${lockIcon}<span>Enter card details</span>`;
             }
           });
         }
