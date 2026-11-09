@@ -212,7 +212,7 @@ function siteName() {
   }
 }
 
-const C = { deep: "#10231a", leaf: "#1f3d2b", lime: "#bef264", sun: "#fde047", ink: "#1f2937", muted: "#6b7280", line: "#edf0ee", page: "#eef1ee" };
+const C = { deep: "#10231a", leaf: "#166534", lime: "#bef264", sun: "#fde047", ink: "#1f2937", muted: "#6b7280", line: "#edf0ee", page: "#eef1ee" };
 
 /**
  * One branded email (Frontier's green and yellow-lime design).

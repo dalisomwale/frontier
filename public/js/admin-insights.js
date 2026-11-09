@@ -2,11 +2,11 @@
 // in /vendor). Data: GET /api/admin/dashboard/insights?range=7d|30d|90d|12m
 (function () {
   const C = {
-    leaf: "#1f3d2b",
+    leaf: "#166534",
     green: "#4d7c0f",
     lime: "#a3e635",
     amber: "#f59e0b",
-    sky: "#0ea5e9",
+    gold: "#facc15",
     violet: "#8b5cf6",
     red: "#ef4444",
     teal: "#14b8a6",
@@ -15,9 +15,10 @@
     ink: "#374151",
     muted: "#6b7280",
   };
-  const PALETTE = [C.leaf, C.green, C.amber, C.sky, C.violet, C.teal, C.red, C.slate, "#d97706", "#0369a1"];
+  // Chart colours must tell categories apart, so they go beyond the brand greens.
+  const PALETTE = [C.leaf, C.gold, C.teal, C.violet, C.amber, C.green, C.red, C.slate, "#d97706", "#0f1f12"];
   const STATUS = {
-    new: ["New", C.sky],
+    new: ["New", C.teal],
     confirmed: ["Awaiting payment", C.amber],
     paid: ["Paid", C.green],
     completed: ["Completed", C.leaf],
@@ -27,7 +28,7 @@
     airtel: ["Airtel Money", "#dc2626"],
     mtn: ["MTN MoMo", "#eab308"],
     zamtel: ["Zamtel Kwacha", "#16a34a"],
-    card: ["Visa / Mastercard", "#1d4ed8"],
+    card: ["Visa / Mastercard", C.violet],
     bank_transfer: ["Bank transfer", C.slate],
     mobile: ["Mobile money", C.teal],
   };
@@ -154,7 +155,7 @@
         labels: top.map((r) => short(r.title)),
         datasets: [
           { label: "Orders", data: top.map((r) => r.orders), backgroundColor: C.leaf, borderRadius: 3, maxBarThickness: 20 },
-          { label: "Inquiries", data: top.map((r) => r.inquiries), backgroundColor: C.sky, borderRadius: 3, maxBarThickness: 20 },
+          { label: "Inquiries", data: top.map((r) => r.inquiries), backgroundColor: C.gold, borderRadius: 3, maxBarThickness: 20 },
         ],
       },
       options: {
