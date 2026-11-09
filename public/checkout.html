@@ -134,12 +134,10 @@
                   <label for="co-pay-phone" class="field-label mt-4">Mobile money number</label>
                   <input id="co-pay-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" autocomplete="tel" maxlength="25" placeholder="0977 123 456">
                   <p class="field-error hidden" data-error-for="payment_phone"></p>
-                  <p class="co-pay-note">${phoneSvg}<span>When you tap Pay, a payment request goes straight to this phone. Enter your mobile money PIN on the phone to approve it. We never see your PIN.</span></p>
                 </div>` : ""}
 
                 ${methods.includes("card") ? `
                 <div data-method-panel="card" class="pm-panel" hidden>
-                  <p class="co-pay-note" data-card-note>${lockSvg}<span>You'll enter your card details on Lipila's secure card page, then come back here. Your card details never reach Frontier.</span></p>
                   <div data-card-slot></div>
                 </div>` : ""}
 

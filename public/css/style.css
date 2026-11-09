@@ -5691,3 +5691,5 @@ a.btn-checkout { text-decoration: none; }
 /* Admin order: "Check payment with Lipila" */
 .order-check-pay { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #eef2ec; }
 .order-check-pay span { font-size: 12px; color: #6b7280; flex: 1 1 220px; }
+/* Card: nothing to show under the options until the card box opens */
+[data-method-panel="card"]:has(> [data-card-slot]:empty) { margin: 0; padding: 0; border: 0; }

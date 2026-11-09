@@ -298,7 +298,6 @@
               <button type="submit" class="btn-checkout btn-lg w-full mt-5">${lockIcon}<span>Enter card details</span></button>
             </form>
             <div data-card-slot></div>`}
-            <p class="pay-secure" data-card-note>${lockIcon}<span>You'll enter your card details on Lipila's secure card page, then come back here. Your card details never reach Frontier.</span></p>
             ${otherWays(c, "card")}`);
           bindSwitch(c);
           const form = root.querySelector(".pay-form");
