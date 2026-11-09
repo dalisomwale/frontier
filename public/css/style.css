@@ -5968,3 +5968,11 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 .sv-facts dt { color: #6b7280; }
 .sv-facts dd { margin: 0; font-weight: 600; color: #111827; text-align: right; min-width: 0; }
 @media (max-width: 1023px) { .sv-grid { grid-template-columns: 1fr; } }
+.sv-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px; border: 1px solid #d1d5db; background: #fff; color: #374151; transition: background-color .15s, color .15s, border-color .15s; }
+.sv-icon-btn span, .sv-icon-btn svg { width: 18px; height: 18px; display: block; }
+.sv-icon-btn:hover { background: #f3f4f6; }
+.sv-icon-btn.sv-icon-primary { background: #166534; border-color: #166534; color: #fff; }
+.sv-icon-btn.sv-icon-primary:hover { background: #14532d; }
+.sv-icon-btn.sv-icon-danger { color: #dc2626; }
+.sv-icon-btn.sv-icon-danger:hover { background: #fef2f2; border-color: #fecaca; }
+.sv-icon-btn.sv-icon-on { color: #166534; border-color: #bbd7c2; background: #f0f7f1; }
