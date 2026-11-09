@@ -42,7 +42,7 @@ function cardImage(item) {
 
 function verifiedBadge(item) {
   if (item.verification !== "verified") return "";
-  return `<span class="verified-badge" title="Verified by Frontier" aria-label="Verified by Frontier"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.4 1.8 3-.2.9 2.9 2.5 1.7-1 2.8 1 2.8-2.5 1.7-.9 2.9-3-.2L12 21.5l-2.4-1.8-3 .2-.9-2.9-2.5-1.7 1-2.8-1-2.8 2.5-1.7.9-2.9 3 .2z"/><path d="M8.5 12.2l2.3 2.3 4.7-4.8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr-only">Verified</span></span>`;
+  return `<span class="verified-badge" title="Verified by Frontier">Verified</span>`;
 }
 
 // Prices are optional. "K 18,500" with "per head" / "for the lot".

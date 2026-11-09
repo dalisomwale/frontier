@@ -2835,7 +2835,7 @@ body.admin-pending main {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 9px 3px 5px;
+  padding: 3px 10px;
   border-radius: 9999px;
   background: rgba(255, 255, 255, 0.95);
   color: #166534;
@@ -2856,7 +2856,7 @@ body.admin-pending main {
   top: 12px;
   right: 12px;
   font-size: 12px;
-  padding: 4px 11px 4px 6px;
+  padding: 4px 12px;
 }
 
 .gallery-frame .verified-badge svg {
@@ -4920,24 +4920,25 @@ body.admin-pending main {
   color: #6b7280;
 }
 
-/* Verified: the badge icon only (the word stays for screen readers) */
+/* Verified: the word only, on a solid green pill that reads on any photo */
 .verified-badge {
   gap: 0;
-  padding: 3px;
-}
-
-.verified-badge svg {
-  width: 18px;
-  height: 18px;
+  padding: 4px 11px;
+  background: #166534;
+  border: 0;
+  color: #fff;
+  text-shadow: none;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
 }
 
 .gallery-frame .verified-badge {
-  padding: 4px;
-}
-
-.gallery-frame .verified-badge svg {
-  width: 22px;
-  height: 22px;
+  padding: 5px 13px;
+  font-size: 13px;
 }
 
 .nav-menu-label-short {
