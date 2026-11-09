@@ -6196,7 +6196,7 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 .ml-layout { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
 .ml-layout .ml-photos { order: -1; }
 @media (min-width: 1024px) {
-  .ml-layout { grid-template-columns: 380px minmax(0, 1fr); }
-  .ml-layout .ml-photos { order: 0; }
+  .ml-layout { grid-template-columns: minmax(0, 1fr) 380px; }
+  .ml-layout .ml-photos { order: -1; }
 }
 .ml-desc { margin-top: 16px; padding-top: 16px; border-top: 1px solid #f3f4f6; }
