@@ -36,11 +36,14 @@ router.post("/", async (req, res, next) => {
     // Honeypot: real visitors never see or fill this field.
     if (req.body.website) return res.status(201).json({ success: true, data: { reference: "FMC-0" } });
     const fullName = text(req.body.full_name, 120);
-    const phone = text(req.body.phone, 30);
+    // Contact number: typed for card and bank transfer; for mobile money it's
+    // the number that pays.
+    const phone = text(req.body.phone, 30)
+      || (req.body.payment_method === "mobile_money" ? text(req.body.payment_phone, 30) : "");
     const email = text(req.body.email, 255);
     const errors = {};
     if (!fullName || fullName.length < 2) errors.full_name = "Please enter your full name.";
-    if (!phone || !isPhone(phone)) errors.phone = "Please enter a valid WhatsApp number, e.g. 0977 123 456.";
+    if (!phone || !isPhone(phone)) errors.phone = "Please enter a valid phone number, e.g. 0977 123 456.";
     if (!email || !isEmail(email)) errors.email = "Please enter a valid email address.";
     // How the buyer pays: mobile money (network + number for the PIN prompt),
     // card (address and town for the card page) or bank transfer.

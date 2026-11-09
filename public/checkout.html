@@ -91,11 +91,6 @@
                     <p class="field-error hidden" data-error-for="full_name"></p>
                   </div>
                   <div>
-                    <label for="co-phone" class="field-label">WhatsApp Number</label>
-                    <input id="co-phone" name="phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" required placeholder="0977 123 456">
-                    <p class="field-error hidden" data-error-for="phone"></p>
-                  </div>
-                  <div class="sm:col-span-2">
                     <label for="co-email" class="field-label">Email</label>
                     <input id="co-email" name="email" type="email" class="field-input" autocomplete="email" inputmode="email" maxlength="255" required>
                     <p class="field-error hidden" data-error-for="email"></p>
@@ -139,6 +134,11 @@
                       <input id="co-city" name="city" type="text" class="field-input" autocomplete="address-level2" maxlength="60" placeholder="e.g. Lusaka">
                       <p class="field-error hidden" data-error-for="city"></p>
                     </div>
+                    <div>
+                      <label for="co-card-phone" class="field-label">Phone number</label>
+                      <input id="co-card-phone" name="card_phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" placeholder="0977 123 456">
+                      <p class="field-error hidden" data-error-for="card_phone"></p>
+                    </div>
                   </div>
                   <p class="co-pay-note" data-card-note>${lockSvg}<span>When you tap Pay, you'll enter your card details on Lipila's secure card page, then come back here. Your card details never reach Frontier.</span></p>
                   <div data-card-slot></div>
@@ -146,10 +146,17 @@
 
                 ${methods.includes("bank_transfer") ? `
                 <div data-method-panel="bank_transfer" class="pm-panel" hidden>
+                  <label for="co-bank-phone" class="field-label">Phone number</label>
+                  <input id="co-bank-phone" name="bank_phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" placeholder="0977 123 456">
+                  <p class="field-error hidden" data-error-for="bank_phone"></p>
                   <p class="co-pay-note">${bankSvg}<span>After you place the order we'll show Frontier's bank details, and email them to you. Pay the total using your order number as the reference. Your items stay reserved while we wait for the transfer, and we'll confirm once it arrives.</span></p>
                 </div>` : ""}
 
-                ${!methods.length ? `<p class="text-sm text-gray-600">Our team will contact you on WhatsApp to arrange payment.</p>` : ""}
+                ${!methods.length ? `
+                  <label for="co-other-phone" class="field-label">Phone number</label>
+                  <input id="co-other-phone" name="other_phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" placeholder="0977 123 456">
+                  <p class="field-error hidden" data-error-for="other_phone"></p>
+                  <p class="text-sm text-gray-600 mt-3">Our team will contact you to arrange payment.</p>` : ""}
               </section>
 
               <p class="text-xs text-gray-500">By placing this order you agree to our <a href="/terms.html" class="underline">Terms</a>, <a href="/refund-policy.html" class="underline">Refund</a>, <a href="/return-policy.html" class="underline">Return</a> and <a href="/cancellation-policy.html" class="underline">Cancellation</a> policies.</p>
@@ -185,15 +192,10 @@
         };
         form.querySelectorAll('input[name="payment_method"]').forEach((r) => r.addEventListener("change", showPanel));
         showPanel();
-        // The mobile money number starts as the WhatsApp number.
-        const wa = form.elements.phone;
-        const pp = form.elements.payment_phone;
-        if (pp) {
+        if (form.elements.payment_phone) {
           form.querySelectorAll('input[name="mobile_operator"]').forEach((r) => r.addEventListener("change", () => {
             form.querySelector('[data-error-for="mobile_operator"]').classList.add("hidden");
           }));
-          wa.addEventListener("input", () => { if (!pp.dataset.edited) pp.value = wa.value; });
-          pp.addEventListener("input", () => { pp.dataset.edited = "1"; });
         }
         submits.forEach((b) => { b.textContent = label; });
         form.addEventListener("submit", (e) => { e.preventDefault(); place(form, submits, label, method()); });
@@ -214,10 +216,14 @@
         }
       }
 
+      // Where the buyer's contact number is typed, by payment method.
+      const PHONE_FIELD = { mobile_money: "payment_phone", card: "card_phone", bank_transfer: "bank_phone" };
+
       function check(v) {
         const e = {};
         if (v.full_name.length < 2) e.full_name = "Please enter your full name.";
-        if (v.phone.replace(/\D/g, "").length < 9) e.phone = "Please enter a valid WhatsApp number, e.g. 0977 123 456.";
+        // Mobile money: the paying number is also the contact number.
+        if (v.payment_method !== "mobile_money" && v.phone.replace(/\D/g, "").length < 9) e[PHONE_FIELD[v.payment_method] || "other_phone"] = "Please enter your phone number, e.g. 0977 123 456.";
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) e.email = "Please enter a valid email address.";
         if (v.payment_method === "mobile_money") {
           if (!v.mobile_operator) e.mobile_operator = "Please choose your mobile money network.";
@@ -235,7 +241,7 @@
         alertBox.classList.add("hidden");
         const values = {
           full_name: form.elements.full_name.value.trim(),
-          phone: form.elements.phone.value.trim(),
+          phone: ((form.elements[PHONE_FIELD[chosen] || "other_phone"] || {}).value || "").trim(),
           email: form.elements.email.value.trim(),
           payment_method: chosen || "",
           mobile_operator: chosen === "mobile_money" ? (form.elements.mobile_operator.value || "") : "",
@@ -258,7 +264,11 @@
           if (chosen === "card" && d.card_url && d.card_embed) return showCardForm(form, submits, d);
           window.location.href = d.pay_url;
         } catch (error) {
-          if (error.errors) showErrors(form, error.errors);
+          if (error.errors) {
+            const errs = { ...error.errors };
+            if (errs.phone) { errs[PHONE_FIELD[chosen] || "other_phone"] = errs[PHONE_FIELD[chosen] || "other_phone"] || errs.phone; delete errs.phone; }
+            showErrors(form, errs);
+          }
           alertBox.innerHTML = escapeHtml(error.message || "Your order could not be placed. Please try again.")
             + (error.status === 409 ? ` <a href="/cart.html" class="underline font-semibold">Review your cart</a>` : "");
           alertBox.classList.remove("hidden");
