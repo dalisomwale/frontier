@@ -250,7 +250,7 @@ router.patch("/:id", async (req, res, next) => {
     // details), then if it's completed or cancelled after that.
     if (notifySellerNow) {
       const body = `${lot ? "The whole lot" : units} from "${order.livestock_title}" has been ordered (${kwacha(order.total)}). Our team will contact you to arrange the handover.`;
-      notifySeller(order.seller_id, { type: "order", title: `New order ${ref}: ${order.livestock_title}`, body, link: "/seller/" });
+      notifySeller(order.seller_id, { type: "order", title: `New order ${ref}: ${order.livestock_title}`, body, link: "/seller/?tab=orders" });
       const [[left]] = await pool.query("SELECT quantity FROM livestock WHERE id = ?", [order.livestock_id || 0]);
       emails.sellerOrder(order, "new", { units, leftOnListing: left ? headCount(left.quantity, animal && animal.name, kind) : undefined });
     } else if (changed && order.seller_id && order.seller_notified_at && ["completed", "cancelled"].includes(newStatus)) {
@@ -258,7 +258,7 @@ router.patch("/:id", async (req, res, next) => {
         type: "order",
         title: newStatus === "completed" ? `Order ${ref} is complete` : `Order ${ref} was cancelled`,
         body: order.livestock_title,
-        link: "/seller/",
+        link: "/seller/?tab=orders",
       });
       emails.sellerOrder(order, newStatus, { units });
     }

@@ -260,7 +260,7 @@ async function sellerOrder(order, event, { units, leftOnListing } = {}) {
     paragraphs: [hi(seller.name), content.text],
     rows: content.rows,
     after: content.after,
-    button: DASHBOARD(),
+    button: { label: "See your orders", url: appUrl("/seller/?tab=orders") },
   });
 }
 

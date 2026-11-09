@@ -247,6 +247,7 @@ function notifBellHtml() {
 const SELLER_NAV = [
   { key: "overview", icon: "dashboard", label: "Dashboard", short: "Overview" },
   { key: "listings", icon: "listings", label: "My Listings", short: "Listings" },
+  { key: "orders", icon: "cart", label: "Orders", short: "Orders", badge: "orders" },
   { key: "messages", icon: "inbox", label: "Messages", short: "Messages", badge: "unread" },
   { key: "notifications", icon: "bell", label: "Notifications", short: "Alerts", badge: "notif" },
   { key: "profile", icon: "users", label: "Profile", short: "Profile" },

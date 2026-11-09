@@ -13,6 +13,7 @@ const emails = require("../lib/emails");
 const { positiveInt, text, isEmail, isPhone, badRequest, notFound, HttpError, PROVINCES } = require("../lib/validate");
 const { helpers } = require("./admin/livestock");
 const { subscribe, unreadCount } = require("../services/notifications");
+const { orderRef, headCount } = require("../lib/orders");
 
 const router = express.Router();
 const DUMMY_HASH = bcrypt.hashSync("frontier-seller-timing-guard", 12);
@@ -332,8 +333,17 @@ router.get("/summary", requireSeller, async (req, res, next) => {
        FROM inquiries WHERE seller_id = ? AND forwarded_at IS NOT NULL`,
       [req.seller.id],
     );
+    const [[orders]] = await pool.query(
+      `SELECT COUNT(*) AS total, COALESCE(SUM(status NOT IN ('completed', 'cancelled')), 0) AS open
+       FROM orders WHERE seller_id = ? AND seller_notified_at IS NOT NULL`,
+      [req.seller.id],
+    );
     const stats = Object.fromEntries(Object.entries(counts).map(([k, v]) => [k, Number(v)]));
-    res.json({ success: true, data: { listings: stats, messages: { total: Number(messages.total), unread: Number(messages.unread) } } });
+    res.json({ success: true, data: {
+      listings: stats,
+      messages: { total: Number(messages.total), unread: Number(messages.unread) },
+      orders: { total: Number(orders.total), open: Number(orders.open) },
+    } });
   } catch (error) {
     next(error);
   }
@@ -600,6 +610,52 @@ router.post("/messages/:id/reply", requireSeller, async (req, res, next) => {
 // ---------------------------------------------------------------------------
 // Notifications
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Orders on the seller's listings: only those Frontier has told them about
+// (paid or confirmed by the team), never the buyer's contact details.
+// ---------------------------------------------------------------------------
+
+router.get("/orders", requireSeller, async (req, res, next) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT o.id, o.livestock_id, o.livestock_title, o.quantity, o.unit_price, o.price_unit, o.total,
+              o.status, o.payment_status, o.created_at, o.paid_at, o.seller_notified_at, o.updated_at,
+              a.name AS animal_name, a.kind AS animal_kind, l.location,
+              (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = o.livestock_id ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path
+       FROM orders o
+       LEFT JOIN livestock l ON l.id = o.livestock_id
+       LEFT JOIN categories c ON c.id = l.category_id
+       LEFT JOIN animals a ON a.id = c.animal_id
+       WHERE o.seller_id = ? AND o.seller_notified_at IS NOT NULL
+       ORDER BY o.seller_notified_at DESC, o.id DESC
+       LIMIT 500`,
+      [req.seller.id],
+    );
+    res.json({
+      success: true,
+      data: rows.map((o) => ({
+        id: o.id,
+        reference: orderRef(o.id),
+        livestock_id: o.livestock_id,
+        title: o.livestock_title,
+        thumb_path: o.thumb_path,
+        location: o.location,
+        quantity: o.quantity,
+        units: headCount(o.quantity, o.animal_name, o.animal_kind),
+        price_unit: o.price_unit,
+        unit_price: Number(o.unit_price),
+        total: Number(o.total),
+        status: o.status,
+        paid: o.payment_status === "paid",
+        ordered_at: o.seller_notified_at || o.created_at,
+        updated_at: o.updated_at,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get("/notifications", requireSeller, async (req, res, next) => {
   try {

@@ -123,7 +123,7 @@ async function tellSeller(order) {
     type: "order",
     title: `New order ${ref}: ${order.livestock_title}`,
     body: `${order.price_unit === "lot" ? "The whole lot" : units} from "${order.livestock_title}" has been ordered and paid (${kwacha(order.total)}). Our team will contact you to arrange the handover.`,
-    link: "/seller/",
+    link: "/seller/?tab=orders",
   });
   const [[seller]] = await pool.query("SELECT email FROM sellers WHERE id = ?", [order.seller_id]);
   const result = await emails.sellerOrder(
