@@ -81,7 +81,7 @@ async function markPaid(order, data) {
     heading: "Payment received",
     paragraphs: [
       `Hi ${order.full_name}, we've received your payment of ${kwacha(data.amount || order.total)} for order ${ref}. Thank you.`,
-      "We'll contact you on both WhatsApp and email to arrange collection.",
+      "We'll contact you to arrange collection.",
     ],
     rows,
   });

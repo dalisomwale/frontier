@@ -319,7 +319,7 @@ async function notifyCreated(checkout, created) {
           : online
             ? ["You'll get an email as soon as your payment is confirmed."]
             : ["We'll contact you on WhatsApp to arrange payment."]),
-        "We'll contact you on WhatsApp and email to arrange collection from the farm.",
+        "We'll contact you to arrange collection.",
         `At collection, check the animals or feed before you accept them, and have your order number ${ref} ready.`,
       ],
       button: online || bank ? { label: "View your order", url: appUrl(ourPayPage(checkout)) } : undefined,

@@ -52,7 +52,7 @@
       function showPaid(p) {
         card(`<div class="order-done-icon" style="margin:0 auto">${tick}</div>
           <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Payment received</h1>
-          <p class="text-sm text-gray-600 mt-2">Order ${escapeHtml(p.reference)} (${escapeHtml(p.title)}) is paid. We'll contact you on WhatsApp and email to arrange collection.</p>
+          <p class="text-sm text-gray-600 mt-2">Order ${escapeHtml(p.reference)} (${escapeHtml(p.title)}) is paid. We'll contact you to arrange collection.</p>
           <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-6">Back to listings</a>`);
       }
 
@@ -258,7 +258,7 @@
           page(`<div class="text-center">
             <div class="order-done-icon" style="margin:0 auto">${tick}</div>
             <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Payment received</h1>
-            <p class="text-sm text-gray-600 mt-2">Thank you, ${escapeHtml(c.first_name)}. We've received ${kwacha(c.total)} for order ${escapeHtml(c.reference)}. We'll contact you on WhatsApp and email to arrange collection.</p>
+            <p class="text-sm text-gray-600 mt-2">Thank you, ${escapeHtml(c.first_name)}. We've received ${kwacha(c.total)} for order ${escapeHtml(c.reference)}. We'll contact you to arrange collection.</p>
           </div>
           ${items(c)}
           <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to listings</a>`, 3);

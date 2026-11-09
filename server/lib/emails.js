@@ -72,7 +72,7 @@ function orderReceived(order, item) {
     steps: [
       "We confirm availability with the seller.",
       paysOnline ? "Approve the mobile money prompt on your phone, if you haven't yet." : "We send you payment details, unless you've already paid on the website.",
-      "We contact you on WhatsApp and email to arrange collection.",
+      "We'll contact you to arrange collection.",
     ],
   });
 }
