@@ -147,3 +147,60 @@ function watchCardPayment(id, token, onPaid) {
   setTimeout(tick, 5000);
   return () => { stopped = true; };
 }
+
+// Zambian mobile money numbers by network (same rules as the server):
+//   Airtel 097, 077, 057 · MTN 096, 076, 056 · Zamtel 095, 075, 055
+const MM_PREFIXES = { airtel: ["097", "077", "057"], mtn: ["096", "076", "056"], zamtel: ["095", "075", "055"] };
+const MM_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
+function mmLocal(phone) {
+  const d = String(phone || "").replace(/\D/g, "");
+  if (d.length === 12 && d.startsWith("260")) return `0${d.slice(3)}`;
+  if (d.length === 10 && d.startsWith("0")) return d;
+  if (d.length === 9 && !d.startsWith("0")) return `0${d}`;
+  return null;
+}
+// The network a number belongs to, from its first digits (works while typing).
+function mmNetworkOf(phone) {
+  let d = String(phone || "").replace(/\D/g, "");
+  if (d.startsWith("260")) d = `0${d.slice(3)}`;
+  else if (d && !d.startsWith("0")) d = `0${d}`;
+  return Object.keys(MM_PREFIXES).find((op) => MM_PREFIXES[op].includes(d.slice(0, 3))) || null;
+}
+function mmCheck(phone, operator) {
+  const local = mmLocal(phone);
+  if (!local) return "Please enter a 10-digit mobile money number, e.g. 0977 123 456.";
+  const net = mmNetworkOf(local);
+  if (!net) return "That isn't a Zambian mobile money number. Numbers start with 097, 096, 095, 077, 076, 075, 057, 056 or 055.";
+  if (operator && net !== operator) {
+    return `${MM_NAMES[operator]} numbers start with ${MM_PREFIXES[operator].join(", ")}. This number looks like ${MM_NAMES[net]}: choose ${MM_NAMES[net]} or enter a different number.`;
+  }
+  return "";
+}
+
+// Network choice and number kept in step: typing a number picks its network
+// when none is chosen yet, and a mismatch is shown as soon as it's clear.
+// showError(message) shows or clears the message under the number.
+function linkNetworkAndNumber(form, showError) {
+  const phone = form.elements.payment_phone;
+  if (!phone) return;
+  const radios = [...form.querySelectorAll('input[name="mobile_operator"]')];
+  const chosen = () => (radios.find((r) => r.checked) || {}).value || "";
+  const update = (final) => {
+    const net = mmNetworkOf(phone.value);
+    if (net && !chosen()) {
+      const r = radios.find((x) => x.value === net);
+      if (r) { r.checked = true; r.dispatchEvent(new Event("change", { bubbles: true })); }
+    }
+    const digits = phone.value.replace(/\D/g, "").length;
+    const problem = chosen() && (final || digits >= 3) ? mmCheck(phone.value, chosen()) : "";
+    // While typing, only a wrong network (not an unfinished number) is shown.
+    const show = final ? problem : (problem && /looks like|isn't a Zambian/.test(problem) && digits >= 3 ? problem : "");
+    showError(show);
+  };
+  phone.addEventListener("input", () => update(false));
+  // Leaving the field shows the same as typing (no layout jump under a
+  // tap); an unfinished number is reported when the buyer taps Pay.
+  phone.addEventListener("blur", () => { if (phone.value.trim()) update(false); });
+  radios.forEach((r) => r.addEventListener("change", () => { if (phone.value.replace(/\D/g, "").length >= 3) update(false); }));
+  if (phone.value) update(false);
+}

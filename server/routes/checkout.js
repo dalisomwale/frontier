@@ -10,6 +10,7 @@ const checkout = require("../lib/checkout");
 const txlog = require("../lib/txlog");
 const lenco = require("../services/lenco");
 const lipila = require("../services/lipila");
+const networks = require("../lib/networks");
 const { appUrl } = require("../services/mailer");
 
 // Whether Lipila's card page can open inside our checkout page.
@@ -58,7 +59,8 @@ router.post("/", async (req, res, next) => {
       const operator = oneOf(req.body.mobile_operator, checkout.operators());
       const payPhone = text(req.body.payment_phone, 30);
       if (!operator) errors.mobile_operator = "Please choose your mobile money network.";
-      if (!payPhone || !isPhone(payPhone)) errors.payment_phone = "Please enter your mobile money number, e.g. 0977 123 456.";
+      const numberProblem = networks.checkNumber(payPhone, operator);
+      if (numberProblem) errors.payment_phone = numberProblem;
       pay = { method, operator, phone: payPhone };
     } else if (method === "card") {
       const address = text(req.body.address, 120);
@@ -153,7 +155,8 @@ router.post("/:id/payment", async (req, res, next) => {
     const phone = text(req.body.payment_phone, 30);
     const errors = {};
     if (!operator) errors.mobile_operator = "Please choose your mobile money network.";
-    if (!phone || !isPhone(phone)) errors.payment_phone = "Please enter the mobile money number, e.g. 0977 123 456.";
+    const numberProblem = networks.checkNumber(phone, operator);
+    if (numberProblem) errors.payment_phone = numberProblem;
     if (Object.keys(errors).length) {
       return res.status(422).json({ success: false, message: "Please correct the highlighted fields.", errors });
     }

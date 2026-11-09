@@ -195,6 +195,12 @@
           if (c.methods) bindSwitch(c);
           const form = root.querySelector(".pay-form");
           if (!form) return;
+          linkNetworkAndNumber(form, (msg) => {
+            const el = form.querySelector("[data-pay-error]");
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.toggle("hidden", !msg);
+          });
           form.addEventListener("submit", async (e) => {
             e.preventDefault();
             const err = form.querySelector("[data-pay-error]");
@@ -202,8 +208,9 @@
             err.classList.add("hidden");
             const operator = form.elements.mobile_operator.value;
             const phone = form.elements.payment_phone.value.trim();
-            if (!operator || phone.replace(/\D/g, "").length < 9) {
-              err.textContent = !operator ? "Please choose your mobile money operator." : "Please enter the mobile money number, e.g. 0977 123 456.";
+            const problem = !operator ? "Please choose your mobile money network." : mmCheck(phone, operator);
+            if (problem) {
+              err.textContent = problem;
               err.classList.remove("hidden");
               return;
             }
@@ -302,6 +309,12 @@
           bindSwitch(c);
           const form = root.querySelector(".pay-form");
           if (!form) return;
+          linkNetworkAndNumber(form, (msg) => {
+            const el = form.querySelector("[data-pay-error]");
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.toggle("hidden", !msg);
+          });
           form.addEventListener("submit", async (e) => {
             e.preventDefault();
             const err = form.querySelector("[data-pay-error]");
