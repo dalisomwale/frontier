@@ -584,3 +584,111 @@ function bindPhotosField(form, existing = []) {
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Phones: filter chips (and filter dropdowns) fold into a filter icon next to
+// the search box. The chips stay in the page (hidden) and the sheet works them,
+// so each page's own filter code is unchanged. Desktop is unaffected.
+// ---------------------------------------------------------------------------
+const MF_PHONE = window.matchMedia("(max-width: 767px)");
+
+function mfSetup(seg) {
+  if (seg.dataset.mf) return;
+  // The toolbar: the nearest container with a search box.
+  let box = seg.parentElement;
+  for (let i = 0; i < 3 && box && !box.querySelector('input[type="search"]'); i++) {
+    if (/^(MAIN|SECTION|BODY)$/.test(box.tagName)) break;
+    box = box.parentElement;
+  }
+  const search = box && box.querySelector('input[type="search"]');
+  // Only a toolbar with exactly this one set of chips and its own search box.
+  if (!search || /^(MAIN|SECTION|BODY)$/.test(box.tagName) || box.querySelectorAll(".seg").length !== 1) return;
+  seg.dataset.mf = "1";
+  const searchWrap = search.closest(".relative") || search;
+  const selects = [...box.querySelectorAll("select")].filter((s) => !s.closest(".mf-sheet") && !seg.contains(s));
+  box.classList.add("mf-box");
+  seg.classList.add("mf-hide");
+  selects.forEach((s) => s.classList.add("mf-hide"));
+  if (selects.length) selects.forEach((s) => { const wrap = s.parentElement; if (wrap !== box && wrap.querySelectorAll("select").length && !wrap.contains(search)) wrap.classList.add("mf-hide-wrap"); });
+
+  const row = document.createElement("div");
+  row.className = "mf-row";
+  searchWrap.parentElement.insertBefore(row, searchWrap);
+  row.appendChild(searchWrap);
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "mf-btn";
+  btn.setAttribute("aria-label", "Filters");
+  btn.innerHTML = `${uiIcon("filter")}<span class="mf-badge" hidden></span>`;
+  row.appendChild(btn);
+
+  const active = () => {
+    const tabs = [...seg.querySelectorAll("button")];
+    let n = tabs.length && !tabs[0].classList.contains("active") && tabs.some((b) => b.classList.contains("active")) ? 1 : 0;
+    selects.forEach((s) => { if (s.selectedIndex > 0 && s.id !== "range") n++; });
+    return n;
+  };
+  const refresh = () => {
+    const n = active();
+    const badge = btn.querySelector(".mf-badge");
+    badge.hidden = !n;
+    badge.textContent = n;
+    btn.classList.toggle("is-on", Boolean(n));
+  };
+  new MutationObserver(refresh).observe(seg, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+  selects.forEach((s) => s.addEventListener("change", refresh));
+  refresh();
+
+  btn.addEventListener("click", () => mfOpen(seg, selects, refresh));
+}
+
+function mfOpen(seg, selects, refresh) {
+  document.querySelector(".mf-sheet-wrap")?.remove();
+  const wrap = document.createElement("div");
+  wrap.className = "mf-sheet-wrap";
+  const label = (s) => (s.getAttribute("aria-label") || "Filter").replace(/^Filter by /i, "").replace(/^./, (c) => c.toUpperCase());
+  const tabsHtml = () => [...seg.querySelectorAll("button")].map((b, i) => {
+    const count = b.querySelector(".count");
+    const text = [...b.childNodes].filter((n) => !(n.classList && n.classList.contains("count"))).map((n) => n.textContent).join("").trim();
+    return `<button type="button" class="mf-opt ${b.classList.contains("active") ? "is-on" : ""}" data-i="${i}">
+      <span>${escapeHtml(text)}</span>${count && count.textContent.trim() ? `<span class="mf-count">${escapeHtml(count.textContent.trim())}</span>` : ""}
+      <span class="mf-tick" aria-hidden="true">${uiIcon("check")}</span></button>`;
+  }).join("");
+  wrap.innerHTML = `
+    <div class="mf-sheet" role="dialog" aria-modal="true" aria-label="Filters">
+      <div class="mf-sheet-head"><b>Filters</b><button type="button" class="mf-close" aria-label="Close">${uiIcon("close")}</button></div>
+      <p class="mf-label">Show</p>
+      <div class="mf-opts">${tabsHtml()}</div>
+      ${selects.map((s, i) => `<p class="mf-label">${escapeHtml(label(s))}</p>
+        <select class="field-input mf-select" data-s="${i}">${s.innerHTML}</select>`).join("")}
+      <button type="button" class="mf-done">Show results</button>
+    </div>`;
+  document.body.appendChild(wrap);
+  wrap.querySelectorAll(".mf-select").forEach((c) => { c.value = selects[Number(c.dataset.s)].value; });
+  const close = () => { wrap.classList.remove("is-open"); setTimeout(() => wrap.remove(), 180); refresh(); };
+  requestAnimationFrame(() => wrap.classList.add("is-open"));
+  wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+  wrap.querySelector(".mf-close").addEventListener("click", close);
+  wrap.querySelector(".mf-done").addEventListener("click", close);
+  const bindOpts = () => wrap.querySelectorAll(".mf-opt").forEach((o) => o.addEventListener("click", () => {
+    const target = seg.querySelectorAll("button")[Number(o.dataset.i)];
+    if (target) target.click();
+    // The page may re-draw its chips: show their new state.
+    setTimeout(() => { wrap.querySelector(".mf-opts").innerHTML = tabsHtml(); bindOpts(); refresh(); }, 60);
+  }));
+  bindOpts();
+  wrap.querySelectorAll(".mf-select").forEach((c) => c.addEventListener("change", () => {
+    const s = selects[Number(c.dataset.s)];
+    s.value = c.value;
+    s.dispatchEvent(new Event("change", { bubbles: true }));
+    refresh();
+  }));
+}
+
+function mfScan(root = document) {
+  root.querySelectorAll(".seg:not([data-mf])").forEach(mfSetup);
+}
+document.addEventListener("DOMContentLoaded", () => {
+  mfScan();
+  new MutationObserver(() => mfScan()).observe(document.body, { childList: true, subtree: true });
+});
