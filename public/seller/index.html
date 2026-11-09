@@ -416,7 +416,7 @@
         const live = item.status === "published";
 
         const body = `
-          ${id ? `<div class="alert alert-info text-sm mb-0">${live ? "Saving changes made for this listing will be on the website when our team approves it." : "Saving sends this listing to our team for review."}${item.went_live_at ? " Category, quantity and price can't be changed once a listing has been live. Please contact Frontier if they need to change." : ""}</div>` : ""}
+          ${id ? `<div class="alert alert-info text-sm mb-0">${item.review_status === "approved" ? (live ? "Changes you save go on the website straight away." : "Changes you save are kept. Submit it for review to bring it back to the website.") : item.review_status === "pending" ? "This listing is waiting for review. Saving updates what our team will review." : "Saving sends this listing to our team for review."}${item.went_live_at ? " Category, quantity and price can't be changed once a listing has been live. Please contact Frontier if they need to change." : ""}</div>` : ""}
           ${field({ name: "title", label: "Title", value: item.title, required: true, placeholder: "e.g. 10 Boran heifers, in calf", attrs: 'maxlength="200"' })}
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             ${field({ name: "animal_id", label: "Category", value: animalId, required: true, options: animalOptions() })}
@@ -448,7 +448,7 @@
           title: id ? "Edit Listing" : "Add Listing",
           crumb: id ? (document.querySelector(".listing-view") ? "Edit" : item.title) : "Add Listing",
           params: id ? { edit: id } : { new: 1 },
-          submitText: id ? "Save and send for review" : "Submit for review",
+          submitText: id ? (item.review_status === "approved" ? "Save changes" : "Save and send for review") : "Submit for review",
           wide: true,
           body,
           onOpen(form) {
@@ -570,7 +570,7 @@
               await sellerApi(`/api/seller/listings/${res.data.id}`, { method: "PUT", body: fd2 });
             }
             photos.forEach((p) => p.url && URL.revokeObjectURL(p.url));
-            showNotification("Sent for review. We'll email you when it's approved.", "success");
+            showNotification(res.direct ? "Changes saved." : "Sent for review. We'll email you when it's approved.", "success");
             await Promise.all([loadListings(), loadSummary()]);
             if (after) after();
           },

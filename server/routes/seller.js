@@ -582,15 +582,22 @@ router.put("/listings/:id", requireSeller, requireApproved, uploadImages, async 
       p.price_negotiable = before.price_negotiable;
     }
 
+    // Approved listings are saved straight away, staying live or hidden as
+    // they are. A listing still in review stays in review; one sent back with
+    // changes needed goes back to Frontier for review.
+    const direct = before.review_status === "approved";
     await conn.beginTransaction();
     await conn.query(
       `UPDATE livestock SET title = ?, category_id = ?, breed_id = ?, livestock_type = ?, quantity = ?,
-         age_months = ?, location = ?, description = ?, status = 'unpublished', published_at = NULL,
-         review_status = 'pending', review_note = NULL, submitted_at = NOW(),
+         age_months = ?, location = ?, description = ?,
+         status = IF(?, status, 'unpublished'), published_at = IF(?, published_at, NULL),
+         review_status = IF(?, review_status, 'pending'), review_note = IF(?, review_note, NULL),
+         submitted_at = IF(?, submitted_at, NOW()),
          price = IF(?, ?, price), price_unit = IF(?, ?, price_unit), price_negotiable = IF(?, ?, price_negotiable)
        WHERE id = ? AND seller_id = ?`,
       [p.title, p.category_id, p.breed_id, p.livestock_type, p.quantity, p.age_months,
         p.location, p.description,
+        direct, direct, direct, direct, direct,
         p.price_given ? 1 : 0, p.price, p.price_given ? 1 : 0, p.price_unit, p.price_given ? 1 : 0, p.price_negotiable,
         id, req.seller.id],
     );
@@ -599,8 +606,8 @@ router.put("/listings/:id", requireSeller, requireApproved, uploadImages, async 
     if (!Number(photos)) throw validationError({ images: "Please keep at least one photo of the animals." });
     await conn.commit();
     deleteImageFiles(...filesToDelete);
-    listingNotice(req.seller, p, true, id);
-    res.json({ success: true, data: sellerView(await helpers.loadOne(id)) });
+    if (!direct) listingNotice(req.seller, p, true, id);
+    res.json({ success: true, direct, data: sellerView(await helpers.loadOne(id)) });
   } catch (error) {
     await conn.rollback().catch(() => {});
     next(error);
