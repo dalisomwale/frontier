@@ -19,6 +19,7 @@ const lipila = require("../services/lipila");
 const { sendEmail, recipients, appUrl } = require("../services/mailer");
 const { orderRef, kwacha, headCount, OPERATOR_LABELS } = require("./orders");
 const payments = require("./payments");
+const txlog = require("./txlog");
 const emails = require("./emails");
 const { badRequest } = require("./validate");
 
@@ -229,6 +230,11 @@ async function create(lines, buyer, ip, pay = null) {
   }
 
   let checkout = await load(checkoutId);
+  txlog.record({
+    checkoutId, event: "order_placed", actor: "buyer", amount: checkout.total, ip,
+    status: holdsStock(method) ? "held" : "reserved",
+    detail: `${buyer.full_name} placed the order: ${created.map((o) => `${o.l.title} (${orderRef(o.id)}, ${kwacha(o.total)})`).join("; ")}. Paying by ${METHOD_LABELS[method] || method}. ${holdsStock(method) ? `Items held for ${HOLD_MINUTES} minutes while the buyer pays.` : "Items reserved."}`,
+  });
   // Mobile money: the PIN prompt goes to the buyer's phone right away.
   // Card: the payment opens on Lipila's card page. Bank transfer: the buyer
   // gets Frontier's bank details and the team confirms the payment.
@@ -442,6 +448,12 @@ async function markPaid(checkout, data) {
     [providerRef, checkout.id],
   );
   if (!result.affectedRows) return;
+  txlog.record({
+    checkoutId: checkout.id, reference: data.reference || checkout.payment_reference, event: "payment_confirmed", status: "paid",
+    actor: "lipila", amount: data.amount || checkout.total,
+    detail: `Lipila confirmed the payment of ${kwacha(data.amount || checkout.total)}${providerRef ? ` (network reference ${providerRef})` : ""}. Orders marked Paid.`,
+    data: data.raw || null,
+  });
   const orders = (await ordersOf(checkout.id)).filter((o) => isOpen(o) && o.payment_status !== "paid");
   await pool.query(
     `UPDATE orders SET payment_status = 'paid', payment_failure = NULL, paid_at = NOW(), payment_method = ?,
@@ -456,7 +468,14 @@ async function markPaid(checkout, data) {
   } catch (error) {
     console.error(`Checkout ${checkoutRef(checkout.id)}: stock not updated after payment (${error.message})`);
   }
-  for (const { order } of stock.short) console.error(`Order ${orderRef(order.id)}: paid, but not enough left on the listing`);
+  for (const { order, left } of stock.short) {
+    console.error(`Order ${orderRef(order.id)}: paid, but not enough left on the listing`);
+    txlog.record({ checkoutId: checkout.id, orderId: order.id, event: "stock_short", status: "action_needed", detail: `${orderRef(order.id)} ${order.livestock_title}: paid, but only ${left} left on the listing. Contact the buyer about a replacement or a refund.` });
+  }
+  const taken = orders.filter((o) => o.livestock_id && !stock.short.some((x) => x.order.id === o.id));
+  if (taken.length) {
+    txlog.record({ checkoutId: checkout.id, event: "stock_taken", detail: `Stock taken off the listings: ${taken.map((o) => `${o.livestock_title} (${orderRef(o.id)}, ${o.quantity})`).join("; ")}${stock.soldOut.length ? `. Sold out: ${stock.soldOut.map((l) => l.title).join(", ")}` : ""}.` });
+  }
 
   const ref = checkoutRef(checkout.id);
   const amount = kwacha(data.amount || checkout.total);
@@ -470,7 +489,7 @@ async function markPaid(checkout, data) {
   const rows = [["Order", ref], ...itemRows, ["Amount paid", amount], ["Paid with", how]];
   if (providerRef) rows.push(["Payment reference", providerRef]);
   const shortIds = new Set(stock.short.map((x) => x.order.id));
-  sendEmail({
+  txlog.recordEmail(sendEmail({
     to: checkout.email,
     subject: `Payment received for order ${ref}`,
     log: true,
@@ -481,8 +500,8 @@ async function markPaid(checkout, data) {
     ],
     rows,
     button: { label: "View your order", url: appUrl(ourPayPage(checkout)) },
-  });
-  sendEmail({
+  }), { checkoutId: checkout.id, who: "buyer", to: checkout.email });
+  txlog.recordEmail(sendEmail({
     to: recipients(),
     subject: `New paid order ${ref}: ${amount}`,
     log: true,
@@ -500,10 +519,17 @@ async function markPaid(checkout, data) {
     ],
     button: orders[0] ? { label: "Open orders", url: appUrl(`/admin/orders.html?id=${orders[0].id}`) } : undefined,
     replyTo: checkout.email,
-  });
+  }), { checkoutId: checkout.id, who: "team", to: recipients().join(", ") });
   for (const o of orders) {
     if (shortIds.has(o.id)) continue;
-    payments.tellSeller({ ...o, payment_status: "paid" }).catch((error) => console.error(`Order ${orderRef(o.id)}: seller notice failed (${error.message})`));
+    payments.tellSeller({ ...o, payment_status: "paid" })
+      .then((r) => txlog.record({
+        checkoutId: checkout.id, orderId: o.id, event: r && r.sent ? "email_sent" : r && r.skipped ? "email_skipped" : "email_failed",
+        detail: r && r.sent ? `"New order" email sent to the seller of ${o.livestock_title} (${r.to})`
+          : r && r.skipped ? `No seller email for ${o.livestock_title}: ${r.skipped}`
+            : `Seller email for ${o.livestock_title} not sent: ${(r && r.error) || "unknown error"}`,
+      }))
+      .catch((error) => console.error(`Order ${orderRef(o.id)}: seller notice failed (${error.message})`));
   }
   for (const l of stock.soldOut) {
     if (l.seller_id) emails.listingSoldOut(l.seller_id, { id: l.id, title: l.title });
@@ -522,6 +548,10 @@ async function markFailed(checkout, reason, reference) {
   if (!fresh || fresh.payment_status !== "failed") return;
   await syncOrders(fresh);
   await pool.query("UPDATE orders SET hold_until = NULL WHERE checkout_id = ? AND stock_deducted = 0", [checkout.id]);
+  txlog.record({
+    checkoutId: checkout.id, reference: fresh.payment_reference, event: "payment_failed", status: "failed", actor: "lipila",
+    amount: fresh.total, detail: `Payment not completed: ${fresh.payment_failure || "no reason given"}. Held items released.`,
+  });
   // The buyer sees the failure on their payment page and can try again
   // there; they are only emailed once a payment succeeds.
 }
@@ -636,6 +666,11 @@ async function startLipila(checkout, { operator, phone, fresh }) {
       callbackUrl: /^https:\/\//.test(site) ? appUrl("/api/payments/lipila/callback") : undefined,
     });
     if (res.identifier) await pool.query("UPDATE checkouts SET payment_provider_ref = ? WHERE id = ?", [res.identifier, checkout.id]);
+    txlog.record({
+      checkoutId: checkout.id, reference, event: "payment_requested", actor: "buyer", status: res.status, amount,
+      detail: `${attempt > 1 ? `Attempt ${attempt}: p` : "P"}ayment request for ${kwacha(amount)} sent to ${OPERATOR_LABELS[operator] || operator} ${lenco.localPhone(phone)}${res.identifier ? `. Lipila ID ${res.identifier}` : ""}.`,
+      data: res.raw || null,
+    });
     if (res.status === "failed") await markFailed(current, res.message || "The payment was not completed.", reference);
     // "Successful" straight away is confirmed with check-status, never trusted as is.
     if (res.status === "paid") await refreshLipila({ ...current, payment_checked_at: null });
@@ -643,8 +678,10 @@ async function startLipila(checkout, { operator, phone, fresh }) {
     if (error.unknownOutcome) {
       // No clear answer: the prompt may have gone out. Keep waiting and check.
       console.error(`Checkout ${checkoutRef(checkout.id)}: Lipila didn't answer clearly (${error.message}); will check the status`);
+      txlog.record({ checkoutId: checkout.id, reference, event: "payment_request_unclear", status: "pending", amount, detail: `Payment request for ${kwacha(amount)} to ${OPERATOR_LABELS[operator] || operator} ${lenco.localPhone(phone)}: no clear answer from Lipila (${error.message}). Checking the status.` });
     } else {
       console.error(`Checkout ${checkoutRef(checkout.id)}: Lipila payment not started (${error.message})`);
+      txlog.record({ checkoutId: checkout.id, reference, event: "payment_request_failed", status: "failed", amount, actor: "lipila", detail: `Lipila didn't accept the payment request: ${error.message}` });
       await markFailed(current, `We couldn't send the payment request: ${error.message}`, reference);
     }
   }
@@ -684,8 +721,13 @@ async function startCard(checkout, details = {}) {
       callbackUrl: /^https:\/\//.test(site) ? appUrl("/api/payments/lipila/callback") : undefined,
     });
     await pool.query("UPDATE checkouts SET payment_url = ?, payment_provider_ref = ? WHERE id = ?", [made.url, made.identifier, checkout.id]);
+    txlog.record({
+      checkoutId: checkout.id, reference, event: "card_page_opened", actor: "buyer", status: "pending", amount,
+      detail: `${attempt > 1 ? `Attempt ${attempt}: c` : "C"}ard payment page for ${kwacha(amount)} opened on Lipila${made.identifier ? `. Lipila ID ${made.identifier}` : ""}.`,
+    });
   } catch (error) {
     console.error(`Checkout ${checkoutRef(checkout.id)}: card payment not started (${error.message})`);
+    txlog.record({ checkoutId: checkout.id, reference, event: "payment_request_failed", status: "failed", amount, actor: "lipila", detail: `Lipila didn't open the card page: ${error.message}` });
     await markFailed(current, `We couldn't open the card payment page: ${error.message}`, reference);
   }
   return load(checkout.id);
@@ -725,12 +767,20 @@ async function refreshLipila(checkout) {
           amount: v.amount ?? checkout.total,
           reference: checkout.payment_reference,
           providerRef: v.externalId || v.identifier || checkout.payment_provider_ref,
+          raw: v.raw,
         });
       }
     } else if (v.status === "failed") {
       await markFailed(checkout, v.message || "The payment was not approved.", checkout.payment_reference);
     }
   } catch (error) {
+    const [first] = await pool.query(
+      "UPDATE checkouts SET payment_check_error = ? WHERE id = ? AND payment_check_error IS NULL",
+      [String(error.message).slice(0, 255), checkout.id],
+    );
+    if (first.affectedRows) {
+      txlog.record({ checkoutId: checkout.id, reference: checkout.payment_reference, event: "status_check_error", status: "pending", detail: `Lipila's status check failed: ${error.message}. The website keeps checking.`, data: error.raw || null });
+    }
     await pool.query("UPDATE checkouts SET payment_check_error = ? WHERE id = ?", [String(error.message).slice(0, 255), checkout.id]);
     logCheckError(checkout, error);
   }
@@ -758,6 +808,7 @@ async function alertIfUnconfirmed(checkout) {
   );
   if (!claim.affectedRows) return;
   console.error(`Checkout ${checkoutRef(checkout.id)}: payment ${checkout.payment_reference} not confirmed after ${ALERT_AFTER_MIN} minutes; team alerted`);
+  txlog.record({ checkoutId: checkout.id, reference: checkout.payment_reference, event: "unconfirmed_alert", status: "pending", detail: `No confirmation from Lipila after ${ALERT_AFTER_MIN} minutes. Team emailed to check the Lipila dashboard.` });
   const orders = await ordersOf(checkout.id);
   const ref = checkoutRef(checkout.id);
   const amount = kwacha(due(orders));

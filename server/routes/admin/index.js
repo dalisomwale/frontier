@@ -17,6 +17,7 @@ router.use("/categories", categories);
 router.use("/breeds", breeds);
 router.use("/inquiries", require("./inquiries"));
 router.use("/orders", require("./orders"));
+router.use("/transactions", require("./transactions"));
 router.use("/sellers", require("./sellers"));
 router.use("/email", require("./email"));
 

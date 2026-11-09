@@ -102,7 +102,7 @@ async function tellSeller(order) {
   const ref0 = orderRef(order.id);
   if (!order.seller_id) {
     console.log(`Order ${ref0}: no seller email (Frontier's own listing)`);
-    return;
+    return { skipped: "Frontier's own listing, no seller to email" };
   }
   const [claim] = await pool.query(
     "UPDATE orders SET seller_notified_at = NOW() WHERE id = ? AND seller_notified_at IS NULL",
@@ -110,7 +110,7 @@ async function tellSeller(order) {
   );
   if (!claim.affectedRows) {
     console.log(`Order ${ref0}: seller was already told earlier`);
-    return;
+    return { skipped: "seller was already told earlier" };
   }
   const [[info]] = await pool.query(
     `SELECT l.quantity AS left_qty, a.name AS animal, a.kind
@@ -125,11 +125,13 @@ async function tellSeller(order) {
     body: `${order.price_unit === "lot" ? "The whole lot" : units} from "${order.livestock_title}" has been ordered and paid (${kwacha(order.total)}). Our team will contact you to arrange the handover.`,
     link: "/seller/",
   });
-  await emails.sellerOrder(
+  const [[seller]] = await pool.query("SELECT email FROM sellers WHERE id = ?", [order.seller_id]);
+  const result = await emails.sellerOrder(
     { ...order, payment_status: "paid" },
     "new",
     { units, leftOnListing: info ? headCount(info.left_qty, info.animal, info.kind) : undefined },
   );
+  return { ...(result || { sent: false, error: "seller not found" }), to: seller && seller.email };
 }
 
 async function markFailed(order, reason, reference) {

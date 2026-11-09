@@ -5713,3 +5713,58 @@ a.btn-checkout { text-decoration: none; }
   .checkout > .cart-summary { order: -1; }
   .checkout > .cart-summary .buy-total { padding-bottom: 0; margin-bottom: 0; }
 }
+
+/* Admin > Transactions */
+.tx-totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.tx-total { background: #fff; border: 1px solid #f1f2ef; border-radius: 12px; padding: 12px 14px; }
+.tx-total span { display: block; font-size: 12px; color: #6b7280; }
+.tx-total b { font-size: 18px; color: #111827; }
+.tx-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid #f1f2ef; }
+.tx-select { width: auto !important; min-width: 150px; }
+.tx-search { flex: 1 1 240px; }
+.tx-list { list-style: none; margin: 0; padding: 0; }
+.tx-item { border-bottom: 1px solid #f1f2ef; }
+.tx-item:last-child { border-bottom: 0; }
+.tx-row { width: 100%; display: grid; grid-template-columns: 110px minmax(0, 1.6fr) minmax(0, 1fr) 100px 120px; gap: 12px; align-items: center; padding: 12px 16px; text-align: left; font-size: 14px; color: #374151; background: none; border: 0; cursor: pointer; }
+.tx-row:hover, .tx-row[aria-expanded="true"] { background: #f9faf8; }
+.tx-row small { display: block; font-size: 12px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-when { font-size: 12px; color: #6b7280; }
+.tx-main b { color: #111827; }
+.tx-amt { font-weight: 600; color: #111827; text-align: right; }
+.tx-st { text-align: right; }
+.tx-detail { background: #fbfcfa; border-top: 1px solid #f1f2ef; padding: 16px; }
+.tx-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 20px; margin-bottom: 12px; }
+.tx-facts span { display: block; font-size: 12px; color: #6b7280; }
+.tx-facts b { font-size: 13px; font-weight: 600; color: #111827; word-break: break-word; }
+.tx-orders { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.tx-orders a { font-size: 12px; padding: 4px 10px; border: 1px solid #e5e7eb; border-radius: 999px; color: #1f3d2b; background: #fff; }
+.tx-orders a:hover { border-color: #1f3d2b; }
+.tx-h { font-size: 13px; font-weight: 700; color: #111827; margin: 0 0 10px; }
+.tx-timeline { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid #e5e7eb; }
+.tx-ev { position: relative; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; padding: 0 0 14px 12px; }
+.tx-ev::before { content: ""; position: absolute; left: -21px; top: 4px; width: 12px; height: 12px; border-radius: 999px; background: #fff; border: 2px solid #9ca3af; }
+.tx-ok::before { border-color: #16a34a; background: #dcfce7; }
+.tx-bad::before { border-color: #dc2626; background: #fee2e2; }
+.tx-warn::before { border-color: #d97706; background: #fef3c7; }
+.tx-ev-time { font-size: 12px; color: #6b7280; padding-top: 1px; }
+.tx-ev-title { margin: 0; font-size: 13px; font-weight: 700; color: #111827; }
+.tx-actor { margin-left: 6px; font-size: 11px; font-weight: 600; color: #374151; background: #f3f4f6; border-radius: 999px; padding: 1px 8px; }
+.tx-ref { margin-left: 6px; font-size: 11px; color: #6b7280; }
+.tx-ev-text { margin: 2px 0 0; font-size: 13px; color: #4b5563; }
+.tx-raw { margin-top: 6px; font-size: 12px; }
+.tx-raw summary { cursor: pointer; color: #1f3d2b; }
+.tx-raw pre { margin: 6px 0 0; padding: 10px; background: #f3f4f6; border-radius: 8px; font-size: 11px; white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto; }
+@media (max-width: 767px) {
+  .tx-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tx-select { flex: 1 1 140px; }
+  .tx-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .tx-when { grid-column: 1 / -1; order: -1; }
+  .tx-how { grid-column: 1; }
+  .tx-amt { grid-column: 2; grid-row: 2; }
+  .tx-st { grid-column: 2; grid-row: 3; }
+  .tx-ev { grid-template-columns: 1fr; gap: 2px; }
+}
+.tx-export { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 10px; border: 1px solid #1f3d2b; background: #fff; color: #1f3d2b; font-size: 14px; font-weight: 600; }
+.tx-export:hover { background: #f3f7f1; }
+.tx-export:disabled { opacity: .6; }
+.tx-facts b { word-break: normal; overflow-wrap: anywhere; }

@@ -369,3 +369,25 @@ CREATE TABLE IF NOT EXISTS app_state (
   value      VARCHAR(255) NULL,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Transaction audit trail: every step of every payment, in order. Rows are
+-- only ever added (never changed or deleted by the website).
+CREATE TABLE IF NOT EXISTS transaction_events (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  checkout_id  INT UNSIGNED NOT NULL,
+  order_id     INT UNSIGNED NULL,
+  reference    VARCHAR(40) NULL,
+  event        VARCHAR(40) NOT NULL,
+  status       VARCHAR(20) NULL,
+  amount       DECIMAL(12,2) NULL,
+  actor        VARCHAR(20) NOT NULL DEFAULT 'website',
+  admin_id     INT UNSIGNED NULL,
+  admin_name   VARCHAR(120) NULL,
+  detail       VARCHAR(500) NOT NULL DEFAULT '',
+  data         TEXT NULL,
+  ip_address   VARCHAR(45) NULL,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_tx_checkout (checkout_id, id),
+  KEY idx_tx_created (created_at),
+  KEY idx_tx_reference (reference)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -2,6 +2,7 @@
 // fails: set the webhook URL in the Lenco dashboard to
 //   https://<your site>/api/payments/lenco/webhook
 const express = require("express");
+const txlog = require("../lib/txlog");
 const lenco = require("../services/lenco");
 const payments = require("../lib/payments");
 const checkout = require("../lib/checkout");
@@ -47,6 +48,14 @@ router.post("/lipila/callback", async (req, res) => {
     const id = checkout.checkoutIdFromReference(reference);
     if (!id) return;
     const found = await checkout.load(id);
+    // Recorded as Lipila's message; only the status check changes the order.
+    if (found) {
+      txlog.record({
+        checkoutId: id, reference, event: "lipila_callback", actor: "lipila", status: String(event.status || "").toLowerCase() || null,
+        amount: event.amount, detail: `Lipila sent: ${event.status || "no status"}${event.message ? ` (${event.message})` : ""}${event.paymentType ? `, ${event.paymentType}` : ""}.`,
+        data: body,
+      });
+    }
     if (found && found.payment_provider === "lipila" && ["pending", "failed"].includes(found.payment_status) && found.payment_reference === reference) {
       await checkout.refreshLipila(found);
     }

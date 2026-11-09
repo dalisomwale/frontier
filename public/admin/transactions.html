@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Transactions - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/livestock.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transactions</h1>
+          <p class="text-sm text-gray-500 mt-1">Every payment and each step it went through. This history can't be edited.</p>
+        </div>
+        <button type="button" id="export" class="tx-export">Download CSV</button>
+      </div>
+
+      <div class="tx-totals" id="totals"></div>
+
+      <div class="bg-white rounded-xl border border-gray-100">
+        <div class="tx-filters">
+          <div class="seg" id="status-tabs"></div>
+          <select id="method" class="field-input !py-2 !text-sm tx-select" aria-label="Payment method">
+            <option value="">All methods</option>
+            <option value="mobile_money">Mobile money</option>
+            <option value="card">Visa / Mastercard</option>
+          </select>
+          <select id="range" class="field-input !py-2 !text-sm tx-select" aria-label="Period">
+            <option value="today">Today</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d" selected>Last 30 days</option>
+            <option value="90d">Last 90 days</option>
+            <option value="all">All time</option>
+          </select>
+          <div class="relative tx-search">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+            <input id="search" type="search" placeholder="Order, payment reference, Lipila ID, buyer" class="field-input !py-2 !pl-9 !text-sm" />
+          </div>
+        </div>
+        <div id="list"></div>
+        <div id="pagination" class="pb-4"></div>
+      </div>
+    </main>
+
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+
+      const TABS = [
+        { value: "", label: "All" },
+        { value: "paid", label: "Paid" },
+        { value: "pending", label: "Waiting" },
+        { value: "failed", label: "Not completed" },
+      ];
+      const STATUS = {
+        paid: ["Paid", "pay-tag-paid"],
+        pending: ["Waiting", "pay-tag-pending"],
+        failed: ["Not completed", "pay-tag-failed"],
+        unpaid: ["Not started", "pay-tag-pending"],
+      };
+      const METHOD = { mobile_money: "Mobile money", card: "Visa / Mastercard", bank_transfer: "Bank transfer" };
+      const NETWORK = { airtel: "Airtel", mtn: "MTN", zamtel: "Zamtel" };
+      const ACTOR = { buyer: "Buyer", lipila: "Lipila", website: "Website", admin: "Admin" };
+      const EVENT = {
+        order_placed: "Order placed",
+        payment_requested: "Payment request sent",
+        payment_request_unclear: "Payment request: no clear answer",
+        payment_request_failed: "Payment request refused",
+        card_page_opened: "Card page opened",
+        buyer_returned: "Back from card page",
+        lipila_callback: "Message from Lipila",
+        status_check_error: "Status check failed",
+        payment_confirmed: "Payment confirmed",
+        payment_failed: "Payment not completed",
+        unconfirmed_alert: "Not confirmed after 30 minutes",
+        stock_taken: "Stock taken",
+        stock_short: "Not enough stock",
+        email_sent: "Email sent",
+        email_failed: "Email not sent",
+        email_skipped: "No email",
+        admin_status: "Order status changed",
+        admin_marked_paid: "Marked Paid by hand",
+        admin_message: "Message to buyer",
+        admin_check_payment: "Checked with Lipila",
+      };
+      const TONE = {
+        payment_confirmed: "ok", admin_marked_paid: "ok", stock_taken: "ok", email_sent: "ok",
+        payment_failed: "bad", payment_request_failed: "bad", email_failed: "bad", stock_short: "bad",
+        status_check_error: "warn", unconfirmed_alert: "warn", payment_request_unclear: "warn",
+      };
+      const state = { status: "", method: "", range: "30d", q: "", page: 1, open: null };
+      const tag = (s) => (STATUS[s] ? `<span class="pay-tag ${STATUS[s][1]}">${STATUS[s][0]}</span>` : escapeHtml(s || ""));
+      const how = (t) => `${METHOD[t.payment_method] || t.payment_method || "-"}${t.mobile_operator ? ` · ${NETWORK[t.mobile_operator] || t.mobile_operator}` : ""}`;
+      const time = (d) => new Date(d).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      const params = (extra = {}) => {
+        const p = new URLSearchParams({ range: state.range, ...extra });
+        if (state.status) p.set("status", state.status);
+        if (state.method) p.set("method", state.method);
+        if (state.q) p.set("q", state.q);
+        return p;
+      };
+
+      function renderTabs() {
+        document.getElementById("status-tabs").innerHTML = TABS.map((t) =>
+          `<button type="button" data-status="${t.value}" class="${state.status === t.value ? "active" : ""}">${t.label}</button>`).join("");
+        document.querySelectorAll("[data-status]").forEach((b) => b.addEventListener("click", () => {
+          state.status = b.dataset.status;
+          renderTabs();
+          loadList(1);
+        }));
+      }
+
+      function renderTotals(t) {
+        document.getElementById("totals").innerHTML = `
+          <div class="tx-total"><span>Received</span><b>${kwacha(t.paid_amount)}</b></div>
+          <div class="tx-total"><span>Paid</span><b>${Number(t.paid) || 0}</b></div>
+          <div class="tx-total"><span>Waiting</span><b>${Number(t.pending) || 0}</b></div>
+          <div class="tx-total"><span>Not completed</span><b>${Number(t.failed) || 0}</b></div>`;
+      }
+
+      async function loadList(page = state.page) {
+        state.page = page;
+        const list = document.getElementById("list");
+        let res;
+        try {
+          res = await adminApi(`/api/admin/transactions?${params({ page })}`);
+        } catch (error) {
+          return renderEmptyState(list, { title: "Could not load transactions", message: error.message, icon: "alert" });
+        }
+        renderTotals(res.totals);
+        const pag = document.getElementById("pagination");
+        pag.innerHTML = "";
+        if (!res.data.length) {
+          return renderEmptyState(list, { title: "No transactions", message: "Nothing matches these filters.", icon: "inbox" });
+        }
+        list.innerHTML = `<ul class="tx-list">${res.data.map((t) => `
+          <li class="tx-item" data-id="${t.id}">
+            <button type="button" class="tx-row" data-open="${t.id}" aria-expanded="${state.open === t.id}">
+              <span class="tx-when">${time(t.created_at)}</span>
+              <span class="tx-main"><b>${escapeHtml(t.reference)}</b> · ${escapeHtml(t.full_name)}<small>${escapeHtml(t.titles || "")}</small></span>
+              <span class="tx-how">${escapeHtml(how(t))}${t.payment_attempts > 1 ? `<small>${t.payment_attempts} attempts</small>` : ""}</span>
+              <span class="tx-amt">${kwacha(t.total)}</span>
+              <span class="tx-st">${tag(t.payment_status)}${t.alerted && t.payment_status === "pending" ? `<small class="text-amber-700">Check in Lipila</small>` : ""}</span>
+            </button>
+            <div class="tx-detail" data-detail="${t.id}" ${state.open === t.id ? "" : "hidden"}></div>
+          </li>`).join("")}</ul>`;
+        list.querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => toggle(Number(b.dataset.open))));
+        if (state.open && list.querySelector(`[data-detail="${state.open}"]`)) loadDetail(state.open);
+        if (res.pages > 1) pag.appendChild(createPagination(res.page, res.pages, loadList));
+      }
+
+      function toggle(id) {
+        const open = state.open === id ? null : id;
+        document.querySelectorAll("[data-detail]").forEach((d) => { d.hidden = Number(d.dataset.detail) !== open; });
+        document.querySelectorAll("[data-open]").forEach((b) => b.setAttribute("aria-expanded", Number(b.dataset.open) === open));
+        state.open = open;
+        if (open) loadDetail(open);
+      }
+
+      async function loadDetail(id) {
+        const box = document.querySelector(`[data-detail="${id}"]`);
+        if (!box) return;
+        box.innerHTML = `<p class="text-sm text-gray-500 p-4">Loading…</p>`;
+        let t;
+        try {
+          t = (await adminApi(`/api/admin/transactions/${id}`)).data;
+        } catch (error) {
+          box.innerHTML = `<p class="text-sm text-red-600 p-4">${escapeHtml(error.message)}</p>`;
+          return;
+        }
+        const facts = [
+          ["Buyer", `${escapeHtml(t.full_name)}<br>${escapeHtml(t.email)}<br>${escapeHtml(t.phone)}`],
+          ["Amount", kwacha(t.total)],
+          ["Paid with", `${escapeHtml(how(t))}${t.payment_phone ? ` ${escapeHtml(t.payment_phone)}` : ""}`],
+          ["Payment reference", t.payment_reference ? escapeHtml(t.payment_reference) : null],
+          ["Lipila ID", t.payment_provider_ref ? escapeHtml(t.payment_provider_ref) : null],
+          ["Paid at", t.paid_at ? formatDate(t.paid_at) : null],
+          ["Reason not completed", t.payment_status === "failed" && t.payment_failure ? escapeHtml(t.payment_failure) : null],
+        ].filter((f) => f[1]);
+        box.innerHTML = `
+          <div class="tx-facts">${facts.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("")}</div>
+          <div class="tx-orders">${t.orders.map((o) => `<a href="/admin/orders.html?id=${o.id}">${escapeHtml(o.reference)} · ${escapeHtml(o.livestock_title)} · ${kwacha(o.total)}</a>`).join("")}</div>
+          <h3 class="tx-h">Timeline</h3>
+          ${t.events.length ? `<ol class="tx-timeline">${t.events.map((e) => `
+            <li class="tx-ev tx-${TONE[e.event] || "plain"}">
+              <span class="tx-ev-time">${formatDate(e.created_at)}</span>
+              <div class="tx-ev-body">
+                <p class="tx-ev-title">${EVENT[e.event] || escapeHtml(e.event)} <span class="tx-actor">${e.actor === "admin" ? escapeHtml(e.admin_name || "Admin") : ACTOR[e.actor] || escapeHtml(e.actor)}</span>${e.reference ? `<span class="tx-ref">${escapeHtml(e.reference)}</span>` : ""}</p>
+                <p class="tx-ev-text">${escapeHtml(e.detail)}</p>
+                ${e.data ? `<details class="tx-raw"><summary>Lipila's full answer</summary><pre>${escapeHtml(pretty(e.data))}</pre></details>` : ""}
+              </div>
+            </li>`).join("")}</ol>` : `<p class="text-sm text-gray-500 px-4 pb-4">No steps recorded. This payment was made before the transaction history started.</p>`}`;
+      }
+
+      function pretty(data) {
+        try { return JSON.stringify(JSON.parse(data), null, 2); } catch { return data; }
+      }
+
+      // CSV of the current filters, made in the browser.
+      async function exportCsv() {
+        const btn = document.getElementById("export");
+        btn.disabled = true;
+        try {
+          const { header, lines } = (await adminApi(`/api/admin/transactions/export?${params()}`)).data;
+          const cell = (v) => {
+            const s = String(v ?? "");
+            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+          };
+          const csv = [header, ...lines].map((r) => r.map(cell).join(",")).join("\r\n");
+          const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `frontier-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+        } catch (error) {
+          showNotification(error.message, "error");
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      (async () => {
+        await initAdminPage("transactions");
+        const q = new URLSearchParams(location.search).get("q");
+        if (q) {
+          state.q = q;
+          state.range = "all";
+          document.getElementById("search").value = q;
+          document.getElementById("range").value = "all";
+        }
+        renderTabs();
+        document.getElementById("method").addEventListener("change", (e) => { state.method = e.target.value; loadList(1); });
+        document.getElementById("range").addEventListener("change", (e) => { state.range = e.target.value; loadList(1); });
+        let timer;
+        document.getElementById("search").addEventListener("input", (e) => {
+          clearTimeout(timer);
+          timer = setTimeout(() => { state.q = e.target.value.trim(); loadList(1); }, 300);
+        });
+        document.getElementById("export").addEventListener("click", exportCsv);
+        await loadList(1);
+        if (q) {
+          const first = document.querySelector("[data-open]");
+          if (first) toggle(Number(first.dataset.open));
+        }
+      })();
+    </script>
+  </body>
+</html>

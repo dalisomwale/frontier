@@ -124,6 +124,7 @@ async function collect({ reference, amount, phone, narration, email, callbackUrl
     status: classify(res.data.status),
     message: res.data.message || "",
     identifier: res.data.identifier || null,
+    raw: rawText(res),
   };
 }
 

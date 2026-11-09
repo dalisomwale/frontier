@@ -10,6 +10,7 @@ const pool = require("../../db");
 const { sendEmail } = require("../../services/mailer");
 const { notifySeller } = require("../../services/notifications");
 const emails = require("../../lib/emails");
+const txlog = require("../../lib/txlog");
 const { positiveInt, text, oneOf, badRequest, notFound } = require("../../lib/validate");
 const {
   ORDER_STATUSES,
@@ -214,6 +215,23 @@ router.patch("/:id", async (req, res, next) => {
       );
     }
 
+    // Transaction trail: who changed what on this order.
+    if (order.checkout_id) {
+      const stockNote = changed && order.livestock_id && wantDeducted !== Boolean(order.stock_deducted)
+        ? (wantDeducted ? " Stock taken off the listing." : " Stock put back on the listing.")
+        : "";
+      if (changed) {
+        txlog.record({
+          checkoutId: order.checkout_id, orderId: id, event: markedPaid ? "admin_marked_paid" : "admin_status",
+          actor: "admin", admin: req.admin, status: newStatus, amount: markedPaid ? order.total : null, ip: req.ip,
+          detail: `${orderRef(id)} ${order.livestock_title}: ${STATUS_LABELS[order.status]} → ${STATUS_LABELS[newStatus]}.${markedPaid ? " Payment recorded as received." : ""}${stockNote}`,
+        });
+      }
+      if (message) {
+        txlog.record({ checkoutId: order.checkout_id, orderId: id, event: "admin_message", actor: "admin", admin: req.admin, ip: req.ip, detail: `Message to the buyer about ${orderRef(id)}: "${message.slice(0, 300)}"` });
+      }
+    }
+
     const ref = orderRef(id);
     const lot = order.price_unit === "lot";
     const [[animal]] = await pool.query(
@@ -277,8 +295,10 @@ router.post("/:id/check-payment", async (req, res, next) => {
     if (!c || c.payment_provider !== "lipila" || !c.payment_reference) throw badRequest("This order wasn't paid through Lipila on the website.");
     if (!lipila.enabled()) throw badRequest("Lipila isn't switched on (LIPILA_API_KEY).");
     let answer;
+    let raw = null;
     try {
       const v = await lipila.checkStatus(c.payment_reference, c.payment_provider_ref);
+      raw = v.raw;
       answer = `Lipila says: ${v.lipilaStatus || v.status}${v.amount !== null && v.amount !== undefined ? `, K ${v.amount}` : ""}${v.message ? ` (${v.message})` : ""}.`;
       if (v.notFound) answer = `Lipila doesn't know payment ${c.payment_reference}.`;
     } catch (error) {
@@ -287,6 +307,10 @@ router.post("/:id/check-payment", async (req, res, next) => {
     if (c.payment_status !== "paid") await checkout.refreshLipila({ ...c, payment_checked_at: null });
     const after = await checkout.load(c.id);
     const paidNow = after.payment_status === "paid" && c.payment_status !== "paid";
+    txlog.record({
+      checkoutId: c.id, orderId: id, reference: c.payment_reference, event: "admin_check_payment", actor: "admin", admin: req.admin,
+      status: after.payment_status, ip: req.ip, detail: `Checked payment ${c.payment_reference} with Lipila. ${answer}${paidNow ? " Now marked Paid." : ""}`, data: raw,
+    });
     res.json({
       success: true,
       message: `${answer} ${paidNow ? "The order is now marked Paid and the buyer and seller have been emailed." : after.payment_status === "paid" ? "The payment is recorded as paid." : "Nothing changed."}`,

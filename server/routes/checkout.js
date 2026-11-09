@@ -7,6 +7,7 @@
 const express = require("express");
 const { text, isEmail, isPhone, oneOf, positiveInt, badRequest, notFound } = require("../lib/validate");
 const checkout = require("../lib/checkout");
+const txlog = require("../lib/txlog");
 const lenco = require("../services/lenco");
 const lipila = require("../services/lipila");
 const { appUrl } = require("../services/mailer");
@@ -169,6 +170,9 @@ pages.get("/return/:id/:token", async (req, res) => {
   const token = String(req.params.token || "");
   try {
     const found = id && /^[a-f0-9]{32}$/.test(token) ? await checkout.load(id) : null;
+    if (found && found.public_token === token) {
+      txlog.record({ checkoutId: id, reference: found.payment_reference, event: "buyer_returned", actor: "buyer", ip: req.ip, detail: "Buyer came back from Lipila's card page." });
+    }
     if (found && found.public_token === token && found.payment_status === "pending" && found.payment_provider === "lipila") {
       await checkout.refreshLipila(found);
     }

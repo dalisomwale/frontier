@@ -291,6 +291,7 @@
                 ["Online payment", payTag(o) || null],
                 ["Paid on", o.paid_at ? escapeHtml(formatDate(o.paid_at)) : null],
                 ["Payment reference", o.checkout_payment && o.checkout_payment.reference ? escapeHtml(o.checkout_payment.reference) : null],
+                ["Payment history", o.checkout_id ? `<a class="text-green-800 underline" href="/admin/transactions.html?q=FMC-${1000 + Number(o.checkout_id)}">View every step</a>` : null],
                 ["Provider reference", o.payment_provider_ref ? escapeHtml(o.payment_provider_ref) : null],
                 ["Status check", o.checkout_payment && o.checkout_payment.check_error && o.payment_status !== "paid" ? `<span class="text-red-600">${escapeHtml(o.checkout_payment.check_error)}</span>` : null],
                 ["Why it failed", o.payment_status === "failed" && o.payment_failure ? escapeHtml(o.payment_failure) : null],
