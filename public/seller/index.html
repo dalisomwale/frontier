@@ -207,10 +207,9 @@
         const st = sellerState(l);
         return `
           <button type="button" data-listing="${l.id}" class="ml-card listing-card-s">
-            <span class="ml-photo">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" loading="lazy">` : livestockFallbackMedia("w-8 h-8")}</span>
+            <span class="ml-photo">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" loading="lazy">` : livestockFallbackMedia("w-8 h-8")}<span class="ml-status">${statusPill(st.key, st.label)}</span></span>
             <span class="ml-foot">
               <span class="ml-name">${escapeHtml(l.title)}</span>
-              ${statusPill(st.key, st.label)}
             </span>
           </button>`;
       }

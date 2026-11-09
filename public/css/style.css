@@ -6203,3 +6203,6 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 /* Fields a seller can't change on a listing that has been live */
 .field-input.is-locked, select.is-locked, .price-input:has(.is-locked) { background-color: #f3f4f6 !important; color: #6b7280; pointer-events: none; }
 .price-input:has(.is-locked) span { color: #9ca3af; }
+.ml-photo { position: relative; }
+.ml-status { position: absolute; top: 8px; right: 8px; }
+.ml-status .status-pill { box-shadow: 0 2px 6px rgba(15, 31, 18, .18); }
