@@ -6066,3 +6066,4 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 @media (max-width: 767px) { .seller-stats > :last-child:nth-child(odd) { grid-column: span 2; } }
 .ins-kpi-link { display: block; transition: border-color .15s, box-shadow .15s; }
 .ins-kpi-link:hover { border-color: #bbd7c2; box-shadow: 0 4px 14px -8px rgba(20, 83, 45, .35); }
+.sins-head { justify-content: flex-end; }

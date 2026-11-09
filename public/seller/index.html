@@ -37,11 +37,10 @@
       <div id="account-banner"></div>
 
       <section id="tab-overview">
-        <div id="seller-todo"></div>
+        
 
         <section id="seller-insights" class="ins mb-6">
-          <div class="ins-head">
-            <h2 class="ins-title">How your sales are doing</h2>
+          <div class="ins-head sins-head">
             <select id="sins-range" class="ins-select" aria-label="Time period">
               <option value="7d">Last 7 days</option>
               <option value="30d">Last 30 days</option>
@@ -181,14 +180,6 @@
       async function loadSummary() {
         const { data } = await sellerApi("/api/seller/summary");
         sellerSummary = data;
-        // Things that need the seller's attention, in the same style as the admin banner.
-        const todo = [];
-        const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-        if (data.orders.open) todo.push(`<a href="/seller/?tab=orders" data-tab-link="orders" class="font-semibold underline">${plural(data.orders.open, "order", "orders")} to hand over</a>`);
-        if (data.listings.changes_needed) todo.push(`<a href="/seller/?tab=listings" data-tab-link="listings" class="font-semibold underline">${plural(data.listings.changes_needed, "listing needs", "listings need")} changes</a>`);
-        if (data.messages.unread) todo.push(`<a href="/seller/?tab=messages" data-tab-link="messages" class="font-semibold underline">${plural(data.messages.unread, "unread message", "unread messages")}</a>`);
-        document.getElementById("seller-todo").innerHTML = todo.length
-          ? `<div class="alert alert-warning text-sm mb-6 flex flex-wrap gap-x-4 gap-y-1">${todo.join("")}</div>` : "";
         if (window.renderSellerKpis) renderSellerKpis();
         setUnreadBadge(data.messages.unread);
         setBadge("[data-orders-badge]", data.orders.open);
