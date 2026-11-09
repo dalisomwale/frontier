@@ -280,7 +280,7 @@
         const note = form.querySelector("[data-card-note]");
         if (note) note.remove();
         const slot = form.querySelector("[data-card-slot]");
-        slot.innerHTML = `<p class="co-pay-note">${lockSvg}<span>Order <b>${escapeHtml(d.reference)}</b> is reserved for you. Enter your card details below to pay.</span></p>${cardFrame(d.card_url, d.total)}`;
+        slot.innerHTML = `<p class="co-pay-note">${lockSvg}<span>Order <b>${escapeHtml(d.reference)}</b>: your items are held for you for 10 minutes. Enter your card details below to pay.</span></p>${cardFrame(d.card_url, d.total)}`;
         slot.scrollIntoView({ behavior: "smooth", block: "start" });
         watchCardPayment(d.id, d.token, () => { window.location.href = d.page_url; });
       }

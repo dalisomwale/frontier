@@ -170,30 +170,45 @@ async function collectCard({ reference, amount, phone, narration, email, custome
   return { status: classify(res.data.status), url, identifier: res.data.identifier || null, lipilaReference: res.data.referenceId || null };
 }
 
-// Returns { status: pending|paid|failed, amount, currency, message, identifier, externalId }.
-// Looks the payment up by our reference, or by Lipila's identifier.
+// Returns { status: pending|paid|failed, amount, currency, message, identifier, externalId, raw }.
+// Looks the payment up by our reference first, then by Lipila's own
+// identifier when the first lookup isn't understood (404 or 400).
 async function checkStatus(reference, identifier) {
   let res = await request("GET", `/collections/check-status?referenceId=${encodeURIComponent(reference)}`);
-  if (res.status === 404 && identifier) {
-    res = await request("GET", `/collections/check-status?identifier=${encodeURIComponent(identifier)}`);
+  let by = "referenceId";
+  if ((res.status === 404 || res.status === 400) && identifier) {
+    const second = await request("GET", `/collections/check-status?identifier=${encodeURIComponent(identifier)}`);
+    if (second.ok || second.status === 404) {
+      res = second;
+      by = "identifier";
+    }
   }
-  if (res.status === 404) return { status: "pending", notFound: true };
+  if (res.status === 404) return { status: "pending", notFound: true, raw: rawText(res), by };
   if (!res.ok || !res.data) {
     // Lipila sometimes answers with an error while a payment is still being
     // set up; the caller treats this as "no news yet" and checks again.
     const e = new Error(`HTTP ${res.status}: ${message(res)}`);
     e.status = res.status;
+    e.raw = rawText(res);
     throw e;
   }
   const d = res.data.data && typeof res.data.data === "object" ? res.data.data : res.data;
   return {
     status: classify(d.status),
+    lipilaStatus: d.status || null,
     amount: d.amount !== undefined ? Number(d.amount) : null,
     currency: d.currency || null,
     message: d.message || "",
     identifier: d.identifier || null,
     externalId: d.externalId || null,
+    raw: rawText(res),
+    by,
   };
+}
+
+// Lipila's full answer, shortened, for the log and the admin check.
+function rawText(res) {
+  return String(res.text || "").replace(/\s+/g, " ").slice(0, 600);
 }
 
 // Card payments are offered only once Lipila has enabled them for the

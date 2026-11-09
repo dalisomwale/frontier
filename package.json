@@ -9,6 +9,7 @@
     "db:setup": "node database/setup.js",
     "create-admin": "node scripts/create-admin.js",
     "test-email": "node scripts/test-email.js",
+    "lipila:status": "node scripts/lipila-status.js",
     "build:css": "tailwindcss -i ./src/tailwind.css -o ./public/css/tailwind.css --minify"
   },
   "engines": {

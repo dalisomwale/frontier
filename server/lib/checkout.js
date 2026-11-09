@@ -1,4 +1,4 @@
-// Shopping-cart checkout, paid by mobile money only.
+// Shopping-cart checkout: mobile money, Visa / Mastercard or bank transfer.
 //
 // The buyer fills a cart (kept in their browser), gives their details at
 // checkout and pays once for the whole cart on the payment page. Behind the
@@ -25,9 +25,14 @@ const { badRequest } = require("./validate");
 const MAX_ATTEMPTS = 5;
 const MAX_LINES = 20;
 const CHECK_EVERY_MS = 4000;
-// How long to wait for Lipila to confirm a payment before marking it not completed.
-const MOBILE_WAIT_MS = 30 * 60 * 1000;
-const CARD_WAIT_MS = 2 * 60 * 60 * 1000;
+// Mobile money and card: the items are held (not taken off the listing) for
+// this long while the buyer pays. Stock comes off only once the payment is
+// confirmed.
+const HOLD_MINUTES = 10;
+// A payment with no clear answer from Lipila after this long: the team and
+// the buyer are told, and it keeps being checked (less often). It is never
+// marked "not completed" unless Lipila says so.
+const ALERT_AFTER_MIN = 30;
 
 const checkoutRef = (id) => `FMC-${1000 + Number(id)}`;
 const paymentReference = (id, attempt) => `${checkoutRef(id)}-${attempt}`;
@@ -87,6 +92,27 @@ async function loadListings(ids, conn = pool, lock = false) {
   return new Map(rows.map((r) => [Number(r.id), r]));
 }
 
+// Quantities held for buyers who are paying right now (mobile money and
+// card), per listing. A checkout never counts its own holds.
+async function heldQuantities(ids, conn = pool, exceptCheckout = 0) {
+  if (!ids.length) return new Map();
+  const [rows] = await conn.query(
+    `SELECT livestock_id, SUM(quantity) AS q FROM orders
+     WHERE livestock_id IN (?) AND stock_deducted = 0 AND hold_until > NOW()
+       AND status NOT IN ('cancelled', 'completed') AND payment_status <> 'paid'
+       AND (checkout_id IS NULL OR checkout_id <> ?)
+     GROUP BY livestock_id`,
+    [ids, exceptCheckout],
+  );
+  return new Map(rows.map((r) => [Number(r.livestock_id), Number(r.q)]));
+}
+
+// Mobile money (with a provider on) and card: stock is held while the buyer
+// pays and taken off only when the payment is confirmed. Bank transfer and
+// offline orders take the stock off straight away, as the team confirms
+// those payments by hand.
+const holdsStock = (method) => method === "card" || (method === "mobile_money" && Boolean(provider()));
+
 function buyable(l) {
   return l && l.status === "published" && l.category_status === "active" && l.animal_status === "active"
     && l.price !== null && Number(l.quantity) > 0;
@@ -108,11 +134,13 @@ function cleanLines(items) {
 async function quote(items) {
   const lines = cleanLines(items);
   const listings = await loadListings(lines.map((l) => l.id));
+  const held = await heldQuantities(lines.map((l) => l.id));
   const out = lines.map(({ id, qty }) => {
     const l = listings.get(id);
     if (!buyable(l)) return { id, available: false, title: l ? l.title : null };
     const lot = l.price_unit === "lot";
-    const max = Number(l.quantity);
+    const max = Number(l.quantity) - (held.get(id) || 0);
+    if (max <= 0 || (lot && max < Number(l.quantity))) return { id, available: false, held: true, title: l.title };
     const quantity = lot ? max : Math.min(qty, max);
     return {
       id,
@@ -154,6 +182,8 @@ async function create(lines, buyer, ip, pay = null) {
   try {
     await conn.beginTransaction();
     const listings = await loadListings(clean.map((l) => l.id), conn, true);
+    const held = await heldQuantities(clean.map((l) => l.id), conn);
+    const hold = holdsStock(method);
     const problems = [];
     const priced = clean.map(({ id, qty }) => {
       const l = listings.get(id);
@@ -162,8 +192,13 @@ async function create(lines, buyer, ip, pay = null) {
         return null;
       }
       const lot = l.price_unit === "lot";
+      const free = Number(l.quantity) - (held.get(id) || 0);
+      if (free <= 0 || (lot && free < Number(l.quantity))) {
+        problems.push(`Another buyer is paying for ${l.title} right now. Try again in a few minutes.`);
+        return null;
+      }
       const quantity = lot ? Number(l.quantity) : qty;
-      if (quantity > Number(l.quantity)) problems.push(`Only ${headCount(l.quantity, l.animal_name, l.animal_kind)} of ${l.title} left.`);
+      if (quantity > free) problems.push(`Only ${headCount(free, l.animal_name, l.animal_kind)} of ${l.title} left.`);
       const lineTotal = lot ? Number(l.price) : Math.round(Number(l.price) * quantity * 100) / 100;
       total += lineTotal;
       return { l, quantity, lineTotal };
@@ -186,16 +221,19 @@ async function create(lines, buyer, ip, pay = null) {
       const [o] = await conn.query(
         `INSERT INTO orders
            (livestock_id, livestock_title, seller_id, seller_name, quantity, unit_price, price_unit, total,
-            full_name, phone, email, delivery, payment_method, stock_deducted, ip_address, public_token, checkout_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'collect', ?, 1, ?, ?, ?)`,
+            full_name, phone, email, delivery, payment_method, stock_deducted, hold_until, ip_address, public_token, checkout_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'collect', ?, ?, IF(?, NOW() + INTERVAL ? MINUTE, NULL), ?, ?, ?)`,
         [l.id, l.title, l.seller_id, sellerName, quantity, Number(l.price), l.price_unit, lineTotal,
-          buyer.full_name, buyer.phone, buyer.email, method, ip, newToken(), checkoutId],
+          buyer.full_name, buyer.phone, buyer.email, method, hold ? 0 : 1, hold ? 1 : 0, HOLD_MINUTES, ip, newToken(), checkoutId],
       );
-      const soldOut = Number(l.quantity) - quantity === 0;
-      await conn.query(
-        "UPDATE livestock SET quantity = quantity - ?, status = IF(quantity = 0, 'unpublished', status) WHERE id = ?",
-        [quantity, l.id],
-      );
+      // Held while the buyer pays (mobile money, card), or taken off now.
+      const soldOut = !hold && Number(l.quantity) - quantity === 0;
+      if (!hold) {
+        await conn.query(
+          "UPDATE livestock SET quantity = quantity - ?, status = IF(quantity = 0, 'unpublished', status) WHERE id = ?",
+          [quantity, l.id],
+        );
+      }
       created.push({ id: o.insertId, l, quantity, total: lineTotal, soldOut, sellerName });
     }
     await conn.commit();
@@ -210,8 +248,8 @@ async function create(lines, buyer, ip, pay = null) {
   // Mobile money: the PIN prompt goes to the buyer's phone right away.
   // Card: the payment opens on Lipila's card page. Bank transfer: the buyer
   // gets Frontier's bank details and the team confirms the payment.
-  if (method === "card") checkout = await startCard(checkout, pay);
-  else if (method === "mobile_money" && provider() && pay && pay.operator && pay.phone) checkout = await startPayment(checkout, pay);
+  if (method === "card") checkout = await startCard(checkout, { ...pay, fresh: true });
+  else if (method === "mobile_money" && provider() && pay && pay.operator && pay.phone) checkout = await startPayment(checkout, { ...pay, fresh: true });
   notifyCreated(checkout, created).catch((error) => console.error(`Checkout ${checkoutRef(checkoutId)}: emails failed (${error.message})`));
   return checkout;
 }
@@ -222,8 +260,18 @@ const unitsText = (o) => {
 };
 
 async function notifyCreated(checkout, created) {
+  const method0 = checkout.payment_method || "mobile_money";
+  // Mobile money and card: the team hears once the payment is confirmed; the
+  // buyer is told what to do now. If the payment couldn't even be started,
+  // the buyer sees that on the page and nothing is sent.
+  if (holdsStock(method0)) {
+    // Card buyers pay on the page there and then, so only mobile money buyers
+    // get this email (they may approve the prompt later).
+    if (checkout.payment_status === "pending" && method0 === "mobile_money") await paymentStartedEmail(checkout, created);
+    return;
+  }
   const ref = checkoutRef(checkout.id);
-  const method = checkout.payment_method || "mobile_money";
+  const method = method0;
   const online = method !== "bank_transfer" && Boolean(provider());
   const bank = method === "bank_transfer" ? bankDetails() : null;
   const itemRows = created.map((o) => [`${orderRef(o.id)} · ${o.l.title}`, `${unitsText(o)} · ${kwacha(o.total)}`]);
@@ -293,6 +341,34 @@ async function notifyCreated(checkout, created) {
   }
 }
 
+// Buyer: "Approve the payment on your phone" / "Complete your card payment".
+async function paymentStartedEmail(checkout, created) {
+  const ref = checkoutRef(checkout.id);
+  const card = checkout.payment_method === "card";
+  const itemRows = created.map((o) => [`${orderRef(o.id)} · ${o.l.title}`, `${unitsText(o)} · ${kwacha(o.total)}`]);
+  const network = OPERATOR_LABELS[checkout.mobile_operator] || "mobile money";
+  await sendEmail({
+    to: checkout.email,
+    subject: card ? `Complete your card payment for order ${ref}` : `Approve the payment for order ${ref} on your phone`,
+    heading: card ? "Complete your card payment" : "Approve the payment on your phone",
+    paragraphs: [
+      `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]},`,
+      card
+        ? `Thank you for your order. Enter your card details on the secure card form to pay ${kwacha(checkout.total)}.`
+        : `Thank you for your order. We've sent a ${network} payment request for ${kwacha(checkout.total)} to ${maskPhone(checkout.payment_phone)}. Enter your PIN on your phone to approve it.`,
+    ],
+    rows: [...itemRows, ["Total", kwacha(checkout.total)], ["Order", ref]],
+    stepsTitle: "What happens next",
+    steps: [
+      `Your ${created.length === 1 ? "item is" : "items are"} held for you for ${HOLD_MINUTES} minutes while you pay.`,
+      "You'll get an email as soon as your payment is confirmed, and the seller is told.",
+      "We'll contact you on WhatsApp and email to arrange collection from the farm.",
+    ],
+    button: { label: card ? "Complete payment" : "View your order", url: appUrl(ourPayPage(checkout)) },
+    after: ["Didn't get the prompt, or it expired? Open your order and send it again."],
+  });
+}
+
 async function load(id) {
   const [[c]] = await pool.query("SELECT * FROM checkouts WHERE id = ?", [id]);
   return c || null;
@@ -346,6 +422,9 @@ function publicView(checkout, orders) {
     total: amount,
     attempts_left: Math.max(0, MAX_ATTEMPTS - Number(checkout.payment_attempts || 0)),
     closed: checkout.payment_status !== "paid" && !orders.some(isOpen),
+    // No answer from Lipila for a while: the team is checking it.
+    checking: checkout.payment_status === "pending" && Boolean(checkout.payment_alert_at),
+    hold_minutes: HOLD_MINUTES,
     online: Boolean(current) && checkout.payment_method !== "bank_transfer",
     first_name: String(checkout.full_name).trim().split(/\s+/)[0],
     items: orders.map((o) => ({
@@ -371,6 +450,43 @@ async function syncOrders(checkout) {
   );
 }
 
+// Takes paid orders' items off their listings (mobile money and card orders
+// only held them). Returns { soldOut: [...], short: [...] }: short lists any
+// order whose items were sold to someone else in the meantime.
+async function takeStock(checkoutId) {
+  const conn = await pool.getConnection();
+  const soldOut = [];
+  const short = [];
+  try {
+    await conn.beginTransaction();
+    const [orders] = await conn.query(
+      `SELECT * FROM orders WHERE checkout_id = ? AND stock_deducted = 0 AND livestock_id IS NOT NULL
+         AND status NOT IN ('cancelled', 'completed') FOR UPDATE`,
+      [checkoutId],
+    );
+    for (const o of orders) {
+      const [[l]] = await conn.query("SELECT id, title, seller_id, quantity FROM livestock WHERE id = ? FOR UPDATE", [o.livestock_id]);
+      if (!l || Number(l.quantity) < Number(o.quantity)) {
+        short.push({ order: o, left: l ? Number(l.quantity) : 0 });
+        continue;
+      }
+      const left = Number(l.quantity) - Number(o.quantity);
+      await conn.query("UPDATE livestock SET quantity = ?, status = IF(? = 0, 'unpublished', status) WHERE id = ?", [left, left, l.id]);
+      await conn.query("UPDATE orders SET stock_deducted = 1, hold_until = NULL WHERE id = ?", [o.id]);
+      if (left === 0) soldOut.push(l);
+    }
+    await conn.commit();
+  } catch (error) {
+    await conn.rollback().catch(() => {});
+    throw error;
+  } finally {
+    conn.release();
+  }
+  return { soldOut, short };
+}
+
+// The payment is confirmed: orders become Paid, the stock comes off the
+// listings, and the buyer, the team and each seller are emailed.
 async function markPaid(checkout, data) {
   const providerRef = data.providerRef || data.lencoReference || (data.mobileMoneyDetails && data.mobileMoneyDetails.operatorTransactionId) || null;
   const [result] = await pool.query(
@@ -388,48 +504,102 @@ async function markPaid(checkout, data) {
      WHERE checkout_id = ? AND payment_status <> 'paid' AND status NOT IN ('cancelled', 'completed')`,
     [checkout.payment_method || "mobile_money", providerRef, checkout.mobile_operator, checkout.payment_phone, checkout.id],
   );
+  let stock = { soldOut: [], short: [] };
+  try {
+    stock = await takeStock(checkout.id);
+  } catch (error) {
+    console.error(`Checkout ${checkoutRef(checkout.id)}: stock not updated after payment (${error.message})`);
+  }
+  for (const { order } of stock.short) console.error(`Order ${orderRef(order.id)}: paid, but not enough left on the listing`);
+
   const ref = checkoutRef(checkout.id);
   const amount = kwacha(data.amount || checkout.total);
   const how = checkout.payment_method === "card"
     ? "Visa / Mastercard"
-    : `${OPERATOR_LABELS[checkout.mobile_operator] || "Mobile money"} (${lenco.localPhone(checkout.payment_phone)})`;
-  const itemRows = orders.map((o) => [`${orderRef(o.id)} · ${o.livestock_title}`, kwacha(o.total)]);
+    : checkout.payment_method === "bank_transfer"
+      ? "Bank transfer"
+      : `${OPERATOR_LABELS[checkout.mobile_operator] || "Mobile money"} (${lenco.localPhone(checkout.payment_phone)})`;
+  const units = (o) => (o.price_unit === "lot" ? `The whole lot (${headCount(o.quantity, o.animal_name, o.animal_kind)})` : headCount(o.quantity, o.animal_name, o.animal_kind));
+  const itemRows = orders.map((o) => [`${orderRef(o.id)} · ${o.livestock_title}`, `${units(o)} · ${kwacha(o.total)}`]);
   const rows = [["Order", ref], ...itemRows, ["Amount paid", amount], ["Paid with", how]];
   if (providerRef) rows.push(["Payment reference", providerRef]);
+  const shortIds = new Set(stock.short.map((x) => x.order.id));
   sendEmail({
     to: checkout.email,
     subject: `Payment received for order ${ref}`,
     heading: "Payment received",
     paragraphs: [
       `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]}, we've received your payment of ${amount} for order ${ref}. Thank you.`,
-      "We'll contact you on both WhatsApp and email to arrange collection.",
+      shortIds.size
+        ? "One of your items sold out just before your payment came through. We'll contact you today to offer a replacement or a refund."
+        : "Your order is confirmed and the seller has been told. We'll contact you on both WhatsApp and email to arrange collection.",
     ],
     rows,
+    button: { label: "View your order", url: appUrl(ourPayPage(checkout)) },
   });
   sendEmail({
     to: recipients(),
-    subject: `Order ${ref} paid: ${amount}`,
-    heading: `Order ${ref} has been paid`,
-    paragraphs: [`${checkout.full_name} paid ${amount} by ${how}. ${orders.length === 1 ? "The order is" : `All ${orders.length} orders are`} now marked paid, and each seller has been told.`],
-    rows: [...rows, ["Buyer", checkout.full_name], ["WhatsApp", checkout.phone]],
+    subject: `New paid order ${ref}: ${amount}`,
+    heading: `New paid order ${ref}`,
+    paragraphs: [
+      `${checkout.full_name} paid ${amount} by ${how}. ${orders.length === 1 ? "The order is" : `All ${orders.length} orders are`} now marked Paid, the stock has been taken off the listings, and each seller has been told.`,
+      ...stock.short.map(({ order, left }) => `Action needed: ${orderRef(order.id)} (${order.livestock_title}) was paid, but only ${left} ${left === 1 ? "is" : "are"} left on the listing. Contact the buyer to offer a replacement or a refund.`),
+    ],
+    rows: [
+      ...rows,
+      ["Buyer", checkout.full_name],
+      ["WhatsApp", checkout.phone],
+      ["Email", checkout.email],
+      ...orders.filter((o) => o.seller_name).map((o) => [`Seller (${orderRef(o.id)})`, o.seller_name]),
+    ],
     button: orders[0] ? { label: "Open orders", url: appUrl(`/admin/orders.html?id=${orders[0].id}`) } : undefined,
+    replyTo: checkout.email,
   });
   for (const o of orders) {
+    if (shortIds.has(o.id)) continue;
     payments.tellSeller({ ...o, payment_status: "paid" }).catch((error) => console.error(`Order ${orderRef(o.id)}: seller notice failed (${error.message})`));
+  }
+  for (const l of stock.soldOut) {
+    if (l.seller_id) emails.listingSoldOut(l.seller_id, { id: l.id, title: l.title });
   }
 }
 
-async function markFailed(checkout, reason, reference) {
+// The payment didn't go through. The held items are released right away so
+// others can buy them; with notify, the buyer is emailed (once per attempt).
+async function markFailed(checkout, reason, reference, notify = false) {
   await pool.query(
     `UPDATE checkouts SET payment_status = 'failed', payment_failure = ?
      WHERE id = ? AND payment_status <> 'paid' AND (? IS NULL OR payment_reference = ?)`,
     [String(reason || "The payment was not completed.").slice(0, 255), checkout.id, reference || null, reference || null],
   );
   const fresh = await load(checkout.id);
-  if (fresh && fresh.payment_status === "failed") await syncOrders(fresh);
+  if (!fresh || fresh.payment_status !== "failed") return;
+  await syncOrders(fresh);
+  await pool.query("UPDATE orders SET hold_until = NULL WHERE checkout_id = ? AND stock_deducted = 0", [checkout.id]);
+  if (!notify || !fresh.payment_reference) return;
+  const [claim] = await pool.query(
+    "UPDATE checkouts SET failure_emailed_ref = ? WHERE id = ? AND (failure_emailed_ref IS NULL OR failure_emailed_ref <> ?)",
+    [fresh.payment_reference, fresh.id, fresh.payment_reference],
+  );
+  if (!claim.affectedRows) return;
+  const orders = await ordersOf(fresh.id);
+  const ref = checkoutRef(fresh.id);
+  sendEmail({
+    to: fresh.email,
+    subject: `Your payment for order ${ref} didn't go through`,
+    heading: "Your payment didn't go through",
+    paragraphs: [
+      `Hi ${String(fresh.full_name).trim().split(/\s+/)[0]},`,
+      `Your ${fresh.payment_method === "card" ? "card" : "mobile money"} payment of ${kwacha(due(orders))} for order ${ref} wasn't completed${fresh.payment_failure ? ` (${fresh.payment_failure.replace(/\.$/, "")})` : ""}.`,
+      "You can try again from your order page while the items are still available.",
+    ],
+    rows: [...orders.filter(isOpen).map((o) => [`${orderRef(o.id)} · ${o.livestock_title}`, kwacha(o.total)]), ["Amount", kwacha(due(orders))]],
+    button: { label: "Try again", url: appUrl(ourPayPage(fresh)) },
+    after: ["If money left your account anyway, reply to this email and we'll check it with the payment provider."],
+  });
 }
 
-async function applyCollection(checkout, data) {
+async function applyCollection(checkout, data, notify = false) {
   const status = data && data.status;
   if (status === "successful") {
     if (Number(data.amount) + 0.005 < Number(checkout.total)) {
@@ -437,11 +607,54 @@ async function applyCollection(checkout, data) {
     }
     return markPaid(checkout, data);
   }
-  if (status === "failed") return markFailed(checkout, data.reasonForFailure, data.reference);
+  if (status === "failed") return markFailed(checkout, data.reasonForFailure, data.reference, notify);
+}
+
+// Before another payment attempt: hold the items again for HOLD_MINUTES,
+// unless someone else has bought them or is paying for them right now.
+async function holdItems(checkout) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [orders] = await conn.query(
+      `SELECT id, livestock_id, livestock_title, quantity FROM orders
+       WHERE checkout_id = ? AND stock_deducted = 0 AND livestock_id IS NOT NULL
+         AND payment_status <> 'paid' AND status NOT IN ('cancelled', 'completed') FOR UPDATE`,
+      [checkout.id],
+    );
+    if (orders.length) {
+      const ids = [...new Set(orders.map((o) => o.livestock_id))];
+      const [listings] = await conn.query("SELECT id, quantity, status FROM livestock WHERE id IN (?) FOR UPDATE", [ids]);
+      const byId = new Map(listings.map((l) => [Number(l.id), l]));
+      const held = await heldQuantities(ids, conn, checkout.id);
+      const gone = orders.filter((o) => {
+        const l = byId.get(Number(o.livestock_id));
+        return !l || l.status !== "published" || Number(l.quantity) - (held.get(Number(o.livestock_id)) || 0) < Number(o.quantity);
+      });
+      if (gone.length) {
+        const e = new Error(`${gone.map((o) => o.livestock_title).join(", ")} ${gone.length === 1 ? "is" : "are"} no longer available, or another buyer is paying for ${gone.length === 1 ? "it" : "them"} right now. Please try again in a few minutes or contact us.`);
+        e.status = 409;
+        e.expose = true;
+        throw e;
+      }
+      await conn.query(
+        `UPDATE orders SET hold_until = NOW() + INTERVAL ? MINUTE
+         WHERE checkout_id = ? AND stock_deducted = 0 AND payment_status <> 'paid' AND status NOT IN ('cancelled', 'completed')`,
+        [HOLD_MINUTES, checkout.id],
+      );
+    }
+    await conn.commit();
+  } catch (error) {
+    await conn.rollback().catch(() => {});
+    throw error;
+  } finally {
+    conn.release();
+  }
 }
 
 // Sends the PIN prompt for whatever is still owed on the checkout.
-async function startCollection(checkout, { operator, phone }) {
+async function startCollection(checkout, { operator, phone, fresh }) {
+  if (!fresh) await holdItems(checkout);
   const orders = await ordersOf(checkout.id);
   const amount = due(orders);
   const attempt = Number(checkout.payment_attempts || 0) + 1;
@@ -466,16 +679,18 @@ async function startCollection(checkout, { operator, phone }) {
 
 // Lipila: sends the PIN prompt for whatever is still owed (a new payment
 // reference for each attempt).
-async function startLipila(checkout, { operator, phone }) {
+async function startLipila(checkout, { operator, phone, fresh }) {
   const orders = await ordersOf(checkout.id);
   const amount = due(orders);
   if (!amount) return checkout;
+  if (!fresh) await holdItems(checkout);
   const attempt = Number(checkout.payment_attempts || 0) + 1;
   const reference = paymentReference(checkout.id, attempt);
   await pool.query(
     `UPDATE checkouts SET payment_provider = 'lipila', payment_method = 'mobile_money', payment_status = 'pending',
        payment_reference = ?, payment_provider_ref = NULL, payment_url = NULL, payment_failure = NULL, total = ?,
-       payment_attempts = ?, payment_checked_at = NOW(), payment_started_at = NOW(), mobile_operator = ?, payment_phone = ?
+       payment_attempts = ?, payment_checked_at = NOW(), payment_started_at = NOW(), payment_alert_at = NULL, payment_check_error = NULL,
+       mobile_operator = ?, payment_phone = ?
      WHERE id = ? AND payment_status <> 'paid'`,
     [reference, amount, attempt, operator, phone, checkout.id],
   );
@@ -515,12 +730,14 @@ async function startCard(checkout, details = {}) {
   const orders = await ordersOf(checkout.id);
   const amount = due(orders);
   if (!amount) return checkout;
+  if (!details.fresh) await holdItems(checkout);
   const attempt = Number(checkout.payment_attempts || 0) + 1;
   const reference = paymentReference(checkout.id, attempt);
   await pool.query(
     `UPDATE checkouts SET payment_provider = 'lipila', payment_method = 'card', payment_status = 'pending',
        payment_reference = ?, payment_provider_ref = NULL, payment_url = NULL, payment_failure = NULL, total = ?,
-       payment_attempts = ?, payment_checked_at = NOW(), payment_started_at = NOW(), mobile_operator = NULL, payment_phone = NULL
+       payment_attempts = ?, payment_checked_at = NOW(), payment_started_at = NOW(), payment_alert_at = NULL, payment_check_error = NULL,
+       mobile_operator = NULL, payment_phone = NULL
      WHERE id = ? AND payment_status <> 'paid'`,
     [reference, amount, attempt, checkout.id],
   );
@@ -553,11 +770,25 @@ function startPayment(checkout, pay) {
   return startCollection(checkout, pay);
 }
 
-// Asks Lipila whether the open payment has been paid.
+// Status-check errors are logged at most every 15 minutes per payment, with
+// Lipila's full answer, so the log shows what went wrong without flooding.
+const lastLogged = new Map();
+function logCheckError(checkout, error) {
+  const key = checkout.payment_reference;
+  const now = Date.now();
+  if (now - (lastLogged.get(key) || 0) < 15 * 60 * 1000) return;
+  lastLogged.set(key, now);
+  console.error(`Checkout ${checkoutRef(checkout.id)}: Lipila status check failed for ${key} (${error.message})${error.raw ? `. Lipila answered: ${error.raw}` : ""}`);
+}
+
+// Asks Lipila whether the open payment has been paid. Only Lipila's own
+// answer changes the order: Successful -> paid, Failed -> not completed.
+// Anything else (still pending, or errors) keeps it waiting.
 async function refreshLipila(checkout) {
   await pool.query("UPDATE checkouts SET payment_checked_at = NOW() WHERE id = ?", [checkout.id]);
   try {
     const v = await lipila.checkStatus(checkout.payment_reference, checkout.payment_provider_ref);
+    await pool.query("UPDATE checkouts SET payment_check_error = NULL WHERE id = ?", [checkout.id]);
     if (v.status === "paid") {
       if (v.currency && String(v.currency).toUpperCase() !== "ZMW") {
         await markFailed(checkout, "The payment was made in the wrong currency. Our team will contact you.", checkout.payment_reference);
@@ -570,31 +801,64 @@ async function refreshLipila(checkout) {
         });
       }
     } else if (v.status === "failed") {
-      await markFailed(checkout, v.message || "The payment was not approved.", checkout.payment_reference);
+      await markFailed(checkout, v.message || "The payment was not approved.", checkout.payment_reference, true);
     }
   } catch (error) {
-    console.error(`Checkout ${checkoutRef(checkout.id)}: Lipila status check failed (${error.message})`);
+    await pool.query("UPDATE checkouts SET payment_check_error = ? WHERE id = ?", [String(error.message).slice(0, 255), checkout.id]);
+    logCheckError(checkout, error);
   }
-  // No confirmation for too long: a PIN prompt expires within minutes, so
-  // stop waiting and let the buyer try again. If Lipila later reports the
-  // payment as successful (callback), it is still accepted.
   const fresh = await load(checkout.id);
-  if (fresh && fresh.payment_status === "pending" && fresh.payment_reference === checkout.payment_reference) {
-    // The database works out the age, so its clock and time zone are used throughout.
-    const [[age]] = await pool.query(
-      "SELECT TIMESTAMPDIFF(SECOND, COALESCE(payment_started_at, created_at), NOW()) AS s FROM checkouts WHERE id = ?",
-      [checkout.id],
-    );
-    const limit = fresh.payment_method === "card" ? CARD_WAIT_MS : MOBILE_WAIT_MS;
-    if (Number(age.s) * 1000 > limit) {
-      console.error(`Checkout ${checkoutRef(checkout.id)}: no payment confirmation after ${Math.round(limit / 60000)} minutes; marked not completed`);
-      await markFailed(fresh, fresh.payment_method === "card"
-        ? "We didn't receive confirmation of your card payment. You can try again. If money was taken from your account, contact us and we'll check."
-        : "The payment request expired before it was approved. You can try again. If money was taken from your account, contact us and we'll check.", fresh.payment_reference);
-      return load(checkout.id);
-    }
-  }
-  return fresh;
+  if (fresh && fresh.payment_status === "pending") await alertIfUnconfirmed(fresh);
+  return load(checkout.id);
+}
+
+// No clear answer after ALERT_AFTER_MIN minutes: tell the team (check the
+// Lipila dashboard) and the buyer (don't pay twice). Sent once per attempt.
+// Mobile money prompts expire within minutes, so a long "pending" is unusual;
+// a card page left open is normal, so cards only count when checks fail.
+async function alertIfUnconfirmed(checkout) {
+  if (checkout.payment_alert_at) return;
+  if (checkout.payment_method === "card" && !checkout.payment_check_error) return;
+  const [[age]] = await pool.query(
+    "SELECT TIMESTAMPDIFF(MINUTE, COALESCE(payment_started_at, created_at), NOW()) AS m FROM checkouts WHERE id = ?",
+    [checkout.id],
+  );
+  if (Number(age.m) < ALERT_AFTER_MIN) return;
+  const [claim] = await pool.query(
+    "UPDATE checkouts SET payment_alert_at = NOW() WHERE id = ? AND payment_alert_at IS NULL AND payment_status = 'pending'",
+    [checkout.id],
+  );
+  if (!claim.affectedRows) return;
+  console.error(`Checkout ${checkoutRef(checkout.id)}: payment ${checkout.payment_reference} not confirmed after ${ALERT_AFTER_MIN} minutes; team alerted`);
+  const orders = await ordersOf(checkout.id);
+  const ref = checkoutRef(checkout.id);
+  const amount = kwacha(due(orders));
+  const how = checkout.payment_method === "card" ? "Visa / Mastercard" : `${OPERATOR_LABELS[checkout.mobile_operator] || "Mobile money"} (${lenco.localPhone(checkout.payment_phone)})`;
+  const items = orders.filter(isOpen).map((o) => [`${orderRef(o.id)} · ${o.livestock_title}`, kwacha(o.total)]);
+  sendEmail({
+    to: recipients(),
+    subject: `Check payment ${checkout.payment_reference}: not confirmed after ${ALERT_AFTER_MIN} minutes`,
+    heading: `Payment for order ${ref} not confirmed`,
+    paragraphs: [
+      `${checkout.full_name}'s payment of ${amount} by ${how} hasn't been confirmed by Lipila after ${ALERT_AFTER_MIN} minutes${checkout.payment_check_error ? ` (Lipila's status check answers: ${checkout.payment_check_error})` : ""}.`,
+      `Look up ${checkout.payment_reference} in the Lipila dashboard. If it was paid there, open the order and press "Check payment with Lipila", or mark the orders Paid; the buyer and seller are then emailed. The website keeps checking in the meantime.`,
+    ],
+    rows: [...items, ["Amount", amount], ["Payment reference", checkout.payment_reference], ["Buyer", checkout.full_name], ["WhatsApp", checkout.phone], ["Email", checkout.email]],
+    button: orders[0] ? { label: "Open order", url: appUrl(`/admin/orders.html?id=${orders[0].id}`) } : undefined,
+    replyTo: checkout.email,
+  });
+  sendEmail({
+    to: checkout.email,
+    subject: `We're confirming your payment for order ${ref}`,
+    heading: "We're confirming your payment",
+    paragraphs: [
+      `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]},`,
+      `We haven't yet received confirmation of your ${checkout.payment_method === "card" ? "card" : "mobile money"} payment of ${amount} for order ${ref}. Our team is checking it with the payment provider.`,
+      "If money has left your account, please don't pay again. We'll email you as soon as it's confirmed. If you didn't approve the payment, you can try again from your order page.",
+    ],
+    rows: [...items, ["Amount", amount]],
+    button: { label: "View your order", url: appUrl(ourPayPage(checkout)) },
+  });
 }
 
 // Asks the provider for news on a pending payment (at most every few seconds).
@@ -612,7 +876,7 @@ async function refresh(checkout) {
   await pool.query("UPDATE checkouts SET payment_checked_at = NOW() WHERE id = ?", [checkout.id]);
   try {
     const data = await lenco.collectionStatus(checkout.payment_reference);
-    await applyCollection(checkout, { ...data, reference: data.reference || checkout.payment_reference });
+    await applyCollection(checkout, { ...data, reference: data.reference || checkout.payment_reference }, true);
   } catch (error) {
     if (error.status !== 404) console.error(`Checkout ${checkoutRef(checkout.id)}: status check failed (${error.message})`);
   }
@@ -634,8 +898,8 @@ function reminderEmails(checkout, orders) {
       paragraphs: [
         `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]},`,
         tried
-          ? `Your mobile money payment for order ${ref} wasn't completed${checkout.payment_failure ? ` (reason: ${checkout.payment_failure})` : ""}. Don't worry: your items are still reserved for you.`
-          : `Your items are reserved for you, but we haven't received your payment for order ${ref} yet.`,
+          ? `Your mobile money payment for order ${ref} wasn't completed${checkout.payment_failure ? ` (reason: ${checkout.payment_failure})` : ""}.`
+          : `We haven't received your payment for order ${ref} yet. Complete it to secure your items.`,
       ],
       rows: [...items, ["Amount", amount]],
       button: { label: "Complete payment", url: appUrl(ourPayPage(checkout)) },
@@ -645,7 +909,7 @@ function reminderEmails(checkout, orders) {
       to: recipients(),
       subject: `Unpaid order ${ref}: ${amount}`,
       heading: `Order ${ref} is unpaid`,
-      paragraphs: [`${checkout.full_name} hasn't completed the mobile money payment for order ${ref}${checkout.payment_failure ? ` (${checkout.payment_failure})` : ""}. The items are still reserved. You may want to follow up.`],
+      paragraphs: [`${checkout.full_name} hasn't completed the payment for order ${ref}${checkout.payment_failure ? ` (${checkout.payment_failure})` : ""}. You may want to follow up.`],
       rows: [...items, ["Amount", amount], ["WhatsApp", checkout.phone], ["Attempts", String(checkout.payment_attempts || 0)]],
       button: orders[0] ? { label: "Open orders", url: appUrl(`/admin/orders.html?id=${orders[0].id}`) } : undefined,
     }),
@@ -653,7 +917,8 @@ function reminderEmails(checkout, orders) {
 }
 
 // Payments can finish while the buyer is away from our site (closed the tab
-// before approving), so open Lipila payments are checked in the background.
+// before approving), so open Lipila payments are checked in the background:
+// every minute for the first half hour, then every 10 minutes for 3 days.
 // Asks Lipila about pending payments not checked in the last `everySeconds`.
 async function checkOpenPayments(everySeconds = 60) {
   if (!lipila.enabled()) return;
@@ -661,9 +926,10 @@ async function checkOpenPayments(everySeconds = 60) {
     `SELECT * FROM checkouts
      WHERE payment_provider = 'lipila' AND payment_status = 'pending' AND payment_reference IS NOT NULL
        AND created_at > NOW() - INTERVAL 3 DAY
-       AND (payment_checked_at IS NULL OR payment_checked_at < NOW() - INTERVAL ? SECOND)
-     ORDER BY id LIMIT 20`,
-    [Math.max(5, Number(everySeconds) || 60)],
+       AND (payment_checked_at IS NULL OR payment_checked_at < NOW() - INTERVAL
+         IF(COALESCE(payment_started_at, created_at) > NOW() - INTERVAL ? MINUTE, ?, 600) SECOND)
+     ORDER BY payment_checked_at IS NOT NULL, payment_checked_at LIMIT 20`,
+    [ALERT_AFTER_MIN, Math.max(5, Number(everySeconds) || 60)],
   );
   for (const c of rows) await refreshLipila(c);
 }
@@ -672,7 +938,7 @@ async function sendReminders(afterMinutes) {
   if (!provider()) return;
   const [rows] = await pool.query(
     `SELECT * FROM checkouts
-     WHERE payment_status IN ('unpaid', 'failed', 'pending') AND payment_reminder_at IS NULL
+     WHERE payment_status = 'unpaid' AND payment_reminder_at IS NULL
        AND payment_method <> 'bank_transfer'
        AND created_at < NOW() - INTERVAL ? MINUTE AND created_at > NOW() - INTERVAL 3 DAY
      ORDER BY id LIMIT 20`,
@@ -700,6 +966,8 @@ module.exports = {
   startCard,
   checkOpenPayments,
   refreshLipila,
+  holdsStock,
+  HOLD_MINUTES,
   checkoutRef,
   checkoutIdFromReference,
   payUrl,

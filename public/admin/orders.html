@@ -69,9 +69,23 @@
         return `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}, ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
       }
 
-      // Online mobile money payments (Lenco): paid / waiting for PIN / failed.
-      const PAY_STATE = { paid: ["Paid online", "pay-tag-paid"], pending: ["Waiting for PIN", "pay-tag-pending"], failed: ["Payment failed", "pay-tag-failed"] };
-      const payTag = (o) => PAY_STATE[o.payment_status] ? `<span class="pay-tag ${PAY_STATE[o.payment_status][1]}">${PAY_STATE[o.payment_status][0]}</span>` : "";
+      // Website payments (mobile money and card): paid / waiting / not completed.
+      const PAY_STATE = { paid: ["Paid", "pay-tag-paid"], pending: ["Waiting for PIN", "pay-tag-pending"], failed: ["Not completed", "pay-tag-failed"] };
+      const payTag = (o) => {
+        const st = PAY_STATE[o.payment_status];
+        if (!st) return "";
+        const label = o.payment_status === "pending" && o.payment_method === "card" ? "Waiting for card payment" : st[0];
+        return `<span class="pay-tag ${st[1]}">${label}</span>`;
+      };
+      // Where the order's items stand on the listing.
+      function stockText(o) {
+        if (!o.livestock_id) return null;
+        const on = `${o.listing_quantity ?? 0} on the listing`;
+        if (o.stock_deducted) return `Taken off the listing (${o.listing_quantity ?? 0} left)`;
+        if (o.status === "cancelled" || o.status === "completed") return `Not taken (${on})`;
+        if (Number(o.on_hold)) return `Held while the buyer pays (${on})`;
+        return `Not taken yet: comes off when the payment is confirmed (${on})`;
+      }
 
       function paymentShort(o) {
         if (o.payment_method === "mobile_money") return OPERATORS[o.mobile_operator] || "Mobile money";
@@ -262,7 +276,7 @@
                 ["Listing", listingLink],
                 ["Quantity", lot ? `The whole lot (${o.quantity})` : `${o.quantity} × ${kwacha(o.unit_price)}`],
                 ["Total", `<strong>${kwacha(o.total)}</strong>`],
-                ["Stock", o.livestock_id ? (o.stock_deducted ? `Reserved (${o.listing_quantity} left on the listing)` : `Put back (${o.listing_quantity} on the listing)`) : null],
+                ["Stock", stockText(o)],
               ])}
             </section>
             <section>
@@ -276,7 +290,9 @@
                 ["Pay from", o.payment_method === "mobile_money" && o.payment_phone ? `<a href="tel:${tel(o.payment_phone)}" class="hover:underline">${escapeHtml(o.payment_phone)}</a>` : null],
                 ["Online payment", payTag(o) || null],
                 ["Paid on", o.paid_at ? escapeHtml(formatDate(o.paid_at)) : null],
-                ["Lenco reference", o.payment_provider_ref ? escapeHtml(o.payment_provider_ref) : null],
+                ["Payment reference", o.checkout_payment && o.checkout_payment.reference ? escapeHtml(o.checkout_payment.reference) : null],
+                ["Provider reference", o.payment_provider_ref ? escapeHtml(o.payment_provider_ref) : null],
+                ["Status check", o.checkout_payment && o.checkout_payment.check_error && o.payment_status !== "paid" ? `<span class="text-red-600">${escapeHtml(o.checkout_payment.check_error)}</span>` : null],
                 ["Why it failed", o.payment_status === "failed" && o.payment_failure ? escapeHtml(o.payment_failure) : null],
                 ["Bank", o.payment_method === "bank_transfer" && o.payment_bank ? escapeHtml(o.payment_bank) : null],
                 ["Account", o.payment_method === "bank_transfer" && o.payment_account ? escapeHtml(o.payment_account) : null],
@@ -288,15 +304,38 @@
               ${o.seller_id
                 ? `<a href="/admin/sellers.html?id=${o.seller_id}" class="font-semibold text-gray-900 hover:text-blue-700">${escapeHtml(o.seller_name || "Seller")}</a>
                    ${rows([["Phone", o.seller_phone ? `<a href="tel:${tel(o.seller_phone)}" class="hover:underline">${escapeHtml(o.seller_phone)}</a>` : null],
-                           ["Told about it", o.seller_notified_at ? formatDate(o.seller_notified_at) : "When you confirm the order"]])}`
+                           ["Told about it", o.seller_notified_at ? formatDate(o.seller_notified_at) : "When the payment is confirmed, or when you confirm the order"]])}`
                 : `<p class="text-sm text-gray-600">${o.seller_name ? `${escapeHtml(o.seller_name)} (removed)` : "Frontier's stock"}</p>`}
             </section>
           </div>
+          ${o.checkout_payment && o.checkout_payment.can_check && o.payment_status !== "paid" && o.status !== "cancelled"
+            ? `<div class="order-check-pay">
+                 <button type="button" data-check-pay class="btn-secondary" style="padding:.5rem .9rem;font-size:.85rem">Check payment with Lipila</button>
+                 <span>Asks Lipila now. If it was paid, the order is marked Paid and the buyer and seller are emailed.</span>
+               </div>`
+            : ""}
           <div class="order-message">
             <textarea data-message rows="2" maxlength="2000" class="field-input" placeholder="Message ${escapeHtml(o.full_name)}, e.g. payment details"></textarea>
             <button type="button" data-send class="chat-send-btn">Send</button>
           </div>`;
 
+        const checkBtn = box.querySelector("[data-check-pay]");
+        if (checkBtn) {
+          checkBtn.addEventListener("click", async () => {
+            checkBtn.disabled = true;
+            const label = checkBtn.textContent;
+            checkBtn.innerHTML = `<span class="btn-spinner"></span> Checking…`;
+            try {
+              const res = await adminApi(`/api/admin/orders/${o.id}/check-payment`, { method: "POST" });
+              showNotification(res.message, res.data.payment_status === "paid" ? "success" : "info");
+              await loadList(state.page);
+            } catch (error) {
+              showNotification(error.message, "error");
+              checkBtn.disabled = false;
+              checkBtn.textContent = label;
+            }
+          });
+        }
         const input = box.querySelector("[data-message]");
         const send = box.querySelector("[data-send]");
         send.addEventListener("click", async () => {

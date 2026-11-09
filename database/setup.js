@@ -273,10 +273,16 @@ async function main() {
     await addColumns("orders", [
       ["checkout_id", "INT UNSIGNED NULL AFTER payment_reminder_at, ADD INDEX idx_orders_checkout (checkout_id)"],
     ], "orders can now be grouped into one cart checkout");
+    await addColumns("orders", [
+      ["hold_until", "DATETIME NULL AFTER stock_deducted"],
+    ], "items can be held while a buyer pays");
     await addColumns("checkouts", [
       ["payment_provider", "VARCHAR(20) NULL AFTER payment_status"],
       ["payment_url", "VARCHAR(500) NULL AFTER payment_provider"],
       ["payment_started_at", "DATETIME NULL AFTER payment_checked_at"],
+      ["payment_alert_at", "DATETIME NULL AFTER payment_started_at"],
+      ["payment_check_error", "VARCHAR(255) NULL AFTER payment_alert_at"],
+      ["failure_emailed_ref", "VARCHAR(40) NULL AFTER payment_check_error"],
     ], "cart checkouts can record the payment provider");
     await addColumns("checkouts", [
       ["payment_method", "ENUM('mobile_money', 'card', 'bank_transfer') NOT NULL DEFAULT 'mobile_money' AFTER payment_status"],

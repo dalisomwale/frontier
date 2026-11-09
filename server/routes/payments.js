@@ -41,6 +41,9 @@ router.post("/lipila/callback", async (req, res) => {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const event = body.data && typeof body.data === "object" ? body.data : body;
     const reference = String(event.referenceId || event.referenceData || "").trim();
+    // Kept in the log so we can see what Lipila sends. The callback itself is
+    // never trusted: it only makes us ask Lipila for the payment's status.
+    console.log(`Lipila callback for ${reference || "unknown payment"}: ${JSON.stringify(body).slice(0, 600)}`);
     const id = checkout.checkoutIdFromReference(reference);
     if (!id) return;
     const found = await checkout.load(id);

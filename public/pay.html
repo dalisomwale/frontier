@@ -226,7 +226,8 @@
             <div class="pay-phone" style="margin:0 auto">${phoneIcon}</div>
             <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Check your phone</h1>
             <p class="text-sm text-gray-600 mt-2">We've sent a payment request of <b>${kwacha(c.total)}</b> to <b>${escapeHtml(c.operator || "your phone")} ${escapeHtml(c.phone || "")}</b>. Enter your PIN on your phone to approve it.</p>
-            <p class="pay-wait-status mt-5"><span class="btn-spinner"></span> <span data-wait-text>Waiting for your approval…</span></p>
+            <p class="pay-wait-status mt-5"><span class="btn-spinner"></span> <span data-wait-text>${c.checking ? "We're confirming your payment with the provider…" : "Waiting for your approval…"}</span></p>
+            ${c.checking ? `<p class="text-sm text-gray-600 mt-4">If money has left your account, please don't pay again. We'll email you as soon as it's confirmed.</p>` : `<p class="text-xs text-gray-500 mt-3">Your items are held for you for ${Number(c.hold_minutes) || 10} minutes while you pay.</p>`}
             <p class="text-xs text-gray-500 mt-5">Order ${escapeHtml(c.reference)} · please keep this page open.</p>
           </div>`);
           const started = Date.now();

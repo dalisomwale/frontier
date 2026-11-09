@@ -26,7 +26,7 @@ const {
 
 const router = express.Router();
 
-const ORDER_FIELDS = `o.*,
+const ORDER_FIELDS = `o.*, (o.hold_until IS NOT NULL AND o.hold_until > NOW()) AS on_hold,
   (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = o.livestock_id
      ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path`;
 
@@ -57,6 +57,22 @@ async function loadOrder(id) {
   if (order.checkout_id) {
     const [others] = await pool.query("SELECT id FROM orders WHERE checkout_id = ? AND id <> ? ORDER BY id", [order.checkout_id, order.id]);
     order.checkout_orders = others.map((r) => ({ id: r.id, reference: orderRef(r.id) }));
+    const [[c]] = await pool.query(
+      `SELECT payment_provider, payment_status, payment_reference, payment_provider_ref, payment_check_error, payment_alert_at
+       FROM checkouts WHERE id = ?`,
+      [order.checkout_id],
+    );
+    if (c) {
+      order.checkout_payment = {
+        provider: c.payment_provider,
+        status: c.payment_status,
+        reference: c.payment_reference,
+        lipila_id: c.payment_provider_ref,
+        check_error: c.payment_check_error,
+        alerted: Boolean(c.payment_alert_at),
+        can_check: c.payment_provider === "lipila" && Boolean(c.payment_reference),
+      };
+    }
   }
   return order;
 }
@@ -148,9 +164,11 @@ router.patch("/:id", async (req, res, next) => {
     if (!changed && !message) throw badRequest("Choose a new status or write a message.");
 
     // Stock: off the listing while the order counts as paid, back otherwise.
-    const wantDeducted = STOCK_STATUSES.includes(newStatus);
+    // Only a status change moves stock: a website order whose payment isn't
+    // confirmed yet stays "New" with its items only held, not taken.
+    const wantDeducted = changed ? STOCK_STATUSES.includes(newStatus) : Boolean(order.stock_deducted);
     let soldOut = false;
-    if (order.livestock_id && wantDeducted && !order.stock_deducted) {
+    if (changed && order.livestock_id && wantDeducted && !order.stock_deducted) {
       const [[listing]] = await conn.query("SELECT quantity FROM livestock WHERE id = ? FOR UPDATE", [order.livestock_id]);
       if (listing) {
         const left = Math.max(0, Number(listing.quantity) - Number(order.quantity));
@@ -162,7 +180,7 @@ router.patch("/:id", async (req, res, next) => {
           [left, left, order.livestock_id],
         );
       }
-    } else if (order.livestock_id && !wantDeducted && order.stock_deducted) {
+    } else if (changed && order.livestock_id && !wantDeducted && order.stock_deducted) {
       // A listing that sold out (and so came off the website) goes back on.
       await conn.query(
         `UPDATE livestock SET status = IF(quantity = 0 AND review_status = 'approved', 'published', status),
@@ -172,11 +190,29 @@ router.patch("/:id", async (req, res, next) => {
     }
 
     const notifySellerNow = changed && order.seller_id && !order.seller_notified_at && ["confirmed", "paid", "completed"].includes(newStatus);
+    // Marked Paid by the team (e.g. after checking the Lipila dashboard or the
+    // bank): the payment counts as received, for the buyer's order page too.
+    const markedPaid = changed && newStatus === "paid";
     await conn.query(
-      `UPDATE orders SET status = ?, stock_deducted = ?, seller_notified_at = IF(?, NOW(), seller_notified_at) WHERE id = ?`,
-      [newStatus, wantDeducted && order.livestock_id ? 1 : 0, notifySellerNow ? 1 : 0, id],
+      `UPDATE orders SET status = ?, stock_deducted = ?, seller_notified_at = IF(?, NOW(), seller_notified_at),
+         hold_until = IF(?, NULL, hold_until),
+         payment_status = IF(?, 'paid', payment_status), payment_failure = IF(?, NULL, payment_failure),
+         paid_at = IF(?, COALESCE(paid_at, NOW()), paid_at)
+       WHERE id = ?`,
+      [newStatus, wantDeducted && order.livestock_id ? 1 : 0, notifySellerNow ? 1 : 0, changed, markedPaid, markedPaid, markedPaid, id],
     );
     await conn.commit();
+
+    // Every open order of the cart paid: the cart's payment counts as done, so
+    // a later confirmation from Lipila doesn't email everyone a second time.
+    if (markedPaid && order.checkout_id) {
+      await pool.query(
+        `UPDATE checkouts SET payment_status = 'paid', payment_failure = NULL, paid_at = COALESCE(paid_at, NOW())
+         WHERE id = ? AND payment_status <> 'paid'
+           AND NOT EXISTS (SELECT 1 FROM orders WHERE checkout_id = ? AND payment_status <> 'paid' AND status NOT IN ('cancelled', 'completed'))`,
+        [order.checkout_id, order.checkout_id],
+      );
+    }
 
     const ref = orderRef(id);
     const lot = order.price_unit === "lot";
@@ -225,6 +261,39 @@ router.patch("/:id", async (req, res, next) => {
     next(error);
   } finally {
     conn.release();
+  }
+});
+
+// "Check payment with Lipila": asks Lipila now and applies its answer
+// (Successful -> paid and everyone emailed). Returns Lipila's words too.
+router.post("/:id/check-payment", async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id);
+    const [[order]] = await pool.query("SELECT id, checkout_id FROM orders WHERE id = ?", [id || 0]);
+    if (!order) throw notFound("Order not found.");
+    const checkout = require("../../lib/checkout");
+    const lipila = require("../../services/lipila");
+    const c = order.checkout_id ? await checkout.load(order.checkout_id) : null;
+    if (!c || c.payment_provider !== "lipila" || !c.payment_reference) throw badRequest("This order wasn't paid through Lipila on the website.");
+    if (!lipila.enabled()) throw badRequest("Lipila isn't switched on (LIPILA_API_KEY).");
+    let answer;
+    try {
+      const v = await lipila.checkStatus(c.payment_reference, c.payment_provider_ref);
+      answer = `Lipila says: ${v.lipilaStatus || v.status}${v.amount !== null && v.amount !== undefined ? `, K ${v.amount}` : ""}${v.message ? ` (${v.message})` : ""}.`;
+      if (v.notFound) answer = `Lipila doesn't know payment ${c.payment_reference}.`;
+    } catch (error) {
+      answer = `Lipila's status check failed: ${error.message}.`;
+    }
+    if (c.payment_status !== "paid") await checkout.refreshLipila({ ...c, payment_checked_at: null });
+    const after = await checkout.load(c.id);
+    const paidNow = after.payment_status === "paid" && c.payment_status !== "paid";
+    res.json({
+      success: true,
+      message: `${answer} ${paidNow ? "The order is now marked Paid and the buyer and seller have been emailed." : after.payment_status === "paid" ? "The payment is recorded as paid." : "Nothing changed."}`,
+      data: await loadOrder(id),
+    });
+  } catch (error) {
+    next(error);
   }
 });
 
