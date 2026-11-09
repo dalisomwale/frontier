@@ -5707,3 +5707,9 @@ a.btn-checkout { text-decoration: none; }
 .pm-choice .pm-dot { position: absolute; top: 14px; right: 14px; margin: 0; }
 .pm-choice .pm-text b { font-size: 14px; }
 .pm-choices:has(> .pm-choice:only-child) { grid-template-columns: 1fr; }
+
+/* Phones and tablets: "Your order" comes first at checkout */
+@media (max-width: 1023px) {
+  .checkout > .cart-summary { order: -1; }
+  .checkout > .cart-summary .buy-total { padding-bottom: 0; margin-bottom: 0; }
+}
