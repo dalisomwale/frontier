@@ -5811,3 +5811,18 @@ a.btn-checkout { text-decoration: none; }
 .tx-detail-row .tx-detail { position: sticky; left: 0; box-sizing: border-box; }
 .tx-table th, .tx-table td { padding-left: 10px; padding-right: 10px; }
 .tx-items { min-width: 140px; max-width: 200px; }
+
+/* Transactions: one transaction's page */
+.tx-crumbs { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #6b7280; margin-bottom: 14px; }
+.tx-crumbs a { color: #1f3d2b; font-weight: 600; }
+.tx-crumbs a:hover { text-decoration: underline; }
+.tx-crumbs b { color: #111827; }
+.tx-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.tx-head h1 { margin: 0; font-size: 24px; font-weight: 800; color: #111827; }
+.tx-head p { margin: 2px 0 0; font-size: 14px; color: #6b7280; }
+.tx-head-right { display: flex; align-items: center; gap: 10px; }
+.tx-head-right b { font-size: 22px; color: #111827; }
+#detail-view .tx-facts { margin-bottom: 14px; }
+.tx-ref-link { font-weight: 700; color: #1f3d2b; text-decoration: underline; text-underline-offset: 3px; }
+.tx-facts { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.tx-facts b { overflow-wrap: break-word; }

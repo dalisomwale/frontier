@@ -19,6 +19,8 @@
     <div id="admin-topbar"></div>
 
     <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div id="detail-view" hidden></div>
+      <div id="list-view">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
           <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transactions</h1>
@@ -51,6 +53,7 @@
         </div>
         <div id="list"></div>
         <div id="pagination" class="pb-4"></div>
+      </div>
       </div>
     </main>
 
@@ -134,6 +137,7 @@
 
       async function loadList(page = state.page) {
         state.page = page;
+        listLoaded = true;
         const list = document.getElementById("list");
         let res;
         try {
@@ -154,9 +158,9 @@
             <th class="num">Amount</th><th>Status</th><th>Payment reference</th><th>Lipila ID</th>
           </tr></thead>
           <tbody>${res.data.map((t) => `
-            <tr class="tx-tr" data-open="${t.id}" tabindex="0" aria-expanded="${state.open === t.id}">
+            <tr class="tx-tr" data-open="${t.id}">
               <td class="nowrap">${time(t.created_at)}</td>
-              <td class="nowrap"><b>${escapeHtml(t.reference)}</b></td>
+              <td class="nowrap"><a class="tx-ref-link" href="/admin/transactions.html?id=${t.id}" data-go="${t.id}">${escapeHtml(t.reference)}</a></td>
               <td><span class="tx-buyer">${escapeHtml(t.full_name)}</span><small>${escapeHtml(t.email)}</small></td>
               <td class="tx-items">${escapeHtml(t.titles || "")}</td>
               <td class="nowrap">${escapeHtml(METHOD[t.payment_method] || t.payment_method || "-")}${t.payment_attempts > 1 ? `<small>${t.payment_attempts} attempts</small>` : ""}</td>
@@ -167,34 +171,53 @@
               <td class="nowrap mono">${escapeHtml(t.payment_reference || "-")}</td>
               <td class="nowrap mono">${escapeHtml(t.payment_provider_ref || "-")}</td>
             </tr>
-            <tr class="tx-detail-row" ${state.open === t.id ? "" : "hidden"} data-detail-row="${t.id}">
-              <td colspan="${cols}"><div class="tx-detail" data-detail="${t.id}"></div></td>
             </tr>`).join("")}</tbody></table></div>`;
-        list.querySelectorAll("[data-open]").forEach((row) => {
-          row.addEventListener("click", () => toggle(Number(row.dataset.open)));
-          row.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(Number(row.dataset.open)); } });
-        });
-        if (state.open && list.querySelector(`[data-detail="${state.open}"]`)) loadDetail(state.open);
+        list.querySelectorAll("[data-open]").forEach((row) => row.addEventListener("click", (e) => {
+          if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
+          e.preventDefault();
+          openTransaction(Number(row.dataset.open));
+        }));
         if (res.pages > 1) pag.appendChild(createPagination(res.page, res.pages, loadList));
       }
 
-      function toggle(id) {
-        const open = state.open === id ? null : id;
-        document.querySelectorAll("[data-detail-row]").forEach((d) => { d.hidden = Number(d.dataset.detailRow) !== open; });
-        document.querySelectorAll("[data-open]").forEach((b) => b.setAttribute("aria-expanded", Number(b.dataset.open) === open));
-        state.open = open;
-        if (open) loadDetail(open);
+      // One transaction on its own page: Transactions / FMC-1023.
+      let listLoaded = false;
+      function openTransaction(id, push = true) {
+        if (push) history.pushState({ id, fromList: true }, "", `/admin/transactions.html?id=${id}`);
+        document.getElementById("list-view").hidden = true;
+        document.getElementById("detail-view").hidden = false;
+        window.scrollTo(0, 0);
+        loadDetail(id);
       }
+      function showList(push = true) {
+        if (push) history.pushState({}, "", "/admin/transactions.html");
+        document.getElementById("detail-view").hidden = true;
+        document.getElementById("list-view").hidden = false;
+        if (!listLoaded) loadList(1);
+      }
+      window.addEventListener("popstate", () => {
+        const id = Number(new URLSearchParams(location.search).get("id"));
+        if (id) openTransaction(id, false);
+        else showList(false);
+      });
 
       async function loadDetail(id) {
-        const box = document.querySelector(`[data-detail="${id}"]`);
-        if (!box) return;
-        box.innerHTML = `<p class="text-sm text-gray-500 p-4">Loading…</p>`;
+        const view = document.getElementById("detail-view");
+        const crumbs = (ref) => `<nav class="tx-crumbs" aria-label="Breadcrumb"><a href="/admin/transactions.html" data-back>Transactions</a><span aria-hidden="true">/</span><b>${escapeHtml(ref)}</b></nav>`;
+        view.innerHTML = `${crumbs(`FMC-${1000 + id}`)}<p class="text-sm text-gray-500">Loading…</p>`;
+        const bindBack = () => view.querySelector("[data-back]").addEventListener("click", (e) => {
+          e.preventDefault();
+          if (history.state && history.state.fromList) history.back();
+          else showList();
+        });
+        bindBack();
+        const box = view;
         let t;
         try {
           t = (await adminApi(`/api/admin/transactions/${id}`)).data;
         } catch (error) {
-          box.innerHTML = `<p class="text-sm text-red-600 p-4">${escapeHtml(error.message)}</p>`;
+          box.innerHTML = `${crumbs(`FMC-${1000 + id}`)}<p class="text-sm text-red-600">${escapeHtml(error.message)}</p>`;
+          bindBack();
           return;
         }
         const facts = [
@@ -206,8 +229,12 @@
           ["Paid at", t.paid_at ? formatDate(t.paid_at) : null],
           ["Reason not completed", t.payment_status === "failed" && t.payment_failure ? escapeHtml(t.payment_failure) : null],
         ].filter((f) => f[1]);
-        fitDetail(box);
         box.innerHTML = `
+          ${crumbs(t.reference)}
+          <div class="tx-head">
+            <div><h1>${escapeHtml(t.reference)}</h1><p>${escapeHtml(t.full_name)} · ${time(t.created_at)}</p></div>
+            <div class="tx-head-right"><b>${kwacha(t.total)}</b>${tag(t.payment_status)}</div>
+          </div>
           ${pathHtml(t)}
           <div class="tx-facts">${facts.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("")}</div>
           <div class="tx-orders">${t.orders.map((o) => `<a href="/admin/orders.html?id=${o.id}">${escapeHtml(o.reference)} · ${escapeHtml(o.livestock_title)} · ${kwacha(o.total)}</a>`).join("")}</div>
@@ -221,7 +248,9 @@
                 <p class="tx-ev-text">${escapeHtml(e.detail)}</p>
                 ${e.data ? `<details class="tx-raw"><summary>Lipila's full answer</summary><pre>${escapeHtml(pretty(e.data))}</pre></details>` : ""}
               </div>
-            </li>`).join("")}</ol>` : `<p class="text-sm text-gray-500 px-4 pb-4">No steps recorded. This payment was made before the transaction history started.</p>`}`;
+            </li>`).join("")}</ol>` : `<p class="text-sm text-gray-500 px-4 pb-4">No steps recorded.</p>`}`;
+        bindBack();
+        document.title = `${t.reference} - Transactions - Frontier Marketplace Admin`;
       }
 
       // The journey at a glance: each stage done, failed, in progress or not reached.
@@ -244,14 +273,6 @@
         return `<ol class="tx-path" aria-label="Payment progress">${stages.map(([label, st], i) => `
           <li class="tx-step is-${st}"><span class="tx-dot">${mark[st] || i + 1}</span><span class="tx-step-label">${label}</span></li>`).join("")}</ol>`;
       }
-
-      // The opened panel stays within the visible width, even when the table
-      // itself is wider and scrolls sideways.
-      function fitDetail(box) {
-        const wrap = box.closest(".tx-table-wrap");
-        if (wrap) box.style.width = `${wrap.clientWidth}px`;
-      }
-      window.addEventListener("resize", () => document.querySelectorAll(".tx-detail-row:not([hidden]) .tx-detail").forEach(fitDetail));
 
       function pretty(data) {
         try { return JSON.stringify(JSON.parse(data), null, 2); } catch { return data; }
@@ -301,11 +322,9 @@
           timer = setTimeout(() => { state.q = e.target.value.trim(); loadList(1); }, 300);
         });
         document.getElementById("export").addEventListener("click", exportCsv);
-        await loadList(1);
-        if (q) {
-          const first = document.querySelector("[data-open]");
-          if (first) toggle(Number(first.dataset.open));
-        }
+        const id = Number(new URLSearchParams(location.search).get("id"));
+        if (id) openTransaction(id, false);
+        else await loadList(1);
       })();
     </script>
   </body>
