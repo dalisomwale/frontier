@@ -80,7 +80,7 @@ function listenForChanges() {
     const note = {
       paid: `Payment received: ${ref}`,
       received: `Buyer confirmed they received ${detail.id ? `FM-${1000 + Number(detail.id)}` : "an order"}`,
-      handed_over: `Order ${detail.id ? `FM-${1000 + Number(detail.id)}` : ""} handed over`,
+      handed_over: `Order ${detail.id ? `FM-${1000 + Number(detail.id)}` : ""} complete: ready to pay the seller`,
     }[detail.change] || (detail.kind === "inquiry" ? "New inquiry received" : "");
     if (note) showNotification(note, "info");
   });

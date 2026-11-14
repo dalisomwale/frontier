@@ -335,7 +335,7 @@ router.get("/summary", requireSeller, async (req, res, next) => {
       [req.seller.id],
     );
     const [[orders]] = await pool.query(
-      `SELECT COUNT(*) AS total, COALESCE(SUM(status NOT IN ('completed', 'cancelled') AND handed_over_at IS NULL), 0) AS open
+      `SELECT COUNT(*) AS total, COALESCE(SUM(status NOT IN ('completed', 'cancelled') AND received_at IS NOT NULL), 0) AS open
        FROM orders WHERE seller_id = ? AND seller_notified_at IS NOT NULL`,
       [req.seller.id],
     );
@@ -364,7 +364,7 @@ router.get("/insights", requireSeller, async (req, res, next) => {
       `SELECT COUNT(*) AS orders,
               COALESCE(SUM(IF(o.status <> 'cancelled', o.total, 0)), 0) AS sales,
               COALESCE(SUM(o.status <> 'cancelled'), 0) AS kept,
-              COALESCE(SUM(o.status NOT IN ('completed', 'cancelled') AND o.handed_over_at IS NULL), 0) AS open
+              COALESCE(SUM(o.status NOT IN ('completed', 'cancelled') AND o.received_at IS NOT NULL), 0) AS open
        FROM orders o WHERE o.seller_id = ? AND o.seller_notified_at IS NOT NULL AND ${since}`,
       [id, days - 1],
     );
@@ -806,8 +806,8 @@ router.get("/orders", requireSeller, async (req, res, next) => {
   }
 });
 
-// The seller hands an order over: the buyer collected it or it was delivered.
-// The buyer is then asked to confirm with photos.
+// After the buyer has confirmed, the seller marks the order as handed over:
+// it's then Completed and Frontier processes the seller's funds.
 router.post("/orders/:id/handover", requireSeller, async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
@@ -816,8 +816,8 @@ router.post("/orders/:id/handover", requireSeller, async (req, res, next) => {
       [id || 0, req.seller.id],
     );
     if (!own) throw notFound("Order not found.");
-    await handover.handOver(id, req.body.method, { kind: "seller", name: sellerLabel(req.seller) }, req.ip);
-    res.json({ success: true, message: "Marked as handed over. The buyer has been asked to confirm." });
+    await handover.handOver(id, { kind: "seller", name: sellerLabel(req.seller) }, req.ip);
+    res.json({ success: true, message: "Marked as handed over. Frontier will process your payment." });
   } catch (error) {
     next(error);
   }

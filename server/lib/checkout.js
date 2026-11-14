@@ -458,7 +458,7 @@ async function markPaid(checkout, data) {
     notifications.notifyBuyer(checkout.buyer_id, {
       type: "order",
       title: `Payment received for ${checkoutRef(checkout.id)}`,
-      body: "Thank you. We'll contact you to arrange collection or delivery.",
+      body: "Thank you. We'll contact you to arrange collection or delivery. Once you have your order, confirm it here with a few photos.",
       link: "/account/?tab=orders",
     });
     notifications.pingBuyer(checkout.buyer_id, "order", { checkout_id: checkout.id });

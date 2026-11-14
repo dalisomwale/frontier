@@ -1,11 +1,10 @@
 // Handover and receipt of an order.
 //
-//   1. The seller (or Frontier's team, for its own stock or on a seller's
-//      behalf) marks a paid order as handed over: collected by the buyer or
-//      delivered.
-//   2. The buyer then confirms they've received it, with 1 to 4 photos and
-//      an optional note. The order becomes Completed straight away; the team
-//      and the seller are told and can see the photos.
+//   1. Once the order is paid, the buyer confirms they've received it
+//      (collected or delivered), with 1 to 4 photos and an optional note.
+//   2. Only then can the seller (or Frontier's team, for its own stock or on
+//      a seller's behalf) mark it as handed over. The order becomes Completed
+//      and the team is told the seller's funds can be processed.
 const pool = require("../db");
 const txlog = require("./txlog");
 const emails = require("./emails");
@@ -48,90 +47,112 @@ async function photosOf(orderIds) {
   return map;
 }
 
-// Paid (online or confirmed by the team), not finished, not yet handed over.
+const isPaid = (order) => order.payment_status === "paid" || ["paid", "confirmed"].includes(order.status);
+const isOpen = (order) => !["completed", "cancelled"].includes(order.status);
+
+// The buyer can confirm a paid, open order they haven't confirmed yet.
+function canConfirm(order) {
+  return Boolean(order && isOpen(order) && isPaid(order) && !order.received_at);
+}
+
+// The seller can hand over once the buyer has confirmed.
 function canHandOver(order) {
-  return order
-    && !["completed", "cancelled"].includes(order.status)
-    && (order.payment_status === "paid" || ["paid", "confirmed"].includes(order.status))
-    && !order.handed_over_at;
+  return Boolean(order && isOpen(order) && isPaid(order) && order.received_at && !order.handed_over_at);
 }
 
 function handoverProblem(order) {
   if (!order) return "Order not found.";
   if (order.status === "cancelled") return "This order was cancelled.";
-  if (order.status === "completed") return "This order is already complete.";
-  if (order.handed_over_at) return "This order has already been marked as handed over.";
-  return "This order can be handed over once it has been paid.";
+  if (order.status === "completed" || order.handed_over_at) return "This order has already been marked as handed over.";
+  if (!isPaid(order)) return "This order can be handed over once it has been paid.";
+  return "You can mark this order as handed over once the buyer has confirmed they received it.";
 }
 
 const methodText = (m) => (m === "delivered" ? "delivered" : "collected");
+const sellerName = async (sellerId) => {
+  if (!sellerId) return "Frontier";
+  const [[s]] = await pool.query("SELECT name, business_name FROM sellers WHERE id = ?", [sellerId]);
+  return s ? (s.business_name || s.name) : "-";
+};
 
 // by: { kind: "seller" | "admin", name, admin? }
-async function handOver(orderId, method, by, ip = null) {
-  if (!METHODS.includes(method)) throw badRequest("Please choose whether the buyer collected it or it was delivered.");
+// Completes the order: the seller's funds can now be processed.
+async function handOver(orderId, by, ip = null) {
   const order = await loadOrder(orderId);
   if (!canHandOver(order)) throw new HttpError(409, handoverProblem(order));
   const [result] = await pool.query(
-    `UPDATE orders SET handover_method = ?, handed_over_at = NOW(), handed_over_by = ?
-     WHERE id = ? AND handed_over_at IS NULL AND status NOT IN ('completed', 'cancelled')`,
-    [method, String(by.name || by.kind).slice(0, 150), order.id],
+    `UPDATE orders SET status = 'completed', handed_over_at = NOW(), handed_over_by = ?
+     WHERE id = ? AND handed_over_at IS NULL AND received_at IS NOT NULL AND status NOT IN ('completed', 'cancelled')`,
+    [String(by.name || by.kind).slice(0, 150), order.id],
   );
   if (!result.affectedRows) throw new HttpError(409, "This order has already been marked as handed over.");
   const ref = orderRef(order.id);
   const units = headCount(order.quantity, order.animal_name, order.animal_kind);
+  const how = methodText(order.handover_method);
   txlog.record({
     checkoutId: order.checkout_id,
     orderId: order.id,
     reference: ref,
     event: "handed_over",
+    status: "completed",
     actor: by.kind === "admin" ? "admin" : "seller",
     admin: by.admin || null,
-    detail: `${ref} (${order.livestock_title}) marked as ${methodText(method)} by ${by.kind === "admin" ? "Frontier" : "the seller"}${by.kind === "seller" && by.name ? ` (${by.name})` : ""}. Waiting for the buyer to confirm.`,
+    detail: `${ref} (${order.livestock_title}) marked as handed over by ${by.kind === "admin" ? "Frontier" : "the seller"}${by.kind === "seller" && by.name ? ` (${by.name})` : ""}. Order Completed; the seller's funds can be processed.`,
     ip,
   });
-  const link = `/account/?tab=orders&id=${order.id}`;
   if (order.buyer_id) {
     notifyBuyer(order.buyer_id, {
       type: "order",
-      title: `Please confirm you've received ${order.livestock_title}`,
-      body: `${ref} was marked as ${methodText(method)}. Confirm with a few photos of what you received.`,
-      link,
+      title: `Order ${ref} is complete`,
+      body: `Thank you for buying ${order.livestock_title} on Frontier Marketplace.`,
+      link: `/account/?tab=orders&id=${order.id}`,
     });
     pingBuyer(order.buyer_id, "order", { id: order.id });
   }
+  if (order.seller_id) {
+    if (by.kind === "admin") {
+      notifySeller(order.seller_id, {
+        type: "order",
+        title: `Order ${ref} is complete`,
+        body: `Frontier marked ${order.livestock_title} as handed over. We'll process your payment.`,
+        link: `/seller/?tab=orders&id=${order.id}`,
+      });
+    }
+    emails.sellerOrder(order, "completed", { units });
+  }
   sendEmail({
-    to: order.email,
-    subject: `Please confirm you've received your order ${ref}`,
-    heading: method === "delivered" ? "Your order has been delivered" : "Your order has been collected",
-    paragraphs: [
-      `Hi ${String(order.full_name).split(/\s+/)[0]},`,
-      `${order.price_unit === "lot" ? `The whole lot (${units})` : units} of ${order.livestock_title} ${method === "delivered" ? "was delivered to you" : "was collected by you"}, according to ${by.kind === "admin" ? "our team" : "the seller"}.`,
-      "Please confirm you've received it, with 1 to 4 photos of what you received. If something isn't right, reply to this email instead.",
+    to: recipients(),
+    subject: `Ready to pay the seller: ${ref}`,
+    heading: "An order is complete: the seller can be paid",
+    paragraphs: [`The buyer confirmed ${how === "delivered" ? "delivery" : "collection"} and ${by.kind === "admin" ? "Frontier" : "the seller"} marked ${ref} (${order.livestock_title}) as handed over. Please process the seller's funds.`],
+    rows: [
+      ["Order", ref],
+      ["Seller", await sellerName(order.seller_id)],
+      ["Quantity", units],
+      ["Total", kwacha(order.total)],
+      ["Buyer confirmed", order.received_at ? new Date(order.received_at).toLocaleString("en-GB", { timeZone: process.env.APP_TIMEZONE || "Africa/Lusaka" }) : "-"],
     ],
-    rows: [["Order", ref], ["Quantity", units], ["Total", kwacha(order.total)]],
-    button: { label: "Confirm I've received it", url: appUrl(link) },
+    button: { label: "Open the order", url: appUrl(`/admin/orders.html?id=${order.id}`) },
     log: true,
   });
-  if (by.kind === "admin" && order.seller_id) {
-    notifySeller(order.seller_id, {
-      type: "order",
-      title: `Order ${ref} marked as handed over`,
-      body: `Frontier marked ${order.livestock_title} as ${methodText(method)}. The buyer will confirm.`,
-      link: `/seller/?tab=orders&id=${order.id}`,
-    });
-  }
   broadcastAdmin("order", { id: order.id, checkout_id: order.checkout_id, change: "handed_over" });
   return loadOrder(order.id);
 }
 
 // files: multer files (images). The photos are checked and saved before
 // anything changes; if saving the order fails they're removed again.
-async function confirmReceipt(orderId, buyer, files, note, ip = null) {
+async function confirmReceipt(orderId, buyer, method, files, note, ip = null) {
   const order = await loadOrder(orderId);
   if (!order || Number(order.buyer_id) !== Number(buyer.id)) throw notFound("Order not found.");
-  if (order.status === "completed") throw new HttpError(409, "You've already confirmed this order.");
+  if (order.received_at) throw new HttpError(409, "You've already confirmed this order.");
   if (order.status === "cancelled") throw new HttpError(409, "This order was cancelled.");
-  if (!order.handed_over_at) throw new HttpError(409, "You can confirm once the seller has handed your order over.");
+  if (order.status === "completed") throw new HttpError(409, "This order is already complete.");
+  if (!isPaid(order)) throw new HttpError(409, "You can confirm once your order has been paid.");
+  if (!METHODS.includes(method)) {
+    const e = new HttpError(422, "Please choose whether you collected it or it was delivered.");
+    e.errors = { method: "Please choose one." };
+    throw e;
+  }
   const list = files || [];
   if (list.length < MIN_PHOTOS) {
     const e = new HttpError(422, "Please add at least one photo of what you received.");
@@ -151,9 +172,9 @@ async function confirmReceipt(orderId, buyer, files, note, ip = null) {
   try {
     await conn.beginTransaction();
     const [result] = await conn.query(
-      `UPDATE orders SET status = 'completed', received_at = NOW(), received_note = ?
-       WHERE id = ? AND status NOT IN ('completed', 'cancelled') AND handed_over_at IS NOT NULL`,
-      [clean, order.id],
+      `UPDATE orders SET received_at = NOW(), received_note = ?, handover_method = ?
+       WHERE id = ? AND status NOT IN ('completed', 'cancelled') AND received_at IS NULL`,
+      [clean, method, order.id],
     );
     if (!result.affectedRows) throw new HttpError(409, "This order has already been confirmed.");
     for (const p of saved) {
@@ -169,36 +190,35 @@ async function confirmReceipt(orderId, buyer, files, note, ip = null) {
   }
 
   const ref = orderRef(order.id);
-  const how = methodText(order.handover_method);
+  const how = methodText(method);
   txlog.record({
     checkoutId: order.checkout_id,
     orderId: order.id,
     reference: ref,
     event: "buyer_confirmed",
-    status: "completed",
     actor: "buyer",
-    detail: `${order.full_name} confirmed they received ${ref} (${order.livestock_title}, ${how}) with ${saved.length} photo${saved.length === 1 ? "" : "s"}${clean ? `: "${clean}"` : ""}. Order marked Completed.`,
+    detail: `${order.full_name} confirmed they received ${ref} (${order.livestock_title}, ${how}) with ${saved.length} photo${saved.length === 1 ? "" : "s"}${clean ? `: "${clean}"` : ""}. Waiting for the seller to mark it as handed over.`,
     data: { photos: saved.map((p) => p.image_path) },
     ip,
   });
   if (order.seller_id) {
     notifySeller(order.seller_id, {
       type: "order",
-      title: `Order ${ref} is complete`,
-      body: `The buyer confirmed they received ${order.livestock_title}.`,
+      title: `Buyer confirmed order ${ref}`,
+      body: `The buyer confirmed they received ${order.livestock_title}. Mark it as handed over so Frontier can process your payment.`,
       link: `/seller/?tab=orders&id=${order.id}`,
     });
-    emails.sellerOrder(order, "completed", { units: headCount(order.quantity, order.animal_name, order.animal_kind) });
+    emails.sellerOrder(order, "received", { units: headCount(order.quantity, order.animal_name, order.animal_kind) });
   }
   sendEmail({
     to: recipients(),
     subject: `Buyer confirmed ${how === "delivered" ? "delivery" : "collection"}: ${ref}`,
     heading: `${order.full_name} confirmed they received their order`,
-    paragraphs: [`${ref} (${order.livestock_title}) is now Completed. The buyer's photos are on the order.`],
+    paragraphs: [`The buyer's photos are on ${ref} (${order.livestock_title}). ${order.seller_id ? "Waiting for the seller to mark it as handed over." : "Mark it as handed over to complete it."}`],
     rows: [
       ["Order", ref],
       ["Checkout", order.checkout_id ? checkoutRef(order.checkout_id) : "-"],
-      ["Handed over", `${how === "delivered" ? "Delivered" : "Collected"} (${order.handed_over_by || "-"})`],
+      ["How", how === "delivered" ? "Delivered" : "Collected"],
       ["Photos", String(saved.length)],
       ...(clean ? [["Buyer's note", clean]] : []),
     ],
@@ -210,4 +230,4 @@ async function confirmReceipt(orderId, buyer, files, note, ip = null) {
   return loadOrder(order.id);
 }
 
-module.exports = { METHODS, MIN_PHOTOS, MAX_PHOTOS, loadOrder, photosOf, canHandOver, handOver, confirmReceipt, methodText };
+module.exports = { METHODS, MIN_PHOTOS, MAX_PHOTOS, loadOrder, photosOf, canConfirm, canHandOver, handOver, confirmReceipt, methodText };

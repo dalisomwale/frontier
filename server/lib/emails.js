@@ -235,14 +235,21 @@ async function sellerOrder(order, event, { units, leftOnListing } = {}) {
       text: `Good news: ${order.price_unit === "lot" ? "the whole lot" : units} from ${order.livestock_title} ${order.quantity === 1 && order.price_unit !== "lot" ? "has" : "have"} been ordered.`,
       rows: [["Order", ref], ["Quantity", what], ["Total", kwacha(order.total)], ["Payment", order.payment_status === "paid" ? "Paid online" : "Being arranged by Frontier"],
         ...(leftOnListing !== undefined ? [["Left on the listing", String(leftOnListing)]] : [])],
-      after: ["Our team will contact you to arrange the handover. Please keep these aside for this buyer."],
+      after: ["Our team will contact you to arrange the handover. Please keep these aside for this buyer. Once the buyer confirms they have them, mark the order as handed over and Frontier will process your payment."],
+    },
+    received: {
+      subject: `Buyer confirmed order ${ref}: please mark it as handed over`,
+      heading: "The buyer has received their order",
+      text: `The buyer confirmed they received ${what} of ${order.livestock_title}, with photos.`,
+      rows: [["Order", ref], ["Quantity", what], ["Total", kwacha(order.total)]],
+      after: ["Please mark the order as handed over in your seller account. Frontier will then process your payment."],
     },
     completed: {
       subject: `Order ${ref} is complete`,
       heading: "Order complete: thank you",
       text: `Order ${ref} for ${order.livestock_title} is complete. Thank you for selling on Frontier Marketplace.`,
       rows: [["Order", ref], ["Quantity", what], ["Total", kwacha(order.total)]],
-      after: ["Our team will be in touch about your payment if it hasn't been settled yet."],
+      after: ["Frontier will now process your payment."],
     },
     cancelled: {
       subject: `Order ${ref} was cancelled`,

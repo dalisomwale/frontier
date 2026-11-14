@@ -126,21 +126,19 @@
       const TITLES = { orders: "My orders", notifications: "Notifications", profile: "Profile" };
       const STAGES = {
         unpaid: { label: "Not paid", cls: "so-off" },
-        paid: { label: "Paid", cls: "so-open" },
-        handed_over: { label: "Confirm receipt", cls: "so-act" },
-        received: { label: "Received", cls: "so-done" },
+        paid: { label: "Confirm receipt", cls: "so-act" },
+        received: { label: "Received", cls: "so-open" },
         completed: { label: "Completed", cls: "so-done" },
         cancelled: { label: "Cancelled", cls: "so-off" },
       };
       const ORDER_TABS = [
         { key: "all", label: "All", test: () => true },
-        { key: "confirm", label: "To confirm", test: (o) => o.stage === "handed_over" },
-        { key: "progress", label: "In progress", test: (o) => o.stage === "paid" },
-        { key: "done", label: "Completed", test: (o) => ["received", "completed"].includes(o.stage) },
+        { key: "confirm", label: "To confirm", test: (o) => o.stage === "paid" },
+        { key: "progress", label: "In progress", test: (o) => o.stage === "received" },
+        { key: "done", label: "Completed", test: (o) => o.stage === "completed" },
         { key: "unpaid", label: "Not paid", test: (o) => ["unpaid", "cancelled"].includes(o.stage) },
       ];
       const filter = { tab: "all", q: "" };
-      const howWord = (o) => (o.handover_method === "delivered" ? "delivery" : "collection");
       const thumb = (o, cls = "w-6 h-6") => (o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="" loading="lazy">` : livestockFallbackMedia(cls));
       const dateTime = (v) => new Date(v).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
@@ -201,7 +199,7 @@
           ? `<ul class="so-list">${rows.map(orderRow).join("")}</ul>`
           : `<div class="empty-state"><p class="font-semibold text-gray-800">Nothing here</p><p class="text-sm mt-1">Try another filter or search.</p></div>`;
         list.querySelectorAll("[data-order]").forEach((b) => b.addEventListener("click", () => openOrder(b.dataset.order)));
-        setBadge("orders", orders.filter((o) => o.stage === "handed_over").length);
+        setBadge("orders", orders.filter((o) => o.stage === "paid").length);
       }
       document.getElementById("order-search").addEventListener("input", (e) => { filter.q = e.target.value.trim().toLowerCase(); renderOrders(); });
 
@@ -211,10 +209,10 @@
       }
 
       // One order on its own page: My orders / FM-1234.
-      const STEP_NAMES = ["Ordered", "Paid", "Handed over", "Received"];
+      const STEP_NAMES = ["Ordered", "Paid", "Received", "Completed"];
       function stepsHtml(o) {
         // How many steps are done, and whether the next one is under way.
-        const done = { unpaid: 1, paid: 2, handed_over: 3, received: 4, completed: 4, cancelled: 1 }[o.stage];
+        const done = { unpaid: 1, paid: 2, received: 3, completed: 4, cancelled: 1 }[o.stage];
         const active = o.stage !== "cancelled";
         return `<div class="acc-steps">${STEP_NAMES.map((name, i) => {
           const n = i + 1;
@@ -223,30 +221,28 @@
         }).join("")}</div>`;
       }
 
+      const proofHtml = (o) => `
+        <p class="font-bold text-green-900">${o.handover_method === "delivered" ? "Delivered" : "Collected"} · you confirmed on ${escapeHtml(dateTime(o.received_at))}</p>
+        ${o.received_note ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(o.received_note)}"</p>` : ""}
+        ${o.photos.length ? `<div class="acc-photos mt-3">${o.photos.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="Photo of what you received"></a>`).join("")}</div>` : ""}`;
+
       function nextStepHtml(o) {
-        const when = o.handed_over_at ? formatDateShort(o.handed_over_at) : "";
-        const how = o.handover_method === "delivered" ? "delivered" : "collected";
         switch (o.stage) {
           case "unpaid":
             return `<div class="acc-card"><p class="txd-card-title">Payment</p><p class="text-sm text-gray-700">This order hasn't been paid yet.${o.pay_url ? " You can pay now." : " Our team will contact you."}</p></div>`;
           case "paid":
-            return `<div class="acc-card"><p class="txd-card-title">Next step</p><p class="text-sm text-gray-700">Frontier and the seller will contact you to arrange collection or delivery. Once the seller has handed your order over, you'll be asked to confirm with photos.</p></div>`;
-          case "handed_over":
-            return `<div class="acc-card acc-card-warn"><p class="font-bold text-gray-900">The seller says your order was ${how} on ${escapeHtml(when)}</p><p class="text-sm text-gray-700 mt-1">Please confirm you've received it, with 1 to 4 photos of what you received. If something isn't right, contact Frontier instead.</p></div>`;
+            return `<div class="acc-card acc-card-warn"><p class="font-bold text-gray-900">Next: confirm when you have your order</p><p class="text-sm text-gray-700 mt-1">Frontier and the seller will contact you to arrange collection or delivery. Once you have it, confirm here with 1 to 4 photos of what you received. If something isn't right, contact Frontier instead.</p></div>`;
           case "received":
-            return `<div class="acc-card acc-card-ok"><p class="font-bold text-green-900">${how === "delivered" ? "Delivered" : "Collected"} · confirmed on ${escapeHtml(dateTime(o.received_at))}</p>
-              ${o.received_note ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(o.received_note)}"</p>` : ""}
-              ${o.photos.length ? `<div class="acc-photos mt-3">${o.photos.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="Photo of what you received"></a>`).join("")}</div>` : ""}</div>`;
+            return `<div class="acc-card acc-card-ok">${proofHtml(o)}<p class="text-sm text-gray-700 mt-3">Thank you. The seller will now mark the order as handed over to complete it.</p></div>`;
           case "completed":
-            return `<div class="acc-card acc-card-ok"><p class="font-bold text-green-900">This order is complete.</p></div>`;
+            return `<div class="acc-card acc-card-ok">${o.received_at ? proofHtml(o) : ""}<p class="${o.received_at ? "text-sm text-gray-700 mt-3" : "font-bold text-green-900"}">This order is complete.</p></div>`;
           default:
             return `<div class="acc-card"><p class="text-sm text-gray-700">This order was cancelled.</p></div>`;
         }
       }
 
       function actionHtml(o) {
-        if (o.stage === "handed_over") return `<button type="button" class="acc-btn" data-confirm>${uiIcon("camera")}<span>Confirm ${howWord(o)}</span></button>`;
-        if (o.stage === "paid") return `<button type="button" class="acc-btn" disabled>Waiting for the seller to hand over</button>`;
+        if (o.stage === "paid") return `<button type="button" class="acc-btn" data-confirm>${uiIcon("camera")}<span>Confirm I've received it</span></button>`;
         if (o.stage === "unpaid" && o.pay_url) return `<a class="acc-btn" href="${escapeHtml(o.pay_url)}">Pay ${kwacha(o.total)}</a>`;
         return "";
       }
@@ -293,7 +289,7 @@
                   ${o.paid ? `<div><dt>Paid with</dt><dd>${escapeHtml(o.paid_with)}</dd></div>` : ""}
                   ${o.location ? `<div><dt>Province</dt><dd>${escapeHtml(o.location)}</dd></div>` : ""}
                   <div><dt>Ordered</dt><dd>${escapeHtml(formatDateShort(o.ordered_at))}</dd></div>
-                  ${o.handed_over_at ? `<div><dt>Handed over</dt><dd>${o.handover_method === "delivered" ? "Delivered to you" : "Collected by you"}</dd></div>` : ""}
+                  ${o.received_at ? `<div><dt>How</dt><dd>${o.handover_method === "delivered" ? "Delivered to you" : "Collected by you"}</dd></div>` : ""}
                 </dl>
               </div>
               <div class="acc-card so-listing-card">
@@ -312,7 +308,6 @@
       // ------------------------------------------- confirm with photos
       const MAX_PHOTOS = 4;
       function openConfirm(o) {
-        const how = howWord(o);
         const view = openAdminView({ title: "Confirm", params: { id: o.id, confirm: 1 } });
         view.el.classList.add("confirm-view");
         const files = [];
@@ -321,7 +316,13 @@
             <h1 class="admin-view-title">Confirm you've received your order</h1>
             <div id="confirm-alert" class="hidden alert text-sm" role="alert"></div>
             <div class="acc-card">
-              <p class="text-sm text-gray-700"><b>${escapeHtml(o.title)}</b> · ${escapeHtml(o.price_unit === "lot" ? `whole lot (${o.units})` : o.units)}. The seller marked it as <b>${o.handover_method === "delivered" ? "delivered to you" : "collected by you"}</b>.</p>
+              <p class="text-sm text-gray-700"><b>${escapeHtml(o.title)}</b> · ${escapeHtml(o.price_unit === "lot" ? `whole lot (${o.units})` : o.units)}</p>
+              <p class="field-label mt-3">How did you get it?</p>
+              <div class="ho-choice">
+                <label><input type="radio" name="method" value="collected"><span>I collected it</span></label>
+                <label><input type="radio" name="method" value="delivered"><span>It was delivered</span></label>
+              </div>
+              <p class="field-error hidden" data-error-for="method"></p>
             </div>
             <div class="acc-card">
               <p class="field-label">Photos of what you received <span class="text-gray-400 font-normal">(1 to ${MAX_PHOTOS})</span></p>
@@ -339,7 +340,7 @@
               </label>
               <p class="field-error hidden" data-error-for="agree"></p>
             </div>
-            <div class="acc-actionbar"><button type="submit" class="acc-btn" id="confirm-btn">Confirm ${how}</button></div>
+            <div class="acc-actionbar"><button type="submit" class="acc-btn" id="confirm-btn">Confirm I've received it</button></div>
           </form>`;
         const form = view.body.querySelector("form");
         const grid = view.body.querySelector("#ph-grid");
@@ -355,6 +356,7 @@
             paint();
           }));
         };
+        form.querySelectorAll('input[name="method"]').forEach((r) => r.addEventListener("change", () => form.querySelector('[data-error-for="method"]').classList.add("hidden")));
         input.addEventListener("change", () => {
           [...input.files].slice(0, MAX_PHOTOS - files.length).forEach((file) => {
             if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return showNotification("Photos must be JPEG, PNG or WebP.", "error");
@@ -370,6 +372,7 @@
           event.preventDefault();
           alertBox.classList.add("hidden");
           const errors = {};
+          if (!form.method.value) errors.method = "Please choose one.";
           if (!files.length) errors.images = "Please add at least one photo.";
           if (!form.agree.checked) errors.agree = "Please tick the box to confirm.";
           if (Object.keys(errors).length) {
@@ -378,12 +381,13 @@
           }
           const fd = new FormData();
           files.forEach((f) => fd.append("images", f.file));
+          fd.append("method", form.method.value);
           fd.append("note", form.note.value.trim());
           fd.append("agree", "1");
           try {
             await withBusy(form.querySelector("#confirm-btn"), "Sending…", () =>
               buyerApi(`/api/buyer/orders/${o.id}/confirm`, { method: "POST", body: fd }));
-            showNotification("Thank you! Your order is complete.", "success");
+            showNotification("Thank you! We've told the seller.", "success");
             await view.close(true);
             await loadOrders();
             if (orderView) openOrder(o.id, { replace: true });
@@ -490,7 +494,7 @@
         if ((q.tab || "orders") === "orders" && q.id) {
           await openOrder(q.id);
           const o = orders.find((x) => String(x.id) === String(q.id));
-          if (q.confirm && o && o.stage === "handed_over") openConfirm(o);
+          if (q.confirm && o && o.stage === "paid") openConfirm(o);
         }
       }
 

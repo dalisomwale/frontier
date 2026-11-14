@@ -134,7 +134,7 @@
             <td class="hidden sm:table-cell text-center">${escapeHtml(String(units))}</td>
             <td class="font-semibold text-gray-900 whitespace-nowrap">${kwacha(o.total)}</td>
             <td class="hidden lg:table-cell text-sm text-gray-700">${escapeHtml(paymentShort(o))}${payTag(o) ? `<div class="mt-1">${payTag(o)}</div>` : ""}</td>
-            <td>${statusSelect(o)}${o.received_at ? `<div class="mt-1"><span class="ho-tag ho-tag-ok">Received by buyer</span></div>` : o.handed_over_at && o.status !== "cancelled" ? `<div class="mt-1"><span class="ho-tag">Handed over</span></div>` : ""}</td>
+            <td>${statusSelect(o)}${o.handed_over_at ? `<div class="mt-1"><span class="ho-tag ho-tag-ok">Ready to pay seller</span></div>` : o.received_at && o.status !== "cancelled" ? `<div class="mt-1"><span class="ho-tag">Received by buyer</span></div>` : ""}</td>
           </tr>
           ${isOpen ? `<tr class="order-detail-row"><td colspan="7"><div class="order-detail" data-detail="${o.id}"><span class="btn-spinner chat-spinner"></span></div></td></tr>` : ""}`;
       }
@@ -313,26 +313,24 @@
             <div class="order-proof">
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <p class="font-bold text-gray-900">Proof of ${o.handover_method === "delivered" ? "delivery" : "collection"}</p>
-                <span class="so-pill so-done">Received by buyer</span>
+                <span class="so-pill so-done">${o.handed_over_at ? "Ready to pay the seller" : "Received by buyer"}</span>
               </div>
-              <p class="text-sm text-gray-600 mt-1">${escapeHtml(o.full_name)} confirmed on ${escapeHtml(formatDate(o.received_at))}${o.received_note ? ` · "${escapeHtml(o.received_note)}"` : ""}. Handed over by ${escapeHtml(o.handed_over_by || "-")}.</p>
+              <p class="text-sm text-gray-600 mt-1">${escapeHtml(o.full_name)} confirmed on ${escapeHtml(formatDate(o.received_at))}${o.received_note ? ` · "${escapeHtml(o.received_note)}"` : ""}.</p>
               <div class="order-proof-photos">${(o.receipt_photos || []).map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="Buyer's photo"></a>`).join("")}</div>
+              ${o.handed_over_at
+                ? `<p class="text-sm text-gray-700 mt-3"><b>Handed over</b> by ${escapeHtml(o.handed_over_by || "-")} on ${escapeHtml(formatDate(o.handed_over_at))}. The seller's funds can be processed.</p>`
+                : o.can_hand_over
+                  ? `<form class="order-handover mt-3" data-handover>
+                       <p class="text-sm text-gray-600 mb-2">${o.seller_id ? "Waiting for the seller to mark it as handed over. You can also mark it here." : "Frontier's stock: mark it as handed over to complete the order."}</p>
+                       <button type="submit" class="acc-btn" style="width:auto">Mark as handed over</button>
+                     </form>`
+                  : ""}
             </div>`
-          : o.handed_over_at ? `
+          : !["completed", "cancelled"].includes(o.status) && (o.payment_status === "paid" || ["paid", "confirmed"].includes(o.status)) ? `
             <div class="order-proof order-proof-wait">
-              <p class="font-bold text-gray-900">Handed over · waiting for the buyer to confirm</p>
-              <p class="text-sm text-gray-600 mt-1">Marked as ${o.handover_method === "delivered" ? "delivered" : "collected"} by ${escapeHtml(o.handed_over_by || "-")} on ${escapeHtml(formatDate(o.handed_over_at))}.${o.buyer_id ? " The buyer has been asked to confirm with photos." : " This buyer has no account, so they can't confirm online. Mark the order Completed when it's done."}</p>
-            </div>`
-          : o.can_hand_over ? `
-            <form class="order-proof order-handover" data-handover>
-              <p class="font-bold text-gray-900">Hand over</p>
-              <p class="text-sm text-gray-600 mt-1 mb-3">${o.seller_id ? "The seller marks this when the buyer has the order. You can also mark it here." : "Frontier's stock: mark it when the buyer has the order."} The buyer is then asked to confirm with photos.</p>
-              <div class="ho-choice" style="max-width:420px">
-                <label><input type="radio" name="method" value="collected" checked><span>Buyer collected</span></label>
-                <label><input type="radio" name="method" value="delivered"><span>Delivered</span></label>
-              </div>
-              <button type="submit" class="acc-btn mt-3" style="width:auto">Mark as handed over</button>
-            </form>` : ""}
+              <p class="font-bold text-gray-900">Waiting for the buyer to confirm</p>
+              <p class="text-sm text-gray-600 mt-1">${o.buyer_id ? "Once the buyer has the order, they confirm with photos. Then the seller marks it as handed over." : "This buyer has no account, so they can't confirm online. Mark the order Completed when it's done."}</p>
+            </div>` : ""}
           ${o.checkout_payment && o.checkout_payment.can_check && o.payment_status !== "paid" && o.status !== "cancelled"
             ? `<div class="order-check-pay">
                  <button type="button" data-check-pay class="btn-secondary" style="padding:.5rem .9rem;font-size:.85rem">Check payment with Lipila</button>
@@ -346,10 +344,9 @@
 
         box.querySelector("[data-handover]")?.addEventListener("submit", async (e) => {
           e.preventDefault();
-          const method = e.target.method.value;
-          if (!(await confirmAction({ title: "Mark as handed over?", message: `${method === "delivered" ? "Delivered to" : "Collected by"} ${o.full_name}. They'll be asked to confirm with photos.`, confirmText: "Mark as handed over" }))) return;
+          if (!(await confirmAction({ title: "Mark as handed over?", message: "The order will be marked Completed and the seller's funds can be processed.", confirmText: "Mark as handed over" }))) return;
           try {
-            const res = await adminApi(`/api/admin/orders/${o.id}/handover`, { method: "POST", body: { method } });
+            const res = await adminApi(`/api/admin/orders/${o.id}/handover`, { method: "POST", body: {} });
             showNotification(res.message, "success");
             await loadList(state.page);
           } catch (error) {

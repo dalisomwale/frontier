@@ -894,22 +894,22 @@
       // Orders on this seller's listings (no buyer details: Frontier handles them).
       const ORDER_TABS = [
         { key: "all", label: "All" },
+        { key: "buyer", label: "Waiting for buyer" },
         { key: "open", label: "To hand over" },
-        { key: "handed", label: "Waiting for buyer" },
         { key: "completed", label: "Completed" },
         { key: "cancelled", label: "Cancelled" },
       ];
       const orderState = { tab: "all", rows: [], q: "" };
       const isOpen = (o) => !["completed", "cancelled"].includes(o.status);
-      const inTab = (o, tab) => tab === "all" || (tab === "open" ? isOpen(o) && !o.handed_over_at : tab === "handed" ? isOpen(o) && Boolean(o.handed_over_at) : o.status === tab);
+      const inTab = (o, tab) => tab === "all" || (tab === "open" ? isOpen(o) && Boolean(o.received_at) : tab === "buyer" ? isOpen(o) && !o.received_at : o.status === tab);
 
       function orderStatus(o) {
-        if (o.status === "completed") return { cls: "so-done", label: "Completed", help: o.received_at ? "The buyer confirmed they received it. Thank you for selling on Frontier." : "Handed over. Thank you for selling on Frontier." };
+        if (o.status === "completed") return { cls: "so-done", label: "Completed", help: o.handed_over_at ? "Handed over. Frontier will process your payment. Thank you for selling on Frontier." : "Thank you for selling on Frontier." };
         if (o.status === "cancelled") return { cls: "so-off", label: "Cancelled", help: "This order was cancelled. The quantity is back on your listing." };
-        if (o.handed_over_at) return { cls: "so-act", label: "Waiting for buyer",
-          help: `Marked as ${o.handover_method === "delivered" ? "delivered" : "collected"}. The buyer has been asked to confirm with photos.` };
-        return { cls: "so-open", label: "To hand over",
-          help: "Please keep these aside for the buyer. When the buyer has them, mark the order as handed over below." };
+        if (o.received_at) return { cls: "so-act", label: "To hand over",
+          help: "The buyer confirmed they received it. Mark the order as handed over so Frontier can process your payment." };
+        return { cls: "so-open", label: "Waiting for buyer",
+          help: "Please keep these aside for the buyer. Once they have them, the buyer confirms with photos, and then you can mark the order as handed over." };
       }
 
       function orderRow(o) {
@@ -961,20 +961,16 @@
                 <h3 class="txd-card-title">What happens next</h3>
                 <p class="text-sm text-gray-700">${st.help}</p>
               </div>
-              ${o.can_hand_over ? `
+              ${isOpen(o) ? `
               <form class="txd-card ho-card" data-handover>
                 <h3 class="txd-card-title">Hand over</h3>
-                <p class="text-sm text-gray-700 mb-3">When the buyer has their ${escapeHtml(o.units)}, mark the order as handed over. The buyer then confirms with photos.</p>
-                <div class="ho-choice">
-                  <label><input type="radio" name="method" value="collected" checked><span>Buyer collected</span></label>
-                  <label><input type="radio" name="method" value="delivered"><span>I delivered</span></label>
-                </div>
-                <button type="submit" class="acc-btn mt-3">Mark as handed over</button>
+                <p class="text-sm text-gray-700 mb-3">${o.can_hand_over ? "The buyer has confirmed. Mark the order as handed over and Frontier will process your payment." : "You can mark the order as handed over once the buyer has confirmed they received it."}</p>
+                <button type="submit" class="acc-btn" ${o.can_hand_over ? "" : "disabled"}>${o.can_hand_over ? "Mark as handed over" : "Waiting for the buyer to confirm"}</button>
               </form>` : ""}
               ${o.received_at ? `
               <div class="txd-card acc-card-ok">
                 <h3 class="txd-card-title">Buyer's confirmation</h3>
-                <p class="text-sm text-gray-700">Confirmed on ${escapeHtml(formatDate(o.received_at))}${o.received_note ? `: "${escapeHtml(o.received_note)}"` : "."}</p>
+                <p class="text-sm text-gray-700">${o.handover_method === "delivered" ? "Delivered" : "Collected"} · confirmed on ${escapeHtml(formatDate(o.received_at))}${o.received_note ? `: "${escapeHtml(o.received_note)}"` : "."}</p>
                 ${o.photos.length ? `<div class="acc-photos mt-3">${o.photos.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="Buyer's photo"></a>`).join("")}</div>` : ""}
               </div>` : ""}
               <div class="txd-card so-listing-card">
@@ -988,16 +984,15 @@
           </div>`;
         view.body.querySelector("[data-handover]")?.addEventListener("submit", async (e) => {
           e.preventDefault();
-          const method = e.target.method.value;
           const ok = await confirmAction({
             title: "Mark as handed over?",
-            message: method === "delivered" ? "You delivered the order to the buyer. They'll be asked to confirm with photos." : "The buyer collected the order. They'll be asked to confirm with photos.",
+            message: "The order will be marked Completed and Frontier will process your payment.",
             confirmText: "Mark as handed over",
           });
           if (!ok) return;
           try {
             const res = await withBusy(e.target.querySelector("button[type=submit]"), "Saving…", () =>
-              sellerApi(`/api/seller/orders/${o.id}/handover`, { method: "POST", body: { method } }));
+              sellerApi(`/api/seller/orders/${o.id}/handover`, { method: "POST", body: {} }));
             showNotification(res.message, "success");
             await view.close(true);
             await loadOrders();
@@ -1022,9 +1017,9 @@
         }
         if (!rows.length) {
           const empty = {
-            open: ["Nothing to hand over right now", "When a buyer orders and pays for one of your listings, it appears here and we email you."],
-            handed: ["Nothing waiting", "Orders you've handed over wait here until the buyer confirms."],
-            completed: ["No completed orders yet", "Orders the buyer has confirmed appear here."],
+            buyer: ["Nothing waiting", "Paid orders wait here until the buyer confirms they've received them."],
+            open: ["Nothing to hand over right now", "Orders the buyer has confirmed appear here, ready for you to mark as handed over."],
+            completed: ["No completed orders yet", "Orders you've handed over appear here."],
             cancelled: ["No cancelled orders", "Cancelled orders appear here."],
             all: ["No orders yet", "When a buyer orders and pays for one of your listings, it appears here and we email you."],
           }[orderState.tab];

@@ -100,7 +100,7 @@
         admin_marked_paid: "Marked Paid by hand",
         admin_message: "Message to buyer",
         admin_check_payment: "Checked with Lipila",
-        handed_over: "Handed over",
+        handed_over: "Handed over: ready to pay the seller",
         buyer_confirmed: "Buyer confirmed receipt",
       };
       const TONE = {
@@ -316,8 +316,8 @@
             : [card ? "Card accepted" : "PIN approved", paid ? "done" : failed && requested ? "fail" : requested ? "now" : "todo"],
           ["Paid", paid ? "done" : "todo"],
           ["Stock and emails", has("stock_taken", "email_sent", "admin_marked_paid") || (paid && t.rebuilt) ? "done" : paid ? "now" : "todo"],
-          ["Handed over", has("handed_over") ? "done" : paid ? "now" : "todo"],
-          ["Received", has("buyer_confirmed") ? "done" : has("handed_over") ? "now" : "todo"],
+          ["Buyer confirmed", has("buyer_confirmed") ? "done" : paid ? "now" : "todo"],
+          ["Handed over", has("handed_over") ? "done" : has("buyer_confirmed") ? "now" : "todo"],
         ];
         const mark = { done: "✓", fail: "✕", now: "…", todo: "" };
         return `<ol class="tx-path" aria-label="Payment progress">${stages.map(([label, st], i) => `

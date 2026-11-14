@@ -289,14 +289,14 @@ router.patch("/:id", async (req, res, next) => {
   }
 });
 
-// Frontier marks an order as handed over (its own stock, or for a seller):
-// the buyer is then asked to confirm with photos.
+// Frontier marks an order as handed over (its own stock, or for a seller),
+// once the buyer has confirmed. The order is then Completed.
 router.post("/:id/handover", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
     if (!id) throw notFound("Order not found.");
-    await handover.handOver(id, oneOf(req.body.method, handover.METHODS), { kind: "admin", name: `Frontier (${req.admin.name})`, admin: req.admin }, req.ip);
-    res.json({ success: true, message: "Marked as handed over. The buyer has been asked to confirm.", data: await loadOrder(id) });
+    await handover.handOver(id, { kind: "admin", name: `Frontier (${req.admin.name})`, admin: req.admin }, req.ip);
+    res.json({ success: true, message: "Marked as handed over. The order is complete.", data: await loadOrder(id) });
   } catch (error) {
     next(error);
   }

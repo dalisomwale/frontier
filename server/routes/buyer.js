@@ -297,12 +297,12 @@ router.patch("/me/password", requireBuyer, async (req, res, next) => {
 // Orders
 // ---------------------------------------------------------------------------
 
-// ordered -> paid -> handed_over -> received (or completed by the team), or
-// unpaid / cancelled.
+// ordered -> paid -> received (buyer confirmed) -> completed (seller handed
+// over, or completed by the team), or unpaid / cancelled.
 function stageOf(o) {
   if (o.status === "cancelled") return "cancelled";
-  if (o.status === "completed") return o.received_at ? "received" : "completed";
-  if (o.handed_over_at) return "handed_over";
+  if (o.status === "completed") return "completed";
+  if (o.received_at) return "received";
   if (o.payment_status === "paid" || ["paid", "confirmed"].includes(o.status)) return "paid";
   return "unpaid";
 }
@@ -378,10 +378,10 @@ router.post("/orders/:id/confirm", requireBuyer, uploadImages, async (req, res, 
     if (!id) throw notFound("Order not found.");
     const agreed = ["1", "true", "on"].includes(String(req.body.agree));
     if (!agreed) throw validationError({ agree: "Please tick the box to confirm you've received it." });
-    await handover.confirmReceipt(id, req.buyer, req.files, text(req.body.note, 500) || null, req.ip);
+    await handover.confirmReceipt(id, req.buyer, String(req.body.method || ""), req.files, text(req.body.note, 500) || null, req.ip);
     const [[o]] = await pool.query(`${ORDER_SQL} WHERE o.id = ?`, [id]);
     const photos = await handover.photosOf([id]);
-    res.json({ success: true, message: "Thank you! Your order is complete.", data: orderView(o, photos.get(id) || []) });
+    res.json({ success: true, message: "Thank you! We've told the seller.", data: orderView(o, photos.get(id) || []) });
   } catch (error) {
     next(error);
   }
