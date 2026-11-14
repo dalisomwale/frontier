@@ -22,6 +22,7 @@ const payments = require("./payments");
 const txlog = require("./txlog");
 const emails = require("./emails");
 const { badRequest } = require("./validate");
+const notifications = require("../services/notifications");
 
 const MAX_ATTEMPTS = 5;
 const MAX_LINES = 20;
@@ -196,9 +197,9 @@ async function create(lines, buyer, ip, pay = null) {
     }
     total = Math.round(total * 100) / 100;
     const [c] = await conn.query(
-      `INSERT INTO checkouts (public_token, full_name, phone, email, item_count, total, payment_method, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [token, buyer.full_name, buyer.phone, buyer.email, priced.length, total, method, ip],
+      `INSERT INTO checkouts (public_token, buyer_id, full_name, phone, email, item_count, total, payment_method, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [token, buyer.id || null, buyer.full_name, buyer.phone, buyer.email, priced.length, total, method, ip],
     );
     checkoutId = c.insertId;
     for (const { l, quantity, lineTotal } of priced) {
@@ -206,10 +207,10 @@ async function create(lines, buyer, ip, pay = null) {
       const [o] = await conn.query(
         `INSERT INTO orders
            (livestock_id, livestock_title, seller_id, seller_name, quantity, unit_price, price_unit, total,
-            full_name, phone, email, delivery, payment_method, stock_deducted, hold_until, ip_address, public_token, checkout_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'collect', ?, ?, IF(?, NOW() + INTERVAL ? MINUTE, NULL), ?, ?, ?)`,
+            full_name, phone, email, delivery, payment_method, stock_deducted, hold_until, ip_address, public_token, checkout_id, buyer_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'collect', ?, ?, IF(?, NOW() + INTERVAL ? MINUTE, NULL), ?, ?, ?, ?)`,
         [l.id, l.title, l.seller_id, sellerName, quantity, Number(l.price), l.price_unit, lineTotal,
-          buyer.full_name, buyer.phone, buyer.email, method, hold ? 0 : 1, hold ? 1 : 0, HOLD_MINUTES, ip, newToken(), checkoutId],
+          buyer.full_name, buyer.phone, buyer.email, method, hold ? 0 : 1, hold ? 1 : 0, HOLD_MINUTES, ip, newToken(), checkoutId, buyer.id || null],
       );
       // Held while the buyer pays (mobile money, card), or taken off now.
       const soldOut = !hold && Number(l.quantity) - quantity === 0;
@@ -452,6 +453,16 @@ async function markPaid(checkout, data) {
     [providerRef, checkout.id],
   );
   if (!result.affectedRows) return;
+  notifications.broadcastAdmin("payment", { checkout_id: checkout.id, change: "paid" });
+  if (checkout.buyer_id) {
+    notifications.notifyBuyer(checkout.buyer_id, {
+      type: "order",
+      title: `Payment received for ${checkoutRef(checkout.id)}`,
+      body: "Thank you. We'll contact you to arrange collection or delivery.",
+      link: "/account/?tab=orders",
+    });
+    notifications.pingBuyer(checkout.buyer_id, "order", { checkout_id: checkout.id });
+  }
   txlog.record({
     checkoutId: checkout.id, reference: data.reference || checkout.payment_reference, event: "payment_confirmed", status: "paid",
     actor: "lipila", amount: data.amount || checkout.total,
@@ -503,7 +514,7 @@ async function markPaid(checkout, data) {
       ...(shortIds.size ? ["One of your items sold out just before your payment came through. We'll contact you today to offer a replacement or a refund."] : []),
     ],
     rows,
-    button: { label: "View your order", url: appUrl(ourPayPage(checkout)) },
+    button: { label: "View your order", url: appUrl(checkout.buyer_id ? "/account/?tab=orders" : ourPayPage(checkout)) },
   }), { checkoutId: checkout.id, who: "buyer", to: checkout.email });
   txlog.recordEmail(sendEmail({
     to: recipients(),
@@ -552,6 +563,7 @@ async function markFailed(checkout, reason, reference) {
   if (!fresh || fresh.payment_status !== "failed") return;
   await syncOrders(fresh);
   await pool.query("UPDATE orders SET hold_until = NULL WHERE checkout_id = ? AND stock_deducted = 0", [checkout.id]);
+  notifications.broadcastAdmin("payment", { checkout_id: checkout.id, change: "failed" });
   txlog.record({
     checkoutId: checkout.id, reference: fresh.payment_reference, event: "payment_failed", status: "failed", actor: "lipila",
     amount: fresh.total, detail: `Payment not completed: ${fresh.payment_failure || "no reason given"}. Held items released.`,

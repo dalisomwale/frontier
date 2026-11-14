@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Log in - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/password-rules.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/buyer.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div id="account-header"></div>
+    <header class="page-band">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 class="page-band-title">Log in</h1>
+        <span class="page-band-swoosh" aria-hidden="true"></span>
+        <p class="page-band-sub">See your orders and check out faster.</p>
+      </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 py-8 sm:py-10">
+      <div class="acc-card">
+        <form id="login-form" class="space-y-4" novalidate>
+          <div id="checkout-note" class="alert alert-info text-sm mb-0" hidden>You need an account to check out. Your cart is kept.</div>
+          <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
+          <div>
+            <label for="email" class="field-label">Email <span class="text-red-500">*</span></label>
+            <input id="email" name="email" type="email" class="field-input" autocomplete="username" required />
+          </div>
+          <div>
+            <label for="password" class="field-label">Password <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="current-password" required />
+              <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+            </div>
+            <p class="field-error hidden" data-error-for="password"></p>
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 -mt-1 text-sm">
+            <label class="inline-flex items-center gap-2 text-gray-700 whitespace-nowrap"><input id="remember" name="remember" type="checkbox" checked /> Keep me logged in</label>
+            <a href="/account/forgot.html" class="acc-link">Forgot password?</a>
+          </div>
+          <button id="submit-btn" type="submit" class="acc-btn">Log in</button>
+        </form>
+      </div>
+      <div class="acc-card acc-card-alt mt-4 text-center">
+        <p class="text-sm text-gray-700">New to Frontier Marketplace?</p>
+        <a id="register-link" href="/account/register.html" class="acc-btn acc-btn-gold mt-3">Create an account</a>
+      </div>
+      <p class="text-sm text-gray-500 text-center mt-6">Selling livestock on Frontier? <a href="/seller/login.html" class="acc-link">Seller log in</a></p>
+    </main>
+
+    <script src="/js/app-shell.js"></script>
+    <script>
+      document.getElementById("account-header").innerHTML = accountHeader(null);
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      if (typeof renderBottomNav === "function") renderBottomNav("public");
+      bindPasswordToggles();
+      const alertBox = document.getElementById("form-alert");
+      const showAlert = (message, kind = "error") => {
+        alertBox.className = `alert alert-${kind} text-sm mb-0`;
+        alertBox.textContent = message;
+      };
+      const form = document.getElementById("login-form");
+      const next = buyerNext();
+      if (next.startsWith("/checkout")) document.getElementById("checkout-note").hidden = false;
+      document.getElementById("register-link").href = `/account/register.html${location.search}`;
+      if (getQueryParams().reset) showAlert("Password updated. You can now log in.", "success");
+      buyerApi("/api/buyer/auth/me").then(() => { setBuyerHint(true); window.location.href = next; }).catch(() => form.email.focus());
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const email = form.email.value.trim();
+        const password = form.password.value;
+        if (!email || !password) return showAlert("Please enter your email and password.");
+        try {
+          await withBusy(document.getElementById("submit-btn"), "Logging in…", () =>
+            buyerApi("/api/buyer/auth/login", { method: "POST", body: { email, password, remember: form.elements.remember.checked } }));
+          setBuyerHint(true);
+          window.location.href = next;
+        } catch (error) {
+          showAlert(error.message);
+          form.password.value = "";
+          form.password.focus();
+        }
+      });
+    </script>
+    <div id="app-bottom-nav"></div>
+  </body>
+</html>

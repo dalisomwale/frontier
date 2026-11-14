@@ -58,7 +58,32 @@ async function initAdminPage(active) {
   if (name) name.textContent = `Signed in as ${admin.name}`;
   document.body.classList.remove("admin-pending");
   refreshNewInquiryBadge();
+  listenForChanges();
   return admin;
+}
+
+// Live updates: the server tells every open admin page when an order,
+// payment or inquiry changes. Pages listen for "admin:change" and refresh
+// what they show; the menu badges are refreshed here.
+let adminEvents = null;
+function listenForChanges() {
+  if (adminEvents || !window.EventSource) return;
+  adminEvents = new EventSource("/api/admin/events");
+  let badgeTimer = null;
+  adminEvents.addEventListener("change", (e) => {
+    let detail = {};
+    try { detail = JSON.parse(e.data); } catch { return; }
+    window.dispatchEvent(new CustomEvent("admin:change", { detail }));
+    clearTimeout(badgeTimer);
+    badgeTimer = setTimeout(refreshNewInquiryBadge, 400);
+    const ref = detail.checkout_id ? `FMC-${1000 + Number(detail.checkout_id)}` : detail.id ? `FM-${1000 + Number(detail.id)}` : "";
+    const note = {
+      paid: `Payment received: ${ref}`,
+      received: `Buyer confirmed they received ${detail.id ? `FM-${1000 + Number(detail.id)}` : "an order"}`,
+      handed_over: `Order ${detail.id ? `FM-${1000 + Number(detail.id)}` : ""} handed over`,
+    }[detail.change] || (detail.kind === "inquiry" ? "New inquiry received" : "");
+    if (note) showNotification(note, "info");
+  });
 }
 
 async function refreshNewInquiryBadge() {
@@ -124,7 +149,7 @@ async function closeAdminViewsTo(keep) {
 // openAdminView({ title, params, html, onClose, canLeave }) -> { el, close, setTitle }
 //   params    optional address for this view (e.g. { id: 3 }), so it can be shared
 //   canLeave  optional async check before closing (unsaved changes)
-const VIEW_PARAMS = ["edit", "new", "id"];
+const VIEW_PARAMS = ["edit", "new", "id", "confirm"];
 function adminListUrl() {
   const q = new URLSearchParams(location.search);
   VIEW_PARAMS.forEach((k) => q.delete(k));

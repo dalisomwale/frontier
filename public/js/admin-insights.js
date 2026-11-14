@@ -194,5 +194,12 @@
       load(select.value);
     });
     load(range);
+    // Live: refresh the numbers when an order or payment changes.
+    let timer = null;
+    window.addEventListener("admin:change", (e) => {
+      if (!["order", "payment"].includes(e.detail.kind)) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => load(select.value), 800);
+    });
   };
 })();

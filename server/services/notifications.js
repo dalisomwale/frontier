@@ -73,4 +73,93 @@ function disconnectSeller(sellerId) {
   streams.delete(Number(sellerId));
 }
 
-module.exports = { notifySeller, subscribe, disconnectSeller, unreadCount };
+// ---------------------------------------------------------------------------
+// Buyers: the same, for the buyer account pages.
+// ---------------------------------------------------------------------------
+const buyerStreams = new Map(); // buyerId -> Set of open responses
+
+async function buyerUnreadCount(buyerId) {
+  const [[{ unread }]] = await pool.query(
+    "SELECT COUNT(*) AS unread FROM buyer_notifications WHERE buyer_id = ? AND read_at IS NULL",
+    [buyerId],
+  );
+  return Number(unread);
+}
+
+// Never throws. `event` is also sent on its own (e.g. "order") so an open
+// order page can refresh itself.
+async function notifyBuyer(buyerId, { type, title, body = null, link = null }) {
+  if (!buyerId) return null;
+  try {
+    const [result] = await pool.query(
+      "INSERT INTO buyer_notifications (buyer_id, type, title, body, link) VALUES (?, ?, ?, ?, ?)",
+      [buyerId, type, String(title).slice(0, 200), body ? String(body).slice(0, 1000) : null, link],
+    );
+    const [[row]] = await pool.query("SELECT * FROM buyer_notifications WHERE id = ?", [result.insertId]);
+    const open = buyerStreams.get(Number(buyerId));
+    if (open && open.size) {
+      const unread = await buyerUnreadCount(buyerId);
+      open.forEach((res) => send(res, "notification", { notification: row, unread }));
+    }
+    return row;
+  } catch (error) {
+    console.error("Buyer notification failed:", error.message);
+    return null;
+  }
+}
+
+// A change the buyer's open pages should show (no stored notification).
+function pingBuyer(buyerId, event, data = {}) {
+  const open = buyerStreams.get(Number(buyerId));
+  if (open) open.forEach((res) => send(res, event, data));
+}
+
+function stream(res, req, map, id, onReady) {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders();
+  res.write("retry: 5000\n\n");
+  if (!map.has(id)) map.set(id, new Set());
+  map.get(id).add(res);
+  const heartbeat = setInterval(() => res.write(": ping\n\n"), 25000);
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    map.get(id)?.delete(res);
+    if (map.get(id)?.size === 0) map.delete(id);
+  });
+  if (onReady) onReady();
+}
+
+function subscribeBuyer(buyerId, req, res) {
+  const id = Number(buyerId);
+  stream(res, req, buyerStreams, id, () => buyerUnreadCount(id).then((unread) => send(res, "ready", { unread })).catch(() => {}));
+}
+
+// ---------------------------------------------------------------------------
+// Admins: every open admin page hears about changes to orders, payments and
+// inquiries, and refreshes what it shows (no stored notifications).
+// ---------------------------------------------------------------------------
+const adminStreams = new Map(); // adminId -> Set
+
+function subscribeAdmin(adminId, req, res) {
+  stream(res, req, adminStreams, Number(adminId), () => send(res, "ready", {}));
+}
+
+// Never throws. kind: "order", "payment", "inquiry", ...
+function broadcastAdmin(kind, data = {}) {
+  try {
+    adminStreams.forEach((set) => set.forEach((res) => send(res, "change", { kind, ...data, at: Date.now() })));
+  } catch (error) {
+    console.error("Admin live update failed:", error.message);
+  }
+}
+
+module.exports = {
+  notifySeller, subscribe, disconnectSeller, unreadCount,
+  notifyBuyer, pingBuyer, subscribeBuyer, buyerUnreadCount,
+  subscribeAdmin, broadcastAdmin,
+};

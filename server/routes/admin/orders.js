@@ -11,6 +11,8 @@ const { sendEmail } = require("../../services/mailer");
 const { notifySeller } = require("../../services/notifications");
 const emails = require("../../lib/emails");
 const txlog = require("../../lib/txlog");
+const handover = require("../../lib/handover");
+const { broadcastAdmin } = require("../../services/notifications");
 const { positiveInt, text, oneOf, badRequest, notFound } = require("../../lib/validate");
 const {
   ORDER_STATUSES,
@@ -75,6 +77,9 @@ async function loadOrder(id) {
       };
     }
   }
+  const photos = await handover.photosOf([order.id]);
+  order.receipt_photos = photos.get(order.id) || [];
+  order.can_hand_over = handover.canHandOver(rows[0]);
   return order;
 }
 
@@ -265,6 +270,8 @@ router.patch("/:id", async (req, res, next) => {
     if (soldOut && order.seller_id) emails.listingSoldOut(order.seller_id, { id: order.livestock_id, title: order.livestock_title });
 
     const data = await loadOrder(id);
+    broadcastAdmin("order", { id, checkout_id: data.checkout_id, change: "status" });
+    if (changed && data.buyer_id) require("../../services/notifications").pingBuyer(data.buyer_id, "order", { id });
     res.json({
       success: true,
       message: [
@@ -279,6 +286,19 @@ router.patch("/:id", async (req, res, next) => {
     next(error);
   } finally {
     conn.release();
+  }
+});
+
+// Frontier marks an order as handed over (its own stock, or for a seller):
+// the buyer is then asked to confirm with photos.
+router.post("/:id/handover", async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id);
+    if (!id) throw notFound("Order not found.");
+    await handover.handOver(id, oneOf(req.body.method, handover.METHODS), { kind: "admin", name: `Frontier (${req.admin.name})`, admin: req.admin }, req.ip);
+    res.json({ success: true, message: "Marked as handed over. The buyer has been asked to confirm.", data: await loadOrder(id) });
+  } catch (error) {
+    next(error);
   }
 });
 

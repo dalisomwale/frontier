@@ -79,6 +79,11 @@ app.use("/api/seller/auth/login", limiter(10));
 app.use("/api/seller/auth/register", limiter(5, 60));
 app.use("/api/seller/auth/forgot", limiter(5, 60));
 app.use("/api/seller/auth/reset", limiter(10, 60));
+app.use("/api/buyer/auth/login", limiter(10));
+app.use("/api/buyer/auth/register", limiter(5, 60));
+app.use("/api/buyer/auth/forgot", limiter(5, 60));
+app.use("/api/buyer/auth/reset", limiter(10, 60));
+app.use("/api/buyer/auth/resend", limiter(3, 60));
 app.post("/api/inquiries", limiter(8, 60));
 app.post("/api/orders", limiter(8, 60));
 
@@ -154,6 +159,38 @@ app.use(
   }),
 );
 
+// Buyer sessions: their own cookie, sent to the buyer API and to checkout
+// (which needs to know who is ordering).
+const BUYER_COOKIE = "frontier.buyer";
+const buyerSessionStore = new MySQLStore(
+  {
+    createDatabaseTable: true,
+    clearExpired: true,
+    checkExpirationInterval: 15 * 60 * 1000,
+    schema: { tableName: "buyer_sessions" },
+  },
+  pool,
+);
+app.set("buyerCookieName", BUYER_COOKIE);
+app.use(
+  ["/api/buyer", "/api/checkout"],
+  session({
+    name: BUYER_COOKIE,
+    secret: process.env.SESSION_SECRET || "development-only-change-this-secret",
+    store: buyerSessionStore,
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,
+    cookie: {
+      path: "/api",
+      secure: isProduction,
+      httpOnly: true,
+      sameSite: "strict",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    },
+  }),
+);
+
 // ---------------------------------------------------------------------------
 // v1 pages that no longer exist (public accounts, selling, messaging) send
 // visitors somewhere sensible instead of a 404.
@@ -204,6 +241,7 @@ app.use("/pay", require("./routes/checkout").pages);
 app.use("/api/payments", require("./routes/payments"));
 app.use("/api/admin", adminRoutes);
 app.use("/api/seller", sellerRoutes);
+app.use("/api/buyer", require("./routes/buyer"));
 
 // ---------------------------------------------------------------------------
 // 404 + errors
@@ -253,7 +291,7 @@ app.use((err, req, res, next) => {
 // Tables added by later updates are created at startup if missing, so a
 // deploy that forgot "npm run db:setup" still works. Column changes still
 // need db:setup.
-const LATE_TABLES = ["seller_password_resets", "seller_sessions", "seller_notifications", "inquiry_messages", "orders", "app_state", "checkouts", "transaction_events"];
+const LATE_TABLES = ["seller_password_resets", "seller_sessions", "seller_notifications", "inquiry_messages", "orders", "app_state", "checkouts", "transaction_events", "buyers", "buyer_tokens", "buyer_notifications", "order_receipt_photos"];
 // Columns added by later updates, added at startup when missing.
 const LATE_COLUMNS = [
   ["livestock", "price", "DECIMAL(12,2) NULL AFTER quantity"],
@@ -285,6 +323,13 @@ const LATE_COLUMNS = [
   ["checkouts", "failure_emailed_ref", "VARCHAR(40) NULL AFTER payment_check_error"],
   ["orders", "hold_until", "DATETIME NULL AFTER stock_deducted"],
   ["checkouts", "payment_method", "ENUM('mobile_money', 'card', 'bank_transfer') NOT NULL DEFAULT 'mobile_money' AFTER payment_status"],
+  ["checkouts", "buyer_id", "INT UNSIGNED NULL AFTER public_token, ADD INDEX idx_checkouts_buyer (buyer_id)"],
+  ["orders", "buyer_id", "INT UNSIGNED NULL AFTER seller_notified_at, ADD INDEX idx_orders_buyer (buyer_id)"],
+  ["orders", "handover_method", "ENUM('collected', 'delivered') NULL AFTER buyer_id"],
+  ["orders", "handed_over_at", "DATETIME NULL AFTER handover_method"],
+  ["orders", "handed_over_by", "VARCHAR(150) NULL AFTER handed_over_at"],
+  ["orders", "received_at", "DATETIME NULL AFTER handed_over_by"],
+  ["orders", "received_note", "VARCHAR(500) NULL AFTER received_at"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");

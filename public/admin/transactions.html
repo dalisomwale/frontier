@@ -76,7 +76,7 @@
       };
       const METHOD = { mobile_money: "Mobile money", card: "Visa / Mastercard", bank_transfer: "Bank transfer" };
       const NETWORK = { airtel: "Airtel", mtn: "MTN", zamtel: "Zamtel" };
-      const ACTOR = { buyer: "Buyer", lipila: "Lipila", website: "Website", admin: "Admin" };
+      const ACTOR = { buyer: "Buyer", lipila: "Lipila", website: "Website", admin: "Admin", seller: "Seller" };
       const EVENT = {
         order_placed: "Order placed",
         terms_accepted: "Terms accepted",
@@ -100,9 +100,11 @@
         admin_marked_paid: "Marked Paid by hand",
         admin_message: "Message to buyer",
         admin_check_payment: "Checked with Lipila",
+        handed_over: "Handed over",
+        buyer_confirmed: "Buyer confirmed receipt",
       };
       const TONE = {
-        payment_confirmed: "ok", admin_marked_paid: "ok", stock_taken: "ok", email_sent: "ok",
+        payment_confirmed: "ok", admin_marked_paid: "ok", stock_taken: "ok", email_sent: "ok", buyer_confirmed: "ok",
         payment_failed: "bad", payment_request_failed: "bad", email_failed: "bad", stock_short: "bad",
         status_check_error: "warn", unconfirmed_alert: "warn", payment_request_unclear: "warn",
       };
@@ -196,16 +198,30 @@
         document.getElementById("list-view").hidden = false;
         if (!listLoaded) loadList(1);
       }
+      // Live: refresh what's on screen when a payment or order changes.
+      let liveTimer = null;
+      window.addEventListener("admin:change", (e) => {
+        if (!["order", "payment"].includes(e.detail.kind)) return;
+        clearTimeout(liveTimer);
+        liveTimer = setTimeout(() => {
+          const open = Number(new URLSearchParams(location.search).get("id"));
+          if (open && !document.getElementById("detail-view").hidden) {
+            if (!e.detail.checkout_id || Number(e.detail.checkout_id) === open) loadDetail(open, { quiet: true });
+          } else if (listLoaded) {
+            loadList(state.page);
+          }
+        }, 300);
+      });
       window.addEventListener("popstate", () => {
         const id = Number(new URLSearchParams(location.search).get("id"));
         if (id) openTransaction(id, false);
         else showList(false);
       });
 
-      async function loadDetail(id) {
+      async function loadDetail(id, { quiet = false } = {}) {
         const view = document.getElementById("detail-view");
         const crumbs = (ref) => `<nav class="tx-crumbs" aria-label="Breadcrumb"><a href="/admin/transactions.html" data-back>Transactions</a><span aria-hidden="true">/</span><b>${escapeHtml(ref)}</b></nav>`;
-        view.innerHTML = `${crumbs(`FMC-${1000 + id}`)}<p class="text-sm text-gray-500">Loading…</p>`;
+        if (!quiet) view.innerHTML = `${crumbs(`FMC-${1000 + id}`)}<p class="text-sm text-gray-500">Loading…</p>`;
         const bindBack = () => view.querySelector("[data-back]").addEventListener("click", (e) => {
           e.preventDefault();
           if (history.state && history.state.fromList) history.back();
@@ -260,7 +276,7 @@
                     <p class="tx-ev-title">${EVENT[e.event] || escapeHtml(e.event)} <span class="tx-actor">${e.actor === "admin" ? escapeHtml(e.admin_name || "Admin") : ACTOR[e.actor] || escapeHtml(e.actor)}</span></p>
                     <p class="tx-ev-meta">${formatDate(e.created_at)}${e.reference ? ` · ${escapeHtml(e.reference)}` : ""}</p>
                     <p class="tx-ev-text">${escapeHtml(e.detail)}</p>
-                    ${e.data ? `<details class="tx-raw"><summary>Lipila's full answer</summary><pre>${escapeHtml(pretty(e.data))}</pre></details>` : ""}
+                    ${e.event === "buyer_confirmed" ? photosOf(e.data) : e.data ? `<details class="tx-raw"><summary>Lipila's full answer</summary><pre>${escapeHtml(pretty(e.data))}</pre></details>` : ""}
                   </div>
                 </li>`).join("")}</ol>` : `<p class="text-sm text-gray-500">No steps recorded.</p>`}
             </section>
@@ -300,10 +316,19 @@
             : [card ? "Card accepted" : "PIN approved", paid ? "done" : failed && requested ? "fail" : requested ? "now" : "todo"],
           ["Paid", paid ? "done" : "todo"],
           ["Stock and emails", has("stock_taken", "email_sent", "admin_marked_paid") || (paid && t.rebuilt) ? "done" : paid ? "now" : "todo"],
+          ["Handed over", has("handed_over") ? "done" : paid ? "now" : "todo"],
+          ["Received", has("buyer_confirmed") ? "done" : has("handed_over") ? "now" : "todo"],
         ];
         const mark = { done: "✓", fail: "✕", now: "…", todo: "" };
         return `<ol class="tx-path" aria-label="Payment progress">${stages.map(([label, st], i) => `
           <li class="tx-step is-${st}"><span class="tx-dot">${mark[st] || i + 1}</span><span class="tx-step-label">${label}</span></li>`).join("")}</ol>`;
+      }
+
+      // The buyer's photos on "Buyer confirmed receipt".
+      function photosOf(data) {
+        let list = [];
+        try { list = JSON.parse(data).photos || []; } catch {}
+        return list.length ? `<div class="order-proof-photos">${list.filter((p) => /^\/uploads\//.test(p)).map((p) => `<a href="${escapeHtml(p)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.replace(/\.webp$/, "-thumb.webp"))}" alt="Buyer's photo"></a>`).join("")}</div>` : "";
       }
 
       function pretty(data) {

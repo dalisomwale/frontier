@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Forgot password - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/password-rules.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/buyer.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div id="account-header"></div>
+    <header class="page-band">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 class="page-band-title">Forgot your password?</h1>
+        <span class="page-band-swoosh" aria-hidden="true"></span>
+        <p class="page-band-sub">We'll email you a link to choose a new one.</p>
+      </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 py-8 sm:py-10">
+      <div class="acc-card">
+        <form id="forgot-form" class="space-y-4" novalidate>
+          <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
+          <div>
+            <label for="email" class="field-label">Email <span class="text-red-500">*</span></label>
+            <input id="email" name="email" type="email" class="field-input" autocomplete="email" required />
+          </div>
+          <button id="submit-btn" type="submit" class="acc-btn">Send reset link</button>
+          <p class="text-sm text-center"><a href="/account/login.html" class="acc-link">Back to log in</a></p>
+        </form>
+      </div>
+    </main>
+
+    <script src="/js/app-shell.js"></script>
+    <script>
+      document.getElementById("account-header").innerHTML = accountHeader(null);
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      if (typeof renderBottomNav === "function") renderBottomNav("public");
+      bindPasswordToggles();
+      const alertBox = document.getElementById("form-alert");
+      const showAlert = (message, kind = "error") => {
+        alertBox.className = `alert alert-${kind} text-sm mb-0`;
+        alertBox.textContent = message;
+      };
+      const form = document.getElementById("forgot-form");
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          const res = await withBusy(document.getElementById("submit-btn"), "Sending…", () =>
+            buyerApi("/api/buyer/auth/forgot", { method: "POST", body: { email: form.email.value.trim() } }));
+          showAlert(res.message, "success");
+        } catch (error) {
+          showAlert(error.message);
+        }
+      });
+    </script>
+    <div id="app-bottom-nav"></div>
+  </body>
+</html>

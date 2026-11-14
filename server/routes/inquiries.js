@@ -155,6 +155,7 @@ router.post("/", async (req, res, next) => {
 
     // Auto-reply to the customer so they know it arrived.
     emails.inquiryReceived({ ...values, id: inquiryId }, item);
+    require("../services/notifications").broadcastAdmin("inquiry", { id: inquiryId });
 
     return res.status(201).json({
       success: true,

@@ -895,18 +895,21 @@
       const ORDER_TABS = [
         { key: "all", label: "All" },
         { key: "open", label: "To hand over" },
+        { key: "handed", label: "Waiting for buyer" },
         { key: "completed", label: "Completed" },
         { key: "cancelled", label: "Cancelled" },
       ];
       const orderState = { tab: "all", rows: [], q: "" };
       const isOpen = (o) => !["completed", "cancelled"].includes(o.status);
-      const inTab = (o, tab) => tab === "all" || (tab === "open" ? isOpen(o) : o.status === tab);
+      const inTab = (o, tab) => tab === "all" || (tab === "open" ? isOpen(o) && !o.handed_over_at : tab === "handed" ? isOpen(o) && Boolean(o.handed_over_at) : o.status === tab);
 
       function orderStatus(o) {
-        if (o.status === "completed") return { cls: "so-done", label: "Completed", help: "Handed over. Thank you for selling on Frontier." };
+        if (o.status === "completed") return { cls: "so-done", label: "Completed", help: o.received_at ? "The buyer confirmed they received it. Thank you for selling on Frontier." : "Handed over. Thank you for selling on Frontier." };
         if (o.status === "cancelled") return { cls: "so-off", label: "Cancelled", help: "This order was cancelled. The quantity is back on your listing." };
+        if (o.handed_over_at) return { cls: "so-act", label: "Waiting for buyer",
+          help: `Marked as ${o.handover_method === "delivered" ? "delivered" : "collected"}. The buyer has been asked to confirm with photos.` };
         return { cls: "so-open", label: "To hand over",
-          help: "Please keep these aside for the buyer. Our team will contact you to arrange the handover." };
+          help: "Please keep these aside for the buyer. When the buyer has them, mark the order as handed over below." };
       }
 
       function orderRow(o) {
@@ -958,6 +961,22 @@
                 <h3 class="txd-card-title">What happens next</h3>
                 <p class="text-sm text-gray-700">${st.help}</p>
               </div>
+              ${o.can_hand_over ? `
+              <form class="txd-card ho-card" data-handover>
+                <h3 class="txd-card-title">Hand over</h3>
+                <p class="text-sm text-gray-700 mb-3">When the buyer has their ${escapeHtml(o.units)}, mark the order as handed over. The buyer then confirms with photos.</p>
+                <div class="ho-choice">
+                  <label><input type="radio" name="method" value="collected" checked><span>Buyer collected</span></label>
+                  <label><input type="radio" name="method" value="delivered"><span>I delivered</span></label>
+                </div>
+                <button type="submit" class="acc-btn mt-3">Mark as handed over</button>
+              </form>` : ""}
+              ${o.received_at ? `
+              <div class="txd-card acc-card-ok">
+                <h3 class="txd-card-title">Buyer's confirmation</h3>
+                <p class="text-sm text-gray-700">Confirmed on ${escapeHtml(formatDate(o.received_at))}${o.received_note ? `: "${escapeHtml(o.received_note)}"` : "."}</p>
+                ${o.photos.length ? `<div class="acc-photos mt-3">${o.photos.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="Buyer's photo"></a>`).join("")}</div>` : ""}
+              </div>` : ""}
               <div class="txd-card so-listing-card">
                 <span class="so-thumb">${o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="" loading="lazy">` : livestockFallbackMedia("w-6 h-6")}</span>
                 <div class="min-w-0 flex-1">
@@ -967,6 +986,26 @@
               </div>
             </div>
           </div>`;
+        view.body.querySelector("[data-handover]")?.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const method = e.target.method.value;
+          const ok = await confirmAction({
+            title: "Mark as handed over?",
+            message: method === "delivered" ? "You delivered the order to the buyer. They'll be asked to confirm with photos." : "The buyer collected the order. They'll be asked to confirm with photos.",
+            confirmText: "Mark as handed over",
+          });
+          if (!ok) return;
+          try {
+            const res = await withBusy(e.target.querySelector("button[type=submit]"), "Saving…", () =>
+              sellerApi(`/api/seller/orders/${o.id}/handover`, { method: "POST", body: { method } }));
+            showNotification(res.message, "success");
+            await view.close(true);
+            await loadOrders();
+            openOrder(o.id);
+          } catch (error) {
+            showNotification(error.message, "error");
+          }
+        });
       }
 
       function renderOrders() {
@@ -984,7 +1023,8 @@
         if (!rows.length) {
           const empty = {
             open: ["Nothing to hand over right now", "When a buyer orders and pays for one of your listings, it appears here and we email you."],
-            completed: ["No completed orders yet", "Orders you've handed over appear here."],
+            handed: ["Nothing waiting", "Orders you've handed over wait here until the buyer confirms."],
+            completed: ["No completed orders yet", "Orders the buyer has confirmed appear here."],
             cancelled: ["No cancelled orders", "Cancelled orders appear here."],
             all: ["No orders yet", "When a buyer orders and pays for one of your listings, it appears here and we email you."],
           }[orderState.tab];

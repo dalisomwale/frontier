@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Choose a new password - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/password-rules.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/buyer.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div id="account-header"></div>
+    <header class="page-band">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 class="page-band-title">Choose a new password</h1>
+        <span class="page-band-swoosh" aria-hidden="true"></span>
+        <p class="page-band-sub">Then log in with it.</p>
+      </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 py-8 sm:py-10">
+      <div class="acc-card">
+        <form id="reset-form" class="space-y-4" novalidate>
+          <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
+          <div>
+            <label for="password" class="field-label">New password <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
+              <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+            </div>
+            <p class="field-error hidden" data-error-for="password"></p>
+          </div>
+          <button id="submit-btn" type="submit" class="acc-btn">Save password</button>
+        </form>
+      </div>
+    </main>
+
+    <script src="/js/app-shell.js"></script>
+    <script>
+      document.getElementById("account-header").innerHTML = accountHeader(null);
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      if (typeof renderBottomNav === "function") renderBottomNav("public");
+      bindPasswordToggles();
+      const alertBox = document.getElementById("form-alert");
+      const showAlert = (message, kind = "error") => {
+        alertBox.className = `alert alert-${kind} text-sm mb-0`;
+        alertBox.textContent = message;
+      };
+      const form = document.getElementById("reset-form");
+      bindPasswordMeter(form.password);
+      const token = getQueryParams().token || "";
+      if (!token) showAlert("This reset link is incomplete. Please use the link from the email.");
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          await withBusy(document.getElementById("submit-btn"), "Saving…", () =>
+            buyerApi("/api/buyer/auth/reset", { method: "POST", body: { token, password: form.password.value } }));
+          window.location.href = "/account/login.html?reset=1";
+        } catch (error) {
+          showFieldErrors(form, error);
+          showAlert(error.message);
+        }
+      });
+    </script>
+    <div id="app-bottom-nav"></div>
+  </body>
+</html>

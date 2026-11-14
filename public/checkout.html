@@ -12,6 +12,7 @@
     <script src="/js/icons.js"></script>
     <script src="/js/livestock.js"></script>
     <script src="/js/cart.js"></script>
+    <script src="/js/buyer.js"></script>
   </head>
   <body class="bg-gray-50">
     <nav id="page-topnav" class="site-topnav sticky top-0 z-50">
@@ -22,8 +23,8 @@
             <span class="hidden sm:block font-bold site-topnav-name">Frontier Marketplace</span>
           </a>
           <div class="header-auth">
-            <a id="login-link" href="/seller/login.html" class="header-login-link">Login</a>
-            <a id="seller-link" href="/seller/register.html" class="header-seller-link">Register</a>
+            <a id="login-link" href="/account/login.html" class="header-login-link">Log in</a>
+            <a id="seller-link" href="/account/register.html" class="header-seller-link">Register</a>
           </div>
         </div>
       </div>
@@ -58,9 +59,20 @@
         </li>`;
       }
 
+      let buyer = null;
+      const toLogin = () => window.location.replace(`/account/login.html?next=${encodeURIComponent("/checkout.html")}`);
+
       async function load() {
         const lines = readCart();
         if (!lines.length) { window.location.replace("/cart.html"); return; }
+        // A buyer account is needed to check out; the cart is kept meanwhile.
+        try {
+          buyer = (await buyerApi("/api/buyer/auth/me")).data;
+          setBuyerHint(true);
+        } catch {
+          toLogin();
+          return;
+        }
         try {
           quote = (await apiRequest("/api/checkout/quote", { method: "POST", body: { items: lines } })).data;
         } catch (error) {
@@ -83,17 +95,17 @@
               <div id="co-alert" class="hidden alert alert-error text-sm" role="alert"></div>
               <section class="checkout-section">
                 <h2>Your details</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label for="co-name" class="field-label">Full name</label>
-                    <input id="co-name" name="full_name" type="text" class="field-input" autocomplete="name" maxlength="120" required>
-                    <p class="field-error hidden" data-error-for="full_name"></p>
+                <div class="co-who">
+                  <span class="acc-av">${escapeHtml(buyerInitials(buyer.full_name))}</span>
+                  <div class="min-w-0 flex-1">
+                    <p class="font-bold text-gray-900 truncate">${escapeHtml(buyer.full_name)}</p>
+                    <p class="text-sm text-gray-600 truncate">${escapeHtml(buyer.email)}</p>
                   </div>
-                  <div>
-                    <label for="co-email" class="field-label">Email</label>
-                    <input id="co-email" name="email" type="email" class="field-input" autocomplete="email" inputmode="email" maxlength="255" required>
-                    <p class="field-error hidden" data-error-for="email"></p>
-                  </div>
+                  <a href="/account/?tab=profile" class="acc-link text-sm">Change</a>
+                </div>
+                <input type="hidden" name="full_name" value="${escapeHtml(buyer.full_name)}">
+                <input type="hidden" name="email" value="${escapeHtml(buyer.email)}">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                   <div>
                     <label for="co-phone" class="field-label">Phone number</label>
                     <input id="co-phone" name="phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" required placeholder="0977 123 456">
@@ -199,6 +211,12 @@
         // The mobile money number starts as the phone number; the buyer can change it.
         const ph = form.elements.phone;
         const pp = form.elements.payment_phone;
+        ph.value = buyer.phone || "";
+        if (pp) {
+          pp.value = ph.value;
+          pp.dispatchEvent(new Event("input"));
+          delete pp.dataset.edited;
+        }
         if (pp) {
           form.querySelectorAll('input[name="mobile_operator"]').forEach((r) => r.addEventListener("change", () => {
             form.querySelector('[data-error-for="mobile_operator"]').classList.add("hidden");
@@ -277,6 +295,7 @@
           if (chosen === "card" && d.card_url && d.card_embed) return showCardForm(form, submits, d);
           window.location.href = d.pay_url;
         } catch (error) {
+          if (error.status === 401) return toLogin();
           if (error.errors) showErrors(form, error.errors);
           alertBox.innerHTML = escapeHtml(error.message || "Your order could not be placed. Please try again.")
             + (error.status === 409 ? ` <a href="/cart.html" class="underline font-semibold">Review your cart</a>` : "");

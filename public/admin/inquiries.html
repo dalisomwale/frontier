@@ -431,6 +431,12 @@
         await loadList(1);
         if (q.id) openInquiry(q.id);
         else if (window.matchMedia("(min-width: 1024px)").matches && state.rows.length) openInquiry(state.rows[0].id);
+        // Live: new inquiries appear at the top without a refresh.
+        window.addEventListener("admin:change", (e) => {
+          if (e.detail.kind !== "inquiry") return;
+          loadList(1).catch(() => {});
+          if (typeof loadCounts === "function") loadCounts().catch(() => {});
+        });
       })();
     </script>
   </body>

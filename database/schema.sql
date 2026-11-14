@@ -312,6 +312,12 @@ CREATE TABLE IF NOT EXISTS orders (
   stock_deducted   TINYINT(1) NOT NULL DEFAULT 0,
   hold_until       DATETIME NULL,
   seller_notified_at DATETIME NULL,
+  buyer_id         INT UNSIGNED NULL,
+  handover_method  ENUM('collected', 'delivered') NULL,
+  handed_over_at   DATETIME NULL,
+  handed_over_by   VARCHAR(150) NULL,
+  received_at      DATETIME NULL,
+  received_note    VARCHAR(500) NULL,
   email_status     ENUM('pending', 'sent', 'failed') NOT NULL DEFAULT 'pending',
   email_error      VARCHAR(500) NULL,
   ip_address       VARCHAR(45) NULL,
@@ -325,6 +331,7 @@ CREATE TABLE IF NOT EXISTS orders (
   INDEX idx_orders_livestock (livestock_id),
   INDEX idx_orders_seller (seller_id),
   INDEX idx_orders_checkout (checkout_id),
+  INDEX idx_orders_buyer (buyer_id),
   INDEX idx_orders_payment_ref (payment_reference)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -334,6 +341,7 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE TABLE IF NOT EXISTS checkouts (
   id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   public_token        CHAR(32) NOT NULL,
+  buyer_id            INT UNSIGNED NULL,
   full_name           VARCHAR(120) NOT NULL,
   phone               VARCHAR(30) NOT NULL,
   email               VARCHAR(255) NOT NULL,
@@ -361,7 +369,63 @@ CREATE TABLE IF NOT EXISTS checkouts (
   created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_checkouts_payment_ref (payment_reference),
+  INDEX idx_checkouts_buyer (buyer_id),
   INDEX idx_checkouts_status (payment_status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Buyer accounts. A buyer needs an account to check out; their orders,
+-- handovers and confirmations are on their account pages (/account/).
+CREATE TABLE IF NOT EXISTS buyers (
+  id                 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  full_name          VARCHAR(120) NOT NULL,
+  email              VARCHAR(255) NOT NULL,
+  phone              VARCHAR(30) NOT NULL,
+  password_hash      VARCHAR(255) NOT NULL,
+  status             ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+  email_verified_at  DATETIME NULL,
+  last_login_at      DATETIME NULL,
+  created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_buyers_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One-time links for buyers: password reset and email confirmation.
+CREATE TABLE IF NOT EXISTS buyer_tokens (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  buyer_id    INT UNSIGNED NOT NULL,
+  purpose     ENUM('reset', 'verify') NOT NULL,
+  token_hash  CHAR(64) NOT NULL,
+  expires_at  DATETIME NOT NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_buyer_tokens_buyer FOREIGN KEY (buyer_id)
+    REFERENCES buyers(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_buyer_tokens (token_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS buyer_notifications (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  buyer_id    INT UNSIGNED NOT NULL,
+  type        VARCHAR(40) NOT NULL,
+  title       VARCHAR(200) NOT NULL,
+  body        VARCHAR(1000) NULL,
+  link        VARCHAR(255) NULL,
+  read_at     DATETIME NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_buyer_notifications_buyer FOREIGN KEY (buyer_id)
+    REFERENCES buyers(id) ON DELETE CASCADE,
+  INDEX idx_buyer_notifications (buyer_id, read_at, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Photos a buyer uploads when confirming they've received an order.
+CREATE TABLE IF NOT EXISTS order_receipt_photos (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_id    INT UNSIGNED NOT NULL,
+  image_path  VARCHAR(255) NOT NULL,
+  thumb_path  VARCHAR(255) NOT NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_receipt_photos_order FOREIGN KEY (order_id)
+    REFERENCES orders(id) ON DELETE CASCADE,
+  INDEX idx_receipt_photos_order (order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Small key/value store for background jobs (e.g. the day the morning

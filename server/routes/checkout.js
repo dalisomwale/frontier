@@ -12,6 +12,8 @@ const lenco = require("../services/lenco");
 const lipila = require("../services/lipila");
 const networks = require("../lib/networks");
 const { appUrl } = require("../services/mailer");
+const { currentBuyer } = require("./buyer");
+const { broadcastAdmin } = require("../services/notifications");
 
 // Whether Lipila's card page can open inside our checkout page.
 async function embeddable(url) {
@@ -37,12 +39,13 @@ router.post("/", async (req, res, next) => {
   try {
     // Honeypot: real visitors never see or fill this field.
     if (req.body.website) return res.status(201).json({ success: true, data: { reference: "FMC-0" } });
-    const fullName = text(req.body.full_name, 120);
-    // Contact number: typed at checkout; for mobile money it falls back to
-    // the number that pays.
-    const phone = text(req.body.phone, 30)
-      || (req.body.payment_method === "mobile_money" ? text(req.body.payment_phone, 30) : "");
-    const email = text(req.body.email, 255);
+    // A buyer account is needed to order; the name and email come from it.
+    const buyer = await currentBuyer(req);
+    if (!buyer) return res.status(401).json({ success: false, code: "LOGIN_REQUIRED", message: "Please log in or create an account to check out." });
+    const fullName = buyer.full_name;
+    // Contact number: the account's, unless another one is typed at checkout.
+    const phone = text(req.body.phone, 30) || buyer.phone;
+    const email = buyer.email;
     const errors = {};
     if (!fullName || fullName.length < 2) errors.full_name = "Please enter your full name.";
     if (!phone || !isPhone(phone)) errors.phone = "Please enter a valid phone number, e.g. 0977 123 456.";
@@ -74,13 +77,14 @@ router.post("/", async (req, res, next) => {
     }
     let created;
     try {
-      created = await checkout.create(req.body.items, { full_name: fullName, phone, email: email.toLowerCase(), acceptedTerms }, req.ip, pay);
+      created = await checkout.create(req.body.items, { id: buyer.id, full_name: fullName, phone, email: email.toLowerCase(), acceptedTerms }, req.ip, pay);
     } catch (error) {
       if (error.code === "CART_CHANGED") {
         return res.status(409).json({ success: false, code: "CART_CHANGED", message: error.message });
       }
       throw error;
     }
+    broadcastAdmin("order", { checkout_id: created.id, change: "placed" });
     const cardUrl = created.payment_method === "card" && created.payment_status === "pending" ? created.payment_url : null;
     res.status(201).json({
       success: true,

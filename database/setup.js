@@ -301,6 +301,17 @@ async function main() {
       console.log("  orders can now be paid by card");
     }
   }
+  await addColumns("checkouts", [
+    ["buyer_id", "INT UNSIGNED NULL AFTER public_token, ADD INDEX idx_checkouts_buyer (buyer_id)"],
+  ], "checkouts can belong to a buyer account");
+  await addColumns("orders", [
+    ["buyer_id", "INT UNSIGNED NULL AFTER seller_notified_at, ADD INDEX idx_orders_buyer (buyer_id)"],
+    ["handover_method", "ENUM('collected', 'delivered') NULL AFTER buyer_id"],
+    ["handed_over_at", "DATETIME NULL AFTER handover_method"],
+    ["handed_over_by", "VARCHAR(150) NULL AFTER handed_over_at"],
+    ["received_at", "DATETIME NULL AFTER handed_over_by"],
+    ["received_note", "VARCHAR(500) NULL AFTER received_at"],
+  ], "orders record the handover and the buyer's confirmation");
   await addColumns("inquiries", [
     ["forwarded_at", "DATETIME NULL AFTER seller_name"],
     ["forward_message", "TEXT NULL AFTER forwarded_at"],

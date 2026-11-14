@@ -189,13 +189,14 @@ function linkNetworkAndNumber(form, showError) {
   const chosen = () => (radios.find((r) => r.checked) || {}).value || "";
   // The grey example in the field follows the chosen network.
   const placeholder = () => { phone.placeholder = MM_EXAMPLES[chosen()] || "0977 123 456"; };
-  radios.forEach((r) => r.addEventListener("change", placeholder));
+  radios.forEach((r) => r.addEventListener("change", (e) => { if (e.isTrusted) delete form.dataset.netAuto; placeholder(); }));
   placeholder();
   const update = (final) => {
     const net = mmNetworkOf(phone.value);
-    if (net && !chosen()) {
+    // Picked from the number (not by the buyer): it follows the number.
+    if (net && (!chosen() || (form.dataset.netAuto && chosen() !== net))) {
       const r = radios.find((x) => x.value === net);
-      if (r) { r.checked = true; r.dispatchEvent(new Event("change", { bubbles: true })); }
+      if (r) { r.checked = true; form.dataset.netAuto = "1"; r.dispatchEvent(new Event("change", { bubbles: true })); }
     }
     const digits = phone.value.replace(/\D/g, "").length;
     const problem = chosen() && (final || digits >= 3) ? mmCheck(phone.value, chosen()) : "";

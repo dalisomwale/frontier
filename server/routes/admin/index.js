@@ -10,6 +10,8 @@ router.use(requireAdminHeader);
 router.use("/auth", require("./auth"));
 
 router.use(requireAdmin);
+// Live updates for open admin pages (Server-Sent Events).
+router.get("/events", (req, res) => require("../../services/notifications").subscribeAdmin(req.admin.id, req, res));
 router.use("/dashboard", require("./dashboard"));
 router.use("/livestock", require("./livestock"));
 router.use("/animals", animals);

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Confirm your email - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/password-rules.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/buyer.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div id="account-header"></div>
+    <header class="page-band">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 class="page-band-title">Confirming your email</h1>
+        <span class="page-band-swoosh" aria-hidden="true"></span>
+        <p class="page-band-sub">One moment.</p>
+      </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 py-8 sm:py-10">
+      <div class="acc-card text-center">
+        <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
+        <p id="verify-wait" class="text-gray-600 text-sm">Confirming…</p>
+        <a href="/account/" class="acc-btn mt-4">Go to my account</a>
+      </div>
+    </main>
+
+    <script src="/js/app-shell.js"></script>
+    <script>
+      document.getElementById("account-header").innerHTML = accountHeader(null);
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      if (typeof renderBottomNav === "function") renderBottomNav("public");
+      bindPasswordToggles();
+      const alertBox = document.getElementById("form-alert");
+      const showAlert = (message, kind = "error") => {
+        alertBox.className = `alert alert-${kind} text-sm mb-0`;
+        alertBox.textContent = message;
+      };
+      const token = getQueryParams().token || "";
+      buyerApi("/api/buyer/auth/verify", { method: "POST", body: { token } })
+        .then((res) => {
+          document.getElementById("verify-wait").hidden = true;
+          const n = res.data.linked;
+          showAlert(`Thank you, your email is confirmed.${n ? ` ${n} earlier order${n === 1 ? " is" : "s are"} now in your account.` : ""}`, "success");
+        })
+        .catch((error) => {
+          document.getElementById("verify-wait").hidden = true;
+          showAlert(error.message);
+        });
+    </script>
+    <div id="app-bottom-nav"></div>
+  </body>
+</html>

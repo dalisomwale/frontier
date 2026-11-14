@@ -14,6 +14,7 @@ const { positiveInt, text, isEmail, isPhone, badRequest, notFound, HttpError, PR
 const { helpers } = require("./admin/livestock");
 const { subscribe, unreadCount } = require("../services/notifications");
 const { orderRef, headCount } = require("../lib/orders");
+const handover = require("../lib/handover");
 
 const router = express.Router();
 const DUMMY_HASH = bcrypt.hashSync("frontier-seller-timing-guard", 12);
@@ -334,7 +335,7 @@ router.get("/summary", requireSeller, async (req, res, next) => {
       [req.seller.id],
     );
     const [[orders]] = await pool.query(
-      `SELECT COUNT(*) AS total, COALESCE(SUM(status NOT IN ('completed', 'cancelled')), 0) AS open
+      `SELECT COUNT(*) AS total, COALESCE(SUM(status NOT IN ('completed', 'cancelled') AND handed_over_at IS NULL), 0) AS open
        FROM orders WHERE seller_id = ? AND seller_notified_at IS NOT NULL`,
       [req.seller.id],
     );
@@ -363,7 +364,7 @@ router.get("/insights", requireSeller, async (req, res, next) => {
       `SELECT COUNT(*) AS orders,
               COALESCE(SUM(IF(o.status <> 'cancelled', o.total, 0)), 0) AS sales,
               COALESCE(SUM(o.status <> 'cancelled'), 0) AS kept,
-              COALESCE(SUM(o.status NOT IN ('completed', 'cancelled')), 0) AS open
+              COALESCE(SUM(o.status NOT IN ('completed', 'cancelled') AND o.handed_over_at IS NULL), 0) AS open
        FROM orders o WHERE o.seller_id = ? AND o.seller_notified_at IS NOT NULL AND ${since}`,
       [id, days - 1],
     );
@@ -760,6 +761,7 @@ router.get("/orders", requireSeller, async (req, res, next) => {
     const [rows] = await pool.query(
       `SELECT o.id, o.livestock_id, o.livestock_title, o.quantity, o.unit_price, o.price_unit, o.total,
               o.status, o.payment_status, o.created_at, o.paid_at, o.seller_notified_at, o.updated_at,
+              o.handover_method, o.handed_over_at, o.handed_over_by, o.received_at, o.received_note,
               a.name AS animal_name, a.kind AS animal_kind, l.location,
               (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = o.livestock_id ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path
        FROM orders o
@@ -771,6 +773,7 @@ router.get("/orders", requireSeller, async (req, res, next) => {
        LIMIT 500`,
       [req.seller.id],
     );
+    const photos = await handover.photosOf(rows.map((r) => r.id));
     res.json({
       success: true,
       data: rows.map((o) => ({
@@ -789,8 +792,32 @@ router.get("/orders", requireSeller, async (req, res, next) => {
         paid: o.payment_status === "paid",
         ordered_at: o.seller_notified_at || o.created_at,
         updated_at: o.updated_at,
+        handover_method: o.handover_method,
+        handed_over_at: o.handed_over_at,
+        handed_over_by: o.handed_over_by,
+        received_at: o.received_at,
+        received_note: o.received_note,
+        can_hand_over: handover.canHandOver(o),
+        photos: photos.get(o.id) || [],
       })),
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// The seller hands an order over: the buyer collected it or it was delivered.
+// The buyer is then asked to confirm with photos.
+router.post("/orders/:id/handover", requireSeller, async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id);
+    const [[own]] = await pool.query(
+      "SELECT id FROM orders WHERE id = ? AND seller_id = ? AND seller_notified_at IS NOT NULL",
+      [id || 0, req.seller.id],
+    );
+    if (!own) throw notFound("Order not found.");
+    await handover.handOver(id, req.body.method, { kind: "seller", name: sellerLabel(req.seller) }, req.ip);
+    res.json({ success: true, message: "Marked as handed over. The buyer has been asked to confirm." });
   } catch (error) {
     next(error);
   }

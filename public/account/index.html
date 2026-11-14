@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>My account - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/password-rules.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/livestock.js"></script>
+    <script src="/js/buyer.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen account-page">
+    <div id="account-header"></div>
+
+    <div class="acc-layout">
+      <aside class="acc-nav" id="acc-nav" aria-label="My account">
+        <div class="acc-user">
+          <span class="acc-av" id="nav-av"></span>
+          <div class="min-w-0"><p class="acc-user-name" id="nav-name"></p><p class="acc-user-sub">Buyer account</p></div>
+        </div>
+        <nav class="acc-links">
+          <a href="/account/?tab=orders" data-tab-link="orders"><span data-icon="cart"></span><span>My orders</span><span class="acc-count" data-badge="orders" hidden></span></a>
+          <a href="/account/?tab=notifications" data-tab-link="notifications"><span data-icon="bell"></span><span>Notifications</span><span class="acc-count" data-badge="notifications" hidden></span></a>
+          <a href="/account/?tab=profile" data-tab-link="profile"><span data-icon="users"></span><span>Profile</span></a>
+          <button type="button" data-logout class="acc-logout-desk"><span data-icon="logout"></span><span>Log out</span></button>
+        </nav>
+      </aside>
+
+      <main id="acc-main" class="acc-main">
+        <div id="verify-banner" class="alert alert-warning text-sm mb-4 flex flex-wrap items-center justify-between gap-2" hidden>
+          <span>Please confirm your email using the link we sent to <b id="verify-email"></b>. Your earlier orders appear once it's confirmed.</span>
+          <button type="button" id="resend-btn" class="acc-mini-btn">Send the link again</button>
+        </div>
+        <div class="acc-head">
+          <h1 class="admin-view-title !mb-0" id="page-title">My orders</h1>
+          <a href="/#listings" class="acc-mini-btn" id="shop-btn">Browse livestock</a>
+        </div>
+
+        <section id="tab-orders">
+          <div class="sl-card">
+            <div class="sl-toolbar">
+              <div class="seg" id="order-tabs"></div>
+              <div class="relative md:ml-auto md:w-72">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+                <input id="order-search" type="search" placeholder="Search order or listing" class="field-input !py-2 !pl-9 !text-sm" />
+              </div>
+            </div>
+            <div id="orders-list"></div>
+          </div>
+        </section>
+
+        <section id="tab-notifications" hidden>
+          <div class="sl-card"><div id="notifications-list"></div></div>
+        </section>
+
+        <section id="tab-profile" hidden>
+          <div class="acc-profile">
+            <div class="acc-card">
+              <h2 class="txd-card-title">Your details</h2>
+              <form id="profile-form" class="space-y-4" novalidate>
+                <div id="profile-alert" class="hidden alert text-sm mb-0" role="alert"></div>
+                <div>
+                  <label for="p_full_name" class="field-label">Full name</label>
+                  <input id="p_full_name" name="full_name" class="field-input" autocomplete="name" maxlength="120" />
+                  <p class="field-error hidden" data-error-for="full_name"></p>
+                </div>
+                <div>
+                  <label for="p_email" class="field-label">Email</label>
+                  <input id="p_email" name="email" type="email" class="field-input" autocomplete="email" />
+                  <p class="field-error hidden" data-error-for="email"></p>
+                </div>
+                <div>
+                  <label for="p_phone" class="field-label">Phone number</label>
+                  <input id="p_phone" name="phone" type="tel" class="field-input" autocomplete="tel" />
+                  <p class="field-error hidden" data-error-for="phone"></p>
+                </div>
+                <button type="submit" id="profile-btn" class="acc-btn">Save details</button>
+              </form>
+            </div>
+            <div class="acc-card">
+              <h2 class="txd-card-title">Change password</h2>
+              <form id="password-form" class="space-y-4" novalidate>
+                <div id="password-alert" class="hidden alert text-sm mb-0" role="alert"></div>
+                <div>
+                  <label for="current_password" class="field-label">Current password</label>
+                  <div class="relative">
+                    <input id="current_password" name="current_password" type="password" class="field-input pr-12" autocomplete="current-password" />
+                    <button type="button" data-toggle-password="current_password" class="absolute inset-y-0 right-0 px-3 text-gray-400" aria-label="Show password"></button>
+                  </div>
+                  <p class="field-error hidden" data-error-for="current_password"></p>
+                </div>
+                <div>
+                  <label for="new_password" class="field-label">New password</label>
+                  <div class="relative">
+                    <input id="new_password" name="new_password" type="password" class="field-input pr-12" autocomplete="new-password" />
+                    <button type="button" data-toggle-password="new_password" class="absolute inset-y-0 right-0 px-3 text-gray-400" aria-label="Show password"></button>
+                  </div>
+                  <p class="field-error hidden" data-error-for="new_password"></p>
+                </div>
+                <button type="submit" id="password-btn" class="acc-btn">Change password</button>
+              </form>
+            </div>
+            <button type="button" class="acc-btn acc-logout-phone" data-logout>Log out</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="app-bottom-nav"></div>
+    <script src="/js/app-shell.js"></script>
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      renderBottomNav("public");
+      bindPasswordToggles();
+      let me = null;
+      let orders = [];
+      let notes = [];
+      const TITLES = { orders: "My orders", notifications: "Notifications", profile: "Profile" };
+      const STAGES = {
+        unpaid: { label: "Not paid", cls: "so-off" },
+        paid: { label: "Paid", cls: "so-open" },
+        handed_over: { label: "Confirm receipt", cls: "so-act" },
+        received: { label: "Received", cls: "so-done" },
+        completed: { label: "Completed", cls: "so-done" },
+        cancelled: { label: "Cancelled", cls: "so-off" },
+      };
+      const ORDER_TABS = [
+        { key: "all", label: "All", test: () => true },
+        { key: "confirm", label: "To confirm", test: (o) => o.stage === "handed_over" },
+        { key: "progress", label: "In progress", test: (o) => o.stage === "paid" },
+        { key: "done", label: "Completed", test: (o) => ["received", "completed"].includes(o.stage) },
+        { key: "unpaid", label: "Not paid", test: (o) => ["unpaid", "cancelled"].includes(o.stage) },
+      ];
+      const filter = { tab: "all", q: "" };
+      const howWord = (o) => (o.handover_method === "delivered" ? "delivery" : "collection");
+      const thumb = (o, cls = "w-6 h-6") => (o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="" loading="lazy">` : livestockFallbackMedia(cls));
+      const dateTime = (v) => new Date(v).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+      // ---------------------------------------------------------------- tabs
+      function setTab(name, { keepViews = false } = {}) {
+        if (!TITLES[name]) name = "orders";
+        if (!keepViews) closeAllAdminViews();
+        Object.keys(TITLES).forEach((t) => (document.getElementById(`tab-${t}`).hidden = t !== name));
+        document.querySelectorAll("[data-tab-link]").forEach((a) => a.classList.toggle("active", a.dataset.tabLink === name));
+        document.getElementById("page-title").textContent = TITLES[name];
+        document.getElementById("shop-btn").hidden = name !== "orders";
+        const url = new URL(location.href);
+        url.searchParams.set("tab", name);
+        ["id", "confirm", "welcome"].forEach((k) => url.searchParams.delete(k));
+        history.replaceState(null, "", url.pathname + url.search);
+        if (name === "notifications") loadNotifications();
+        if (name === "profile") fillProfile();
+      }
+      document.querySelectorAll("[data-tab-link]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); setTab(a.dataset.tabLink); }));
+      document.querySelectorAll("[data-logout]").forEach((b) => b.addEventListener("click", buyerLogout));
+
+      function setBadge(name, n) {
+        document.querySelectorAll(`[data-badge="${name}"]`).forEach((el) => { el.textContent = n > 99 ? "99+" : n; el.hidden = !n; });
+      }
+
+      // -------------------------------------------------------------- orders
+      function orderRow(o) {
+        const st = STAGES[o.stage];
+        return `
+          <li>
+            <button type="button" class="so-row" data-order="${o.id}">
+              <span class="so-thumb">${thumb(o)}</span>
+              <span class="so-text">
+                <span class="min-w-0">
+                  <span class="so-title block">${escapeHtml(o.title)}</span>
+                  <span class="so-meta block">${escapeHtml(o.reference)} · ${escapeHtml(formatDateShort(o.ordered_at))} · ${kwacha(o.total)}</span>
+                </span>
+                <span class="so-pill ${st.cls}">${st.label}</span>
+              </span>
+              <span class="so-chev" aria-hidden="true">${uiIcon("chevronRight")}</span>
+            </button>
+          </li>`;
+      }
+
+      function renderOrders() {
+        document.getElementById("order-tabs").innerHTML = ORDER_TABS.map((t) =>
+          `<button type="button" data-otab="${t.key}" class="${t.key === filter.tab ? "active" : ""}">${t.label}<span class="count">${orders.filter(t.test).length}</span></button>`).join("");
+        document.querySelectorAll("[data-otab]").forEach((b) => b.addEventListener("click", () => { filter.tab = b.dataset.otab; renderOrders(); }));
+        const tab = ORDER_TABS.find((t) => t.key === filter.tab);
+        const q = filter.q;
+        const rows = orders.filter((o) => tab.test(o) && (!q || `${o.reference} ${o.checkout_reference || ""} ${o.title}`.toLowerCase().includes(q)));
+        const list = document.getElementById("orders-list");
+        if (!orders.length) {
+          list.innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">No orders yet</p><p class="text-sm mt-1">When you buy livestock or feed, your orders appear here.</p><a href="/#listings" class="acc-btn mt-4" style="width:auto;display:inline-flex">Browse livestock</a></div>`;
+          return;
+        }
+        list.innerHTML = rows.length
+          ? `<ul class="so-list">${rows.map(orderRow).join("")}</ul>`
+          : `<div class="empty-state"><p class="font-semibold text-gray-800">Nothing here</p><p class="text-sm mt-1">Try another filter or search.</p></div>`;
+        list.querySelectorAll("[data-order]").forEach((b) => b.addEventListener("click", () => openOrder(b.dataset.order)));
+        setBadge("orders", orders.filter((o) => o.stage === "handed_over").length);
+      }
+      document.getElementById("order-search").addEventListener("input", (e) => { filter.q = e.target.value.trim().toLowerCase(); renderOrders(); });
+
+      async function loadOrders() {
+        orders = (await buyerApi("/api/buyer/orders")).data;
+        renderOrders();
+      }
+
+      // One order on its own page: My orders / FM-1234.
+      const STEP_NAMES = ["Ordered", "Paid", "Handed over", "Received"];
+      function stepsHtml(o) {
+        // How many steps are done, and whether the next one is under way.
+        const done = { unpaid: 1, paid: 2, handed_over: 3, received: 4, completed: 4, cancelled: 1 }[o.stage];
+        const active = o.stage !== "cancelled";
+        return `<div class="acc-steps">${STEP_NAMES.map((name, i) => {
+          const n = i + 1;
+          const cls = n <= done ? "done" : n === done + 1 && active ? "now" : "";
+          return `<div class="acc-step ${cls}"><span class="acc-dot">${n <= done ? uiIcon("check") : n}</span><span>${name}</span></div>`;
+        }).join("")}</div>`;
+      }
+
+      function nextStepHtml(o) {
+        const when = o.handed_over_at ? formatDateShort(o.handed_over_at) : "";
+        const how = o.handover_method === "delivered" ? "delivered" : "collected";
+        switch (o.stage) {
+          case "unpaid":
+            return `<div class="acc-card"><p class="txd-card-title">Payment</p><p class="text-sm text-gray-700">This order hasn't been paid yet.${o.pay_url ? " You can pay now." : " Our team will contact you."}</p></div>`;
+          case "paid":
+            return `<div class="acc-card"><p class="txd-card-title">Next step</p><p class="text-sm text-gray-700">Frontier and the seller will contact you to arrange collection or delivery. Once the seller has handed your order over, you'll be asked to confirm with photos.</p></div>`;
+          case "handed_over":
+            return `<div class="acc-card acc-card-warn"><p class="font-bold text-gray-900">The seller says your order was ${how} on ${escapeHtml(when)}</p><p class="text-sm text-gray-700 mt-1">Please confirm you've received it, with 1 to 4 photos of what you received. If something isn't right, contact Frontier instead.</p></div>`;
+          case "received":
+            return `<div class="acc-card acc-card-ok"><p class="font-bold text-green-900">${how === "delivered" ? "Delivered" : "Collected"} · confirmed on ${escapeHtml(dateTime(o.received_at))}</p>
+              ${o.received_note ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(o.received_note)}"</p>` : ""}
+              ${o.photos.length ? `<div class="acc-photos mt-3">${o.photos.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="Photo of what you received"></a>`).join("")}</div>` : ""}</div>`;
+          case "completed":
+            return `<div class="acc-card acc-card-ok"><p class="font-bold text-green-900">This order is complete.</p></div>`;
+          default:
+            return `<div class="acc-card"><p class="text-sm text-gray-700">This order was cancelled.</p></div>`;
+        }
+      }
+
+      function actionHtml(o) {
+        if (o.stage === "handed_over") return `<button type="button" class="acc-btn" data-confirm>${uiIcon("camera")}<span>Confirm ${howWord(o)}</span></button>`;
+        if (o.stage === "paid") return `<button type="button" class="acc-btn" disabled>Waiting for the seller to hand over</button>`;
+        if (o.stage === "unpaid" && o.pay_url) return `<a class="acc-btn" href="${escapeHtml(o.pay_url)}">Pay ${kwacha(o.total)}</a>`;
+        return "";
+      }
+
+      let orderView = null;
+      async function openOrder(id, { replace = false } = {}) {
+        let o = orders.find((x) => String(x.id) === String(id));
+        try {
+          o = (await buyerApi(`/api/buyer/orders/${id}`)).data;
+        } catch (error) {
+          return showNotification(error.message, "error");
+        }
+        if (replace && orderView) {
+          paintOrder(orderView, o);
+          return;
+        }
+        orderView = openAdminView({ title: o.reference, params: { id: o.id }, onClose: () => { orderView = null; } });
+        orderView.el.classList.add("order-view");
+        paintOrder(orderView, o);
+      }
+
+      function paintOrder(view, o) {
+        view.orderId = o.id;
+        const st = STAGES[o.stage];
+        const action = actionHtml(o);
+        view.body.innerHTML = `
+          <div class="sv-head">
+            <h1 class="admin-view-title !mb-0">${escapeHtml(o.title)}</h1>
+            <span class="so-pill ${st.cls} so-pill-lg">${st.label}</span>
+          </div>
+          <div class="acc-order">
+            <div class="space-y-4 min-w-0">
+              <div class="acc-card">${stepsHtml(o)}</div>
+              ${nextStepHtml(o)}
+            </div>
+            <div class="space-y-4">
+              <div class="acc-card">
+                <p class="txd-card-title">Order details</p>
+                <dl class="sv-facts">
+                  <div><dt>Order</dt><dd>${escapeHtml(o.reference)}</dd></div>
+                  ${o.checkout_reference ? `<div><dt>Payment reference</dt><dd>${escapeHtml(o.checkout_reference)}</dd></div>` : ""}
+                  <div><dt>Quantity</dt><dd>${escapeHtml(o.price_unit === "lot" ? `Whole lot (${o.units})` : o.units)}</dd></div>
+                  <div><dt>${o.paid ? "Total paid" : "Total"}</dt><dd>${kwacha(o.total)}</dd></div>
+                  ${o.paid ? `<div><dt>Paid with</dt><dd>${escapeHtml(o.paid_with)}</dd></div>` : ""}
+                  ${o.location ? `<div><dt>Province</dt><dd>${escapeHtml(o.location)}</dd></div>` : ""}
+                  <div><dt>Ordered</dt><dd>${escapeHtml(formatDateShort(o.ordered_at))}</dd></div>
+                  ${o.handed_over_at ? `<div><dt>Handed over</dt><dd>${o.handover_method === "delivered" ? "Delivered to you" : "Collected by you"}</dd></div>` : ""}
+                </dl>
+              </div>
+              <div class="acc-card so-listing-card">
+                <span class="so-thumb">${thumb(o)}</span>
+                <div class="min-w-0 flex-1">
+                  <p class="so-title">${escapeHtml(o.title)}</p>
+                  ${o.livestock_id ? `<a href="/listing.html?id=${o.livestock_id}" class="text-sm font-semibold acc-link">View listing</a>` : ""}
+                </div>
+              </div>
+            </div>
+          </div>
+          ${action ? `<div class="acc-actionbar">${action}</div>` : ""}`;
+        view.body.querySelector("[data-confirm]")?.addEventListener("click", () => openConfirm(o));
+      }
+
+      // ------------------------------------------- confirm with photos
+      const MAX_PHOTOS = 4;
+      function openConfirm(o) {
+        const how = howWord(o);
+        const view = openAdminView({ title: "Confirm", params: { id: o.id, confirm: 1 } });
+        view.el.classList.add("confirm-view");
+        const files = [];
+        view.body.innerHTML = `
+          <form class="acc-confirm" novalidate>
+            <h1 class="admin-view-title">Confirm you've received your order</h1>
+            <div id="confirm-alert" class="hidden alert text-sm" role="alert"></div>
+            <div class="acc-card">
+              <p class="text-sm text-gray-700"><b>${escapeHtml(o.title)}</b> · ${escapeHtml(o.price_unit === "lot" ? `whole lot (${o.units})` : o.units)}. The seller marked it as <b>${o.handover_method === "delivered" ? "delivered to you" : "collected by you"}</b>.</p>
+            </div>
+            <div class="acc-card">
+              <p class="field-label">Photos of what you received <span class="text-gray-400 font-normal">(1 to ${MAX_PHOTOS})</span></p>
+              <div class="acc-ph-grid" id="ph-grid"></div>
+              <input type="file" id="ph-input" accept="image/jpeg,image/png,image/webp" multiple hidden />
+              <p class="text-xs text-gray-500 mt-2">Take them on your phone or choose from your gallery.</p>
+              <p class="field-error hidden" data-error-for="images"></p>
+            </div>
+            <div class="acc-card">
+              <label for="c_note" class="field-label">Anything to add? <span class="text-gray-400 font-normal">(optional)</span></label>
+              <textarea id="c_note" name="note" rows="2" maxlength="500" class="field-input" placeholder="e.g. All in good health. Thank you!"></textarea>
+              <label class="co-terms-box mt-3">
+                <input type="checkbox" name="agree" />
+                <span>I confirm I've received ${escapeHtml(o.price_unit === "lot" ? `the whole lot (${o.units})` : o.units)} of ${escapeHtml(o.title)}.</span>
+              </label>
+              <p class="field-error hidden" data-error-for="agree"></p>
+            </div>
+            <div class="acc-actionbar"><button type="submit" class="acc-btn" id="confirm-btn">Confirm ${how}</button></div>
+          </form>`;
+        const form = view.body.querySelector("form");
+        const grid = view.body.querySelector("#ph-grid");
+        const input = view.body.querySelector("#ph-input");
+        const alertBox = view.body.querySelector("#confirm-alert");
+        const paint = () => {
+          grid.innerHTML = files.map((f, i) => `<div class="acc-ph"><img src="${f.url}" alt=""><button type="button" data-rm="${i}" aria-label="Remove photo">×</button></div>`).join("")
+            + (files.length < MAX_PHOTOS ? `<button type="button" class="acc-ph-add" id="ph-add">${uiIcon("camera")}<span>Add photo</span></button>` : "");
+          grid.querySelector("#ph-add")?.addEventListener("click", () => input.click());
+          grid.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => {
+            const [gone] = files.splice(Number(b.dataset.rm), 1);
+            URL.revokeObjectURL(gone.url);
+            paint();
+          }));
+        };
+        input.addEventListener("change", () => {
+          [...input.files].slice(0, MAX_PHOTOS - files.length).forEach((file) => {
+            if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return showNotification("Photos must be JPEG, PNG or WebP.", "error");
+            if (file.size > 12 * 1024 * 1024) return showNotification("Each photo must be under 12 MB.", "error");
+            files.push({ file, url: URL.createObjectURL(file) });
+          });
+          input.value = "";
+          if (files.length) form.querySelector('[data-error-for="images"]').classList.add("hidden");
+          paint();
+        });
+        paint();
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          alertBox.classList.add("hidden");
+          const errors = {};
+          if (!files.length) errors.images = "Please add at least one photo.";
+          if (!form.agree.checked) errors.agree = "Please tick the box to confirm.";
+          if (Object.keys(errors).length) {
+            showFieldErrors(form, { errors });
+            return;
+          }
+          const fd = new FormData();
+          files.forEach((f) => fd.append("images", f.file));
+          fd.append("note", form.note.value.trim());
+          fd.append("agree", "1");
+          try {
+            await withBusy(form.querySelector("#confirm-btn"), "Sending…", () =>
+              buyerApi(`/api/buyer/orders/${o.id}/confirm`, { method: "POST", body: fd }));
+            showNotification("Thank you! Your order is complete.", "success");
+            await view.close(true);
+            await loadOrders();
+            if (orderView) openOrder(o.id, { replace: true });
+          } catch (error) {
+            showFieldErrors(form, error);
+            alertBox.textContent = error.message;
+            alertBox.className = "alert alert-error text-sm";
+            alertBox.scrollIntoView({ block: "nearest" });
+          }
+        });
+      }
+
+      // ------------------------------------------------------ notifications
+      async function loadNotifications() {
+        const res = await buyerApi("/api/buyer/notifications");
+        notes = res.data;
+        const list = document.getElementById("notifications-list");
+        if (!notes.length) {
+          list.innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">No notifications yet</p><p class="text-sm mt-1">Updates about your orders appear here.</p></div>`;
+        } else {
+          list.innerHTML = `<ul class="nt-list">${notes.map((n) => `
+            <li><a href="${escapeHtml(n.link || "/account/")}" data-link class="nt-item ${n.read_at ? "" : "is-unread"}">
+              <span class="nt-icon nt-order" aria-hidden="true">${uiIcon("cart")}</span>
+              <span class="nt-text"><span class="nt-title">${escapeHtml(n.title)}</span>${n.body ? `<span class="nt-body">${escapeHtml(n.body)}</span>` : ""}<span class="nt-time">${timeAgo(n.created_at)}</span></span>
+              ${n.read_at ? "" : `<span class="nt-new">New</span>`}
+            </a></li>`).join("")}</ul>`;
+          list.querySelectorAll("[data-link]").forEach((a) => a.addEventListener("click", (e) => {
+            const url = new URL(a.href, location.origin);
+            if (url.pathname !== "/account/") return;
+            e.preventDefault();
+            goTo(Object.fromEntries(url.searchParams));
+          }));
+        }
+        if (res.unread) {
+          await buyerApi("/api/buyer/notifications/read", { method: "POST" }).catch(() => {});
+          setBadge("notifications", 0);
+        }
+      }
+
+      // ------------------------------------------------------------ profile
+      function fillProfile() {
+        const f = document.getElementById("profile-form");
+        f.full_name.value = me.full_name;
+        f.email.value = me.email;
+        f.phone.value = me.phone;
+      }
+      bindPasswordMeter(document.getElementById("new_password"), () => ({ email: me && me.email, phone: me && me.phone }));
+      document.getElementById("profile-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const f = e.target;
+        const box = document.getElementById("profile-alert");
+        try {
+          const res = await withBusy(document.getElementById("profile-btn"), "Saving…", () => buyerApi("/api/buyer/me", {
+            method: "PUT", body: { full_name: f.full_name.value.trim(), email: f.email.value.trim(), phone: f.phone.value.trim() },
+          }));
+          me = res.data;
+          paintMe();
+          box.className = "alert alert-success text-sm mb-0";
+          box.textContent = res.message;
+        } catch (error) {
+          showFieldErrors(f, error);
+          box.className = "alert alert-error text-sm mb-0";
+          box.textContent = error.message;
+        }
+      });
+      document.getElementById("password-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const f = e.target;
+        const box = document.getElementById("password-alert");
+        try {
+          const res = await withBusy(document.getElementById("password-btn"), "Saving…", () => buyerApi("/api/buyer/me/password", {
+            method: "PATCH", body: { current_password: f.current_password.value, new_password: f.new_password.value },
+          }));
+          f.reset();
+          box.className = "alert alert-success text-sm mb-0";
+          box.textContent = res.message;
+        } catch (error) {
+          showFieldErrors(f, error);
+          box.className = "alert alert-error text-sm mb-0";
+          box.textContent = error.message;
+        }
+      });
+      document.getElementById("resend-btn").addEventListener("click", async (e) => {
+        try {
+          const res = await withBusy(e.currentTarget, "Sending…", () => buyerApi("/api/buyer/auth/resend", { method: "POST" }));
+          showNotification(res.message, "success");
+        } catch (error) {
+          showNotification(error.message, "error");
+        }
+      });
+
+      function paintMe() {
+        document.getElementById("account-header").innerHTML = accountHeader(me);
+        renderCartButtons();
+        document.getElementById("nav-av").textContent = buyerInitials(me.full_name);
+        document.getElementById("nav-name").textContent = me.full_name;
+        document.getElementById("verify-banner").hidden = Boolean(me.verified);
+        document.getElementById("verify-email").textContent = me.email;
+      }
+
+      // ---------------------------------------------------- go to / live
+      async function goTo(q) {
+        setTab(q.tab || "orders");
+        if ((q.tab || "orders") === "orders" && q.id) {
+          await openOrder(q.id);
+          const o = orders.find((x) => String(x.id) === String(q.id));
+          if (q.confirm && o && o.stage === "handed_over") openConfirm(o);
+        }
+      }
+
+      function listen() {
+        if (!window.EventSource) return;
+        const es = new EventSource("/api/buyer/events");
+        es.addEventListener("ready", (e) => setBadge("notifications", JSON.parse(e.data).unread));
+        es.addEventListener("notification", (e) => {
+          const { notification, unread } = JSON.parse(e.data);
+          setBadge("notifications", unread);
+          showNotification(notification.title, "info");
+          if (!document.getElementById("tab-notifications").hidden) loadNotifications();
+        });
+        es.addEventListener("order", async () => {
+          await loadOrders();
+          if (orderView && !document.querySelector(".confirm-view")) openOrder(orderView.orderId, { replace: true });
+        });
+      }
+
+      (async function init() {
+        try {
+          me = (await buyerApi("/api/buyer/auth/me")).data;
+        } catch {
+          return;
+        }
+        setBuyerHint(true);
+        paintMe();
+        setBadge("notifications", me.unread);
+        document.body.classList.add("is-ready");
+        await loadOrders();
+        const q = getQueryParams();
+        if (q.welcome) showNotification(`Welcome, ${buyerFirst(me.full_name)}! Check your email to confirm your address.`, "success");
+        await goTo(q);
+        listen();
+      })();
+    </script>
+  </body>
+</html>

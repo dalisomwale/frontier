@@ -141,6 +141,7 @@
           `Good ${hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"}, ${admin.name.split(" ")[0]}.`;
         initInsights();
         await loadDashboard();
+        window.addEventListener("admin:change", () => loadDashboard());
       })();
 
       async function loadDashboard() {
