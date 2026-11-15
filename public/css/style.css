@@ -6434,3 +6434,8 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
   .verified-badge { padding: 2px 8px; }
   .gallery-frame .verified-badge { padding: 3px 10px; }
 }
+
+@media (max-width: 767px) {
+  .sins-head { justify-content: space-between; align-items: center; flex-wrap: nowrap; }
+  .sins-head #add-btn { padding: 0.55rem 0.9rem; }
+}

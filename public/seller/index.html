@@ -808,6 +808,18 @@
 
       const TAB_TITLES = { overview: "Dashboard Overview", listings: "My Listings", orders: "Orders", messages: "Messages", notifications: "Notifications", profile: "Profile" };
 
+      // Phones, Overview: Add Listing sits on the period filter's line, on its right.
+      const addHome = document.getElementById("add-btn").parentElement;
+      const phoneQuery = window.matchMedia("(max-width: 767px)");
+      let currentTab = "overview";
+      function placeAddButton(name = currentTab) {
+        currentTab = name;
+        const add = document.getElementById("add-btn");
+        const target = name === "overview" && phoneQuery.matches ? document.querySelector(".sins-head") : addHome;
+        if (add.parentElement !== target) target.appendChild(add);
+      }
+      phoneQuery.addEventListener("change", () => placeAddButton());
+
       function setTab(name) {
         if (!TAB_TITLES[name]) name = "overview";
         closeAllAdminViews();
@@ -815,6 +827,7 @@
         document.getElementById("page-title").textContent = TAB_TITLES[name];
         document.getElementById("welcome-line").hidden = name !== "overview";
         document.getElementById("add-btn").hidden = !["listings", "overview"].includes(name);
+        placeAddButton(name);
         setSellerNavActive(name);
         const url = new URL(location.href);
         if (name === "overview") url.searchParams.delete("tab");
