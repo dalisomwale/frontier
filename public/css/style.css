@@ -7045,3 +7045,14 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 [data-payout] .acc-btn { width: 100%; }
 [data-payout] .acc-btn:disabled { opacity: .55; cursor: not-allowed; }
 .po-link { color: #166534; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Side menus: small headings that group the links */
+.app-sidebar-nav { overflow-y: auto; gap: 2px; padding-top: 10px; }
+.app-sidebar-section { margin: 12px 12px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255, 255, 255, .42); }
+.app-sidebar-nav > .app-sidebar-section:first-child { margin-top: 2px; }
+.app-sidebar-nav a, .app-sidebar-nav button { padding-top: 8px; padding-bottom: 8px; }
+.acc-section { margin: 12px 10px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #9ca3af; }
+.acc-links > .acc-section:first-child { margin-top: 2px; }
+@media (max-width: 1023px) {
+  .acc-section, .acc-shop-link { display: none !important; }
+}

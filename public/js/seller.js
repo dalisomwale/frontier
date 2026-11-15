@@ -295,13 +295,14 @@ function notifBellHtml() {
   </div>`;
 }
 
+// "section" says which group each item starts (a small heading in the sidebar).
 const SELLER_NAV = [
   { key: "overview", icon: "dashboard", label: "Dashboard", short: "Overview" },
-  { key: "listings", icon: "listings", label: "My Listings", short: "Listings" },
+  { key: "listings", icon: "listings", label: "My Listings", short: "Listings", section: "Selling" },
   { key: "orders", icon: "cart", label: "Orders", short: "Orders", badge: "orders" },
-  { key: "messages", icon: "inbox", label: "Messages", short: "Messages", badge: "unread" },
+  { key: "messages", icon: "inbox", label: "Messages", short: "Messages", badge: "unread", section: "Inbox" },
   { key: "notifications", icon: "bell", label: "Notifications", short: "Alerts", badge: "notif" },
-  { key: "profile", icon: "users", label: "Profile", short: "Profile" },
+  { key: "profile", icon: "users", label: "Profile", short: "Profile", section: "Account" },
 ];
 
 const sellerTabHref = (key) => (key === "overview" ? "/seller/" : `/seller/?tab=${key}`);
@@ -318,10 +319,11 @@ function renderSellerShell(seller) {
       </div>
     </div>
     <nav class="app-sidebar-nav">
-      ${SELLER_NAV.map((item) => `<a href="${sellerTabHref(item.key)}" data-tab-link="${item.key}">
+      ${SELLER_NAV.map((item) => `${item.section ? `<p class="app-sidebar-section">${item.section}</p>` : ""}<a href="${sellerTabHref(item.key)}" data-tab-link="${item.key}">
         ${uiIcon(item.icon)}<span>${item.label}</span>
         ${item.badge ? `<span data-${item.badge}-badge class="nav-badge hidden">0</span>` : ""}
       </a>`).join("")}
+      <p class="app-sidebar-section">Website</p>
       <a href="/" target="_blank" rel="noopener">${uiIcon("external")}<span>Shop Now</span></a>
     </nav>
     <div class="app-sidebar-footer">

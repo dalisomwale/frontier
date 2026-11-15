@@ -58,15 +58,20 @@ function renderSidebar(active) {
   const feedPage = new URLSearchParams(window.location.search).get("kind") === "feed";
   mount.classList.add("app-sidebar");
 
+  // Grouped under small headings; "section" starts a new group.
   const items = [
     { key: "dashboard", href: "/admin/index.html", icon: "dashboard", label: "Dashboard" },
+    { section: "Listings" },
     { key: "livestock", href: "/admin/livestock.html", icon: "listings", label: "Livestock" },
     { key: "feed", href: "/admin/livestock.html?kind=feed", icon: "feed", label: "Feed" },
-    { key: "inquiries", href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", badge: true },
+    { section: "Sales" },
     { key: "orders", href: "/admin/orders.html", icon: "cart", label: "Orders", orderBadge: true },
+    { key: "inquiries", href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", badge: true },
     { key: "transactions", href: "/admin/transactions.html", icon: "receipt", label: "Transactions" },
     { key: "payouts", href: "/admin/payouts.html", icon: "wallet", label: "Payouts" },
+    { section: "People" },
     { key: "sellers", href: "/admin/sellers.html", icon: "users", label: "Sellers" },
+    { section: "Setup" },
     { key: "breeds", href: "/admin/breeds.html", icon: "tag", label: "Breeds" },
     {
       key: "categories", href: "/admin/categories.html", icon: "layers", label: "Categories & Purposes",
@@ -75,6 +80,7 @@ function renderSidebar(active) {
         { href: "/admin/categories.html?kind=feed", label: "Feed", feed: true },
       ],
     },
+    { section: "Website" },
     { key: "site", href: "/", icon: "external", label: "Shop Now", external: true },
   ];
 
@@ -89,7 +95,7 @@ function renderSidebar(active) {
     <nav class="app-sidebar-nav">
       ${items
         .map(
-          (item) => `<a href="${item.href}" class="${item.key === active ? "active" : ""}"${item.external ? ' target="_blank" rel="noopener"' : ""}>
+          (item) => item.section ? `<p class="app-sidebar-section">${item.section}</p>` : `<a href="${item.href}" class="${item.key === active ? "active" : ""}"${item.external ? ' target="_blank" rel="noopener"' : ""}>
             ${uiIcon(item.icon)}<span>${item.label}</span>
             ${item.badge ? '<span data-new-badge class="nav-badge hidden">0</span>' : ""}
             ${item.orderBadge ? '<span data-order-badge class="nav-badge hidden">0</span>' : ""}
