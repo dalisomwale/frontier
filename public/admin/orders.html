@@ -100,7 +100,6 @@
         if (o.handed_over_at && o.seller_id) return tag("Ready to pay seller");
         if (o.handed_over_at) return tag("Handed over", true);
         if (o.received_at) return tag("Buyer confirmed");
-        if (o.sent_at) return tag(o.sent_method === "delivered" ? "Delivered" : "Collected");
         if (["failed", "pending"].includes(o.payment_status) && o.status !== "completed") return `<div class="mt-1">${payTag(o)}</div>`;
         return "";
       }
@@ -158,7 +157,7 @@
             <td class="hidden lg:table-cell whitespace-nowrap text-gray-700">${escapeHtml(paymentShort(o) || "-")}</td>
             <td class="whitespace-nowrap"><b class="text-gray-900">${kwacha(o.total)}</b></td>
             <td class="hidden sm:table-cell whitespace-nowrap">${collectionTag(o)}</td>
-            <td>${statusSelect(o)}${stageTag(o)}</td>
+            <td>${statusSelect(o)}${stageTag(o)}${o.sent_at && !stageTag(o) ? `<div class="mt-1 sm:hidden">${collectionTag(o)}</div>` : ""}</td>
           </tr>
 `;
       }
