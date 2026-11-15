@@ -370,12 +370,12 @@ function plainPrice(value) {
   return Number.isFinite(n) ? String(Number.isInteger(n) ? n : n.toFixed(2)) : "";
 }
 
-function priceFields(item = {}) {
+function priceFields(item = {}, required = false) {
   return `<div class="grid grid-cols-2 sm:grid-cols-3 gap-4 items-end">
     <div class="col-span-2 sm:col-span-1">
-      <label for="f-price" class="field-label">Price (K)</label>
+      <label for="f-price" class="field-label">Price (K)${required ? ' <span class="text-red-500">*</span>' : ""}</label>
       <div class="price-input"><span>K</span><input id="f-price" name="price" type="text" inputmode="decimal" class="field-input"
-        value="${escapeHtml(plainPrice(item.price))}" placeholder="Price on request" maxlength="15"></div>
+        value="${escapeHtml(plainPrice(item.price))}" placeholder="${required ? "e.g. 18500" : "Price on request"}" maxlength="15"></div>
       <p class="field-error hidden" data-error-for="price"></p>
     </div>
     ${field({ name: "price_unit", label: "Priced", value: item.price_unit || "head",

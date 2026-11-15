@@ -420,16 +420,16 @@
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             ${field({ name: "animal_id", label: "Category", value: animalId, required: true, options: animalOptions() })}
             ${field({ name: "category_id", label: "Production Purpose", value: item.category_id, required: true, options: purposeOptions(animalId) })}
-            ${field({ name: "breed_id", label: "Breed", value: item.breed_id, options: breedOptions(item.category_id) })}
+            ${field({ name: "breed_id", label: "Breed", value: item.breed_id, required: true, options: breedOptions(item.category_id) })}
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 items-start">
             ${field({ name: "livestock_type", label: "Type", value: item.livestock_type, options: typeOptions(animalId, item.livestock_type) })}
-            ${field({ name: "quantity", label: "Quantity", type: "number", value: item.quantity ?? 1, attrs: 'min="1" step="1" inputmode="numeric"' })}
-            ${field({ name: "age_months", label: "Age (months)", type: "number", value: item.age_months, attrs: 'min="0" max="600" step="1" inputmode="numeric"' })}
+            ${field({ name: "quantity", label: "Quantity", type: "number", value: item.quantity ?? "", required: true, attrs: 'min="1" step="1" inputmode="numeric"' })}
+            ${field({ name: "age_months", label: "Age (months)", type: "number", value: item.age_months, required: true, attrs: 'min="0" max="600" step="1" inputmode="numeric"' })}
             ${field({ name: "location", label: "Province", value: item.location || seller.province || "", required: true,
                 options: [{ value: "", label: "Select province" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
           </div>
-          ${priceFields(item)}
+          ${priceFields(item, true)}
           ${field({ name: "description", label: "Description", type: "textarea", value: item.description, rows: 3,
               placeholder: "Condition, vaccinations, feeding, anything a buyer should know", attrs: 'maxlength="5000"' })}
           <div>

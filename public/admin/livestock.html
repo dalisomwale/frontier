@@ -394,14 +394,14 @@
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             ${field({ name: "animal_id", label: FEED ? "Feed Type" : "Category", value: animalId, required: true, options: animalOptions(animalId) })}
             ${field({ name: "category_id", label: "Production Purpose", value: item.category_id, required: true, options: purposeOptions(animalId, item.category_id) })}
-            ${field({ name: "breed_id", label: "Breed", value: item.breed_id, options: breedOptions(item.category_id, item.breed_id) })}
+            ${field({ name: "breed_id", label: "Breed", value: item.breed_id, required: !id, options: breedOptions(item.category_id, item.breed_id) })}
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
             ${field({ name: "livestock_type", label: "Type", value: item.livestock_type, options: typeOptions(animalId, item.livestock_type) })}
-            ${field({ name: "quantity", label: "Quantity", type: "number", value: item.quantity ?? 1, attrs: 'min="1" step="1" inputmode="numeric"' })}
-            ${field({ name: "age_months", label: "Age (months)", type: "number", value: item.age_months, attrs: 'min="0" max="600" step="1" inputmode="numeric"' })}
+            ${field({ name: "quantity", label: "Quantity", type: "number", value: item.quantity ?? "", required: !id, attrs: 'min="1" step="1" inputmode="numeric"' })}
+            ${field({ name: "age_months", label: "Age (months)", type: "number", value: item.age_months, required: !id, attrs: 'min="0" max="600" step="1" inputmode="numeric"' })}
           </div>
-          ${priceFields(item)}
+          ${priceFields(item, !id)}
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             ${field({ name: "seller_id", label: "Seller", value: sellerId, options: sellerOptions(sellerId),
                 help: sellers.length ? "Only admins see the seller. Customers' inquiries still come to Frontier." : "Add sellers on the Sellers page." })}

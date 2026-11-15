@@ -24,7 +24,10 @@ const countWords = (value) => (String(value).trim().match(/\S+/g) || []).length;
 // Validates the listing fields and checks the hierarchy is consistent: the
 // production purpose belongs to the chosen animal and the breed belongs to
 // the purpose (so the public Animal -> Purpose -> Breed filter stays truthful).
-async function payload(body) {
+// required: price, quantity, breed and age must be filled in (breed and age
+// for livestock only; feed has neither). lockedPrice: a live listing whose
+// price and quantity can't be changed, so they aren't sent.
+async function payload(body, { required = false, lockedPrice = false } = {}) {
   const title = text(body.title, 200);
   const location = text(body.location, 150);
   const description = text(body.description, 5000);
@@ -61,7 +64,10 @@ async function payload(body) {
   if (type === undefined) errors.livestock_type = "Type must be 40 characters or fewer.";
   if (!status) errors.status = "Invalid status.";
   if (verification === null || verification === "") errors.verification = "Invalid verification status.";
-  if (!quantity || quantity > 100000) errors.quantity = "Quantity must be a whole number from 1.";
+  const needPrice = required && !lockedPrice;
+  if (needPrice && (body.quantity === "" || body.quantity === undefined || body.quantity === null)) errors.quantity = "Please enter the quantity.";
+  else if (!quantity || quantity > 100000) errors.quantity = "Quantity must be a whole number from 1.";
+  if (needPrice && price === null) errors.price = "Please enter the price.";
   if (age !== null && (!Number.isSafeInteger(age) || age < 0 || age > 600))
     errors.age_months = "Age must be between 0 and 600 months.";
   if (price !== null && (!Number.isFinite(price) || price <= 0 || price > 9999999999 || !/^\d+(\.\d{1,2})?$/.test(priceText)))
@@ -87,6 +93,20 @@ async function payload(body) {
       errors.breed_id = anyBreedOfAnimal
         ? "That breed belongs to a different category."
         : "That breed doesn't belong to the selected production purpose.";
+  }
+
+  if (required && purposeRow) {
+    const [[animal]] = await pool.query("SELECT kind FROM animals WHERE id = ?", [purposeRow.animal_id]);
+    if (!animal || animal.kind !== "feed") {
+      if (!breedId && !errors.breed_id) {
+        // Only when there's a breed to choose for this purpose.
+        const [[{ n }]] = isAllBreedsPurpose(purposeRow.name)
+          ? await pool.query("SELECT COUNT(*) AS n FROM breeds b JOIN categories c ON c.id = b.category_id WHERE c.animal_id = ? AND b.status = 'active'", [purposeRow.animal_id])
+          : await pool.query("SELECT COUNT(*) AS n FROM breeds WHERE category_id = ? AND status = 'active'", [purposeRow.id]);
+        if (Number(n)) errors.breed_id = "Please choose a breed.";
+      }
+      if (age === null && !errors.age_months) errors.age_months = "Please enter the age in months.";
+    }
   }
 
   if (sellerId && !errors.seller_id) {
@@ -314,7 +334,7 @@ router.get("/:id", async (req, res, next) => {
 router.post("/", uploadImages, async (req, res, next) => {
   const conn = await pool.getConnection();
   try {
-    const p = await payload(req.body);
+    const p = await payload(req.body, { required: true });
     await conn.beginTransaction();
     const [result] = await conn.query(
       `INSERT INTO livestock

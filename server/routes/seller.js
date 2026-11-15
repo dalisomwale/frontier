@@ -536,7 +536,7 @@ function listingNotice(seller, listing, edited, listingId) {
 router.post("/listings", requireSeller, requireApproved, uploadImages, async (req, res, next) => {
   const conn = await pool.getConnection();
   try {
-    const p = await helpers.payload(listingBody(req.body));
+    const p = await helpers.payload(listingBody(req.body), { required: true });
     if (!req.files || !req.files.length) {
       throw validationError({ images: "Please add at least one photo of the animals." });
     }
@@ -567,7 +567,7 @@ router.put("/listings/:id", requireSeller, requireApproved, uploadImages, async 
   try {
     const id = positiveInt(req.params.id);
     const before = await ownListing(conn, id, req.seller.id);
-    const p = await helpers.payload(listingBody(req.body));
+    const p = await helpers.payload(listingBody(req.body), { required: true, lockedPrice: Boolean(before.went_live_at) });
     const photoChanges = helpers.parsePhotoChanges(req.body);
     // Once a listing has been live on the website, its category, quantity and
     // price stay as they are (only Frontier's team can change them).
