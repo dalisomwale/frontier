@@ -6877,3 +6877,9 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 }
 .tx-page-wide .admin-table td .w-8.h-8 { width: 28px; height: 28px; }
 @media (max-width: 1399px) { .tx-page-wide .admin-table th, .tx-page-wide .admin-table td { padding-left: 6px; padding-right: 6px; } }
+
+/* Tables: text actions, no icons or pictures */
+.tbl-act { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 6px; font-size: 13px; font-weight: 600; color: #166534; background: none; border: 0; cursor: pointer; white-space: nowrap; }
+.tbl-act:hover { background: #f3f7f1; text-decoration: underline; text-underline-offset: 3px; }
+.tbl-act-danger { color: #b91c1c; }
+.tbl-act-danger:hover { background: #fef2f2; }

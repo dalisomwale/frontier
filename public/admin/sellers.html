@@ -189,18 +189,18 @@
 
       function actionsHtml(s) {
         return `<div class="sl-actions">
-          <button type="button" data-edit="${s.id}" class="sl-icon" title="Edit" aria-label="Edit ${escapeHtml(s.name)}">${uiIcon("edit")}</button>
-          <button type="button" data-delete="${s.id}" class="sl-icon sl-icon-danger" title="Delete" aria-label="Delete ${escapeHtml(s.name)}">${uiIcon("trash")}</button>
+          <button type="button" data-edit="${s.id}" class="tbl-act" aria-label="Edit ${escapeHtml(s.name)}">Edit</button>
+          <button type="button" data-delete="${s.id}" class="tbl-act tbl-act-danger" aria-label="Delete ${escapeHtml(s.name)}">Delete</button>
         </div>`;
       }
 
       const initials = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
-      function sellerCell(s, withFarm = true) {
+      function sellerCell(s, withFarm = true, avatar = true) {
         const review = Number(s.pending_count);
         return `
           <div class="sl-who">
-            <span class="sl-avatar ${s.status === "inactive" ? "sl-avatar-off" : ""}">${escapeHtml(initials(s.name))}</span>
+            ${avatar ? `<span class="sl-avatar ${s.status === "inactive" ? "sl-avatar-off" : ""}">${escapeHtml(initials(s.name))}</span>` : ""}
             <div class="min-w-0">
               <p class="sl-name">${escapeHtml(s.name)}</p>
               ${withFarm && s.business_name ? `<p class="sl-farm">${escapeHtml(s.business_name)}</p>` : ""}
@@ -223,7 +223,7 @@
         return `
           <tr class="cursor-pointer" data-open="${s.id}">
             <td class="whitespace-nowrap text-gray-600">${dateOnly(s.created_at)}</td>
-            <td>${sellerCell(s, false)}</td>
+            <td>${sellerCell(s, false, false)}</td>
             <td class="text-gray-700">${s.business_name ? escapeHtml(s.business_name) : `<span class="sl-zero">-</span>`}${s.province ? `<span class="col-xw-in text-xs text-gray-500">${escapeHtml(s.province)}</span>` : ""}</td>
             <td>${s.email ? `<a class="tx-contact sl-email" href="mailto:${escapeHtml(s.email)}" title="${escapeHtml(s.email)}" data-stop>${escapeHtml(s.email)}</a>` : `<span class="sl-zero">-</span>`}</td>
             <td class="whitespace-nowrap">${s.phone ? `<a class="tx-contact" href="tel:${escapeHtml(String(s.phone).replace(/\s+/g, ""))}" data-stop>${escapeHtml(s.phone)}</a>` : "-"}</td>

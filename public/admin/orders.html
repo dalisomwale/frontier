@@ -140,9 +140,8 @@
             <td class="whitespace-nowrap text-gray-600">${dateOnly(o.created_at)}</td>
             <td><p class="font-semibold text-gray-900 whitespace-nowrap">${escapeHtml(o.reference)}</p></td>
             <td class="hidden md:table-cell">
-              <div class="flex items-center gap-2.5 min-w-0">
-                <span class="order-item-thumb">${o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="">` : livestockFallbackMedia("w-5 h-5")}</span>
-                <span class="text-sm text-gray-800 line-clamp-2">${escapeHtml(o.livestock_title)} <span class="text-gray-500 whitespace-nowrap">× ${escapeHtml(String(units))}</span></span>
+              <div class="min-w-0">
+                <span class="text-gray-800 line-clamp-2">${escapeHtml(o.livestock_title)} <span class="text-gray-500 whitespace-nowrap">× ${escapeHtml(String(units))}</span></span>
               </div>
             </td>
             <td><span class="font-medium text-gray-900 whitespace-nowrap">${escapeHtml(o.full_name)}</span></td>
