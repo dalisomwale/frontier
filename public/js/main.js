@@ -344,7 +344,8 @@ function bindPhotoPicker(grid, max = 4, onChange = () => {}) {
 
 // One order's progress, shown the same way to buyers, sellers and admins:
 // Order placed → Paid → Delivered → Buyer confirmed → Handed over.
-// o: { paid, failed, sent, received, handed, completed, cancelled, buyer }
+// o: { paid, failed, sent, received, handed, completed, cancelled, buyer,
+//      paysSeller, sellerPaid } - paysSeller adds the last step, Seller paid.
 // Buyers see it end at their own confirmation: for them that completes it.
 function orderTrackerHtml(o) {
   const done = Boolean(o.completed);
@@ -356,8 +357,9 @@ function orderTrackerHtml(o) {
     ["Delivered", step(o.sent, o.paid)],
     [o.buyer ? "Confirmed" : "Buyer confirmed", step(o.received, o.sent)],
     ...(o.buyer ? [] : [["Handed over", step(o.handed, o.received)]]),
+    ...(!o.buyer && o.paysSeller ? [["Seller paid", step(o.sellerPaid, o.handed)]] : []),
   ];
   const mark = { done: "✓", fail: "✕", now: "…" };
-  return `<ol class="tx-path ${o.buyer ? "tx-path-4" : ""}" aria-label="Order progress">${stages.map(([label, st], i) => `
+  return `<ol class="tx-path tx-path-${stages.length}" aria-label="Order progress">${stages.map(([label, st], i) => `
     <li class="tx-step is-${st}"><span class="tx-dot">${mark[st] || i + 1}</span><span class="tx-step-label">${label}</span></li>`).join("")}</ol>`;
 }

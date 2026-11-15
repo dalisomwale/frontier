@@ -92,7 +92,9 @@
       function stageTag(o) {
         if (o.status === "cancelled") return "";
         const tag = (t, ok) => `<div class="mt-1"><span class="ho-tag ${ok ? "ho-tag-ok" : ""}">${t}</span></div>`;
-        if (o.handed_over_at) return tag("Ready to pay seller", true);
+        if (o.seller_paid_at) return tag("Seller paid", true);
+        if (o.handed_over_at && o.seller_id) return tag("Ready to pay seller");
+        if (o.handed_over_at) return tag("Handed over", true);
         if (o.received_at) return tag("Buyer confirmed");
         if (o.sent_at) return tag(o.sent_method === "delivered" ? "Delivered" : "Collected");
         if (["failed", "pending"].includes(o.payment_status) && o.status !== "completed") return `<div class="mt-1">${payTag(o)}</div>`;
@@ -163,7 +165,7 @@
       // buyer's confirmation (with photos), then "handed over" completes it.
       const proofPhotos = (o, party) => {
         const list = (o.receipt_photos || []).filter((p) => (p.party || "buyer") === party);
-        return list.length ? `<div class="order-proof-photos">${list.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="${party === "seller" ? "Seller's" : "Buyer's"} photo"></a>`).join("")}</div>` : "";
+        return list.length ? `<div class="order-proof-photos">${list.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="${party === "seller" ? "Seller's photo" : party === "payout" ? "Proof of payment" : "Buyer's photo"}"></a>`).join("")}</div>` : "";
       };
       function proofHtml(o) {
         const paid = o.payment_status === "paid" || ["paid", "confirmed"].includes(o.status);
@@ -192,16 +194,30 @@
             ? `<div class="order-proof-step"><p class="font-bold text-gray-900">2 · Waiting for the buyer</p><p class="text-sm text-gray-600">${o.buyer_id ? "They confirm with photos." : "No account: mark the order Completed when it's done."}</p></div>`
             : "";
         const done = o.handed_over_at
-          ? `<div class="order-proof-step"><p class="font-bold text-gray-900">3 · Handed over · ${escapeHtml(formatDate(o.handed_over_at))}</p><p class="text-sm text-gray-600">By ${escapeHtml(o.handed_over_by || "-")}. The seller can be paid.</p></div>`
+          ? `<div class="order-proof-step"><p class="font-bold text-gray-900">3 · Handed over · ${escapeHtml(formatDate(o.handed_over_at))}</p><p class="text-sm text-gray-600">By ${escapeHtml(o.handed_over_by || "-")}.</p></div>`
           : o.can_hand_over
             ? `<form class="order-proof-step" data-handover><p class="font-bold text-gray-900">3 · Hand over</p><p class="text-sm text-gray-600 mb-2">${o.seller_id ? "Waiting for the seller. You can also do it here." : "Completes the order."}</p><button type="submit" class="acc-btn" style="width:auto">Mark as handed over</button></form>`
+            : "";
+        const payout = o.seller_paid_at
+          ? `<div class="order-proof-step"><p class="font-bold text-gray-900">4 · Seller paid · ${escapeHtml(formatDate(o.seller_paid_at))}</p><p class="text-sm text-gray-600">By ${escapeHtml(o.seller_paid_by || "-")}${o.seller_paid_ref ? ` · Ref ${escapeHtml(o.seller_paid_ref)}` : ""}</p>${proofPhotos(o, "payout")}</div>`
+          : o.can_pay_seller
+            ? `<form class="order-proof-step" data-pay-seller novalidate>
+                 <p class="font-bold text-gray-900">4 · Pay the seller</p>
+                 <p class="text-sm text-gray-600 mb-2">Once you've paid ${escapeHtml(o.seller_name || "the seller")}, add the proof of payment.</p>
+                 <label class="field-label" for="pay-ref-${o.id}">Payment reference <span class="text-gray-400 font-normal">(optional)</span></label>
+                 <input id="pay-ref-${o.id}" name="reference" class="field-input" maxlength="150" style="max-width:320px" placeholder="e.g. bank or mobile money reference">
+                 <p class="field-label mt-3">Proof of payment <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 4 photos)</span></p>
+                 <div class="acc-ph-grid" data-photos style="max-width:520px"></div>
+                 <p class="field-error hidden" data-error-for="images"></p>
+                 <button type="submit" class="acc-btn mt-3" style="width:auto">Mark seller paid</button>
+               </form>`
             : "";
         return `<div class="order-proof">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <p class="font-bold text-gray-900">Handover</p>
-              ${o.handed_over_at ? `<span class="so-pill so-done">Ready to pay the seller</span>` : ""}
+              ${o.seller_paid_at ? `<span class="so-pill so-done">Seller paid</span>` : o.can_pay_seller ? `<span class="so-pill so-act">Ready to pay the seller</span>` : ""}
             </div>
-            ${seller}${buyer}${done}
+            ${seller}${buyer}${done}${payout}
           </div>`;
       }
       function bindProof(box, o) {
@@ -229,9 +245,30 @@
             }
           });
         }
+        const pay = box.querySelector("[data-pay-seller]");
+        if (pay) {
+          const picker = bindPhotoPicker(pay.querySelector("[data-photos]"), 4, (n) => { if (n) pay.querySelector('[data-error-for="images"]').classList.add("hidden"); });
+          pay.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (!picker.files().length) return showFieldErrors(pay, { errors: { images: "Please add at least one photo of the proof of payment." } });
+            if (!(await confirmAction({ title: "Mark the seller as paid?", message: "The seller will be told and can see the proof of payment. The order will be completed.", confirmText: "Mark seller paid" }))) return;
+            const fd = new FormData();
+            fd.append("reference", pay.reference.value.trim());
+            picker.files().forEach((f) => fd.append("images", f));
+            try {
+              const res = await withBusy(pay.querySelector("button[type=submit]"), "Saving…", () =>
+                adminApi(`/api/admin/orders/${o.id}/seller-paid`, { method: "POST", body: fd }));
+              showNotification(res.message, "success");
+              await loadList(state.page);
+            } catch (error) {
+              showFieldErrors(pay, error);
+              showNotification(error.message, "error");
+            }
+          });
+        }
         box.querySelector("[data-handover]")?.addEventListener("submit", async (e) => {
           e.preventDefault();
-          if (!(await confirmAction({ title: "Mark as handed over?", message: "The order will be completed and the seller can be paid.", confirmText: "Mark as handed over" }))) return;
+          if (!(await confirmAction({ title: "Mark as handed over?", message: o.seller_id ? "The seller can then be paid." : "The order will be completed.", confirmText: "Mark as handed over" }))) return;
           try {
             const res = await adminApi(`/api/admin/orders/${o.id}/handover`, { method: "POST", body: {} });
             showNotification(res.message, "success");
@@ -356,7 +393,7 @@
           : `${escapeHtml(o.livestock_title)} <span class="text-gray-400">${o.livestock_id ? "(not on the website)" : "(listing deleted)"}</span>`;
 
         box.innerHTML = `
-          ${o.status === "cancelled" ? "" : orderTrackerHtml({ paid: o.payment_status === "paid" || ["paid", "confirmed"].includes(o.status), failed: o.payment_status === "failed", sent: Boolean(o.sent_at), received: Boolean(o.received_at), handed: Boolean(o.handed_over_at), completed: o.status === "completed" })}
+          ${o.status === "cancelled" ? "" : orderTrackerHtml({ paid: o.payment_status === "paid" || ["paid", "confirmed"].includes(o.status), failed: o.payment_status === "failed", sent: Boolean(o.sent_at), received: Boolean(o.received_at), handed: Boolean(o.handed_over_at), paysSeller: Boolean(o.seller_id), sellerPaid: Boolean(o.seller_paid_at), completed: o.status === "completed" && (!o.seller_id || Boolean(o.seller_paid_at) || !o.handed_over_at) })}
           <div class="order-detail-grid">
             <section>
               <h3>Buyer</h3>

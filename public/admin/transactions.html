@@ -102,10 +102,11 @@
         admin_check_payment: "Checked with Lipila",
         seller_sent: "Delivered or collected",
         handed_over: "Handed over: ready to pay the seller",
+        seller_paid: "Seller paid",
         buyer_confirmed: "Buyer confirmed receipt",
       };
       const TONE = {
-        payment_confirmed: "ok", admin_marked_paid: "ok", stock_taken: "ok", email_sent: "ok", buyer_confirmed: "ok", seller_sent: "ok",
+        payment_confirmed: "ok", admin_marked_paid: "ok", stock_taken: "ok", email_sent: "ok", buyer_confirmed: "ok", seller_sent: "ok", seller_paid: "ok",
         payment_failed: "bad", payment_request_failed: "bad", email_failed: "bad", stock_short: "bad",
         status_check_error: "warn", unconfirmed_alert: "warn", payment_request_unclear: "warn",
       };
@@ -303,6 +304,8 @@
           sent: has("seller_sent"),
           received: has("buyer_confirmed"),
           handed: has("handed_over"),
+          paysSeller: t.orders.some((o) => o.seller_name) || has("seller_paid"),
+          sellerPaid: has("seller_paid"),
         });
       }
 
@@ -314,7 +317,7 @@
         payment_requested: 1, payment_request_unclear: 1, payment_request_failed: 1, card_page_opened: 1, buyer_returned: 1,
         lipila_callback: 1, status_check_error: 1, payment_confirmed: 1, payment_waiting: 1, payment_failed: 1,
         unconfirmed_alert: 1, stock_taken: 1, stock_short: 1, admin_marked_paid: 1, admin_check_payment: 1,
-        seller_sent: 2, buyer_confirmed: 3, handed_over: 4,
+        seller_sent: 2, buyer_confirmed: 3, handed_over: 4, seller_paid: 5,
       };
       const EMAIL_EVENTS = ["email_sent", "email_failed", "email_skipped"];
       const shortDay = (d) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -332,13 +335,13 @@
         const body = `
           <p>${escapeHtml(e.detail || "")}</p>
           ${raw.map((x) => `<p>${escapeHtml(x.detail || "")}</p>`).join("")}
-          ${["buyer_confirmed", "seller_sent"].includes(e.event) ? "" : [e, ...raw].filter((x) => x.data).map((x) => `<details class="tx-raw"><summary>Lipila's full answer</summary><pre>${escapeHtml(pretty(x.data))}</pre></details>`).join("")}`;
+          ${["buyer_confirmed", "seller_sent", "seller_paid"].includes(e.event) ? "" : [e, ...raw].filter((x) => x.data).map((x) => `<details class="tx-raw"><summary>Lipila's full answer</summary><pre>${escapeHtml(pretty(x.data))}</pre></details>`).join("")}`;
         return `<li class="tx-ev tl-row tl-${TONE[e.event] || "plain"}">
           <details>
             <summary>
               <span class="tl-time">${clock(e.created_at)}</span>
               <span class="tl-what"><b>${r.title || (e.event === "seller_sent" ? (/as delivered/.test(e.detail || "") ? "Marked as delivered" : "Marked as collected") : EVENT[e.event] || escapeHtml(e.event))}</b>${sub ? `<small>${escapeHtml(sub)}</small>` : ""}
-                ${["buyer_confirmed", "seller_sent"].includes(e.event) ? photosOf(e.data) : ""}</span>
+                ${["buyer_confirmed", "seller_sent", "seller_paid"].includes(e.event) ? photosOf(e.data) : ""}</span>
               ${whoChip(e)}
               <span class="tl-chev" aria-hidden="true"></span>
             </summary>
@@ -353,7 +356,8 @@
         const sentEvent = t.events.find((e) => e.event === "seller_sent");
         const sentWord = sentEvent && /as delivered/.test(sentEvent.detail || "") ? "Delivered" : sentEvent ? "Collected" : "Delivered";
         // Each event joins the furthest step reached so far.
-        const groups = [[], [], [], [], []];
+        const paysSeller = t.orders.some((o) => o.seller_name) || has("seller_paid");
+        const groups = [[], [], [], [], [], []];
         let at = 0;
         t.events.forEach((e) => {
           if (STAGE_OF[e.event] !== undefined) at = Math.max(at, STAGE_OF[e.event]);
@@ -387,9 +391,10 @@
           });
           return rows;
         };
-        const reached = [true, paid || has("admin_marked_paid"), has("seller_sent"), has("buyer_confirmed"), has("handed_over")];
-        const names = ["Order placed", paid ? `Paid · ${kwacha(t.total)}` : failed ? "Payment not completed" : "Payment", sentWord, "Buyer confirmed", "Handed over"];
-        const waiting = ["", "Waiting for payment", "Waiting for the seller", "Waiting for the buyer", "Waiting for the seller"];
+        const reached = [true, paid || has("admin_marked_paid"), has("seller_sent"), has("buyer_confirmed"), has("handed_over"), has("seller_paid")];
+        const names = ["Order placed", paid ? `Paid · ${kwacha(t.total)}` : failed ? "Payment not completed" : "Payment", sentWord, "Buyer confirmed", "Handed over", "Seller paid"];
+        const waiting = ["", "Waiting for payment", "Waiting for the seller", "Waiting for the buyer", "Waiting for the seller", "Waiting for Frontier to pay the seller"];
+        if (!paysSeller) { reached.pop(); names.pop(); waiting.pop(); }
         const nowAt = failed ? -1 : reached.findIndex((r) => !r);
         const stages = names.map((name, i) => {
           const list = groups[i];

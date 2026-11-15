@@ -335,7 +335,7 @@ router.get("/summary", requireSeller, async (req, res, next) => {
       [req.seller.id],
     );
     const [[orders]] = await pool.query(
-      `SELECT COUNT(*) AS total, COALESCE(SUM(status NOT IN ('completed', 'cancelled') AND (sent_at IS NULL OR received_at IS NOT NULL)), 0) AS open
+      `SELECT COUNT(*) AS total, COALESCE(SUM(status NOT IN ('completed', 'cancelled') AND handed_over_at IS NULL AND (sent_at IS NULL OR received_at IS NOT NULL)), 0) AS open
        FROM orders WHERE seller_id = ? AND seller_notified_at IS NOT NULL`,
       [req.seller.id],
     );
@@ -364,7 +364,7 @@ router.get("/insights", requireSeller, async (req, res, next) => {
       `SELECT COUNT(*) AS orders,
               COALESCE(SUM(IF(o.status <> 'cancelled', o.total, 0)), 0) AS sales,
               COALESCE(SUM(o.status <> 'cancelled'), 0) AS kept,
-              COALESCE(SUM(o.status NOT IN ('completed', 'cancelled') AND (o.sent_at IS NULL OR o.received_at IS NOT NULL)), 0) AS open
+              COALESCE(SUM(o.status NOT IN ('completed', 'cancelled') AND o.handed_over_at IS NULL AND (o.sent_at IS NULL OR o.received_at IS NOT NULL)), 0) AS open
        FROM orders o WHERE o.seller_id = ? AND o.seller_notified_at IS NOT NULL AND ${since}`,
       [id, days - 1],
     );
@@ -769,7 +769,7 @@ router.get("/orders", requireSeller, async (req, res, next) => {
       `SELECT o.id, o.livestock_id, o.livestock_title, o.quantity, o.unit_price, o.price_unit, o.total,
               o.status, o.payment_status, o.created_at, o.paid_at, o.seller_notified_at, o.updated_at,
               o.handover_method, o.handed_over_at, o.handed_over_by, o.received_at, o.received_note,
-              o.sent_method, o.sent_at, o.sent_note,
+              o.sent_method, o.sent_at, o.sent_note, o.seller_paid_at, o.seller_paid_ref,
               a.name AS animal_name, a.kind AS animal_kind, l.location,
               (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = o.livestock_id ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path
        FROM orders o
@@ -808,6 +808,8 @@ router.get("/orders", requireSeller, async (req, res, next) => {
         sent_method: o.sent_method,
         sent_at: o.sent_at,
         sent_note: o.sent_note,
+        seller_paid_at: o.seller_paid_at,
+        seller_paid_ref: o.seller_paid_ref,
         can_send: handover.canSend(o),
         can_hand_over: handover.canHandOver(o),
         photos: photos.get(o.id) || [],
@@ -845,7 +847,7 @@ router.post("/orders/:id/handover", requireSeller, async (req, res, next) => {
     );
     if (!own) throw notFound("Order not found.");
     await handover.handOver(id, { kind: "seller", name: sellerLabel(req.seller) }, req.ip);
-    res.json({ success: true, message: "Marked as handed over. Frontier will process your payment." });
+    res.json({ success: true, message: "Marked as handed over. Frontier will now pay you." });
   } catch (error) {
     next(error);
   }

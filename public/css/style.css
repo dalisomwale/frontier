@@ -6491,3 +6491,4 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 .tl .tx-ev, .txd-timeline .tl .tx-ev { display: block; padding: 0; grid-template-columns: none; }
 .tl .tx-ev::before { display: none; }
 .tl-what .order-proof-photos { display: flex; gap: 6px; margin: 6px 0 0; }
+.tx-path.tx-path-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }

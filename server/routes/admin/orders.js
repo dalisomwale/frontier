@@ -82,6 +82,7 @@ async function loadOrder(id) {
   order.receipt_photos = photos.get(order.id) || [];
   order.can_send = handover.canSend(rows[0]);
   order.can_hand_over = handover.canHandOver(rows[0]);
+  order.can_pay_seller = handover.canPaySeller(rows[0]);
   return order;
 }
 
@@ -304,6 +305,19 @@ router.post("/:id/sent", uploadImages, async (req, res, next) => {
   }
 });
 
+// Frontier pays the seller after the handover and marks it with photos of
+// the proof of payment. The order is then Completed.
+router.post("/:id/seller-paid", uploadImages, async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id);
+    if (!id) throw notFound("Order not found.");
+    await handover.paySeller(id, req.admin, req.files, text(req.body.reference, 150) || null, req.ip);
+    res.json({ success: true, message: "Seller marked as paid. The order is complete.", data: await loadOrder(id) });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Frontier marks an order as handed over (its own stock, or for a seller),
 // once the buyer has confirmed. The order is then Completed.
 router.post("/:id/handover", async (req, res, next) => {
@@ -311,7 +325,7 @@ router.post("/:id/handover", async (req, res, next) => {
     const id = positiveInt(req.params.id);
     if (!id) throw notFound("Order not found.");
     await handover.handOver(id, { kind: "admin", name: `Frontier (${req.admin.name})`, admin: req.admin }, req.ip);
-    res.json({ success: true, message: "Marked as handed over. The order is complete.", data: await loadOrder(id) });
+    res.json({ success: true, message: "Marked as handed over. The seller can now be paid.", data: await loadOrder(id) });
   } catch (error) {
     next(error);
   }

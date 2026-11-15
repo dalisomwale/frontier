@@ -910,16 +910,18 @@
         { key: "send", label: "To deliver" },
         { key: "buyer", label: "Waiting for buyer" },
         { key: "open", label: "To hand over" },
+        { key: "payout", label: "Awaiting payment" },
         { key: "completed", label: "Completed" },
         { key: "cancelled", label: "Cancelled" },
       ];
       const orderState = { tab: "all", rows: [], q: "" };
       const isOpen = (o) => !["completed", "cancelled"].includes(o.status);
-      const inTab = (o, tab) => tab === "all" || (tab === "send" ? isOpen(o) && !o.sent_at : tab === "open" ? isOpen(o) && Boolean(o.received_at) : tab === "buyer" ? isOpen(o) && Boolean(o.sent_at) && !o.received_at : o.status === tab);
+      const inTab = (o, tab) => tab === "all" || (tab === "send" ? isOpen(o) && !o.sent_at : tab === "open" ? isOpen(o) && Boolean(o.received_at) && !o.handed_over_at : tab === "buyer" ? isOpen(o) && Boolean(o.sent_at) && !o.received_at : tab === "payout" ? Boolean(o.handed_over_at) && !o.seller_paid_at && o.status !== "cancelled" : tab === "completed" ? o.status === "completed" && !(o.handed_over_at && !o.seller_paid_at) : o.status === tab);
 
       function orderStatus(o) {
-        if (o.status === "completed") return { cls: "so-done", label: "Completed" };
         if (o.status === "cancelled") return { cls: "so-off", label: "Cancelled" };
+        if (o.handed_over_at && !o.seller_paid_at) return { cls: "so-open", label: "Awaiting payment" };
+        if (o.status === "completed") return { cls: "so-done", label: "Completed" };
         if (o.received_at) return { cls: "so-act", label: "To hand over" };
         if (o.sent_at) return { cls: "so-open", label: "Waiting for buyer" };
         return { cls: "so-act", label: "To deliver" };
@@ -950,8 +952,17 @@
 
       function stepCard(o) {
         if (o.status === "cancelled") return `<div class="txd-card"><p class="text-sm text-gray-700">Cancelled. The quantity is back on your listing.</p></div>`;
+        if (o.seller_paid_at) {
+          return `<div class="txd-card acc-card-ok"><b>Paid · ${escapeHtml(formatDateShort(o.seller_paid_at))}</b>
+              <p class="text-sm text-gray-600 mt-1">${o.seller_paid_ref ? `Reference ${escapeHtml(o.seller_paid_ref)}. ` : ""}Thank you for selling on Frontier.</p>
+              <p class="field-label mt-3">Proof of payment</p>${proofPhotos(o, "payout", "Proof of payment")}</div>`;
+        }
+        if (o.handed_over_at) {
+          return `<div class="txd-card"><b>Handed over · ${escapeHtml(formatDateShort(o.handed_over_at))}</b>
+              <p class="text-sm text-gray-600 mt-1">Frontier will now pay you. The proof of payment will appear here.</p>${proofPhotos(o, "buyer", "Buyer's photo")}</div>`;
+        }
         if (o.status === "completed") {
-          return `<div class="txd-card acc-card-ok"><b>Completed</b><p class="text-sm text-gray-600 mt-1">${o.handed_over_at ? "Frontier will process your payment." : "Thank you for selling on Frontier."}</p>${proofPhotos(o, "buyer", "Buyer's photo")}</div>`;
+          return `<div class="txd-card acc-card-ok"><b>Completed</b><p class="text-sm text-gray-600 mt-1">Thank you for selling on Frontier.</p>${proofPhotos(o, "buyer", "Buyer's photo")}</div>`;
         }
         if (o.received_at) {
           return `<form class="txd-card acc-card-ok" data-handover>
@@ -996,7 +1007,7 @@
             </div>
             <span class="so-pill ${st.cls} so-pill-lg">${st.label}</span>
           </div>
-          ${orderTrackerHtml({ paid: o.paid || ["paid", "confirmed"].includes(o.status), sent: Boolean(o.sent_at), received: Boolean(o.received_at), handed: Boolean(o.handed_over_at), completed: o.status === "completed", cancelled: o.status === "cancelled" })}
+          ${orderTrackerHtml({ paid: o.paid || ["paid", "confirmed"].includes(o.status), sent: Boolean(o.sent_at), received: Boolean(o.received_at), handed: Boolean(o.handed_over_at), paysSeller: true, sellerPaid: Boolean(o.seller_paid_at), completed: o.status === "completed" && !(o.handed_over_at && !o.seller_paid_at), cancelled: o.status === "cancelled" })}
           <div class="so-detail so-detail-first">
             <div class="txd-card">
               <dl class="sv-facts">
@@ -1042,7 +1053,7 @@
           e.preventDefault();
           const ok = await confirmAction({
             title: "Mark as handed over?",
-            message: "The order will be completed and Frontier will process your payment.",
+            message: "Frontier will then pay you.",
             confirmText: "Mark as handed over",
           });
           if (!ok) return;
@@ -1074,7 +1085,8 @@
             send: ["Nothing to deliver", "New paid orders appear here."],
             buyer: ["Nothing waiting", "Orders wait here until the buyer confirms."],
             open: ["Nothing to hand over", "Orders the buyer has confirmed appear here."],
-            completed: ["No completed orders yet", "Orders you've handed over appear here."],
+            payout: ["Nothing awaiting payment", "Orders you've handed over wait here until Frontier pays you."],
+            completed: ["No completed orders yet", "Orders Frontier has paid you for appear here."],
             cancelled: ["No cancelled orders", "Cancelled orders appear here."],
             all: ["No orders yet", "When a buyer orders and pays for one of your listings, it appears here and we email you."],
           }[orderState.tab];

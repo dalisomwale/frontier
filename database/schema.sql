@@ -322,6 +322,9 @@ CREATE TABLE IF NOT EXISTS orders (
   sent_at          DATETIME NULL,
   sent_by          VARCHAR(150) NULL,
   sent_note        VARCHAR(500) NULL,
+  seller_paid_at   DATETIME NULL,
+  seller_paid_by   VARCHAR(150) NULL,
+  seller_paid_ref  VARCHAR(150) NULL,
   email_status     ENUM('pending', 'sent', 'failed') NOT NULL DEFAULT 'pending',
   email_error      VARCHAR(500) NULL,
   ip_address       VARCHAR(45) NULL,
@@ -425,7 +428,7 @@ CREATE TABLE IF NOT EXISTS buyer_notifications (
 CREATE TABLE IF NOT EXISTS order_receipt_photos (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   order_id    INT UNSIGNED NOT NULL,
-  party       ENUM('buyer', 'seller') NOT NULL DEFAULT 'buyer',
+  party       ENUM('buyer', 'seller', 'payout') NOT NULL DEFAULT 'buyer',
   image_path  VARCHAR(255) NOT NULL,
   thumb_path  VARCHAR(255) NOT NULL,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

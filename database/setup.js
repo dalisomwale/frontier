@@ -321,6 +321,19 @@ async function main() {
   await addColumns("order_receipt_photos", [
     ["party", "ENUM('buyer', 'seller') NOT NULL DEFAULT 'buyer' AFTER order_id"],
   ], "order photos say who took them");
+  await addColumns("orders", [
+    ["seller_paid_at", "DATETIME NULL AFTER sent_note"],
+    ["seller_paid_by", "VARCHAR(150) NULL AFTER seller_paid_at"],
+    ["seller_paid_ref", "VARCHAR(150) NULL AFTER seller_paid_by"],
+  ], "orders record when Frontier paid the seller");
+  const [[partyColumn]] = await conn.query(
+    "SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = ? AND table_name = 'order_receipt_photos' AND column_name = 'party'",
+    [DB_NAME],
+  );
+  if (partyColumn && !partyColumn.type.includes("'payout'")) {
+    await conn.query("ALTER TABLE order_receipt_photos MODIFY party ENUM('buyer', 'seller', 'payout') NOT NULL DEFAULT 'buyer'");
+    console.log("  order photos can hold proof of payment to the seller");
+  }
   await addColumns("inquiries", [
     ["forwarded_at", "DATETIME NULL AFTER seller_name"],
     ["forward_message", "TEXT NULL AFTER forwarded_at"],

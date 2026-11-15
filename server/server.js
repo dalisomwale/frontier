@@ -335,6 +335,9 @@ const LATE_COLUMNS = [
   ["orders", "sent_by", "VARCHAR(150) NULL AFTER sent_at"],
   ["orders", "sent_note", "VARCHAR(500) NULL AFTER sent_by"],
   ["order_receipt_photos", "party", "ENUM('buyer', 'seller') NOT NULL DEFAULT 'buyer' AFTER order_id"],
+  ["orders", "seller_paid_at", "DATETIME NULL AFTER sent_note"],
+  ["orders", "seller_paid_by", "VARCHAR(150) NULL AFTER seller_paid_at"],
+  ["orders", "seller_paid_ref", "VARCHAR(150) NULL AFTER seller_paid_by"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");
@@ -363,6 +366,17 @@ async function ensureLateTables() {
     await pool.query("UPDATE livestock SET went_live_at = published_at WHERE went_live_at IS NULL AND published_at IS NOT NULL");
   } catch (error) {
     console.error(`Could not fill livestock.went_live_at: ${error.message}`);
+  }
+  // Proof of payment to the seller was added to the photo types later.
+  try {
+    const [[party]] = await pool.query(
+      "SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'order_receipt_photos' AND column_name = 'party'",
+    );
+    if (party && !party.type.includes("'payout'")) {
+      await pool.query("ALTER TABLE order_receipt_photos MODIFY party ENUM('buyer', 'seller', 'payout') NOT NULL DEFAULT 'buyer'");
+    }
+  } catch (error) {
+    console.error(`Could not update order_receipt_photos.party: ${error.message}. Run: npm run db:setup`);
   }
   // Card payments were added to the payment_method list later.
   try {

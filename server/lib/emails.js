@@ -253,11 +253,18 @@ async function sellerOrder(order, event, extra = {}) {
       after: ["Please mark the order as handed over in your seller account. Frontier will then process your payment."],
     },
     completed: {
-      subject: `Order ${ref} is complete`,
-      heading: "Order complete: thank you",
-      text: `Order ${ref} for ${order.livestock_title} is complete. Thank you for selling on Frontier Marketplace.`,
+      subject: `Order ${ref} handed over: payment on its way`,
+      heading: "Handed over: thank you",
+      text: `Order ${ref} for ${order.livestock_title} has been handed over. Thank you for selling on Frontier Marketplace.`,
       rows: [["Order", ref], ["Quantity", what], ["Total", kwacha(order.total)]],
-      after: ["Frontier will now process your payment."],
+      after: ["Frontier will now process your payment. You'll get the proof of payment in your seller account."],
+    },
+    paid: {
+      subject: `You've been paid for order ${ref}`,
+      heading: "Frontier has paid you",
+      text: `Frontier has paid you for order ${ref} (${order.livestock_title}). The order is now complete.`,
+      rows: [["Order", ref], ["Quantity", what], ["Order total", kwacha(order.total)], ...(extra.reference ? [["Payment reference", extra.reference]] : [])],
+      after: ["The proof of payment is on the order in your seller account. Thank you for selling on Frontier Marketplace."],
     },
     cancelled: {
       subject: `Order ${ref} was cancelled`,
