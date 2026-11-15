@@ -6650,3 +6650,10 @@ body.site-sheet-open { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { .snav-panel, .snav-sheet { animation: none; } }
 .snav-head-photo { background-size: cover; background-position: center; }
+/* Phones: the menu button sits at the far right of the bar */
+@media (max-width: 1023px) {
+  .snav-burger { order: 2; margin-left: 4px; }
+  .site-topnav .snav-burger { order: 5; }
+  .site-topnav.has-site-nav .header-auth { margin-left: auto; }
+  .site-topnav .snav-burger, .has-site-nav .header-auth-acc .snav-burger { margin-left: 8px; }
+}
