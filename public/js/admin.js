@@ -112,7 +112,9 @@ const adminViews = [];
 let adminViewPopBusy = false;
 
 function adminSectionLabel() {
-  const active = document.querySelector(".app-sidebar-nav > a.active span");
+  const link = document.querySelector(".app-sidebar-nav > a.active");
+  if (link && link.dataset.crumbLabel) return link.dataset.crumbLabel;
+  const active = link && link.querySelector("span");
   return (active && active.textContent.trim()) || (document.querySelector("main h1")?.textContent.trim()) || "Admin";
 }
 

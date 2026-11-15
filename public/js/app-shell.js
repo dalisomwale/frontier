@@ -62,8 +62,8 @@ function renderSidebar(active) {
   const items = [
     { key: "dashboard", href: "/admin/index.html", icon: "dashboard", label: "Dashboard" },
     { section: "Listings" },
-    { key: "livestock", href: "/admin/livestock.html", icon: "listings", label: "Livestock" },
-    { key: "feed", href: "/admin/livestock.html?kind=feed", icon: "feed", label: "Feed" },
+    { key: "livestock", href: "/admin/livestock.html", icon: "listings", label: "Manage Listing", crumb: "Livestock" },
+    { key: "feed", href: "/admin/livestock.html?kind=feed", icon: "feed", label: "Manage Feed", crumb: "Feed" },
     { section: "Sales" },
     { key: "orders", href: "/admin/orders.html", icon: "cart", label: "Orders", orderBadge: true },
     { key: "inquiries", href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", badge: true },
@@ -95,7 +95,7 @@ function renderSidebar(active) {
     <nav class="app-sidebar-nav">
       ${items
         .map(
-          (item) => item.section ? `<p class="app-sidebar-section">${item.section}</p>` : `<a href="${item.href}" class="${item.key === active ? "active" : ""}"${item.external ? ' target="_blank" rel="noopener"' : ""}>
+          (item) => item.section ? `<p class="app-sidebar-section">${item.section}</p>` : `<a href="${item.href}" class="${item.key === active ? "active" : ""}"${item.crumb ? ` data-crumb-label="${item.crumb}"` : ""}${item.external ? ' target="_blank" rel="noopener"' : ""}>
             ${uiIcon(item.icon)}<span>${item.label}</span>
             ${item.badge ? '<span data-new-badge class="nav-badge hidden">0</span>' : ""}
             ${item.orderBadge ? '<span data-order-badge class="nav-badge hidden">0</span>' : ""}
