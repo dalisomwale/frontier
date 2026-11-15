@@ -6825,3 +6825,4 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .txc-waiting span { color: #3f6212 !important; }
 .txc-failed { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); }
 @media (max-width: 767px) { .tx-total[class*="txc-"] b { font-size: 22px; } }
+.tx-total[class*="txc-"] { box-shadow: none !important; }
