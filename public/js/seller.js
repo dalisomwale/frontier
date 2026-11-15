@@ -49,7 +49,7 @@ function sellerPageHeader(seller) {
         </a>
         <div class="ml-auto flex items-center gap-2">
           ${seller ? `<span id="header-seller-name" class="hidden md:inline text-sm text-gray-500 mr-1">${escapeHtml(seller.business_name || seller.name)}</span>` : ""}
-          <a href="/" class="hidden sm:inline-flex ${seller ? "text-sm font-medium text-gray-600 hover:text-gray-900" : "site-topnav-back"} px-3 py-2">View website</a>
+          <a href="/" class="hidden sm:inline-flex ${seller ? "text-sm font-medium text-gray-600 hover:text-gray-900" : "site-topnav-back"} px-3 py-2">Shop Now</a>
           ${seller ? notifBellHtml() : ""}
           ${seller ? `<button type="button" data-seller-logout class="text-sm font-medium px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Logout</button>` : ""}
         </div>
@@ -322,7 +322,7 @@ function renderSellerShell(seller) {
         ${uiIcon(item.icon)}<span>${item.label}</span>
         ${item.badge ? `<span data-${item.badge}-badge class="nav-badge hidden">0</span>` : ""}
       </a>`).join("")}
-      <a href="/" target="_blank" rel="noopener">${uiIcon("external")}<span>View Website</span></a>
+      <a href="/" target="_blank" rel="noopener">${uiIcon("external")}<span>Shop Now</span></a>
     </nav>
     <div class="app-sidebar-footer">
       <p class="text-xs px-3 pb-2 truncate" style="color: var(--sidebar-text)">Signed in as ${escapeHtml(seller.business_name || seller.name)}</p>
@@ -337,7 +337,7 @@ function renderSellerShell(seller) {
           <span class="font-bold site-topnav-name">Seller</span>
         </a>
         <div class="flex items-center gap-2">
-          <a href="/" target="_blank" rel="noopener" class="hidden sm:inline-flex site-topnav-back px-3 py-2">View website</a>
+          <a href="/" target="_blank" rel="noopener" class="hidden sm:inline-flex site-topnav-back px-3 py-2">Shop Now</a>
         </div>
       </div>
     </nav>`;

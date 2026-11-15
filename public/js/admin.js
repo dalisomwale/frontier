@@ -45,7 +45,7 @@ async function initAdminPage(active) {
             <span class="font-bold text-gray-900">Admin</span>
           </a>
           <div class="flex items-center gap-2">
-            <a href="/" target="_blank" rel="noopener" class="hidden sm:inline-flex text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2">View website</a>
+            <a href="/" target="_blank" rel="noopener" class="hidden sm:inline-flex text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2">Shop Now</a>
             <button type="button" data-logout class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium text-sm">Logout</button>
           </div>
         </div>

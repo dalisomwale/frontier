@@ -73,7 +73,7 @@ function renderSidebar(active) {
         { href: "/admin/categories.html?kind=feed", label: "Feed", feed: true },
       ],
     },
-    { key: "site", href: "/", icon: "external", label: "View Website", external: true },
+    { key: "site", href: "/", icon: "external", label: "Shop Now", external: true },
   ];
 
   mount.innerHTML = `
