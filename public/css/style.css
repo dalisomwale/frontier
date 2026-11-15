@@ -6702,3 +6702,8 @@ body.site-sheet-open { overflow: hidden; }
 .snav-acct-btn, .snav-burger { border: 0 !important; background: none; }
 .snav-acct-btn svg { width: 24px; height: 24px; }
 .snav-burger span { width: 22px; }
+/* All screens: Log in / Register as the person icon */
+.has-site-nav .header-login-link, .has-site-nav .header-seller-link { display: none !important; }
+.has-site-nav .snav-acct { display: block; }
+.has-site-nav .snav-acct.is-signed-in { display: none; }
+.has-site-nav .header-auth, .has-site-nav .header-auth-acc { gap: 10px; }
