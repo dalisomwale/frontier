@@ -6922,3 +6922,23 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 /* Transactions: one line per item, quantity on the same line */
 .tx-table .tx-line { display: block; height: 20px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tx-table .tx-line + .tx-line { border-top: 1px dashed #eef0ec; }
+
+/* Transaction timeline: each step has its own colour */
+.tl-k-placed { --tl-c: #475569; --tl-bg: #f1f5f9; }
+.tl-k-paid { --tl-c: #15803d; --tl-bg: #e8f5ec; }
+.tl-k-sent { --tl-c: #0f766e; --tl-bg: #e6f4f2; }
+.tl-k-confirmed { --tl-c: #b45309; --tl-bg: #fef3e2; }
+.tl-k-handed { --tl-c: #6d28d9; --tl-bg: #f1ebfd; }
+.tl-k-sellerpaid { --tl-c: #1d4ed8; --tl-bg: #e8effd; }
+.tl-stage .tl-name { color: var(--tl-c); }
+.tl-stage.tl-done .tl-dot { background: var(--tl-c); }
+.tl-stage.tl-now .tl-dot { background: var(--tl-bg); color: var(--tl-c); border-color: var(--tl-c); }
+.tl-stage.tl-todo .tl-name { color: var(--tl-c); opacity: .45; }
+.tl-stage.tl-fail .tl-name { color: #991b1b; }
+.tl-stage.tl-fail .tl-dot { background: #dc2626; }
+.tl-stage.tl-done:not(:last-child)::before { background: var(--tl-bg); }
+.tl-stage .tl-rows { border-color: var(--tl-bg); }
+/* Side cards: coloured headings */
+.txd-c-payment h2 { color: #15803d; }
+.txd-c-buyer h2 { color: #0f766e; }
+.txd-c-items h2 { color: #b45309; }

@@ -285,13 +285,13 @@
               ${t.events.length ? timelineHtml(t) : `<p class="text-sm text-gray-500">No steps recorded.</p>`}
             </section>
             <aside class="txd-side">
-              <section class="txd-card"><h2>Payment</h2><dl class="txd-list">${payment}</dl></section>
-              <section class="txd-card"><h2>Buyer</h2><dl class="txd-list">
+              <section class="txd-card txd-c-payment"><h2>Payment</h2><dl class="txd-list">${payment}</dl></section>
+              <section class="txd-card txd-c-buyer"><h2>Buyer</h2><dl class="txd-list">
                 ${row("Name", escapeHtml(t.full_name))}
                 ${row("Email", `<a href="mailto:${escapeHtml(t.email)}">${escapeHtml(t.email)}</a>`)}
                 ${row("Phone", `<a href="tel:${escapeHtml(String(t.phone).replace(/[^\d+]/g, ""))}">${escapeHtml(t.phone)}</a>`)}
               </dl></section>
-              <section class="txd-card"><h2>Items</h2>
+              <section class="txd-card txd-c-items"><h2>Items</h2>
                 <ul class="txd-items">${items}</ul>
                 <div class="txd-total"><span>Total</span><b>${kwacha(t.total)}</b></div>
               </section>
@@ -412,7 +412,8 @@
           const dot = state === "done" ? "✓" : state === "fail" ? "✕" : state === "now" ? "…" : i + 1;
           const rows = rowsOf(list).reverse();
           const day = list.length ? shortDay(list[list.length - 1].created_at) : "";
-          return `<li class="tl-stage tl-${state}">
+          const key = ["placed", "paid", "sent", "confirmed", "handed", "sellerpaid"][i];
+          return `<li class="tl-stage tl-${state} tl-k-${key}">
             <span class="tl-dot">${dot}</span>
             <div class="tl-head"><span class="tl-name">${name}</span>${day ? `<span class="tl-day">${day}</span>` : ""}</div>
             ${rows.length ? `<ol class="tl-rows">${rows.map((r) => rowHtml(r, t)).join("")}</ol>` : state === "now" ? `<p class="tl-wait">${waiting[i]}</p>` : ""}
