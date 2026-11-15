@@ -6372,24 +6372,6 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
   .site-footer-bottom { margin-top: 0.85rem !important; padding-top: 0.75rem !important; }
 }
 
-/* Listing: facts as tags, short description, one set of buttons. */
-.lv-facts { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.9rem; }
-.lv-fact { font-size: 0.8rem; padding: 0.3rem 0.7rem; border-radius: 999px; background: #fff; border: 1px solid #e5e7eb; color: #374151; }
-.lv-desc { margin-top: 0.9rem; font-size: 0.9rem; line-height: 1.55; color: #374151; white-space: pre-line; }
-#buy-box.buy-box { margin-top: 1.1rem; }
-.buy-box .buy-qty { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.buy-box .buy-qty.hidden, .buy-total.hidden { display: none; }
-.lv-ask { display: block; margin-top: 0.9rem; background: none; border: 0; padding: 0; color: #1a6b3a; font-weight: 600; font-size: 0.9rem; cursor: pointer; }
-.lv-ask:hover { text-decoration: underline; }
-.lv-ask:disabled { color: #9ca3af; cursor: default; }
-@media (max-width: 1023px) {
-  .buy-row-desk { display: none !important; }
-  .mobile-buy-bar { visibility: visible !important; }
-}
-@media (max-width: 1023px) { .lv-ask.lv-ask-desk { display: none; } }
-.buy-box .buy-row-desk { margin-top: 0.9rem; }
-.buy-price-line .buy-price { color: #1a6b3a; }
-
 /* Checkout: compact choices, short terms, Pay in reach on phones. */
 .co-who button.acc-link { background: none; border: 0; cursor: pointer; }
 .co-fields:not(:has(> div:not([hidden]))) { display: none; }
@@ -6409,7 +6391,6 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
   .feed-tile { aspect-ratio: auto !important; min-height: 0 !important; height: 76px !important; }
   .feed-tile-desc { display: none !important; }
 }
-.acc-split.acc-single { grid-template-columns: minmax(0, 1fr) !important; max-width: 520px; margin: 0 auto; }
 
 /* Folded details */
 .acc-more { margin-top: 0.6rem; }

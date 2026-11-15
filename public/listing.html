@@ -54,16 +54,24 @@
 
         <div class="lg:col-span-1">
           <div class="lg:sticky lg:top-20 bg-white lg:bg-transparent rounded-lg lg:rounded-none p-5 lg:p-0">
-            <h1 id="listing-title" class="text-xl sm:text-2xl font-bold text-gray-900">
-              <span class="inline-block h-8 w-64 bg-gray-200 rounded animate-pulse"></span>
-            </h1>
-            <div id="buy-price" class="buy-price-line mt-2"><span class="inline-block h-8 w-40 bg-gray-200 rounded animate-pulse"></span></div>
-            <div id="listing-facts" class="lv-facts"></div>
-            <p id="listing-description" class="lv-desc hidden"></p>
+            <div class="mb-5 pb-5 border-b border-gray-200">
+              <h1 id="listing-title" class="text-xl sm:text-2xl font-bold text-gray-900">
+                <span class="inline-block h-8 w-64 bg-gray-200 rounded animate-pulse"></span>
+              </h1>
+            </div>
+
+            <div id="listing-attributes" class="mb-6 hidden">
+              <h3 class="text-base font-semibold text-gray-900 mb-3">Details</h3>
+              <dl id="attribute-list" class="space-y-2"></dl>
+            </div>
 
             <div id="buy-box" class="buy-box">
+              <div id="buy-price" class="buy-price-line"><span class="inline-block h-8 w-40 bg-gray-200 rounded animate-pulse"></span></div>
               <div id="buy-qty" class="buy-qty hidden">
-                <p class="text-sm font-semibold text-gray-800">Quantity</p>
+                <div>
+                  <p class="text-sm font-semibold text-gray-800">Quantity</p>
+                  <p id="buy-available" class="text-xs text-gray-500"></p>
+                </div>
                 <div class="qty-stepper" role="group" aria-label="Quantity">
                   <button type="button" data-step="-1" aria-label="Fewer">&minus;</button>
                   <input id="buy-qty-input" type="number" inputmode="numeric" min="1" value="1" aria-label="Quantity">
@@ -71,12 +79,13 @@
                 </div>
               </div>
               <div id="buy-total" class="buy-total hidden"><span>Total</span><strong></strong></div>
-              <div id="buy-actions" class="buy-row buy-row-desk">
+              <div id="buy-actions" class="buy-row">
                 <button id="cart-btn" type="button" class="btn-cart btn-lg hidden">Add to cart</button>
-                <button id="buy-btn" type="button" class="btn-buy btn-lg hidden">Buy now</button>
+                <button id="buy-btn" type="button" class="btn-buy btn-lg hidden">Buy Now</button>
               </div>
-              <button id="inquire-btn" type="button" disabled class="lv-ask">Ask the seller a question</button>
+              <button id="inquire-btn" type="button" disabled class="btn-contact btn-inquire btn-lg w-full mt-2">Contact Seller</button>
             </div>
+
           </div>
         </div>
       </div>
@@ -92,8 +101,8 @@
     <div id="mobile-inquire" class="mobile-buy-bar hidden lg:hidden">
       <div class="buy-row">
         <button type="button" data-mobile-cart class="btn-cart btn-lg hidden">Add to cart</button>
-        <button type="button" data-mobile-buy class="btn-buy btn-lg hidden">Buy now</button>
-        <button type="button" data-mobile-contact class="btn-contact btn-inquire btn-lg">Ask the seller</button>
+        <button type="button" data-mobile-buy class="btn-buy btn-lg hidden">Buy Now</button>
+        <button type="button" data-mobile-contact class="btn-contact btn-inquire btn-lg">Contact Seller</button>
       </div>
     </div>
 
@@ -105,21 +114,32 @@
       let listing = null;
       let galleryIndex = 0;
 
-      // Key facts as small tags; the description as a short paragraph.
       function setAttributes(item) {
-        const facts = [
-          item.animal_name,
-          item.category_name,
-          item.breed_name,
-          item.livestock_type,
-          item.age_months !== null && item.age_months !== undefined ? formatAge(item.age_months) : null,
-          item.location,
-          item.quantity ? `${quantityLabel(item.quantity, item.animal_name, item.animal_kind)} available` : null,
-        ].filter(Boolean);
-        document.getElementById("listing-facts").innerHTML = facts.map((f) => `<span class="lv-fact">${escapeHtml(f)}</span>`).join("");
-        const desc = document.getElementById("listing-description");
-        desc.textContent = item.description || "";
-        desc.classList.toggle("hidden", !item.description);
+        const rows = [
+          [item.animal_kind === "feed" ? "Feed type" : "Animal", item.animal_name],
+          [item.animal_kind === "feed" ? "Feed stage" : "Production Purpose", item.category_name],
+          ["Breed", item.breed_name],
+          ["Type", item.livestock_type],
+          ["Quantity", item.quantity ? quantityLabel(item.quantity, item.animal_name, item.animal_kind) : null],
+          ["Age", item.age_months !== null && item.age_months !== undefined ? formatAge(item.age_months) : null],
+          ["Province", item.location],
+          ["Listed", formatDateShort(item.created_at)],
+        ].filter(([, value]) => value);
+        document.getElementById("attribute-list").innerHTML = rows
+          .map(([label, value]) => `
+            <div class="flex justify-between gap-3">
+              <dt class="text-sm text-gray-500">${label}</dt>
+              <dd class="text-sm font-semibold text-gray-900 text-right">${escapeHtml(value)}</dd>
+            </div>`)
+          .join("");
+        if (item.description) {
+          document.getElementById("attribute-list").insertAdjacentHTML("beforeend", `
+            <div>
+              <dt class="text-sm text-gray-500">Description</dt>
+              <dd class="text-sm text-gray-900 mt-1 leading-relaxed whitespace-pre-line">${escapeHtml(item.description)}</dd>
+            </div>`);
+        }
+        document.getElementById("listing-attributes").classList.toggle("hidden", !rows.length && !item.description);
       }
 
       function formatAge(months) {
@@ -166,6 +186,11 @@
           mobile.querySelector(".buy-row").classList.add("buy-row-single");
         }
 
+        // The bar shows whenever the buttons in the buy box aren't fully in view
+        // (below the header and above the bar itself).
+        new IntersectionObserver(([entry]) => {
+          mobile.style.visibility = entry.intersectionRatio > 0.98 ? "hidden" : "visible";
+        }, { rootMargin: "-72px 0px -84px 0px", threshold: [0, 0.5, 0.99, 1] }).observe(document.getElementById("buy-actions"));
       }
 
       let buyQty = 1;
@@ -185,7 +210,6 @@
         const actions = document.getElementById("buy-actions");
         if (!hasPrice(item)) {
           priceBox.innerHTML = `<span class="lv-price-request">Price on request</span>`;
-          document.getElementById("inquire-btn").classList.add("lv-ask-desk");
           actions.classList.add("hidden");
           return;
         }
@@ -199,14 +223,15 @@
         const qtyBox = document.getElementById("buy-qty");
         const update = () => {
           totalBox.querySelector("strong").textContent = kwacha(lot ? Number(item.price) : Number(item.price) * buyQty);
-          totalBox.classList.toggle("hidden", buyQty < 2);
           input.value = buyQty;
           qtyBox.querySelector('[data-step="-1"]').disabled = buyQty <= 1;
           qtyBox.querySelector('[data-step="1"]').disabled = buyQty >= max;
         };
         if (!lot && max > 1) {
           qtyBox.classList.remove("hidden");
+          totalBox.classList.remove("hidden");
           input.max = max;
+          document.getElementById("buy-available").textContent = `${quantityLabel(max, item.animal_name, item.animal_kind)} available`;
           qtyBox.querySelectorAll("[data-step]").forEach((b) => b.addEventListener("click", () => {
             buyQty = Math.min(max, Math.max(1, buyQty + Number(b.dataset.step)));
             update();
@@ -215,7 +240,6 @@
             const n = Number.parseInt(input.value, 10);
             if (Number.isFinite(n)) buyQty = Math.min(max, Math.max(1, n));
             totalBox.querySelector("strong").textContent = kwacha(Number(item.price) * buyQty);
-            totalBox.classList.toggle("hidden", buyQty < 2);
           });
           input.addEventListener("blur", update);
           update();
