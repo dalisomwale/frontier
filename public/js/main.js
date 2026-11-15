@@ -269,16 +269,8 @@ function renderSiteFooter() {
           ${link("/contact.html", "All contact details")}
         </div>
       </div>
-      <nav class="site-footer-mini" aria-label="Footer">
-        <strong>Frontier Marketplace</strong>
-        ${link("/#listings", "Livestock")}
-        ${link("/#feed", "Feed")}
-        ${link("/seller/register.html", "Sell with us")}
-        ${link("/contact.html", "Contact")}
-        ${link("/terms.html", "Policies")}
-      </nav>
       <div class="site-footer-bottom">
-        <p>&copy; ${new Date().getFullYear()} Frontier Farms &amp; Consult</p>
+        <p>&copy; ${new Date().getFullYear()} Frontier Farms &amp; Consult. All rights reserved.</p>
       </div>
     </div>`;
 }

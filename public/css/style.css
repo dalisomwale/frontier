@@ -6360,17 +6360,6 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 @media (min-width: 1024px) { .acc-logout-phone { display: none; } }
 @media (max-width: 1023px) { .acc-logout-desk { display: none !important; } }
 
-/* Phones: the footer is one short strip; full details stay on Contact. */
-.site-footer-mini { display: none; }
-@media (max-width: 767px) {
-  .site-footer-grid { display: none; }
-  .site-footer-mini { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; font-size: 0.875rem; }
-  .site-footer-mini strong { width: 100%; color: #fff; font-size: 0.95rem; }
-  .site-footer-mini a { color: #d1d5db; }
-  .site-footer-mini a:hover { color: #fff; }
-  .site-footer-inner { padding-top: 1.25rem !important; padding-bottom: 1rem !important; }
-  .site-footer-bottom { margin-top: 0.85rem !important; padding-top: 0.75rem !important; }
-}
 
 /* Checkout: compact choices, short terms, Pay in reach on phones. */
 .co-who button.acc-link { background: none; border: 0; cursor: pointer; }
