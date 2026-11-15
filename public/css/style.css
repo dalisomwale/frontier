@@ -6698,3 +6698,7 @@ body.site-sheet-open { overflow: hidden; }
 @media (max-width: 380px) {
   .site-header-home.has-site-nav .site-search input::placeholder, .snav-barsearch input::placeholder { color: transparent; }
 }
+/* Person and menu icons without an outline */
+.snav-acct-btn, .snav-burger { border: 0 !important; background: none; }
+.snav-acct-btn svg { width: 24px; height: 24px; }
+.snav-burger span { width: 22px; }
