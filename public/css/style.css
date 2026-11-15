@@ -6854,3 +6854,26 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .tx-page-wide .tx-items-in { display: block; width: 110px; white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 1400px) { .tx-page-wide .tx-items-in { width: 88px; } }
 .tx-page-wide .tx-table td.tx-items { min-width: 0 !important; max-width: none !important; }
+
+/* Orders, Livestock, Feed, Sellers: same look as Transactions */
+.txc-muted { background: linear-gradient(135deg, #475569 0%, #334155 100%); }
+.tx-page-wide .admin-table th, .tx-page-wide .admin-table td { padding-left: 10px; padding-right: 10px; }
+.tx-page-wide .admin-table .tx-clip { display: block; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx-page-wide .sl-table .sl-who { min-width: 160px; }
+.tx-page-wide .sl-table .sl-email { display: block; max-width: 200px; }
+.tx-page-wide .admin-table th { white-space: normal; line-height: 1.25; vertical-align: bottom; padding: 10px 8px; }
+.tx-page-wide .admin-table td { padding: 10px 8px; }
+.tx-page-wide .sl-table .sl-email { max-width: 180px; }
+/* Columns that step aside on narrower screens (their details move under the title) */
+.col-xw-in, .col-w-in { display: none; }
+@media (max-width: 1499px) { .tx-page-wide .col-xw { display: none !important; } .col-xw-in { display: block; } }
+@media (max-width: 1359px) { .tx-page-wide .col-w { display: none !important; } .col-w-in { display: block; } }
+.tx-page-wide .admin-table { font-size: 13px; }
+.tx-page-wide .admin-table th { font-size: 11px; letter-spacing: .02em; }
+.tx-page-wide .sl-table .sl-who { min-width: 0; gap: 10px; }
+.tx-page-wide .sl-table .sl-avatar { width: 34px; height: 34px; font-size: 12.5px; }
+@media (max-width: 1359px) {
+  .tx-page-wide .admin-table .tx-clip, .tx-page-wide .sl-table .sl-email { max-width: 150px; }
+}
+.tx-page-wide .admin-table td .w-8.h-8 { width: 28px; height: 28px; }
+@media (max-width: 1399px) { .tx-page-wide .admin-table th, .tx-page-wide .admin-table td { padding-left: 6px; padding-right: 6px; } }

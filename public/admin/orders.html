@@ -13,16 +13,20 @@
     <script src="/js/app-shell.js"></script>
     <script src="/js/seller.js"></script>
     <script src="/js/admin.js"></script>
+    <script src="/js/xlsx-lite.js"></script>
     <script src="/js/livestock.js"></script>
   </head>
   <body class="bg-gray-50 admin-pending">
     <div id="app-sidebar"></div>
     <div id="admin-topbar"></div>
 
-    <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="app-content-shifted tx-page-wide mx-auto px-3 sm:px-4 py-6">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
         <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Orders</h1>
+        <button type="button" id="export" class="tx-export">Export Excel</button>
       </div>
+
+      <div class="tx-totals" id="totals"></div>
 
       <div class="bg-white rounded-xl border border-gray-100">
         <div class="flex flex-col md:flex-row md:items-center gap-3 p-4 border-b border-gray-100">
@@ -126,33 +130,63 @@
         </select>`;
       }
 
+      const dateOnly = (v) => new Date(v).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      const telHref = (p) => `tel:${escapeHtml(String(p).replace(/\s+/g, ""))}`;
+
       function rowHtml(o) {
-        const isOpen = false;
         const units = o.price_unit === "lot" ? `Lot (${o.quantity})` : o.quantity;
         return `
-          <tr class="order-row ${o.status === "new" ? "is-new" : ""} ${isOpen ? "is-open" : ""}" data-row="${o.id}" tabindex="0" aria-expanded="${isOpen}">
-            <td>
-              <p class="font-semibold text-gray-900 whitespace-nowrap">${escapeHtml(o.reference)}</p>
-              <p class="text-xs text-gray-500 whitespace-nowrap">${shortDate(o.created_at)}</p>
-            </td>
-            <td>
-              <p class="font-medium text-gray-900">${escapeHtml(o.full_name)}</p>
-              <p class="text-xs text-gray-500 whitespace-nowrap hidden sm:block">${escapeHtml(o.phone)}</p>
-            </td>
+          <tr class="order-row ${o.status === "new" ? "is-new" : ""}" data-row="${o.id}" tabindex="0" aria-expanded="false">
+            <td class="whitespace-nowrap text-gray-600">${dateOnly(o.created_at)}</td>
+            <td><p class="font-semibold text-gray-900 whitespace-nowrap">${escapeHtml(o.reference)}</p></td>
             <td class="hidden md:table-cell">
               <div class="flex items-center gap-2.5 min-w-0">
                 <span class="order-item-thumb">${o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="">` : livestockFallbackMedia("w-5 h-5")}</span>
                 <span class="text-sm text-gray-800 line-clamp-2">${escapeHtml(o.livestock_title)} <span class="text-gray-500 whitespace-nowrap">× ${escapeHtml(String(units))}</span></span>
               </div>
             </td>
-            <td class="whitespace-nowrap">
-              <p class="font-semibold text-gray-900">${kwacha(o.total)}</p>
-              <p class="text-xs text-gray-500 hidden sm:block">${escapeHtml(paymentShort(o))}</p>
-            </td>
+            <td><span class="font-medium text-gray-900 whitespace-nowrap">${escapeHtml(o.full_name)}</span></td>
+            <td class="hidden xl:table-cell">${o.email ? `<a class="tx-contact tx-clip" href="mailto:${escapeHtml(o.email)}" title="${escapeHtml(o.email)}">${escapeHtml(o.email)}</a>` : "-"}</td>
+            <td class="hidden sm:table-cell whitespace-nowrap">${o.phone ? `<a class="tx-contact" href="${telHref(o.phone)}">${escapeHtml(o.phone)}</a>` : "-"}</td>
+            <td class="hidden lg:table-cell whitespace-nowrap text-gray-700">${escapeHtml(paymentShort(o) || "-")}</td>
+            <td class="whitespace-nowrap text-right"><b class="text-gray-900">${kwacha(o.total)}</b></td>
             <td>${statusSelect(o)}${stageTag(o)}</td>
           </tr>
 `;
       }
+
+      function renderTotals(s) {
+        document.getElementById("totals").innerHTML = `
+          <div class="tx-total txc-received"><span>Sales</span><b>${kwacha(s.sales || 0)}</b></div>
+          <div class="tx-total txc-paid"><span>New</span><b>${Number(s.new) || 0}</b></div>
+          <div class="tx-total txc-waiting"><span>Awaiting payment</span><b>${Number(s.confirmed) || 0}</b></div>
+          <div class="tx-total txc-failed"><span>Cancelled</span><b>${Number(s.cancelled) || 0}</b></div>`;
+      }
+
+      // Excel file of the orders under the current tab and search.
+      async function exportExcel() {
+        const btn = document.getElementById("export");
+        btn.disabled = true;
+        try {
+          const params = listParams(1);
+          params.set("export", "1");
+          const res = await adminApi(`/api/admin/orders?${params}`);
+          const fmt = (d) => (d ? new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", "") : "");
+          const header = ["Order", "Date", "Items", "Quantity", "Name", "Email", "Phone", "Delivery", "Paid with", "Amount (ZMW)", "Status", "Payment", "Seller", "Delivered / collected", "Buyer confirmed", "Handed over", "Seller paid"];
+          const lines = res.data.map((o) => [
+            o.reference, fmt(o.created_at), o.livestock_title, Number(o.quantity) || 0,
+            o.full_name, o.email || "", o.phone || "", DELIVERY[o.delivery] || "", paymentShort(o),
+            Number(o.total).toFixed(2), statusLabel(o.status), (PAY_STATE[o.payment_status] || [o.payment_status || ""])[0],
+            o.seller_name || "Frontier", fmt(o.sent_at), fmt(o.received_at), fmt(o.handed_over_at), fmt(o.seller_paid_at),
+          ]);
+          downloadXlsx(`frontier-orders-${new Date().toISOString().slice(0, 10)}.xlsx`, "Orders", header, lines, { numberCols: [3, 9] });
+        } catch (error) {
+          showNotification(error.message, "error");
+        } finally {
+          btn.disabled = false;
+        }
+      }
+      document.getElementById("export").addEventListener("click", exportExcel);
 
       function listParams(page) {
         const params = new URLSearchParams({ page, limit: 25 });
@@ -293,6 +327,7 @@
         state.summary = res.summary;
         state.rows = res.data;
         renderTabs();
+        renderTotals(res.summary);
         setNewOrderBadge(res.summary.new);
 
         const pag = document.getElementById("pagination");
@@ -311,8 +346,9 @@
         list.innerHTML = `
           <table class="admin-table orders-table">
             <thead><tr>
-              <th>Order</th><th>Buyer</th><th class="hidden md:table-cell">Listing</th>
-              <th>Total</th><th>Status</th>
+              <th>Date</th><th>Order</th><th class="hidden md:table-cell">Items</th><th>Name</th>
+              <th class="hidden xl:table-cell">Email</th><th class="hidden sm:table-cell">Phone</th><th class="hidden lg:table-cell">Paid with</th>
+              <th class="text-right">Amount</th><th>Status</th>
             </tr></thead>
             <tbody>${state.rows.map(rowHtml).join("")}</tbody>
           </table>`;

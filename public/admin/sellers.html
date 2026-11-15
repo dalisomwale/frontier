@@ -12,21 +12,27 @@
     <script src="/js/icons.js"></script>
     <script src="/js/app-shell.js"></script>
     <script src="/js/admin.js"></script>
+    <script src="/js/xlsx-lite.js"></script>
   </head>
   <body class="bg-gray-50 admin-pending">
     <div id="app-sidebar"></div>
     <div id="admin-topbar"></div>
 
-    <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="app-content-shifted tx-page-wide mx-auto px-3 sm:px-4 py-6">
       <div class="sl-head">
         <div>
           <h1 class="admin-view-title !mb-0">Sellers</h1>
           <p class="text-sm text-gray-500 mt-1">Farmers and suppliers whose livestock and feed you list.</p>
         </div>
-        <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
-          <span class="w-5 h-5" data-icon="plus"></span> Add Seller
-        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" id="export" class="tx-export">Export Excel</button>
+          <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
+            <span class="w-5 h-5" data-icon="plus"></span> Add Seller
+          </button>
+        </div>
       </div>
+
+      <div class="tx-totals" id="totals"></div>
 
       <div class="sl-card">
         <div class="sl-toolbar">
@@ -76,6 +82,30 @@
         document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => { state.status = b.dataset.tab; load(); }));
       }
 
+      function renderTotals(s = {}) {
+        document.getElementById("totals").innerHTML = `
+          <div class="tx-total txc-received"><span>Sellers</span><b>${Number(s.all) || 0}</b></div>
+          <div class="tx-total txc-paid"><span>Approved</span><b>${Number(s.active) || 0}</b></div>
+          <div class="tx-total txc-waiting"><span>Awaiting approval</span><b>${Number(s.pending) || 0}</b></div>
+          <div class="tx-total txc-failed"><span>Deactivated</span><b>${Number(s.inactive) || 0}</b></div>`;
+      }
+
+      const dateOnly = (v) => (v ? new Date(v).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "");
+
+      // Excel file of the sellers under the current tab and search.
+      function exportExcel() {
+        const header = ["Joined", "Name", "Farm / business", "Email", "Phone", "Province", "Address", "Listings", "Live listings", "In review",
+          "Inquiries", "New inquiries", "Status", "Last sign-in"];
+        const lines = rows.map((s) => [
+          dateOnly(s.created_at), s.name, s.business_name || "", s.email || "", s.phone || "", s.province || "", s.address || "",
+          Number(s.listing_count) || 0, Number(s.published_count) || 0, Number(s.pending_count) || 0,
+          Number(s.inquiry_count) || 0, Number(s.new_inquiry_count) || 0,
+          s.status === "inactive" ? "Deactivated" : ACCOUNT_LABELS[s.account_status] || "Approved", dateOnly(s.last_login_at),
+        ]);
+        downloadXlsx(`frontier-sellers-${new Date().toISOString().slice(0, 10)}.xlsx`, "Sellers", header, lines, { numberCols: [7, 8, 9, 10, 11] });
+      }
+      document.getElementById("export").addEventListener("click", exportExcel);
+
       async function load() {
         const list = document.getElementById("list");
         const params = new URLSearchParams();
@@ -90,6 +120,7 @@
         }
         rows = res.data;
         renderTabs(res.summary);
+        renderTotals(res.summary);
 
         if (!rows.length) {
           if (state.status === "pending" && !state.q) {
@@ -105,7 +136,7 @@
           <div class="sl-desk overflow-x-auto">
             <table class="admin-table sl-table">
               <thead><tr>
-                <th>Seller</th><th>Contact</th><th class="sl-prov">Province</th>
+                <th>Date</th><th>Name</th><th>Farm</th><th>Email</th><th>Phone</th><th class="col-xw">Province</th>
                 <th class="text-center">Listings</th><th class="text-center">Inquiries</th>
                 <th>Status</th><th class="text-right">Actions</th>
               </tr></thead>
@@ -165,14 +196,14 @@
 
       const initials = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
-      function sellerCell(s) {
+      function sellerCell(s, withFarm = true) {
         const review = Number(s.pending_count);
         return `
           <div class="sl-who">
             <span class="sl-avatar ${s.status === "inactive" ? "sl-avatar-off" : ""}">${escapeHtml(initials(s.name))}</span>
             <div class="min-w-0">
               <p class="sl-name">${escapeHtml(s.name)}</p>
-              ${s.business_name ? `<p class="sl-farm">${escapeHtml(s.business_name)}</p>` : ""}
+              ${withFarm && s.business_name ? `<p class="sl-farm">${escapeHtml(s.business_name)}</p>` : ""}
               ${review ? `<div class="sl-tags"><span class="sl-tag sl-tag-warn">${review} listing${review === 1 ? "" : "s"} in review</span></div>` : ""}
             </div>
           </div>`;
@@ -191,13 +222,12 @@
       function rowHtml(s) {
         return `
           <tr class="cursor-pointer" data-open="${s.id}">
-            <td>${sellerCell(s)}</td>
-            <td>
-              <p class="text-gray-900 whitespace-nowrap">${escapeHtml(s.phone)}</p>
-              ${s.email ? `<p class="sl-email" title="${escapeHtml(s.email)}">${escapeHtml(s.email)}</p>` : ""}
-              ${s.province ? `<p class="sl-email sl-prov-inline">${escapeHtml(s.province)}</p>` : ""}
-            </td>
-            <td class="sl-prov text-gray-700 whitespace-nowrap">${s.province ? escapeHtml(s.province) : `<span class="sl-zero">Not set</span>`}</td>
+            <td class="whitespace-nowrap text-gray-600">${dateOnly(s.created_at)}</td>
+            <td>${sellerCell(s, false)}</td>
+            <td class="text-gray-700">${s.business_name ? escapeHtml(s.business_name) : `<span class="sl-zero">-</span>`}${s.province ? `<span class="col-xw-in text-xs text-gray-500">${escapeHtml(s.province)}</span>` : ""}</td>
+            <td>${s.email ? `<a class="tx-contact sl-email" href="mailto:${escapeHtml(s.email)}" title="${escapeHtml(s.email)}" data-stop>${escapeHtml(s.email)}</a>` : `<span class="sl-zero">-</span>`}</td>
+            <td class="whitespace-nowrap">${s.phone ? `<a class="tx-contact" href="tel:${escapeHtml(String(s.phone).replace(/\s+/g, ""))}" data-stop>${escapeHtml(s.phone)}</a>` : "-"}</td>
+            <td class="col-xw text-gray-700 whitespace-nowrap">${s.province ? escapeHtml(s.province) : `<span class="sl-zero">Not set</span>`}</td>
             <td class="text-center">${listingsCell(s)}</td>
             <td class="text-center">${inquiriesCell(s)}</td>
             <td data-stop>${stateSelect(s)}</td>

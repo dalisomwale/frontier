@@ -91,6 +91,10 @@ async function summary() {
   const out = Object.fromEntries(ORDER_STATUSES.map((s) => [s, 0]));
   rows.forEach((r) => { out[r.status] = Number(r.n); });
   out.all = Object.values(out).reduce((a, b) => a + b, 0);
+  const [[sales]] = await pool.query(
+    "SELECT COALESCE(SUM(total), 0) AS amount FROM orders WHERE status <> 'cancelled' AND (payment_status = 'paid' OR status IN ('paid', 'completed'))",
+  );
+  out.sales = Number(sales.amount);
   return out;
 }
 
@@ -110,8 +114,10 @@ async function freshPayments() {
 router.get("/", async (req, res, next) => {
   try {
     await freshPayments();
-    const page = positiveInt(req.query.page, 1);
-    const limit = Math.min(positiveInt(req.query.limit, 25), 100);
+    // ?export=1: every matching order (up to 5,000) for the Excel export.
+    const all = req.query.export === "1";
+    const page = all ? 1 : positiveInt(req.query.page, 1);
+    const limit = all ? 5000 : Math.min(positiveInt(req.query.limit, 25), 100);
     const where = ["1 = 1"];
     const params = [];
     const status = oneOf(req.query.status, ORDER_STATUSES);

@@ -236,8 +236,10 @@ async function loadOne(id) {
 
 router.get("/", async (req, res, next) => {
   try {
-    const page = positiveInt(req.query.page, 1);
-    const limit = Math.min(positiveInt(req.query.limit, 20), MAX_PAGE_SIZE);
+    // ?export=1: every matching listing (up to 5,000) for the Excel export.
+    const all = req.query.export === "1";
+    const page = all ? 1 : positiveInt(req.query.page, 1);
+    const limit = all ? 5000 : Math.min(positiveInt(req.query.limit, 20), MAX_PAGE_SIZE);
     const where = ["1 = 1"];
     const params = [];
 
@@ -283,7 +285,7 @@ router.get("/", async (req, res, next) => {
 
     const [rows] = await pool.query(
       `SELECT l.id, l.title, l.status, l.published_at, l.verification, l.review_status, l.review_note, l.submitted_at,
-         l.location, l.livestock_type, l.quantity, l.price, l.price_unit, l.price_negotiable,
+         l.location, l.livestock_type, l.quantity, l.price, l.price_unit, l.price_negotiable, l.age_months,
          l.created_at, l.updated_at, a.name AS animal_name, a.kind AS animal_kind, c.name AS category_name, b.name AS breed_name,
          l.seller_id, s.name AS seller_name, s.business_name AS seller_business_name,
          (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = l.id
@@ -312,10 +314,22 @@ router.get("/", async (req, res, next) => {
     );
     const pendingBy = { livestock: Number(counts.livestock) || 0, feed: Number(counts.feed) || 0 };
     const pending = kind ? pendingBy[kind] : pendingBy.livestock + pendingBy.feed;
+    // Totals for this page's kind, for the coloured cards.
+    const [[kindCounts]] = await pool.query(
+      `SELECT COUNT(*) AS total, COALESCE(SUM(l.status = 'published'), 0) AS published, COALESCE(SUM(l.status = 'unpublished'), 0) AS unpublished
+       FROM livestock l JOIN categories c ON c.id = l.category_id JOIN animals a ON a.id = c.animal_id ${kind ? "WHERE a.kind = ?" : ""}`,
+      kind ? [kind] : [],
+    );
     res.json({
       success: true,
       data: rows,
-      summary: { pending, pending_by_kind: pendingBy },
+      summary: {
+        pending,
+        pending_by_kind: pendingBy,
+        total: Number(kindCounts.total),
+        published: Number(kindCounts.published),
+        unpublished: Number(kindCounts.unpublished),
+      },
       pagination: { current: page, total: Math.max(1, Math.ceil(total / limit)), totalItems: Number(total) },
     });
   } catch (error) {
