@@ -13,6 +13,7 @@
     <script src="/js/app-shell.js"></script>
     <script src="/js/admin.js"></script>
     <script src="/js/xlsx-lite.js"></script>
+    <script src="/js/pdf-lite.js"></script>
     <script src="/js/livestock.js"></script>
   </head>
   <body class="bg-gray-50 admin-pending">
@@ -280,13 +281,13 @@
           ${failedNote ? `<div class="txd-alert"><b>Not completed:</b> ${escapeHtml(t.payment_failure)}</div>` : ""}
           <div class="txd-grid">
             <section class="txd-card txd-timeline">
-              <h2>Timeline</h2>
+              <h2>Track Timeline Records</h2>
               ${t.rebuilt ? `<p class="tx-rebuilt">Rebuilt from the order's records: this payment was made before every step was recorded.</p>` : ""}
               ${t.events.length ? timelineHtml(t) : `<p class="text-sm text-gray-500">No steps recorded.</p>`}
             </section>
             <div class="txd-sep" aria-hidden="true"></div>
             <section class="txd-card txd-history">
-              <h2>Payment history</h2>
+              <h2 class="txd-h2-row"><span>Payment history</span><button type="button" class="txd-pdf" data-pdf>Download PDF</button></h2>
               <div class="txd-receipt-top"><b>${escapeHtml(t.reference)}</b><span>${formatDate(t.created_at)}</span></div>
               <div class="txd-parts">
                 <div class="txd-part txd-c-payment"><h3>Payment</h3><dl class="txd-list">${payment}</dl></div>
@@ -302,12 +303,86 @@
               </div>
             </section>
           </div>`;
+        box.querySelector("[data-pdf]").addEventListener("click", () => {
+          try { receiptPdf(t); } catch (error) { showNotification(`Could not make the PDF: ${error.message}`, "error"); }
+        });
         box.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
           try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; } catch { b.textContent = "Select it"; }
           setTimeout(() => { b.textContent = "Copy"; }, 1500);
         }));
         bindBack();
         document.title = `${t.reference} - Transactions - Frontier Marketplace Admin`;
+      }
+
+      // Payment history as a one-page PDF receipt.
+      function receiptPdf(t) {
+        const pdf = createPdf();
+        const L = 56, R = pdf.width - 56, MID = L + 170;
+        let y = 64;
+        const STATUS = { paid: "Paid", pending: "Waiting", failed: "Not completed", unpaid: "Not paid" };
+        const STATUS_C = { paid: "#15803d", pending: "#b45309", failed: "#b91c1c", unpaid: "#6b7280" };
+        const room = (h) => { if (y + h > pdf.height - 60) { pdf.addPage(); y = 64; } };
+        const dashed = () => { pdf.line(L, y, R, y, { color: "#d1d5db", dash: [3, 3] }); y += 22; };
+        const heading = (text, color) => { room(40); pdf.text(L, y, text.toUpperCase(), { size: 9.5, font: "bold", color }); y += 20; };
+        const row = (label, value, font = "regular") => {
+          if (!value) return;
+          room(20);
+          pdf.text(L, y, label, { size: 10.5, color: "#6b7280" });
+          pdf.text(R, y, pdf.fit(value, R - MID, 10.5, font === "mono" ? "mono" : "bold"), { size: 10.5, font: font === "mono" ? "mono" : "bold", align: "right" });
+          y += 19;
+        };
+        const when = (v) => (v ? formatDate(v) : "");
+
+        // Header
+        pdf.text(L, y, "Frontier Marketplace", { size: 16, font: "bold", color: "#14532d" });
+        pdf.text(R, y, "Payment history", { size: 11, color: "#6b7280", align: "right" });
+        y += 16;
+        pdf.text(L, y, "marketplace.frontierfc.co.zm", { size: 9.5, color: "#6b7280" });
+        y += 24;
+        pdf.rect(L, y - 14, R - L, 34, { fill: "#f3f7f1" });
+        pdf.text(L + 12, y + 7, t.reference, { size: 13, font: "mono", color: "#111827" });
+        pdf.text(L + 12 + pdf.measure(t.reference, 13, "mono") + 12, y + 7, when(t.created_at), { size: 10, color: "#6b7280" });
+        pdf.text(R - 12, y + 7, STATUS[t.payment_status] || t.payment_status || "", { size: 10.5, font: "bold", color: STATUS_C[t.payment_status] || "#374151", align: "right" });
+        y += 44;
+
+        heading("Payment", "#15803d");
+        row("Method", METHOD[t.payment_method] || t.payment_method || "-");
+        row("Network", t.mobile_operator ? NETWORK[t.mobile_operator] || t.mobile_operator : "");
+        row("Paying number", t.payment_phone || "");
+        row("Attempts", t.payment_attempts > 1 ? String(t.payment_attempts) : "");
+        row("Payment reference", t.payment_reference || "", "mono");
+        row("Lipila ID", t.payment_provider_ref || "", "mono");
+        row("Paid at", when(t.paid_at));
+        row("Terms accepted", when(t.terms_accepted_at));
+        if (t.payment_status === "failed" && t.payment_failure) row("Reason", t.payment_failure);
+        y += 2; dashed();
+
+        heading("Buyer", "#0f766e");
+        row("Name", t.full_name || "");
+        row("Email", t.email || "");
+        row("Phone", t.phone || "");
+        y += 2; dashed();
+
+        heading("Items", "#b45309");
+        t.orders.forEach((o) => {
+          room(52);
+          pdf.text(L, y, o.reference, { size: 10, font: "mono", color: "#166534" });
+          pdf.text(R, y, kwacha(o.total), { size: 11, font: "bold", align: "right" });
+          y += 16;
+          pdf.text(L, y, pdf.fit(o.livestock_title, R - L - 90, 11.5, "bold"), { size: 11.5, font: "bold" });
+          y += 15;
+          const qty = o.price_unit === "lot" ? `Whole lot (${o.quantity})` : String(o.quantity);
+          pdf.text(L, y, pdf.fit(`Qty ${qty}${o.seller_name ? ` · ${o.seller_name}` : ""}`, R - L, 9.5), { size: 9.5, color: "#6b7280" });
+          y += 22;
+        });
+        room(40);
+        pdf.line(L, y - 6, R, y - 6, { color: "#111827", width: 1 });
+        y += 12;
+        pdf.text(L, y, "Total", { size: 12, font: "bold" });
+        pdf.text(R, y, kwacha(t.total), { size: 15, font: "bold", align: "right" });
+        y += 40;
+        pdf.text(L, y, `Downloaded ${formatDate(new Date())}`, { size: 8.5, color: "#9ca3af" });
+        pdf.save(`${t.reference}-payment-history.pdf`);
       }
 
       // The journey at a glance: each stage done, failed, in progress or not reached.
