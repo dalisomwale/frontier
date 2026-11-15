@@ -2,9 +2,8 @@
 // desktop) and Sell with us; on phones a ☰ button opens a full-screen menu
 // with Livestock / Feed tabs. Any header with [data-site-nav] gets it.
 //
-// Livestock panel: animals with photos on the left; pointing at one shows
-// its purposes in the middle and a photo on the right.
-// Feed panel: every feed type with its stages listed underneath.
+// Both panels list every animal / feed type with its purposes / stages
+// underneath.
 //
 // Picking a livestock purpose filters the listings on the home page (or goes
 // there from other pages); feed links open the Feed page.
@@ -55,30 +54,19 @@
   }
 
   // ---------- desktop panels ----------
-  async function livestockPanel(activeIndex = 0) {
+  // Same layout as the Feed menu: every animal with its purposes underneath.
+  async function livestockPanel() {
     const list = await animals();
     if (!list.length) return `<p class="snav-empty">No livestock yet.</p>`;
-    const a = list[Math.min(activeIndex, list.length - 1)];
-    const ps = await purposes(a.id);
-    const photo = photoOf(a);
-    return `<div class="snav-mega">
-      <div class="snav-animals" role="list">${list.map((x, i) => `
-        <button type="button" class="snav-animal ${i === activeIndex ? "is-on" : ""}" data-animal-index="${i}" role="listitem">
-          ${photoOf(x) ? `<span class="snav-ph" style="background-image:url('${esc(photoOf(x))}')"></span>` : `<span class="snav-ph snav-ph-icon">${icon(x.name)}</span>`}
-          <span class="snav-animal-text"><b>${esc(x.name)}</b></span>
-          <span class="snav-chev" aria-hidden="true">›</span>
-        </button>`).join("")}</div>
-      <div class="snav-purposes">
-        <h3>${esc(a.name)}</h3>
-        <p>Choose a purpose</p>
-        <div class="snav-pgrid">${ps.map((p) => `<a href="${listHref(a.id, p.id)}" data-animal="${a.id}" data-purpose="${p.id}">${esc(p.name)}<span aria-hidden="true">›</span></a>`).join("") || `<p class="snav-empty">No purposes yet.</p>`}</div>
-        <a class="snav-all" href="${listHref(a.id)}" data-animal="${a.id}">All ${esc(a.name.toLowerCase())} →</a>
-      </div>
-      <a class="snav-photo" href="${listHref(a.id)}" data-animal="${a.id}" ${photo ? `style="background-image:url('${esc(photo)}')"` : ""}>
-        ${photo ? "" : `<span class="snav-photo-icon">${icon(a.name)}</span>`}
-        <span><b>All ${esc(a.name.toLowerCase())}</b><small>See every listing</small></span>
-      </a>
-    </div>`;
+    const all = await Promise.all(list.map((a) => purposes(a.id).catch(() => [])));
+    return `<div class="snav-feed">${list.map((a, i) => {
+      const photo = photoOf(a);
+      return `
+      <div class="snav-feed-col">
+        <a class="snav-feed-head" href="${listHref(a.id)}" data-animal="${a.id}">${photo ? `<i class="snav-head-photo" style="background-image:url('${esc(photo)}')"></i>` : `<i style="background:#fef3c7">${icon(a.name)}</i>`}${esc(a.name)}</a>
+        <ul>${all[i].map((p) => `<li><a href="${listHref(a.id, p.id)}" data-animal="${a.id}" data-purpose="${p.id}">${esc(p.name)}</a></li>`).join("")}</ul>
+      </div>`;
+    }).join("")}</div>`;
   }
 
   async function feedPanel() {
@@ -103,7 +91,7 @@
     if (!panel.innerHTML || panel.dataset.tab !== tab) panel.innerHTML = `<div class="snav-loading">Loading…</div>`;
     panel.dataset.tab = tab;
     try {
-      const html = tab === "feed" ? await feedPanel() : await livestockPanel(activeIndex);
+      const html = tab === "feed" ? await feedPanel() : await livestockPanel();
       if (openTab === tab) panel.innerHTML = html;
     } catch {
       if (openTab === tab) panel.innerHTML = `<p class="snav-empty">Could not load. Please try again.</p>`;
@@ -242,13 +230,7 @@
     panel.addEventListener("mouseenter", stay);
     slot.addEventListener("mouseenter", stay);
 
-    panel.addEventListener("mouseover", (e) => {
-      const a = e.target.closest("[data-animal-index]");
-      if (a && !a.classList.contains("is-on")) showPanel("livestock", Number(a.dataset.animalIndex));
-    });
     panel.addEventListener("click", (e) => {
-      const a = e.target.closest("[data-animal-index]");
-      if (a) return showPanel("livestock", Number(a.dataset.animalIndex));
       const pick = e.target.closest("a[data-animal]");
       if (pick && typeof window.siteNavPick === "function") {
         e.preventDefault();

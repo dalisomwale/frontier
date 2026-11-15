@@ -6649,3 +6649,4 @@ body.site-sheet-open { overflow: hidden; }
   .snav-burger { display: inline-flex; }
 }
 @media (prefers-reduced-motion: reduce) { .snav-panel, .snav-sheet { animation: none; } }
+.snav-head-photo { background-size: cover; background-position: center; }
