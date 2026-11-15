@@ -343,7 +343,7 @@ function bindPhotoPicker(grid, max = 4, onChange = () => {}) {
 }
 
 // One order's progress, shown the same way to buyers, sellers and admins:
-// Order placed → Paid → Delivered → Buyer confirmed → Handed over.
+// Paid → Delivered → Buyer confirmed → Handed over → Seller paid.
 // o: { paid, failed, sent, received, handed, completed, cancelled, buyer,
 //      paysSeller, sellerPaid } - paysSeller adds the last step, Seller paid.
 // Buyers see it end at their own confirmation: for them that completes it.
@@ -352,7 +352,6 @@ function orderTrackerHtml(o) {
   const live = !o.cancelled;
   const step = (isDone, isNow, isFail) => (isDone || done ? "done" : isFail ? "fail" : isNow && live ? "now" : "todo");
   const stages = [
-    ["Order placed", "done"],
     ["Paid", step(o.paid, true, o.failed)],
     ["Delivered", step(o.sent, o.paid)],
     [o.buyer ? "Confirmed" : "Buyer confirmed", step(o.received, o.sent)],
