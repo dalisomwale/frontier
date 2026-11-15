@@ -133,6 +133,14 @@
       const dateOnly = (v) => new Date(v).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
       const telHref = (p) => `tel:${escapeHtml(String(p).replace(/\s+/g, ""))}`;
 
+      // Has the buyer got the items? Delivered, Collected or Not yet.
+      const collectionText = (o) => (o.sent_at ? (o.sent_method === "delivered" ? "Delivered" : "Collected") : o.status === "cancelled" ? "" : "Not yet");
+      function collectionTag(o) {
+        const t = collectionText(o);
+        if (!t) return `<span class="text-gray-400">-</span>`;
+        return `<span class="col-tag ${o.sent_at ? "col-tag-done" : ""}">${t}</span>`;
+      }
+
       function rowHtml(o) {
         const units = o.price_unit === "lot" ? `Lot (${o.quantity})` : o.quantity;
         return `
@@ -149,6 +157,7 @@
             <td class="hidden sm:table-cell whitespace-nowrap">${o.phone ? `<a class="tx-contact" href="${telHref(o.phone)}">${escapeHtml(o.phone)}</a>` : "-"}</td>
             <td class="hidden lg:table-cell whitespace-nowrap text-gray-700">${escapeHtml(paymentShort(o) || "-")}</td>
             <td class="whitespace-nowrap"><b class="text-gray-900">${kwacha(o.total)}</b></td>
+            <td class="hidden sm:table-cell whitespace-nowrap">${collectionTag(o)}</td>
             <td>${statusSelect(o)}${stageTag(o)}</td>
           </tr>
 `;
@@ -171,11 +180,11 @@
           params.set("export", "1");
           const res = await adminApi(`/api/admin/orders?${params}`);
           const fmt = (d) => (d ? new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", "") : "");
-          const header = ["Order", "Date", "Items", "Quantity", "Name", "Email", "Phone", "Delivery", "Paid with", "Amount (ZMW)", "Status", "Payment", "Seller", "Delivered / collected", "Buyer confirmed", "Handed over", "Seller paid"];
+          const header = ["Order", "Date", "Items", "Quantity", "Name", "Email", "Phone", "Delivery", "Paid with", "Amount (ZMW)", "Collection", "Status", "Payment", "Seller", "Delivered / collected", "Buyer confirmed", "Handed over", "Seller paid"];
           const lines = res.data.map((o) => [
             o.reference, fmt(o.created_at), o.livestock_title, Number(o.quantity) || 0,
             o.full_name, o.email || "", o.phone || "", DELIVERY[o.delivery] || "", paymentShort(o),
-            Number(o.total).toFixed(2), statusLabel(o.status), (PAY_STATE[o.payment_status] || [o.payment_status || ""])[0],
+            Number(o.total).toFixed(2), collectionText(o), statusLabel(o.status), (PAY_STATE[o.payment_status] || [o.payment_status || ""])[0],
             o.seller_name || "Frontier", fmt(o.sent_at), fmt(o.received_at), fmt(o.handed_over_at), fmt(o.seller_paid_at),
           ]);
           downloadXlsx(`frontier-orders-${new Date().toISOString().slice(0, 10)}.xlsx`, "Orders", header, lines, { numberCols: [3, 9] });
@@ -347,7 +356,7 @@
             <thead><tr>
               <th>Date</th><th>Order</th><th class="hidden md:table-cell">Items</th><th>Name</th>
               <th class="hidden xl:table-cell">Email</th><th class="hidden sm:table-cell">Phone</th><th class="hidden lg:table-cell">Paid with</th>
-              <th>Amount</th><th>Status</th>
+              <th>Amount</th><th class="hidden sm:table-cell">Collection</th><th>Status</th>
             </tr></thead>
             <tbody>${state.rows.map(rowHtml).join("")}</tbody>
           </table>`;

@@ -6909,3 +6909,6 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .ins-kpis > .ins-kpi:nth-child(4n+2) { --card-c: #0f766e; --card-ink: #115e59; }
 .ins-kpis > .ins-kpi:nth-child(4n+3) { --card-c: #ca8a04; --card-ink: #854d0e; }
 .ins-kpis > .ins-kpi:nth-child(4n+4) { --card-c: #64748b; --card-ink: #334155; }
+/* Orders table: Collection column */
+.col-tag { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #6b7280; background: #f3f4f6; }
+.col-tag-done { color: #166534; background: #e6f2e1; }
