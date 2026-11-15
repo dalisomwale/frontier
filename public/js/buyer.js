@@ -71,8 +71,8 @@ function accountHeader(buyer) {
           <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div>
           <span class="hidden sm:block font-bold site-topnav-name">Frontier Marketplace</span>
         </a>
-        <div class="ml-auto flex items-center gap-2 sm:gap-3" data-cart-slot>
-          <a href="/#listings" class="hidden sm:inline-flex site-topnav-back px-2 py-2">Browse livestock</a>
+        <div class="site-nav ml-4" data-site-nav aria-label="Categories"></div>
+        <div class="ml-auto flex items-center gap-2 sm:gap-3 header-auth-acc" data-cart-slot>
           ${buyer ? buyerChip(buyer) : `<a href="/account/login.html" class="header-login-link">Log in</a>`}
         </div>
       </div>

@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="/css/tailwind.css" />
     <link rel="stylesheet" href="/css/style.css" />
     <script src="/js/main.js"></script>
+    <script src="/js/site-nav.js"></script>
     <script src="/js/icons.js"></script>
     <script src="/js/app-shell.js"></script>
     <script src="/js/livestock.js"></script>
@@ -31,15 +32,7 @@
             <span class="site-brand-name hidden sm:block md:hidden xl:block font-bold text-gray-900">Frontier Marketplace</span>
           </a>
 
-          <div class="flex items-center gap-1 ml-auto md:ml-2 lg:ml-6">
-            <div class="nav-menu" id="menu-animals">
-              <button type="button" class="nav-menu-btn" aria-haspopup="true" aria-expanded="false">
-                <span class="nav-menu-label-full">Browse Categories</span><span class="nav-menu-label-short">Categories</span> <span class="nav-menu-caret" data-icon="chevronRight"></span>
-              </button>
-              <div class="nav-dropdown"></div>
-            </div>
-          </div>
-
+          <div class="site-nav ml-auto md:ml-2 lg:ml-4" data-site-nav aria-label="Categories"></div>
           <form id="site-search" class="site-search" role="search" autocomplete="off">
             <span class="site-search-icon" data-icon="search"></span>
             <input id="search-input" type="search" name="q" maxlength="100" enterkeyhint="search"
@@ -695,6 +688,9 @@
         if (!e.composedPath().some((el) => el.classList?.contains("nav-menu"))) closeMenus();
       });
       document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenus(); });
+
+      // The top bar's Livestock menu filters the listings here.
+      window.siteNavPick = (animalId, purposeId) => pickAnimal(animalId, purposeId, null);
 
       async function pickAnimal(animalId, purposeId, breedId, { close = true } = {}) {
         if (close) closeMenus();
