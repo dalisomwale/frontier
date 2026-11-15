@@ -341,3 +341,22 @@ function bindPhotoPicker(grid, max = 4, onChange = () => {}) {
   paint();
   return { files: () => files.map((f) => f.file), input };
 }
+
+// One order's progress, shown the same way to buyers, sellers and admins:
+// Order placed → Paid → Delivered → Buyer confirmed → Handed over.
+// o: { paid, failed, sent, received, handed, completed, cancelled }
+function orderTrackerHtml(o) {
+  const done = Boolean(o.completed);
+  const live = !o.cancelled;
+  const step = (isDone, isNow, isFail) => (isDone || done ? "done" : isFail ? "fail" : isNow && live ? "now" : "todo");
+  const stages = [
+    ["Order placed", "done"],
+    ["Paid", step(o.paid, true, o.failed)],
+    ["Delivered", step(o.sent, o.paid)],
+    ["Buyer confirmed", step(o.received, o.sent)],
+    ["Handed over", step(o.handed, o.received)],
+  ];
+  const mark = { done: "✓", fail: "✕", now: "…" };
+  return `<ol class="tx-path" aria-label="Order progress">${stages.map(([label, st], i) => `
+    <li class="tx-step is-${st}"><span class="tx-dot">${mark[st] || i + 1}</span><span class="tx-step-label">${label}</span></li>`).join("")}</ol>`;
+}

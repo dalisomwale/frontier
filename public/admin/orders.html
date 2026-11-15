@@ -356,6 +356,7 @@
           : `${escapeHtml(o.livestock_title)} <span class="text-gray-400">${o.livestock_id ? "(not on the website)" : "(listing deleted)"}</span>`;
 
         box.innerHTML = `
+          ${o.status === "cancelled" ? "" : orderTrackerHtml({ paid: o.payment_status === "paid" || ["paid", "confirmed"].includes(o.status), failed: o.payment_status === "failed", sent: Boolean(o.sent_at), received: Boolean(o.received_at), handed: Boolean(o.handed_over_at), completed: o.status === "completed" })}
           <div class="order-detail-grid">
             <section>
               <h3>Buyer</h3>

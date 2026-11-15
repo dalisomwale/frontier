@@ -996,6 +996,7 @@
             </div>
             <span class="so-pill ${st.cls} so-pill-lg">${st.label}</span>
           </div>
+          ${orderTrackerHtml({ paid: o.paid || ["paid", "confirmed"].includes(o.status), sent: Boolean(o.sent_at), received: Boolean(o.received_at), handed: Boolean(o.handed_over_at), completed: o.status === "completed", cancelled: o.status === "cancelled" })}
           <div class="so-detail so-detail-first">
             <div class="txd-card">
               <dl class="sv-facts">

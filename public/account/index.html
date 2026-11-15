@@ -210,18 +210,6 @@
       }
 
       // One order on its own page: My orders / FM-1234.
-      const STEP_NAMES = ["Paid", "Delivered", "Confirmed", "Done"];
-      function stepsHtml(o) {
-        // How many steps are done, and whether the next one is under way.
-        const done = { unpaid: 0, paid: 1, sent: 2, received: 3, completed: 4, cancelled: 0 }[o.stage];
-        const active = o.stage !== "cancelled";
-        return `<div class="acc-steps">${STEP_NAMES.map((name, i) => {
-          const n = i + 1;
-          const cls = n <= done ? "done" : n === done + 1 && active ? "now" : "";
-          return `<div class="acc-step ${cls}"><span class="acc-dot">${n <= done ? uiIcon("check") : n}</span><span>${name}</span></div>`;
-        }).join("")}</div>`;
-      }
-
       const photoRow = (list, alt) => (list.length ? `<div class="acc-photos mt-3">${list.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="${alt}"></a>`).join("")}</div>` : "");
       const byParty = (o, party) => o.photos.filter((p) => (p.party || "buyer") === party);
       const sentLine = (o) => `${o.sent_method === "delivered" ? "Delivered" : "Collected"} · ${escapeHtml(formatDateShort(o.sent_at))}`;
@@ -281,7 +269,7 @@
           </div>
           <div class="acc-order">
             <div class="space-y-4 min-w-0">
-              <div class="acc-card">${stepsHtml(o)}</div>
+              ${orderTrackerHtml({ paid: o.paid || !["unpaid", "cancelled"].includes(o.stage), sent: Boolean(o.sent_at), received: Boolean(o.received_at), handed: Boolean(o.handed_over_at), completed: o.stage === "completed", cancelled: o.stage === "cancelled" })}
               ${nextStepHtml(o)}
             </div>
             <div class="space-y-4">
