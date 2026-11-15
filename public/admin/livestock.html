@@ -167,7 +167,7 @@
             <table class="admin-table">
               <thead><tr>
                 <th class="hidden md:table-cell">Date</th><th>Listing</th><th class="hidden lg:table-cell col-xw">${FEED ? "Feed type" : "Animal"}</th>
-                <th class="hidden md:table-cell">${FEED ? "Stage" : "Breed"}</th><th class="hidden lg:table-cell col-w text-center">Quantity</th><th class="hidden md:table-cell text-right">Price</th>
+                <th class="hidden md:table-cell">${FEED ? "Stage" : "Breed"}</th><th class="hidden lg:table-cell col-w text-center">Quantity</th><th class="hidden md:table-cell">Price</th>
                 <th class="hidden lg:table-cell">Seller</th><th class="hidden xl:table-cell col-xw">Province</th>
                 <th>Status</th><th class="hidden sm:table-cell">Verification</th><th class="text-right hidden sm:table-cell">Actions</th>
               </tr></thead>
@@ -240,7 +240,7 @@
             <td class="hidden lg:table-cell col-xw text-gray-700">${escapeHtml(l.animal_name)}${!FEED && l.category_name ? `<span class="block text-xs text-gray-500">${escapeHtml(l.category_name)}</span>` : ""}</td>
             <td class="hidden md:table-cell">${FEED ? `<span class="text-gray-700">${escapeHtml(l.category_name)}</span>` : l.breed_name ? `<span class="text-gray-700">${escapeHtml(l.breed_name)}</span>` : `<span class="text-xs text-gray-400">Not specified</span>`}</td>
             <td class="hidden lg:table-cell col-w text-center text-gray-700">${escapeHtml(String(l.quantity ?? ""))}</td>
-            <td class="hidden md:table-cell text-right whitespace-nowrap font-semibold text-gray-900">${priceCell(l)}</td>
+            <td class="hidden md:table-cell whitespace-nowrap font-semibold text-gray-900">${priceCell(l)}</td>
             <td class="hidden lg:table-cell">${l.seller_id
               ? `<a href="/admin/sellers.html?id=${l.seller_id}" class="text-blue-700 font-medium hover:underline" title="${escapeHtml(l.seller_name)}">${escapeHtml(l.seller_business_name || l.seller_name)}</a>`
               : `<span class="text-xs text-gray-500 whitespace-nowrap">Frontier's stock</span>`}${l.location ? `<span class="col-xw-in text-xs text-gray-500">${escapeHtml(l.location)}</span>` : ""}</td>

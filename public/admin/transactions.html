@@ -161,7 +161,7 @@
         list.innerHTML = `<div class="tx-table-wrap"><table class="tx-table">
           <thead><tr>
             <th>Date</th><th>Order</th><th>Items</th><th>Name</th><th>Email</th><th>Phone</th><th>Paid with</th><th>Paying number</th>
-            <th class="num">Amount</th><th>Status</th><th>References</th>
+            <th>Amount</th><th>Status</th><th>References</th>
           </tr></thead>
           <tbody>${res.data.map((t) => `
             <tr class="tx-tr" data-open="${t.id}">
@@ -173,7 +173,7 @@
               <td class="nowrap">${t.phone ? `<a class="tx-contact" href="tel:${escapeHtml(String(t.phone).replace(/\s+/g, ""))}">${escapeHtml(t.phone)}</a>` : "-"}</td>
               <td class="nowrap">${escapeHtml(t.payment_method === "mobile_money" && NETWORK[t.mobile_operator] ? `${NETWORK[t.mobile_operator]} Money` : METHOD[t.payment_method] || t.payment_method || "-")}${t.payment_attempts > 1 ? `<small>${t.payment_attempts} attempts</small>` : ""}</td>
               <td class="nowrap">${escapeHtml(t.payment_phone || "-")}</td>
-              <td class="num nowrap"><b>${kwacha(t.total)}</b></td>
+              <td class="nowrap"><b>${kwacha(t.total)}</b></td>
               <td class="nowrap">${tag(t.payment_status)}${t.alerted && t.payment_status === "pending" ? `<small class="text-amber-700">Check in Lipila</small>` : ""}</td>
               <td class="mono tx-refs"><span title="Payment reference">${escapeHtml(t.payment_reference || "-")}</span>${t.payment_provider_ref ? `<small class="tx-clip" title="Lipila ID: ${escapeHtml(t.payment_provider_ref)}">${escapeHtml(t.payment_provider_ref)}</small>` : ""}</td>
             </tr>

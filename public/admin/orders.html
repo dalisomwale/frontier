@@ -148,7 +148,7 @@
             <td class="hidden xl:table-cell">${o.email ? `<a class="tx-contact tx-clip" href="mailto:${escapeHtml(o.email)}" title="${escapeHtml(o.email)}">${escapeHtml(o.email)}</a>` : "-"}</td>
             <td class="hidden sm:table-cell whitespace-nowrap">${o.phone ? `<a class="tx-contact" href="${telHref(o.phone)}">${escapeHtml(o.phone)}</a>` : "-"}</td>
             <td class="hidden lg:table-cell whitespace-nowrap text-gray-700">${escapeHtml(paymentShort(o) || "-")}</td>
-            <td class="whitespace-nowrap text-right"><b class="text-gray-900">${kwacha(o.total)}</b></td>
+            <td class="whitespace-nowrap"><b class="text-gray-900">${kwacha(o.total)}</b></td>
             <td>${statusSelect(o)}${stageTag(o)}</td>
           </tr>
 `;
@@ -347,7 +347,7 @@
             <thead><tr>
               <th>Date</th><th>Order</th><th class="hidden md:table-cell">Items</th><th>Name</th>
               <th class="hidden xl:table-cell">Email</th><th class="hidden sm:table-cell">Phone</th><th class="hidden lg:table-cell">Paid with</th>
-              <th class="text-right">Amount</th><th>Status</th>
+              <th>Amount</th><th>Status</th>
             </tr></thead>
             <tbody>${state.rows.map(rowHtml).join("")}</tbody>
           </table>`;
