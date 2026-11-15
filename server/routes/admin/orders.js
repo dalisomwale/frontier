@@ -14,7 +14,7 @@ const txlog = require("../../lib/txlog");
 const handover = require("../../lib/handover");
 const { uploadImages, uploadProof } = require("../../middleware/upload");
 const { broadcastAdmin } = require("../../services/notifications");
-const { positiveInt, text, oneOf, badRequest, notFound } = require("../../lib/validate");
+const { positiveInt, text, oneOf, badRequest, notFound, HttpError } = require("../../lib/validate");
 const {
   ORDER_STATUSES,
   STATUS_LABELS,
@@ -80,7 +80,8 @@ async function loadOrder(id) {
   }
   const photos = await handover.photosOf([order.id]);
   order.receipt_photos = photos.get(order.id) || [];
-  order.can_send = handover.canSend(rows[0]);
+  // Only Frontier's own stock: a seller's order is marked by the seller.
+  order.can_send = !rows[0].seller_id && handover.canSend(rows[0]);
   order.can_hand_over = handover.canHandOver(rows[0]);
   order.can_pay_seller = handover.canPaySeller(rows[0]);
   return order;
@@ -304,6 +305,9 @@ router.post("/:id/sent", uploadImages, async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
     if (!id) throw notFound("Order not found.");
+    const [[own]] = await pool.query("SELECT seller_id FROM orders WHERE id = ?", [id]);
+    if (!own) throw notFound("Order not found.");
+    if (own.seller_id) throw new HttpError(403, "The seller marks this order as delivered or collected.");
     await handover.markSent(id, String(req.body.method || ""), { kind: "admin", name: `Frontier (${req.admin.name})`, admin: req.admin }, req.files, text(req.body.note, 500) || null, req.ip);
     res.json({ success: true, message: "Done. The buyer has been asked to confirm.", data: await loadOrder(id) });
   } catch (error) {

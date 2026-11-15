@@ -234,7 +234,7 @@
               ? `${by(o.sent_by || "-", o.sent_at)}${proofPhotos(o, "seller")}`
               : o.can_send
                 ? `<form data-sent novalidate>
-                     <p class="tl-body-line">${o.seller_id ? "Waiting for the seller. You can also do it here." : "Frontier's stock."}</p>
+                     <p class="tl-body-line">Frontier's stock: mark it here.</p>
                      <div class="ho-choice" style="max-width:420px">
                        <label><input type="radio" name="method" value="collected"><span>Collected</span></label>
                        <label><input type="radio" name="method" value="delivered"><span>Delivered</span></label>
@@ -244,7 +244,7 @@
                      <p class="field-error hidden" data-error-for="images"></p>
                      <button type="submit" class="acc-btn mt-3" style="width:auto">Save</button>
                    </form>`
-                : paid ? `<p class="tl-body-line">Waiting for the seller.</p>` : "" });
+                : paid ? `<p class="tl-body-line">Waiting for the seller to mark it as delivered or collected, with photos.</p>` : "" });
           steps.push({ name: "Buyer confirmed", done: Boolean(o.received_at), date: o.received_at,
             body: o.received_at
               ? `${by(o.full_name, o.received_at)}${o.received_note ? `<p class="tl-body-line">"${escapeHtml(o.received_note)}"</p>` : ""}${proofPhotos(o, "buyer")}`
