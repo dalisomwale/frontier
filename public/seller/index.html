@@ -970,13 +970,13 @@
             </div>`;
         }
         return `<form class="txd-card" data-sent novalidate>
-            <b>Delivered or collected?</b>
+            <b>Delivered or collected? <span class="text-red-500">*</span></b>
             <div class="ho-choice mt-3">
               <label><input type="radio" name="method" value="collected"><span>Buyer collected</span></label>
               <label><input type="radio" name="method" value="delivered"><span>I delivered</span></label>
             </div>
             <p class="field-error hidden" data-error-for="method"></p>
-            <p class="field-label mt-4">Photos <span class="text-gray-400 font-normal">(1 to 4)</span></p>
+            <p class="field-label mt-4">Photos <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 4)</span></p>
             <div class="acc-ph-grid" data-photos></div>
             <p class="field-error hidden" data-error-for="images"></p>
             <button type="submit" class="acc-btn mt-4">Save</button>
