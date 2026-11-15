@@ -284,18 +284,21 @@
               ${t.rebuilt ? `<p class="tx-rebuilt">Rebuilt from the order's records: this payment was made before every step was recorded.</p>` : ""}
               ${t.events.length ? timelineHtml(t) : `<p class="text-sm text-gray-500">No steps recorded.</p>`}
             </section>
-            <aside class="txd-side">
-              <section class="txd-card txd-c-payment"><h2>Payment</h2><dl class="txd-list">${payment}</dl></section>
-              <section class="txd-card txd-c-buyer"><h2>Buyer</h2><dl class="txd-list">
-                ${row("Name", escapeHtml(t.full_name))}
-                ${row("Email", `<a href="mailto:${escapeHtml(t.email)}">${escapeHtml(t.email)}</a>`)}
-                ${row("Phone", `<a href="tel:${escapeHtml(String(t.phone).replace(/[^\d+]/g, ""))}">${escapeHtml(t.phone)}</a>`)}
-              </dl></section>
-              <section class="txd-card txd-c-items"><h2>Items</h2>
-                <ul class="txd-items">${items}</ul>
-                <div class="txd-total"><span>Total</span><b>${kwacha(t.total)}</b></div>
-              </section>
-            </aside>
+            <section class="txd-card txd-history">
+              <h2>Payment history</h2>
+              <div class="txd-parts">
+                <div class="txd-part txd-c-payment"><h3>Payment</h3><dl class="txd-list">${payment}</dl></div>
+                <div class="txd-part txd-c-buyer"><h3>Buyer</h3><dl class="txd-list">
+                  ${row("Name", escapeHtml(t.full_name))}
+                  ${row("Email", `<a href="mailto:${escapeHtml(t.email)}">${escapeHtml(t.email)}</a>`)}
+                  ${row("Phone", `<a href="tel:${escapeHtml(String(t.phone).replace(/[^\d+]/g, ""))}">${escapeHtml(t.phone)}</a>`)}
+                </dl></div>
+                <div class="txd-part txd-c-items"><h3>Items</h3>
+                  <ul class="txd-items">${items}</ul>
+                  <div class="txd-total"><span>Total</span><b>${kwacha(t.total)}</b></div>
+                </div>
+              </div>
+            </section>
           </div>`;
         box.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
           try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; } catch { b.textContent = "Select it"; }
