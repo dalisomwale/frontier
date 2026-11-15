@@ -259,6 +259,17 @@
         );
       }
 
+      // After publishing, show the All tab (and drop ?review= / ?status= from the address).
+      function showAll() {
+        const url = new URL(location.href);
+        url.searchParams.delete("review");
+        url.searchParams.delete("status");
+        history.replaceState(history.state, "", url);
+        const tab = document.querySelector('#status-tabs [data-status=""]');
+        if (state.status) tab.click();
+        else loadList(state.page);
+      }
+
       async function setStatus(sel, value) {
         const title = sel.dataset.title;
         const fromReview = sel.dataset.value === "review" || sel.dataset.value === "changes";
@@ -270,7 +281,8 @@
         try {
           await adminApi(`/api/admin/livestock/${sel.dataset.id}/status`, { method: "PATCH", body: { status: value } });
           showNotification(value === "published" ? "Listing published - it's now live on the website." : "Listing unpublished - it's hidden from the website.", "success");
-          loadList();
+          if (value === "published") showAll();
+          else loadList();
           return true;
         } catch (error) {
           showNotification(error.message, "error");
@@ -282,7 +294,8 @@
       async function reviewListing(id, action, title, after) {
         const done = (res) => {
           showNotification(`${action === "approve" ? "Approved and published" : "Changes requested"}.${res.emailed ? " The seller has been emailed." : ""}`, "success");
-          loadList();
+          if (action === "approve") showAll();
+          else loadList();
           if (after) after();
         };
         if (action === "approve") {
@@ -542,7 +555,8 @@
             }
             photos.forEach((p) => p.url && URL.revokeObjectURL(p.url));
             showNotification(id ? "Listing updated." : (res.data.status === "published" ? "Listing created and published." : "Listing saved as unpublished."), "success");
-            loadList(id ? state.page : 1);
+            if (res.data.status === "published" && (!id || item.status !== "published")) showAll();
+            else loadList(id ? state.page : 1);
           },
         });
       }
