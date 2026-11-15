@@ -284,6 +284,7 @@
               ${t.rebuilt ? `<p class="tx-rebuilt">Rebuilt from the order's records: this payment was made before every step was recorded.</p>` : ""}
               ${t.events.length ? timelineHtml(t) : `<p class="text-sm text-gray-500">No steps recorded.</p>`}
             </section>
+            <div class="txd-sep" aria-hidden="true"></div>
             <section class="txd-card txd-history">
               <h2>Payment history</h2>
               <div class="txd-receipt-top"><b>${escapeHtml(t.reference)}</b><span>${formatDate(t.created_at)}</span></div>

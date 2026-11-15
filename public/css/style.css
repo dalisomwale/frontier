@@ -6948,3 +6948,12 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
   #detail-view .txd-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, 420px); }
   .txd-history { max-width: none; position: sticky; top: 90px; }
 }
+
+/* A line between the Timeline and the receipt */
+.txd-sep { height: 0; border-top: 2px dashed #d1d5db; margin: 4px 0; }
+@media (min-width: 1200px) {
+  #detail-view .txd-grid { grid-template-columns: minmax(0, 1fr) 2px minmax(360px, 420px); gap: 22px; align-items: stretch; }
+  .txd-sep { height: auto; border-top: 0; border-left: 2px dashed #d1d5db; margin: 0; }
+  #detail-view .txd-grid > .txd-history { align-self: start; }
+  #detail-view .txd-grid > .txd-timeline { align-self: start; }
+}
