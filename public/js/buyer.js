@@ -66,13 +66,13 @@ function buyerChip(buyer) {
 function accountHeader(buyer) {
   return `
     <nav id="page-topnav" class="site-topnav sticky top-0 z-50">
-      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-3">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-3">
         <a href="/" class="flex items-center gap-3 flex-shrink-0" aria-label="Frontier Marketplace home">
           <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div>
           <span class="hidden sm:block font-bold site-topnav-name">Frontier Marketplace</span>
         </a>
         <div class="site-nav ml-4" data-site-nav aria-label="Categories"></div>
-        <div class="ml-auto flex items-center gap-2 sm:gap-3 header-auth-acc" data-cart-slot>
+        <div class="flex items-center gap-2 sm:gap-3 header-auth-acc" data-cart-slot>
           ${buyer ? buyerChip(buyer) : `<a href="/account/login.html" class="header-login-link">Log in</a>`}
         </div>
       </div>

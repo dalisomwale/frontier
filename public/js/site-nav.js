@@ -262,7 +262,7 @@
       form.className = "snav-barsearch";
       form.action = "/";
       form.setAttribute("role", "search");
-      form.innerHTML = `<span aria-hidden="true">${typeof uiIcon === "function" ? uiIcon("search") : "🔍"}</span><input name="q" type="search" placeholder="Search" aria-label="Search livestock, feed, provinces" maxlength="100" enterkeyhint="search">`;
+      form.innerHTML = `<span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><input name="q" type="search" placeholder="Search" aria-label="Search livestock, feed, provinces" maxlength="100" enterkeyhint="search">`;
       form.addEventListener("submit", (e) => { if (!form.q.value.trim()) e.preventDefault(); });
       authBox.before(form);
     }

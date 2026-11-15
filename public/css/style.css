@@ -6733,3 +6733,31 @@ body.site-sheet-open { overflow: hidden; }
 }
 .has-site-nav > div:first-child { background: rgba(15, 36, 22, 0.78); }
 .site-header-home.has-site-nav.is-transparent > div:first-child { background: rgba(255, 255, 255, 0.12); }
+/* Same oval everywhere: one colour, always on top while scrolling */
+.has-site-nav { position: sticky !important; top: 0; z-index: 50; }
+.has-site-nav > div:first-child,
+.site-header-home.has-site-nav.is-transparent > div:first-child { background: rgba(15, 36, 22, 0.72); }
+.site-header-home.has-site-nav .site-search input,
+.has-site-nav .snav-barsearch { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.28); }
+.has-site-nav .snav-tab { color: #e5f1e8; }
+.has-site-nav .snav-tab:hover, .has-site-nav .snav-tab.is-open { color: #fff; }
+.has-site-nav > div:first-child > div { height: 60px !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+.has-site-nav .brand-mark-full { width: 44px; height: 44px; flex-shrink: 0; }
+.has-site-nav .site-topnav-back { display: none !important; }
+@media (max-width: 1023px) { .has-site-nav > div:first-child > div { height: 56px !important; } }
+.has-site-nav > div.h-16:first-child { height: 62px; }
+@media (max-width: 1023px) { .has-site-nav > div.h-16:first-child { height: 58px; } }
+.has-site-nav > div:first-child,
+.site-header-home.has-site-nav.is-transparent > div:first-child { background: rgba(15, 36, 22, 0.86); }
+.has-site-nav .site-nav { margin-left: 20px !important; margin-right: 0 !important; }
+@media (min-width: 1024px) {
+  .site-header-home.has-site-nav .site-search { flex: 0 0 300px; width: 300px; margin-left: auto; margin-right: 10px; }
+  .has-site-nav .snav-barsearch { flex: 0 0 300px; width: 300px; margin-left: auto; margin-right: 10px; }
+  .site-header-home.has-site-nav .header-auth { margin-left: 0; }
+}
+.has-site-nav > div:first-child > div, .has-site-nav > div.h-16:first-child { column-gap: 12px !important; }
+.has-site-nav > div:first-child > div > .site-nav, .has-site-nav > div.h-16:first-child > .site-nav { margin-left: 8px !important; }
+.has-site-nav .site-nav { gap: 4px !important; }
+.has-site-nav .snav-tab { padding: 8px 12px !important; }
+.has-site-nav .site-nav { column-gap: 4px !important; }
+.has-site-nav > div:first-child > div.site-nav, .has-site-nav > div:first-child > div > div.site-nav { column-gap: 4px !important; }
