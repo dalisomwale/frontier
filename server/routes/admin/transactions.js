@@ -83,6 +83,7 @@ const LIST_FIELDS = `
   c.payment_phone, c.payment_failure, c.paid_at, c.payment_alert_at,
   (SELECT COUNT(*) FROM orders o WHERE o.checkout_id = c.id) AS items,
   (SELECT GROUP_CONCAT(o.livestock_title ORDER BY o.id SEPARATOR ', ') FROM orders o WHERE o.checkout_id = c.id) AS titles,
+  (SELECT GROUP_CONCAT(IF(o.price_unit = 'lot', CONCAT('Lot (', o.quantity, ')'), o.quantity) ORDER BY o.id SEPARATOR ', ') FROM orders o WHERE o.checkout_id = c.id) AS quantities,
   (SELECT COUNT(*) FROM transaction_events e WHERE e.checkout_id = c.id) AS events`;
 
 function shape(row) {
@@ -124,11 +125,11 @@ router.get("/export", async (req, res, next) => {
   try {
     const f = filters(req.query);
     const [rows] = await pool.query(`SELECT ${LIST_FIELDS} FROM checkouts c ${f.sql} ORDER BY c.id DESC LIMIT 5000`, f.args);
-    const header = ["Order", "Date", "Buyer", "Email", "Phone", "Items", "Amount (ZMW)", "Method", "Network", "Paying number",
+    const header = ["Order", "Date", "Buyer", "Email", "Phone", "Items", "Quantity", "Amount (ZMW)", "Method", "Network", "Paying number",
       "Status", "Payment reference", "Lipila ID", "Attempts", "Paid at", "Reason not completed"];
     const fmt = (d) => (d ? new Date(d).toISOString().replace("T", " ").slice(0, 19) : "");
     const lines = rows.map((r) => [
-      checkoutRef(r.id), fmt(r.created_at), r.full_name, r.email, r.phone, r.titles || "", Number(r.total).toFixed(2),
+      checkoutRef(r.id), fmt(r.created_at), r.full_name, r.email, r.phone, r.titles || "", r.quantities || "", Number(r.total).toFixed(2),
       r.payment_method === "card" ? "Visa / Mastercard" : r.payment_method === "mobile_money" ? "Mobile money" : r.payment_method || "",
       r.mobile_operator || "", r.payment_phone || "", r.payment_status, r.payment_reference || "", r.payment_provider_ref || "",
       r.payment_attempts || 0, fmt(r.paid_at), r.payment_failure || "",
