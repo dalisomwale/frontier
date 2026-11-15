@@ -287,7 +287,7 @@
             </section>
             <div class="txd-sep" aria-hidden="true"></div>
             <section class="txd-card txd-history">
-              <h2 class="txd-h2-row"><span>Payment history</span><button type="button" class="txd-pdf" data-pdf>Download PDF</button></h2>
+              <h2 class="txd-h2-row"><span>Payment history</span><button type="button" class="txd-pdf" data-pdf title="Download PDF" aria-label="Download PDF">${uiIcon("download")}<span>PDF</span></button></h2>
               <div class="txd-receipt-top"><b>${escapeHtml(t.reference)}</b><span>${formatDate(t.created_at)}</span></div>
               <div class="txd-parts">
                 <div class="txd-part txd-c-payment"><h3>Payment</h3><dl class="txd-list">${payment}</dl></div>

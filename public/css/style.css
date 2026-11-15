@@ -6971,3 +6971,5 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .txd-h2-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .txd-pdf { text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 700; color: #166534; background: #fff; border: 1px solid #b7d3bf; border-radius: 8px; padding: 4px 10px; cursor: pointer; }
 .txd-pdf:hover { background: #f3f7f1; }
+.txd-pdf { display: inline-flex; align-items: center; gap: 5px; }
+.txd-pdf svg { width: 15px; height: 15px; }
