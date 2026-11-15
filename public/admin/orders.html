@@ -179,7 +179,7 @@
           params.set("export", "1");
           const res = await adminApi(`/api/admin/orders?${params}`);
           const fmt = (d) => (d ? new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", "") : "");
-          const header = ["Order", "Date", "Items", "Quantity", "Name", "Email", "Phone", "Delivery", "Paid with", "Amount (ZMW)", "Collection", "Status", "Payment", "Seller", "Delivered / collected", "Buyer confirmed", "Handed over", "Seller paid"];
+          const header = ["Order", "Date", "Items", "Quantity", "Name", "Email", "Phone", "Delivery", "Payment method", "Amount (ZMW)", "Collection", "Status", "Payment", "Seller", "Delivered / collected", "Buyer confirmed", "Handed over", "Seller paid"];
           const lines = res.data.map((o) => [
             o.reference, fmt(o.created_at), o.livestock_title, Number(o.quantity) || 0,
             o.full_name, o.email || "", o.phone || "", DELIVERY[o.delivery] || "", paymentShort(o),
@@ -354,7 +354,7 @@
           <table class="admin-table orders-table">
             <thead><tr>
               <th>Date</th><th>Order</th><th class="hidden md:table-cell">Items</th><th class="hidden md:table-cell" title="Quantity">Qty</th><th>Name</th>
-              <th class="hidden xl:table-cell">Email</th><th class="hidden sm:table-cell">Phone</th><th class="hidden lg:table-cell">Paid with</th>
+              <th class="hidden xl:table-cell">Email</th><th class="hidden sm:table-cell">Phone</th><th class="hidden lg:table-cell">Payment Method</th>
               <th>Amount</th><th class="hidden sm:table-cell">Collection</th><th>Status</th>
             </tr></thead>
             <tbody>${state.rows.map(rowHtml).join("")}</tbody>
