@@ -1120,7 +1120,16 @@
           }
           await Promise.all([loadSummary(), loadListings()]);
           if (notice.type === "message" && !document.getElementById("tab-messages").hidden) await loadMessages();
-          if (notice.type === "order" && !document.getElementById("tab-orders").hidden) await loadOrders();
+          if (notice.type === "order" && !document.getElementById("tab-orders").hidden) {
+            await loadOrders();
+            // The order page that's open is the one this notice is about: show it fresh.
+            const openId = getQueryParams().id;
+            const noticeId = new URLSearchParams(String(notice.link || "").split("?")[1] || "").get("id");
+            if (openId && noticeId === String(openId)) {
+              closeAllAdminViews();
+              openOrder(openId);
+            }
+          }
           if (!document.getElementById("tab-overview").hidden) await loadOverview();
         } catch {
         }

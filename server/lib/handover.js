@@ -183,7 +183,17 @@ async function markSent(orderId, method, by, files, note, ip = null) {
       body: `Frontier marked ${order.livestock_title} as ${how}. The buyer will confirm.`,
       link: `/seller/?tab=orders&id=${order.id}`,
     });
+    emails.sellerOrder(order, "sent", { units, how });
   }
+  sendEmail({
+    to: recipients(),
+    subject: `Order ${how}: ${ref}`,
+    heading: `${ref} was ${how}`,
+    paragraphs: [`${by.kind === "admin" ? "Frontier" : `The seller${by.name ? ` (${by.name})` : ""}`} marked ${ref} (${order.livestock_title}) as ${how}, with ${saved.length} photo${saved.length === 1 ? "" : "s"}. ${order.buyer_id ? "The buyer has been asked to confirm." : "The buyer has no account, so they can't confirm online."}`],
+    rows: [["Order", ref], ["Seller", await sellerName(order.seller_id)], ["Buyer", order.full_name], ["Quantity", units], ["Total", kwacha(order.total)]],
+    button: { label: "Open the order", url: appUrl(`/admin/orders.html?id=${order.id}`) },
+    log: true,
+  });
   broadcastAdmin("order", { id: order.id, checkout_id: order.checkout_id, change: "sent" });
   return loadOrder(order.id);
 }
@@ -293,6 +303,25 @@ async function confirmReceipt(orderId, buyer, method, files, note, ip = null) {
       ...(clean ? [["Buyer's note", clean]] : []),
     ],
     button: { label: "Open the order", url: appUrl(`/admin/orders.html?id=${order.id}`) },
+    log: true,
+  });
+  // For the buyer, confirming completes the order.
+  notifyBuyer(buyer.id, {
+    type: "order",
+    title: `Order ${ref} is complete`,
+    body: `Thank you for buying ${order.livestock_title} on Frontier Marketplace.`,
+    link: `/account/?tab=orders&id=${order.id}`,
+  });
+  sendEmail({
+    to: order.email,
+    subject: `Your order ${ref} is complete`,
+    heading: "Thank you, your order is complete",
+    paragraphs: [
+      `Hi ${String(order.full_name).split(/\s+/)[0]}, thank you for confirming you've received ${order.livestock_title}.`,
+      "Thank you for buying on Frontier Marketplace.",
+    ],
+    rows: [["Order", ref], ["Total paid", kwacha(order.total)], ["How", how === "delivered" ? "Delivered" : "Collected"]],
+    button: { label: "View your order", url: appUrl(`/account/?tab=orders&id=${order.id}`) },
     log: true,
   });
   pingBuyer(buyer.id, "order", { id: order.id });

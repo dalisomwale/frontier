@@ -564,6 +564,15 @@ async function markFailed(checkout, reason, reference) {
   await syncOrders(fresh);
   await pool.query("UPDATE orders SET hold_until = NULL WHERE checkout_id = ? AND stock_deducted = 0", [checkout.id]);
   notifications.broadcastAdmin("payment", { checkout_id: checkout.id, change: "failed" });
+  if (fresh.buyer_id) {
+    notifications.notifyBuyer(fresh.buyer_id, {
+      type: "order",
+      title: `Payment not completed for ${fresh.payment_reference || checkoutRef(fresh.id)}`,
+      body: "You can try again from your order.",
+      link: "/account/?tab=orders",
+    });
+    notifications.pingBuyer(fresh.buyer_id, "order", { checkout_id: fresh.id });
+  }
   txlog.record({
     checkoutId: checkout.id, reference: fresh.payment_reference, event: "payment_failed", status: "failed", actor: "lipila",
     amount: fresh.total, detail: `Payment not completed: ${fresh.payment_failure || "no reason given"}. Held items released.`,

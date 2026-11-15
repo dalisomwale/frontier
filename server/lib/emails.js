@@ -223,7 +223,8 @@ async function listingSoldOut(sellerId, listing) {
 
 // The seller hears about an order once it's confirmed, then when it's
 // completed or cancelled. Buyers' contact details are never included.
-async function sellerOrder(order, event, { units, leftOnListing } = {}) {
+async function sellerOrder(order, event, extra = {}) {
+  const { units, leftOnListing } = extra;
   const seller = await sellerById(order.seller_id);
   if (!seller) return null;
   const ref = orderRef(order.id);
@@ -236,6 +237,13 @@ async function sellerOrder(order, event, { units, leftOnListing } = {}) {
       rows: [["Order", ref], ["Quantity", what], ["Total", kwacha(order.total)], ["Payment", order.payment_status === "paid" ? "Paid online" : "Being arranged by Frontier"],
         ...(leftOnListing !== undefined ? [["Left on the listing", String(leftOnListing)]] : [])],
       after: ["Please keep these aside for the buyer. When they have them, mark the order as delivered or collected, with photos, in your seller account. Frontier pays you once the order is complete."],
+    },
+    sent: {
+      subject: `Order ${ref} marked as ${extra.how || "delivered"}`,
+      heading: `Frontier marked your order as ${extra.how || "delivered"}`,
+      text: `Frontier marked ${what} of ${order.livestock_title} as ${extra.how || "delivered"}, with photos.`,
+      rows: [["Order", ref], ["Quantity", what], ["Total", kwacha(order.total)]],
+      after: ["The buyer has been asked to confirm. Once they do, you can mark the order as handed over."],
     },
     received: {
       subject: `Buyer confirmed order ${ref}: please mark it as handed over`,
