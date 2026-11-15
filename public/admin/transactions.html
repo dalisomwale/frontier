@@ -510,7 +510,7 @@
       function photosOf(data) {
         let list = [];
         try { list = JSON.parse(data).photos || []; } catch {}
-        return list.length ? `<div class="order-proof-photos">${list.filter((p) => /^\/uploads\//.test(p)).map((p) => `<a href="${escapeHtml(p)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.replace(/\.webp$/, "-thumb.webp"))}" alt="Buyer's photo"></a>`).join("")}</div>` : "";
+        return list.length ? `<div class="order-proof-photos">${list.filter((p) => /^\/uploads\//.test(p)).map((p) => proofFileHtml(p, p.replace(/\.webp$/, "-thumb.webp"), "Photo")).join("")}</div>` : "";
       }
 
       function pretty(data) {

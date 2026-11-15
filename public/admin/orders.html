@@ -207,7 +207,8 @@
       // buyer's confirmation (with photos), then "handed over" completes it.
       const proofPhotos = (o, party) => {
         const list = (o.receipt_photos || []).filter((p) => (p.party || "buyer") === party);
-        return list.length ? `<div class="order-proof-photos">${list.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="${party === "seller" ? "Seller's photo" : party === "payout" ? "Proof of payment" : "Buyer's photo"}"></a>`).join("")}</div>` : "";
+        const alt = party === "seller" ? "Seller's photo" : party === "payout" ? "Proof of payment" : "Buyer's photo";
+        return list.length ? `<div class="order-proof-photos">${list.map((p) => proofFileHtml(p.image_path, p.thumb_path, alt)).join("")}</div>` : "";
       };
       // The order's steps, newest first. Each step opens and closes; the one
       // waiting for action (or else the newest) starts open.
@@ -258,22 +259,24 @@
             steps.push({ name: "Seller paid", done: Boolean(o.seller_paid_at), date: o.seller_paid_at,
               body: o.seller_paid_at
                 ? `${by(o.seller_paid_by || "-", o.seller_paid_at)}${o.seller_paid_ref ? `<p class="tl-body-line">Ref ${escapeHtml(o.seller_paid_ref)}</p>` : ""}${proofPhotos(o, "payout")}`
-                : o.can_pay_seller
-                  ? `<form data-pay-seller novalidate>
+                : o.status !== "cancelled"
+                  ? `<form data-pay-seller novalidate${o.can_pay_seller ? "" : ` data-locked class="pay-locked"`}>
+                       ${o.can_pay_seller ? "" : `<p class="pay-lock-note">${uiIcon("shield")}Unlocks once the order has been handed over.</p>`}
                        <p class="tl-body-line">Once you've paid ${escapeHtml(o.seller_name || "the seller")}, add the proof of payment.</p>
                        <label class="field-label" for="pay-ref-${o.id}">Payment reference <span class="text-gray-400 font-normal">(optional)</span></label>
-                       <input id="pay-ref-${o.id}" name="reference" class="field-input" maxlength="150" style="max-width:320px" placeholder="e.g. bank or mobile money reference">
-                       <p class="field-label mt-3">Proof of payment <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 4 photos)</span></p>
-                       <div class="acc-ph-grid" data-photos style="max-width:520px"></div>
+                       <input id="pay-ref-${o.id}" name="reference" class="field-input" maxlength="150" style="max-width:320px" placeholder="e.g. bank or mobile money reference"${o.can_pay_seller ? "" : " disabled"}>
+                       <p class="field-label mt-3">Proof of payment <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 4 photos or PDFs)</span></p>
+                       <div class="acc-ph-grid" data-photos style="max-width:520px">${o.can_pay_seller ? "" : `<span class="acc-ph-add is-off">${uiIcon("camera")}<span>Add photo or PDF</span></span>`}</div>
                        <p class="field-error hidden" data-error-for="images"></p>
-                       <button type="submit" class="acc-btn mt-3" style="width:auto">Mark seller paid</button>
+                       <button type="submit" class="acc-btn mt-3" style="width:auto"${o.can_pay_seller ? "" : " disabled"}>Mark seller paid</button>
                      </form>`
                   : "" });
           }
         }
         const nowAt = steps.findIndex((st) => !st.done && !st.fail);
         const lastDone = steps.map((st, i) => (st.done || st.fail ? i : -1)).filter((i) => i >= 0).pop();
-        const openAt = nowAt >= 0 && steps[nowAt].body ? nowAt : lastDone;
+        const actionable = nowAt >= 0 && steps[nowAt].body && !/data-locked/.test(steps[nowAt].body);
+        const openAt = actionable ? nowAt : lastDone;
         const items = steps.map((st, i) => {
           const state = st.done ? "done" : st.fail ? "fail" : i === nowAt ? "now" : "todo";
           const dot = state === "done" ? "✓" : state === "fail" ? "✕" : state === "now" ? "…" : i + 1;
@@ -381,12 +384,12 @@
             }
           });
         }
-        const pay = box.querySelector("[data-pay-seller]");
+        const pay = box.querySelector("[data-pay-seller]:not([data-locked])");
         if (pay) {
-          const picker = bindPhotoPicker(pay.querySelector("[data-photos]"), 4, (n) => { if (n) pay.querySelector('[data-error-for="images"]').classList.add("hidden"); });
+          const picker = bindPhotoPicker(pay.querySelector("[data-photos]"), 4, (n) => { if (n) pay.querySelector('[data-error-for="images"]').classList.add("hidden"); }, { pdf: true });
           pay.addEventListener("submit", async (e) => {
             e.preventDefault();
-            if (!picker.files().length) return showFieldErrors(pay, { errors: { images: "Please add at least one photo of the proof of payment." } });
+            if (!picker.files().length) return showFieldErrors(pay, { errors: { images: "Please add the proof of payment: a photo or a PDF." } });
             if (!(await confirmAction({ title: "Mark the seller as paid?", message: "The seller will be told and can see the proof of payment. The order will be completed.", confirmText: "Mark seller paid" }))) return;
             const fd = new FormData();
             fd.append("reference", pay.reference.value.trim());
@@ -487,21 +490,20 @@
       async function changeStatus(sel) {
         const o = state.rows.find((r) => String(r.id) === sel.dataset.statusFor);
         const value = sel.value;
-        const note = document.querySelector(`[data-detail="${o.id}"] [data-message]`)?.value.trim() || "";
         const confirmText = {
           confirmed: o.seller_id && !o.seller_notified_at ? "The seller is told about the order." : "",
           cancelled: o.stock_deducted ? `${o.quantity} will be put back on the listing.` : "",
         }[value] || (o.status === "cancelled" && o.livestock_id ? `${o.quantity} will be taken off the listing again.` : "");
         const ok = await confirmAction({
           title: `Mark ${o.reference} as ${statusLabel(value).toLowerCase()}?`,
-          message: ["The buyer is emailed about the change.", confirmText, note ? "Your message is included." : ""].filter(Boolean).join(" "),
+          message: ["The buyer is emailed about the change.", confirmText].filter(Boolean).join(" "),
           confirmText: `Mark ${statusLabel(value).toLowerCase()}`,
           variant: value === "cancelled" ? "danger" : undefined,
         });
         if (!ok) { sel.value = o.status; return; }
         sel.disabled = true;
         try {
-          await update(o, { status: value, message: note || undefined });
+          await update(o, { status: value });
         } catch (error) {
           sel.value = o.status;
           sel.disabled = false;
@@ -573,10 +575,6 @@
                 <h2>Track Timeline Records</h2>
                 ${orderTimelineHtml(o, checkPay)}
               </section>
-              <div class="order-message">
-                <textarea data-message rows="2" maxlength="2000" class="field-input" placeholder="Message ${escapeHtml(o.full_name)}, e.g. payment details"></textarea>
-                <button type="button" data-send class="chat-send-btn">Send</button>
-              </div>
             </div>
             <div class="txd-sep" aria-hidden="true"></div>
             <section class="txd-card txd-history">
@@ -644,20 +642,6 @@
             }
           });
         }
-        const input = box.querySelector("[data-message]");
-        const send = box.querySelector("[data-send]");
-        send.addEventListener("click", async () => {
-          const message = input.value.trim();
-          if (!message) return input.focus();
-          send.disabled = true;
-          try {
-            await update(o, { message });
-          } catch (error) {
-            showNotification(error.message, "error");
-            send.disabled = false;
-          }
-        });
-        input.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send.click(); });
       }
 
       let searchTimer;

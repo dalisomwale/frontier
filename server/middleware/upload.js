@@ -32,6 +32,28 @@ const uploadImages = multer({
   },
 }).array("images", MAX_FILES);
 
+// Proof of payment to a seller: photos or PDF files (up to 4). Field: "images".
+const PROOF_MIMES = [...ALLOWED_MIMES, "application/pdf"];
+const uploadProof = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BYTES, files: 4 },
+  fileFilter: (req, file, cb) => {
+    if (PROOF_MIMES.includes(file.mimetype)) return cb(null, true);
+    return cb(badRequest("Proof of payment must be a photo (JPEG, PNG, WebP) or a PDF."));
+  },
+}).array("images", 4);
+
+// A PDF is kept as it is, once its first bytes show it really is a PDF.
+async function savePdf(buffer) {
+  if (!buffer || buffer.length < 8 || buffer.subarray(0, 5).toString("latin1") !== "%PDF-") {
+    throw badRequest("One of the files is not a valid PDF.");
+  }
+  const name = `pop-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.pdf`;
+  await fs.promises.writeFile(path.join(UPLOAD_DIR, name), buffer);
+  const publicPath = `${PUBLIC_PREFIX}/${name}`;
+  return { image_path: publicPath, thumb_path: publicPath };
+}
+
 // One photo for an animal category or production purpose, used as a 4:3
 // tile on the website. Field name: "image".
 const uploadSingleImage = multer({
@@ -116,6 +138,8 @@ function deleteImageFiles(...publicPaths) {
 
 module.exports = {
   uploadImages,
+  uploadProof,
+  savePdf,
   saveImage,
   deleteImageFiles,
   MAX_FILES,

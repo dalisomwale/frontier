@@ -309,17 +309,27 @@ document.addEventListener("DOMContentLoaded", initSellerLink);
 
 // Photo picker for handover proof: a grid with "Add photo" and remove
 // buttons. Returns { files() } with the chosen File objects.
-function bindPhotoPicker(grid, max = 4, onChange = () => {}) {
+// One proof file as a link: a photo thumbnail, or a "PDF" tile for a PDF.
+function proofFileHtml(path, thumb, alt = "Photo") {
+  const href = escapeHtml(path || "");
+  if (/\.pdf$/i.test(path || "")) {
+    return `<a href="${href}" target="_blank" rel="noopener" class="proof-pdf" title="Open the PDF">${uiIcon("receipt")}<span>PDF</span></a>`;
+  }
+  return `<a href="${href}" target="_blank" rel="noopener"><img src="${escapeHtml(thumb || path || "")}" alt="${escapeHtml(alt)}"></a>`;
+}
+
+// opts.pdf: also take PDF files (used for proof of payment).
+function bindPhotoPicker(grid, max = 4, onChange = () => {}, opts = {}) {
   const input = document.createElement("input");
   input.type = "file";
-  input.accept = "image/jpeg,image/png,image/webp";
+  input.accept = opts.pdf ? "image/jpeg,image/png,image/webp,application/pdf" : "image/jpeg,image/png,image/webp";
   input.multiple = true;
   input.hidden = true;
   grid.insertAdjacentElement("afterend", input);
   const files = [];
   const paint = () => {
-    grid.innerHTML = files.map((f, i) => `<div class="acc-ph"><img src="${f.url}" alt=""><button type="button" data-rm="${i}" aria-label="Remove photo">×</button></div>`).join("")
-      + (files.length < max ? `<button type="button" class="acc-ph-add">${uiIcon("camera")}<span>Add photo</span></button>` : "");
+    grid.innerHTML = files.map((f, i) => `<div class="acc-ph${f.pdf ? " acc-ph-pdf" : ""}">${f.pdf ? `${uiIcon("receipt")}<span title="${escapeHtml(f.file.name)}">${escapeHtml(f.file.name)}</span>` : `<img src="${f.url}" alt="">`}<button type="button" data-rm="${i}" aria-label="Remove file">×</button></div>`).join("")
+      + (files.length < max ? `<button type="button" class="acc-ph-add">${uiIcon("camera")}<span>${opts.pdf ? "Add photo or PDF" : "Add photo"}</span></button>` : "");
     grid.querySelector(".acc-ph-add")?.addEventListener("click", () => input.click());
     grid.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => {
       const [gone] = files.splice(Number(b.dataset.rm), 1);
@@ -330,9 +340,10 @@ function bindPhotoPicker(grid, max = 4, onChange = () => {}) {
   };
   input.addEventListener("change", () => {
     [...input.files].slice(0, max - files.length).forEach((file) => {
-      if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return showNotification("Photos must be JPEG, PNG or WebP.", "error");
-      if (file.size > 12 * 1024 * 1024) return showNotification("Each photo must be under 12 MB.", "error");
-      files.push({ file, url: URL.createObjectURL(file) });
+      const pdf = opts.pdf && file.type === "application/pdf";
+      if (!pdf && !/^image\/(jpeg|png|webp)$/.test(file.type)) return showNotification(opts.pdf ? "Add a photo (JPEG, PNG or WebP) or a PDF." : "Photos must be JPEG, PNG or WebP.", "error");
+      if (file.size > 12 * 1024 * 1024) return showNotification("Each file must be under 12 MB.", "error");
+      files.push({ file, pdf, url: URL.createObjectURL(file) });
     });
     input.value = "";
     paint();

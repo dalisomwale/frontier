@@ -12,7 +12,7 @@ const { notifySeller } = require("../../services/notifications");
 const emails = require("../../lib/emails");
 const txlog = require("../../lib/txlog");
 const handover = require("../../lib/handover");
-const { uploadImages } = require("../../middleware/upload");
+const { uploadImages, uploadProof } = require("../../middleware/upload");
 const { broadcastAdmin } = require("../../services/notifications");
 const { positiveInt, text, oneOf, badRequest, notFound } = require("../../lib/validate");
 const {
@@ -313,7 +313,7 @@ router.post("/:id/sent", uploadImages, async (req, res, next) => {
 
 // Frontier pays the seller after the handover and marks it with photos of
 // the proof of payment. The order is then Completed.
-router.post("/:id/seller-paid", uploadImages, async (req, res, next) => {
+router.post("/:id/seller-paid", uploadProof, async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
     if (!id) throw notFound("Order not found.");

@@ -13,7 +13,7 @@
 const pool = require("../db");
 const txlog = require("./txlog");
 const emails = require("./emails");
-const { saveImage, deleteImageFiles } = require("../middleware/upload");
+const { saveImage, savePdf, deleteImageFiles } = require("../middleware/upload");
 const { sendEmail, recipients, appUrl } = require("../services/mailer");
 const { notifySeller, notifyBuyer, pingBuyer, broadcastAdmin } = require("../services/notifications");
 const { orderRef, kwacha, headCount } = require("./orders");
@@ -97,6 +97,21 @@ function problem(status, message, errors) {
 }
 
 // Checks the method and 1-4 photos, then saves the photos. Returns their paths.
+// Proof of payment: photos and PDFs, 1 to 4 files.
+async function saveProof(files) {
+  const list = files || [];
+  if (!list.length) throw problem(422, "Please add the proof of payment (a photo or PDF).", { images: "Please add at least one photo or PDF." });
+  if (list.length > MAX_PHOTOS) throw badRequest(`Please add no more than ${MAX_PHOTOS} files.`);
+  const saved = [];
+  try {
+    for (const file of list) saved.push(file.mimetype === "application/pdf" ? await savePdf(file.buffer) : await saveImage(file.buffer));
+  } catch (error) {
+    deleteImageFiles(...saved.flatMap((p) => [p.image_path, p.thumb_path]));
+    throw error;
+  }
+  return saved;
+}
+
 async function savePhotos(method, files, who) {
   if (who !== "payout" && !METHODS.includes(method)) throw problem(422, "Please choose delivered or collected.", { method: "Please choose one." });
   const list = files || [];
@@ -269,7 +284,7 @@ async function paySeller(orderId, admin, files, reference, ip = null) {
   if (!order) throw notFound("Order not found.");
   if (order.seller_paid_at) throw new HttpError(409, "The seller has already been marked as paid.");
   if (!canPaySeller(order)) throw new HttpError(409, order.seller_id ? "The seller can be paid once the order has been handed over." : "This order is Frontier's own stock: there's no seller to pay.");
-  const saved = await savePhotos(null, files, "payout");
+  const saved = await saveProof(files);
   const ref = orderRef(order.id);
   const cleanRef = reference ? String(reference).trim().slice(0, 150) : null;
   await storeStep(saved, "payout", order.id,
@@ -285,7 +300,7 @@ async function paySeller(orderId, admin, files, reference, ip = null) {
     status: "completed",
     actor: "admin",
     admin,
-    detail: `${admin.name} marked the seller of ${ref} (${order.livestock_title}) as paid${cleanRef ? ` (reference ${cleanRef})` : ""}, with ${saved.length} photo${saved.length === 1 ? "" : "s"} of the proof of payment. Order Completed.`,
+    detail: `${admin.name} marked the seller of ${ref} (${order.livestock_title}) as paid${cleanRef ? ` (reference ${cleanRef})` : ""}, with ${saved.length} file${saved.length === 1 ? "" : "s"} of the proof of payment. Order Completed.`,
     data: { photos: saved.map((p) => p.image_path) },
     ip,
   });
