@@ -6957,3 +6957,13 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
   #detail-view .txd-grid > .txd-history { align-self: start; }
   #detail-view .txd-grid > .txd-timeline { align-self: start; }
 }
+
+/* Timeline steps open and close */
+.tl-fold > summary { list-style: none; cursor: pointer; border-radius: 8px; }
+.tl-fold > summary::-webkit-details-marker { display: none; }
+.tl-fold > summary:hover .tl-name { text-decoration: underline; text-underline-offset: 3px; }
+.tl-fold > summary:focus-visible { outline: 2px solid #65a30d; outline-offset: 2px; }
+.tl-head-right { display: inline-flex; align-items: center; gap: 10px; }
+.tl-fold-chev { width: 18px; height: 18px; border-radius: 6px; background: #f3f4f6 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%234b5563'%3E%3Cpath d='M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4z'/%3E%3C/svg%3E") center / 14px no-repeat; transition: transform .15s; }
+.tl-fold[open] > summary .tl-fold-chev { transform: rotate(180deg); }
+.tl-fold:not([open]) { margin-bottom: 0; }

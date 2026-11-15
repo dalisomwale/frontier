@@ -417,13 +417,18 @@
           const dot = state === "done" ? "✓" : state === "fail" ? "✕" : state === "now" ? "…" : i + 1;
           const rows = rowsOf(list).reverse();
           const day = list.length ? shortDay(list[list.length - 1].created_at) : "";
+          const head = `<span class="tl-name">${name}</span><span class="tl-head-right">${day ? `<span class="tl-day">${day}</span>` : ""}${rows.length ? `<span class="tl-fold-chev" aria-hidden="true"></span>` : ""}</span>`;
+          // Steps with details open and close; the newest one starts open.
+          const body = rows.length
+            ? `<details class="tl-fold" data-stage="${i}"><summary class="tl-head">${head}</summary><ol class="tl-rows">${rows.map((r) => rowHtml(r, t)).join("")}</ol></details>`
+            : `<div class="tl-head">${head}</div>${state === "now" ? `<p class="tl-wait">${waiting[i]}</p>` : ""}`;
           return `<li class="tl-stage tl-${state}">
             <span class="tl-dot">${dot}</span>
-            <div class="tl-head"><span class="tl-name">${name}</span>${day ? `<span class="tl-day">${day}</span>` : ""}</div>
-            ${rows.length ? `<ol class="tl-rows">${rows.map((r) => rowHtml(r, t)).join("")}</ol>` : state === "now" ? `<p class="tl-wait">${waiting[i]}</p>` : ""}
+            ${body}
           </li>`;
         });
-        return `<ol class="tx-timeline tl">${stages.reverse().join("")}</ol>`;
+        const newest = groups.map((g, i) => (g.length ? i : -1)).filter((i) => i >= 0 && i < names.length).pop();
+        return `<ol class="tx-timeline tl">${stages.reverse().join("")}</ol>`.replace(`<details class="tl-fold" data-stage="${newest}">`, `<details class="tl-fold" data-stage="${newest}" open>`);
       }
 
       // The buyer's photos on "Buyer confirmed receipt".
