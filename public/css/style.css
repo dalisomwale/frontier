@@ -6439,3 +6439,5 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
   .sins-head { justify-content: space-between; align-items: center; flex-wrap: nowrap; }
   .sins-head #add-btn { padding: 0.55rem 0.9rem; }
 }
+.so-detail.so-detail-first { grid-template-columns: 340px minmax(0, 1fr); }
+@media (max-width: 1023px) { .so-detail.so-detail-first { grid-template-columns: 1fr; } }

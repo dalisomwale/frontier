@@ -996,8 +996,7 @@
             </div>
             <span class="so-pill ${st.cls} so-pill-lg">${st.label}</span>
           </div>
-          <div class="so-detail">
-            <div class="space-y-4 min-w-0">${stepCard(o)}</div>
+          <div class="so-detail so-detail-first">
             <div class="txd-card">
               <dl class="sv-facts">
                 <div><dt>Quantity</dt><dd>${escapeHtml(o.price_unit === "lot" ? `Whole lot (${o.units})` : o.units)}</dd></div>
@@ -1006,6 +1005,7 @@
                 ${o.livestock_id ? `<div><dt>Listing</dt><dd><a href="/listing.html?id=${o.livestock_id}" target="_blank" rel="noopener" class="font-semibold text-blue-600">View</a></dd></div>` : ""}
               </dl>
             </div>
+            <div class="space-y-4 min-w-0">${stepCard(o)}</div>
           </div>`;
         const refresh = async () => {
           await view.close(true);
