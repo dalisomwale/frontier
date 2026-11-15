@@ -12,7 +12,7 @@ const { sendEmail, appUrl, recipients } = require("../services/mailer");
 const emails = require("../lib/emails");
 const { positiveInt, text, isEmail, isPhone, badRequest, notFound, HttpError, PROVINCES } = require("../lib/validate");
 const { helpers } = require("./admin/livestock");
-const { subscribe, unreadCount } = require("../services/notifications");
+const { subscribe, unreadCount, notifySeller } = require("../services/notifications");
 const { orderRef, headCount } = require("../lib/orders");
 const handover = require("../lib/handover");
 
@@ -516,7 +516,14 @@ function listingNotice(seller, listing, edited, listingId) {
   if (last && Date.now() - last < 2 * 60 * 1000) return null;
   recentNotices.set(key, Date.now());
   if (recentNotices.size > 500) recentNotices.delete(recentNotices.keys().next().value);
-  // The seller gets a "we've received it" at the same moment.
+  // The seller gets a "we've received it" at the same moment: a notification
+  // in their account (live) and an email.
+  notifySeller(seller.id, {
+    type: "listing",
+    title: `${edited ? "Your changes are" : "Your listing is"} being reviewed: ${listing.title}`,
+    body: "We'll let you know once it's approved.",
+    link: listingId ? `/seller/?tab=listings&listing=${listingId}` : "/seller/?tab=listings",
+  });
   (async () => {
     const [[animal]] = await pool.query(
       "SELECT a.name, a.kind FROM categories c JOIN animals a ON a.id = c.animal_id WHERE c.id = ?",
