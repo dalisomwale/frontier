@@ -6930,18 +6930,16 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .txd-c-buyer { --hd-c: #0f766e; --hd-bg: #e9f5f3; --hd-line: #cde9e4; }
 .txd-c-items { --hd-c: #b45309; --hd-bg: #fef5e7; --hd-line: #fbe5c0; }
 
-/* Transaction page: Timeline, then Payment history (Payment | Buyer | Items) */
+/* Transaction page: Timeline, then a receipt-style Payment history */
 #detail-view .txd-grid { grid-template-columns: minmax(0, 1fr); }
-.txd-history { --hd-c: #166534; --hd-bg: #ecf7ef; --hd-line: #d3ecd9; padding-bottom: 6px; }
-.txd-parts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.txd-part { min-width: 0; padding: 4px 22px 12px; }
-.txd-part:first-child { padding-left: 0; }
-.txd-part:last-child { padding-right: 0; }
-.txd-part + .txd-part { border-left: 1px solid #e5e7eb; }
-.txd-part h3 { margin: 0 0 12px; padding-bottom: 8px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--hd-c); border-bottom: 2px solid var(--hd-line); }
-@media (max-width: 1023px) {
-  .txd-parts { grid-template-columns: 1fr; }
-  .txd-part { padding: 14px 0; }
-  .txd-part:first-child { padding-top: 4px; }
-  .txd-part + .txd-part { border-left: 0; border-top: 1px solid #e5e7eb; }
-}
+.txd-history { --hd-c: #166534; --hd-bg: #ecf7ef; --hd-line: #d3ecd9; width: 100%; max-width: 620px; padding-bottom: 8px; }
+.txd-receipt-top { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0 14px; border-bottom: 2px dashed #e5e7eb; font-size: 14px; }
+.txd-receipt-top b { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #111827; }
+.txd-receipt-top span { color: #6b7280; }
+.txd-parts { display: block; }
+.txd-part { padding: 14px 0; }
+.txd-part + .txd-part { border-top: 2px dashed #e5e7eb; }
+.txd-part h3 { margin: 0 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--hd-c); }
+.txd-part .txd-row { padding: 6px 0; border-top: 0; }
+.txd-part .txd-total { border-top: 1px solid #111827; margin-top: 10px; padding-top: 10px; font-weight: 700; color: #111827; }
+.txd-part .txd-total b { font-size: 18px; }
