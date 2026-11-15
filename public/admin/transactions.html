@@ -271,15 +271,7 @@
             <section class="txd-card txd-timeline">
               <h2>Timeline</h2>
               ${t.rebuilt ? `<p class="tx-rebuilt">Rebuilt from the order's records: this payment was made before every step was recorded.</p>` : ""}
-              ${t.events.length ? `<ol class="tx-timeline">${t.events.map((e) => `
-                <li class="tx-ev tx-${TONE[e.event] || "plain"}">
-                  <div class="tx-ev-body">
-                    <p class="tx-ev-title">${EVENT[e.event] || escapeHtml(e.event)} <span class="tx-actor">${e.actor === "admin" ? escapeHtml(e.admin_name || "Admin") : ACTOR[e.actor] || escapeHtml(e.actor)}</span></p>
-                    <p class="tx-ev-meta">${formatDate(e.created_at)}${e.reference ? ` · ${escapeHtml(e.reference)}` : ""}</p>
-                    <p class="tx-ev-text">${escapeHtml(e.detail)}</p>
-                    ${["buyer_confirmed", "seller_sent"].includes(e.event) ? photosOf(e.data) : e.data ? `<details class="tx-raw"><summary>Lipila's full answer</summary><pre>${escapeHtml(pretty(e.data))}</pre></details>` : ""}
-                  </div>
-                </li>`).join("")}</ol>` : `<p class="text-sm text-gray-500">No steps recorded.</p>`}
+              ${t.events.length ? timelineHtml(t) : `<p class="text-sm text-gray-500">No steps recorded.</p>`}
             </section>
             <aside class="txd-side">
               <section class="txd-card"><h2>Payment</h2><dl class="txd-list">${payment}</dl></section>
@@ -312,6 +304,106 @@
           received: has("buyer_confirmed"),
           handed: has("handed_over"),
         });
+      }
+
+      // Timeline grouped under the tracker's five steps, newest first: the
+      // latest step at the top and the latest event first inside each step.
+      // One short line per event; the full wording opens on tap.
+      const STAGE_OF = {
+        order_placed: 0, terms_accepted: 0,
+        payment_requested: 1, payment_request_unclear: 1, payment_request_failed: 1, card_page_opened: 1, buyer_returned: 1,
+        lipila_callback: 1, status_check_error: 1, payment_confirmed: 1, payment_waiting: 1, payment_failed: 1,
+        unconfirmed_alert: 1, stock_taken: 1, stock_short: 1, admin_marked_paid: 1, admin_check_payment: 1,
+        seller_sent: 2, buyer_confirmed: 3, handed_over: 4,
+      };
+      const EMAIL_EVENTS = ["email_sent", "email_failed", "email_skipped"];
+      const shortDay = (d) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      const clock = (d) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+      const whoChip = (e) => {
+        const name = e.actor === "admin" ? (e.admin_name || "Admin") : ACTOR[e.actor] || e.actor || "";
+        return name ? `<span class="tl-who tl-who-${escapeHtml(e.actor || "")}">${escapeHtml(name)}</span>` : "";
+      };
+      function rowHtml(r, t) {
+        const e = r.event;
+        const sub = r.sub !== undefined ? r.sub
+          : e.event === "order_placed" ? `${kwacha(t.total)} · ${how(t)}`
+          : e.reference || "";
+        const raw = r.extra || [];
+        const body = `
+          <p>${escapeHtml(e.detail || "")}</p>
+          ${raw.map((x) => `<p>${escapeHtml(x.detail || "")}</p>`).join("")}
+          ${["buyer_confirmed", "seller_sent"].includes(e.event) ? "" : [e, ...raw].filter((x) => x.data).map((x) => `<details class="tx-raw"><summary>Lipila's full answer</summary><pre>${escapeHtml(pretty(x.data))}</pre></details>`).join("")}`;
+        return `<li class="tx-ev tl-row tl-${TONE[e.event] || "plain"}">
+          <details>
+            <summary>
+              <span class="tl-time">${clock(e.created_at)}</span>
+              <span class="tl-what"><b>${r.title || (e.event === "seller_sent" ? (/as delivered/.test(e.detail || "") ? "Marked as delivered" : "Marked as collected") : EVENT[e.event] || escapeHtml(e.event))}</b>${sub ? `<small>${escapeHtml(sub)}</small>` : ""}
+                ${["buyer_confirmed", "seller_sent"].includes(e.event) ? photosOf(e.data) : ""}</span>
+              ${whoChip(e)}
+              <span class="tl-chev" aria-hidden="true"></span>
+            </summary>
+            <div class="tl-more">${body}</div>
+          </details>
+        </li>`;
+      }
+      function timelineHtml(t) {
+        const has = (...names) => t.events.some((e) => names.includes(e.event));
+        const paid = t.payment_status === "paid";
+        const failed = t.payment_status === "failed";
+        const sentEvent = t.events.find((e) => e.event === "seller_sent");
+        const sentWord = sentEvent && /as delivered/.test(sentEvent.detail || "") ? "Delivered" : sentEvent ? "Collected" : "Delivered";
+        // Each event joins the furthest step reached so far.
+        const groups = [[], [], [], [], []];
+        let at = 0;
+        t.events.forEach((e) => {
+          if (STAGE_OF[e.event] !== undefined) at = Math.max(at, STAGE_OF[e.event]);
+          groups[at].push(e);
+        });
+        // Fold Lipila's messages into the confirmation/failure they led to, and
+        // a run of emails into one row.
+        const rowsOf = (list) => {
+          const rows = [];
+          let pending = [];
+          list.forEach((e) => {
+            if (e.event === "lipila_callback") return pending.push(e);
+            if (EMAIL_EVENTS.includes(e.event)) {
+              const last = rows[rows.length - 1];
+              if (last && last.emails) { last.extra.push(e); return; }
+              return rows.push({ event: e, emails: true, extra: [] });
+            }
+            const row = { event: e, extra: [] };
+            if (["payment_confirmed", "payment_failed", "payment_waiting"].includes(e.event)) { row.extra = pending; pending = []; }
+            rows.push(row);
+          });
+          pending.forEach((e) => rows.push({ event: e, extra: [] }));
+          rows.forEach((r) => {
+            if (!r.emails) return;
+            const all = [r.event, ...r.extra];
+            const sent = all.filter((x) => x.event === "email_sent").length;
+            const notSent = all.length - sent;
+            const who = [...new Set(all.map((x) => (/to the seller/.test(x.detail) ? "Seller" : /to the buyer/.test(x.detail) ? "Buyer" : /to the team/.test(x.detail) ? "Team" : null)).filter(Boolean))];
+            r.title = `${sent} email${sent === 1 ? "" : "s"} sent${notSent ? ` · ${notSent} not sent` : ""}`;
+            r.sub = who.join(" · ");
+          });
+          return rows;
+        };
+        const reached = [true, paid || has("admin_marked_paid"), has("seller_sent"), has("buyer_confirmed"), has("handed_over")];
+        const names = ["Order placed", paid ? `Paid · ${kwacha(t.total)}` : failed ? "Payment not completed" : "Payment", sentWord, "Buyer confirmed", "Handed over"];
+        const waiting = ["", "Waiting for payment", "Waiting for the seller", "Waiting for the buyer", "Waiting for the seller"];
+        const nowAt = failed ? -1 : reached.findIndex((r) => !r);
+        const stages = names.map((name, i) => {
+          const list = groups[i];
+          const state = reached[i] ? "done" : i === 1 && failed ? "fail" : list.length ? "now" : i === nowAt ? "now" : "todo";
+          const dot = state === "done" ? "✓" : state === "fail" ? "✕" : state === "now" ? "…" : i + 1;
+          const rows = rowsOf(list).reverse();
+          const day = list.length ? shortDay(list[list.length - 1].created_at) : "";
+          return `<li class="tl-stage tl-${state}">
+            <span class="tl-dot">${dot}</span>
+            <div class="tl-head"><span class="tl-name">${name}</span>${day ? `<span class="tl-day">${day}</span>` : ""}</div>
+            ${rows.length ? `<ol class="tl-rows">${rows.map((r) => rowHtml(r, t)).join("")}</ol>` : state === "now" ? `<p class="tl-wait">${waiting[i]}</p>` : ""}
+          </li>`;
+        });
+        return `<ol class="tx-timeline tl">${stages.reverse().join("")}</ol>`;
       }
 
       // The buyer's photos on "Buyer confirmed receipt".
