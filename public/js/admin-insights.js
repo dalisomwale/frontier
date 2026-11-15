@@ -85,9 +85,9 @@
     const c = d.current;
     const kpis = [
       { label: "Sales (paid)", value: c.sales >= 1e6 ? compactMoney(c.sales) : money(c.sales), title: money(c.sales), hint: `${c.sold} paid order${c.sold === 1 ? "" : "s"}` },
-      { label: "Orders", value: c.orders.toLocaleString(), hint: "All orders placed" },
-      { label: "Inquiries", value: c.inquiries.toLocaleString(), hint: "Contact Seller messages" },
-      { label: "Average order", value: c.avg_order >= 1e6 ? compactMoney(c.avg_order) : money(c.avg_order), title: money(c.avg_order), hint: "Paid orders only" },
+      { label: "Orders", value: c.orders.toLocaleString(), hint: "" },
+      { label: "Inquiries", value: c.inquiries.toLocaleString(), hint: "" },
+      { label: "Average order", value: c.avg_order >= 1e6 ? compactMoney(c.avg_order) : money(c.avg_order), title: money(c.avg_order), hint: "" },
     ];
     document.getElementById("ins-kpis").innerHTML = kpis.map((k) => {
       return `<div class="ins-kpi">

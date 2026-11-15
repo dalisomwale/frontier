@@ -157,7 +157,7 @@
               ${field({ name: "category_id", label: "Production purpose", value: b.category_id ?? currentPurpose, required: true,
                   options: purposeOptions(animalId), attrs: locked ? "disabled" : "" })}
             </div>
-            ${locked ? `<p class="text-xs text-gray-500 -mt-2">This breed is used by listings, so its category and purpose can't be changed.</p>` : ""}
+            ${locked ? `<p class="text-xs text-gray-500 -mt-2">In use by listings: category and purpose are locked.</p>` : ""}
             ${field({ name: "description", label: "Description", type: "textarea", value: b.description, attrs: 'maxlength="2000"' })}
             ${field({ name: "status", label: "Status", value: b.status || "active", options: [{ value: "active", label: "Active" }, { value: "disabled", label: "Disabled" }] })}`,
           onOpen(form) {

@@ -50,15 +50,15 @@
           <div id="sins-kpis" class="ins-kpis"></div>
           <div class="ins-grid">
             <article class="ins-card ins-span-2">
-              <header><h3>Sales over time</h3><p>Value of your orders (bars) and number of orders (line)</p></header>
+              <header><h3>Sales over time</h3></header>
               <div class="ins-chart"><canvas id="sch-sales"></canvas></div>
             </article>
             <article class="ins-card">
-              <header><h3>Sales by category</h3><p>Share of your sales by animal or feed type</p></header>
+              <header><h3>Sales by category</h3></header>
               <div class="ins-chart"><canvas id="sch-kind"></canvas></div>
             </article>
             <article class="ins-card">
-              <header><h3>Best-selling listings</h3><p>Sales in this period</p></header>
+              <header><h3>Best-selling listings</h3></header>
               <div class="ins-chart"><canvas id="sch-top"></canvas></div>
             </article>
           </div>
@@ -195,10 +195,10 @@
       }
 
       const stateHelp = {
-        pending: "Our team is checking this listing. It will go live once approved.",
-        rejected: "Please update this listing and save it to send it for review again.",
-        published: "Visible on the website.",
-        unpublished: "Not on the website. Submit it for review to bring it back.",
+        pending: "Being checked by our team.",
+        rejected: "Please edit and save it to send it again.",
+        published: "On the website.",
+        unpublished: "Not on the website.",
       };
 
       // My Listings: a card per listing (photo, name, status); the rest is on
@@ -1121,7 +1121,7 @@
         initSellerNotifications({ onNotification: refreshAfterNotice });
         window.addEventListener("seller:navigate", (e) => goTo(e.detail).catch((err) => showNotification(err.message, "error")));
         const hour = new Date().getHours();
-        document.getElementById("welcome-line").textContent = `${hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"}, ${seller.name.split(" ")[0]}.`;
+        document.getElementById("welcome-line").textContent = "";
         document.getElementById("seller-main").hidden = false;
         renderBanner();
         renderProfile();

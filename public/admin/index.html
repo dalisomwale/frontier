@@ -22,8 +22,7 @@
     <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Dashboard Overview</h1>
-          <p id="greeting" class="text-gray-500 mt-1"></p>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
         </div>
       </div>
 
@@ -32,7 +31,7 @@
       <section id="insights" class="ins">
         <div class="ins-head">
           <div>
-            <h2 class="ins-title">How the marketplace is doing</h2>
+            <h2 class="ins-title">Overview</h2>
           </div>
           <select id="ins-range" class="ins-select" aria-label="Time period">
             <option value="7d">Last 7 days</option>
@@ -45,17 +44,17 @@
 
         <div class="ins-grid">
           <article class="ins-card">
-            <header><h3>Orders by status</h3><p>Where orders in this period stand now</p></header>
+            <header><h3>Orders by status</h3></header>
             <div class="ins-chart"><canvas id="ch-status"></canvas></div>
           </article>
 
 
           <article class="ins-card">
-            <header><h3>How buyers pay</h3><p>Orders by payment method, not counting cancelled ones</p></header>
+            <header><h3>How buyers pay</h3></header>
             <div class="ins-chart"><canvas id="ch-pay"></canvas></div>
           </article>
           <article class="ins-card ins-span-2">
-            <header><h3>Most popular listings</h3><p>Inquiries and orders in this period. Tap a bar to open the listing.</p></header>
+            <header><h3>Most popular listings</h3></header>
             <div class="ins-chart ins-tall"><canvas id="ch-top"></canvas></div>
           </article>
         </div>
@@ -136,9 +135,6 @@
 
       (async () => {
         const admin = await initAdminPage("dashboard");
-        const hour = new Date().getHours();
-        document.getElementById("greeting").textContent =
-          `Good ${hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"}, ${admin.name.split(" ")[0]}.`;
         initInsights();
         await loadDashboard();
         window.addEventListener("admin:change", () => loadDashboard());
