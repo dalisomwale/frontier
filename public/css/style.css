@@ -6549,3 +6549,20 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
   .fb-icon { font-size: 36px; top: 12px; right: 12px; }
   .fb-name { font-size: 15px; }
 }
+/* Bigger feed tiles */
+.feed-bento { grid-auto-rows: 200px; gap: 16px; }
+.fb-tile { padding: 22px; border-radius: 20px; }
+.fb-icon { font-size: 58px; top: 18px; right: 20px; }
+.fb-name { font-size: 20px; }
+.fb-desc { font-size: 14px; }
+.fb-big .fb-icon { font-size: 120px; top: 30px; right: 34px; }
+.fb-big .fb-name { font-size: 32px; }
+.fb-big .fb-desc { font-size: 16px; }
+@media (max-width: 1023px) {
+  .feed-bento { grid-auto-rows: 170px; gap: 12px; }
+  .fb-tile { padding: 16px; border-radius: 18px; }
+  .fb-icon { font-size: 46px; top: 14px; right: 14px; }
+  .fb-name { font-size: 17px; }
+  .fb-big .fb-icon { font-size: 72px; top: 20px; right: 22px; }
+  .fb-big .fb-name { font-size: 24px; }
+}

@@ -163,8 +163,7 @@ function feedTileHtml(feed) {
 }
 
 // Animal Feed as a bento grid: the feed type with the most products is one
-// big dark tile; the rest get their own soft colour, an animal icon and a
-// product count. A tile spans two columns where needed to fill the rows.
+// big dark tile; the rest get their own soft colour and an animal icon. A tile spans two columns where needed to fill the rows.
 const FEED_ICONS = [
   [/pig|swine|hog/i, "🐖"], [/poultry|chicken|broiler|layer|hen/i, "🐔"], [/dairy|milk/i, "🐄"],
   [/beef|cattle|cow/i, "🐂"], [/fish|tilapia|aqua/i, "🐟"], [/duck/i, "🦆"], [/goat/i, "🐐"],
@@ -179,7 +178,6 @@ function feedBentoHtml(types) {
   const spareDesk = (4 - ((n + 3) % 4)) % 4;
   const sparePhone = (2 - ((n + 1) % 2)) % 2;
   return list.map((feed, i) => {
-    const count = Number(feed.livestock_count || 0);
     const photo = feed.image_path || feed.cover_image;
     const fromEnd = n - 1 - i;
     const cls = [
@@ -195,7 +193,6 @@ function feedBentoHtml(types) {
         <span class="fb-body">
           <span class="fb-name">${escapeHtml(feed.name)}</span>
           ${feed.description ? `<span class="fb-desc">${escapeHtml(feed.description)}</span>` : ""}
-          <span class="fb-count">${count ? `${count} product${count === 1 ? "" : "s"}` : "Coming soon"}</span>
         </span>
       </a>`;
   }).join("");
