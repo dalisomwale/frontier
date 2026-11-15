@@ -127,7 +127,7 @@
       }
 
       function rowHtml(o) {
-        const isOpen = String(state.open) === String(o.id);
+        const isOpen = false;
         const units = o.price_unit === "lot" ? `Lot (${o.quantity})` : o.quantity;
         return `
           <tr class="order-row ${o.status === "new" ? "is-new" : ""} ${isOpen ? "is-open" : ""}" data-row="${o.id}" tabindex="0" aria-expanded="${isOpen}">
@@ -151,7 +151,7 @@
             </td>
             <td>${statusSelect(o)}${stageTag(o)}</td>
           </tr>
-          ${isOpen ? `<tr class="order-detail-row"><td colspan="5"><div class="order-detail" data-detail="${o.id}"><span class="btn-spinner chat-spinner"></span></div></td></tr>` : ""}`;
+`;
       }
 
       function listParams(page) {
@@ -320,10 +320,17 @@
         if (state.open) loadDetail(state.open);
       }
 
+      // One order on its own page: Orders / FM-1234.
+      let orderView = null;
       function toggle(id) {
-        state.open = String(state.open) === String(id) ? null : String(id);
-        history.replaceState(null, "", state.open ? `${location.pathname}?id=${state.open}` : location.pathname);
-        renderTable();
+        if (orderView && !orderView.closed) orderView.close(true);
+        state.open = String(id);
+        const ref = `FM-${1000 + Number(id)}`;
+        orderView = openAdminView({ title: ref, params: { id }, onClose: () => { state.open = null; orderView = null; } });
+        orderView.body.innerHTML = `
+          <div class="sv-head"><h1 class="admin-view-title !mb-0" data-order-title>${escapeHtml(ref)}</h1></div>
+          <div class="order-detail order-page" data-detail="${id}"><span class="btn-spinner chat-spinner"></span></div>`;
+        loadDetail(id);
       }
 
       function bindTable() {
@@ -387,6 +394,8 @@
         }
         const row = state.rows.find((r) => String(r.id) === String(id));
         if (row) Object.assign(row, o);
+        const titleEl = document.querySelector("[data-order-title]");
+        if (titleEl) titleEl.textContent = `${o.reference} · ${o.livestock_title}`;
         const lot = o.price_unit === "lot";
         const listingLink = o.livestock_id && o.listing_status === "published"
           ? `<a href="/listing.html?id=${o.livestock_id}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">${escapeHtml(o.livestock_title)}</a>`
@@ -500,8 +509,9 @@
       // answering a confirmation, so nothing they're doing is lost.
       function busy() {
         const el = document.activeElement;
-        if (el && el.closest && el.closest("#list") && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return true;
-        if ([...document.querySelectorAll("#list textarea, #list input")].some((f) => f.value.trim())) return true;
+        if (el && el.closest && el.closest("#list, .admin-view") && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return true;
+        if ([...document.querySelectorAll("#list textarea, #list input, .admin-view textarea, .admin-view input:not([type=file]):not([type=radio]):not([type=checkbox])")].some((f) => f.value.trim())) return true;
+        if ([...document.querySelectorAll(".admin-view [data-photos] img")].length) return true;
         if (document.querySelector(".fixed.inset-0.z-\\[150\\]")) return true;
         return false;
       }
@@ -541,8 +551,8 @@
         const q = getQueryParams();
         if (q.status) state.status = q.status;
         if (q.q) { state.q = q.q; document.getElementById("search").value = q.q; }
-        if (q.id) state.open = String(q.id);
         await loadList(1);
+        if (q.id) toggle(q.id);
       })();
     </script>
   </body>

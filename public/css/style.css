@@ -6767,3 +6767,5 @@ body:has(> #site-footer) { min-height: 100vh; min-height: 100dvh; display: flex;
 body:has(> #site-footer) > #site-footer { margin-top: auto; }
 body:has(> #site-footer) > main { margin-bottom: 40px; width: 100%; }
 body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class*="max-w-"] { margin-left: auto; margin-right: auto; }
+.order-detail.order-page { margin-top: 16px; padding: 22px; border-radius: 16px; }
+@media (min-width: 768px) { .order-page .order-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 22px 40px !important; } }
