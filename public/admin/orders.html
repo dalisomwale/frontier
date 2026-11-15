@@ -24,7 +24,6 @@
     <main class="app-content-shifted tx-page-wide mx-auto px-3 sm:px-4 py-6">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
         <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Orders</h1>
-        <button type="button" id="export" class="tx-export">Export Excel</button>
       </div>
 
       <div class="tx-totals" id="totals"></div>
@@ -32,9 +31,12 @@
       <div class="bg-white rounded-xl border border-gray-100">
         <div class="flex flex-col md:flex-row md:items-center gap-3 p-4 border-b border-gray-100">
           <div class="seg" id="status-tabs"></div>
-          <div class="relative md:ml-auto md:w-72">
+          <div class="search-export se-fixed md:ml-auto">
+            <div class="relative search-export-in">
             <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
             <input id="search" type="search" placeholder="Search order, name, phone, listing" class="field-input !py-2 !pl-9 !text-sm" />
+          </div>
+            <button type="button" id="export" class="tx-export tx-export-bar">Export Excel</button>
           </div>
         </div>
         <div id="list" class="overflow-x-auto"></div>

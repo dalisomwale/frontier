@@ -28,7 +28,6 @@
           <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transactions</h1>
           <p class="text-sm text-gray-500 mt-1">Every payment, step by step.</p>
         </div>
-        <button type="button" id="export" class="tx-export">Export Excel</button>
       </div>
 
       <div class="tx-totals" id="totals"></div>
@@ -48,9 +47,12 @@
             <option value="90d">Last 90 days</option>
             <option value="all">All time</option>
           </select>
-          <div class="relative tx-search">
+          <div class="search-export tx-search">
+            <div class="relative search-export-in">
             <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
             <input id="search" type="search" placeholder="Order, payment reference, Lipila ID, buyer" class="field-input !py-2 !pl-9 !text-sm" />
+          </div>
+            <button type="button" id="export" class="tx-export tx-export-bar">Export Excel</button>
           </div>
         </div>
         <div id="list"></div>

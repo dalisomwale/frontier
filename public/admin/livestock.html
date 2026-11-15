@@ -26,7 +26,6 @@
           <a id="other-pending" href="#" class="hidden text-sm text-amber-700 hover:underline mt-1"></a>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" id="export" class="tx-export">Export Excel</button>
           <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
             <span class="w-5 h-5" data-icon="plus"></span> <span id="add-label">Add Livestock</span>
           </button>
@@ -46,9 +45,12 @@
           <div class="flex flex-col sm:flex-row gap-3 md:ml-auto">
             <select id="seller-filter" class="field-input !py-2 !text-sm sm:!w-44" aria-label="Filter by seller"><option value="">All sellers</option><option value="none">Frontier's stock</option></select>
             <select id="animal-filter" class="field-input !py-2 !text-sm sm:!w-44" aria-label="Filter by category"><option value="">All categories</option></select>
-            <div class="relative sm:flex-1 md:flex-none md:w-64">
+            <div class="search-export se-fixed sm:flex-1 md:flex-none">
+              <div class="relative search-export-in">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
               <input id="search" type="search" placeholder="Search title, breed, location" class="field-input !py-2 !pl-9 !text-sm" />
+            </div>
+              <button type="button" id="export" class="tx-export tx-export-bar">Export Excel</button>
             </div>
           </div>
         </div>

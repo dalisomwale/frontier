@@ -26,7 +26,6 @@
           <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Payouts</h1>
           <p class="text-sm text-gray-500 mt-1">Pay sellers for handed-over orders, from any cart.</p>
         </div>
-        <button type="button" id="export" class="tx-export">Export Excel</button>
       </div>
 
       <div class="tx-totals" id="totals"></div>
@@ -34,9 +33,12 @@
       <div class="bg-white rounded-xl border border-gray-100">
         <div class="tx-filters">
           <div class="seg" id="tabs"></div>
-          <div class="relative tx-search">
+          <div class="search-export tx-search">
+            <div class="relative search-export-in">
             <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
             <input id="search" type="search" placeholder="Seller, farm, phone" class="field-input !py-2 !pl-9 !text-sm" />
+          </div>
+            <button type="button" id="export" class="tx-export tx-export-bar">Export Excel</button>
           </div>
         </div>
         <div id="list" class="overflow-x-auto"></div>

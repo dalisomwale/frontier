@@ -7056,3 +7056,9 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 @media (max-width: 1023px) {
   .acc-section, .acc-shop-link { display: none !important; }
 }
+/* Export Excel beside the search box */
+.tx-export-bar { flex-shrink: 0; justify-content: center; padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }
+.search-export { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.search-export-in { flex: 1 1 auto; min-width: 0; }
+@media (min-width: 768px) { .se-fixed .search-export-in { flex: 0 0 17rem; } }
+@media (min-width: 768px) and (max-width: 1439px) { .se-fixed .search-export-in { flex-basis: 13rem; } }

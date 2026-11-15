@@ -25,7 +25,6 @@
           <p class="text-sm text-gray-500 mt-1">Farmers and suppliers whose livestock and feed you list.</p>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" id="export" class="tx-export">Export Excel</button>
           <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
             <span class="w-5 h-5" data-icon="plus"></span> Add Seller
           </button>
@@ -37,9 +36,12 @@
       <div class="sl-card">
         <div class="sl-toolbar">
           <div class="seg" id="tabs"></div>
-          <div class="relative md:ml-auto md:w-72">
+          <div class="search-export se-fixed md:ml-auto">
+            <div class="relative search-export-in">
             <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
             <input id="search" type="search" placeholder="Search name, farm, phone, province" class="field-input !py-2 !pl-9 !text-sm" />
+          </div>
+            <button type="button" id="export" class="tx-export tx-export-bar">Export Excel</button>
           </div>
         </div>
         <div id="list"></div>
