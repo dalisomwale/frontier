@@ -104,7 +104,7 @@
               ${a.status === "active" ? "" : statusPill(a.status)}
             </div>
             <div class="flex items-center gap-1 -ml-2 mt-auto">
-              <button type="button" data-toggle-animal="${a.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${a.status === "active" ? "Disable" : "Enable"}</button>
+              <button type="button" data-toggle-animal="${a.id}" class="tbl-icon" title="${a.status === "active" ? "Disable" : "Enable"}" aria-label="${a.status === "active" ? "Disable" : "Enable"}">${uiIcon(a.status === "active" ? "eyeOff" : "eye")}</button>
               <button type="button" data-edit-animal="${a.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-blue-600" title="Edit"><span class="w-4 h-4">${uiIcon("edit")}</span></button>
               <button type="button" data-delete-animal="${a.id}" class="inline-flex w-8 h-8 items-center justify-center text-gray-500 hover:text-red-600" title="Delete"><span class="w-4 h-4">${uiIcon("trash")}</span></button>
             </div>
@@ -205,9 +205,9 @@
                 <td class="text-center hidden sm:table-cell">${p.livestock_count}</td>
                 <td>${statusPill(p.status)}</td>
                 <td class="text-right whitespace-nowrap">
-                  <button type="button" data-toggle="${p.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${p.status === "active" ? "Disable" : "Enable"}</button>
-                  <button type="button" data-edit="${p.id}" class="tbl-act">Edit</button>
-                  <button type="button" data-delete="${p.id}" class="tbl-act tbl-act-danger">Delete</button>
+                  <button type="button" data-toggle="${p.id}" class="tbl-icon" title="${p.status === "active" ? "Disable" : "Enable"}" aria-label="${p.status === "active" ? "Disable" : "Enable"}">${uiIcon(p.status === "active" ? "eyeOff" : "eye")}</button>
+                  <button type="button" data-edit="${p.id}" class="tbl-icon" title="Edit" aria-label="Edit">${uiIcon("edit")}</button>
+                  <button type="button" data-delete="${p.id}" class="tbl-icon tbl-icon-danger" title="Delete" aria-label="Delete">${uiIcon("trash")}</button>
                 </td>
               </tr>`).join("")}</tbody>
           </table>`;

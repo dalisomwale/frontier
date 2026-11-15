@@ -103,9 +103,9 @@
                 <td class="text-center hidden sm:table-cell">${b.livestock_count}</td>
                 <td>${statusPill(b.status)}</td>
                 <td class="text-right whitespace-nowrap">
-                  <button type="button" data-toggle="${b.id}" class="text-sm font-medium text-gray-600 hover:text-gray-900 px-2 py-1">${b.status === "active" ? "Disable" : "Enable"}</button>
-                  <button type="button" data-edit="${b.id}" class="tbl-act">Edit</button>
-                  <button type="button" data-delete="${b.id}" class="tbl-act tbl-act-danger">Delete</button>
+                  <button type="button" data-toggle="${b.id}" class="tbl-icon" title="${b.status === "active" ? "Disable" : "Enable"}" aria-label="${b.status === "active" ? "Disable" : "Enable"}">${uiIcon(b.status === "active" ? "eyeOff" : "eye")}</button>
+                  <button type="button" data-edit="${b.id}" class="tbl-icon" title="Edit" aria-label="Edit">${uiIcon("edit")}</button>
+                  <button type="button" data-delete="${b.id}" class="tbl-icon tbl-icon-danger" title="Delete" aria-label="Delete">${uiIcon("trash")}</button>
                 </td>
               </tr>`).join("")}</tbody>
           </table>`;

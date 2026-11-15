@@ -189,8 +189,8 @@
 
       function actionsHtml(s) {
         return `<div class="sl-actions">
-          <button type="button" data-edit="${s.id}" class="tbl-act" aria-label="Edit ${escapeHtml(s.name)}">Edit</button>
-          <button type="button" data-delete="${s.id}" class="tbl-act tbl-act-danger" aria-label="Delete ${escapeHtml(s.name)}">Delete</button>
+          <button type="button" data-edit="${s.id}" class="tbl-icon" title="Edit" aria-label="Edit ${escapeHtml(s.name)}">${uiIcon("edit")}</button>
+          <button type="button" data-delete="${s.id}" class="tbl-icon tbl-icon-danger" title="Delete" aria-label="Delete ${escapeHtml(s.name)}">${uiIcon("trash")}</button>
         </div>`;
       }
 

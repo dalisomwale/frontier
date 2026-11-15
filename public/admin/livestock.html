@@ -214,9 +214,9 @@
       function actionsHtml(l) {
         const published = l.status === "published";
         return `
-              ${published ? `<a href="/listing.html?id=${l.id}" target="_blank" rel="noopener" class="tbl-act" title="View on website">View</a>` : ""}
-              <button type="button" data-edit="${l.id}" class="tbl-act">Edit</button>
-              <button type="button" data-delete="${l.id}" data-title="${escapeHtml(l.title)}" class="tbl-act tbl-act-danger">Delete</button>
+              ${published ? `<a href="/listing.html?id=${l.id}" target="_blank" rel="noopener" class="tbl-icon" title="View on website" aria-label="View on website">${uiIcon("external")}</a>` : ""}
+              <button type="button" data-edit="${l.id}" class="tbl-icon" title="Edit" aria-label="Edit">${uiIcon("edit")}</button>
+              <button type="button" data-delete="${l.id}" data-title="${escapeHtml(l.title)}" class="tbl-icon tbl-icon-danger" title="Delete" aria-label="Delete">${uiIcon("trash")}</button>
             `;
       }
 

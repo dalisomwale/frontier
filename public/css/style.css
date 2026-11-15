@@ -6883,3 +6883,9 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .tbl-act:hover { background: #f3f7f1; text-decoration: underline; text-underline-offset: 3px; }
 .tbl-act-danger { color: #b91c1c; }
 .tbl-act-danger:hover { background: #fef2f2; }
+/* Table actions: plain icons, no box */
+.tbl-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; background: none; border-radius: 8px; color: #6b7280; cursor: pointer; vertical-align: middle; }
+.tbl-icon svg { width: 17px; height: 17px; }
+.tbl-icon:hover { color: #166534; background: #f3f7f1; }
+.tbl-icon-danger:hover { color: #b91c1c; background: #fef2f2; }
+.sl-actions .tbl-icon { border: 0; }
