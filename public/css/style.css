@@ -6761,3 +6761,9 @@ body.site-sheet-open { overflow: hidden; }
 .has-site-nav .snav-tab { padding: 8px 12px !important; }
 .has-site-nav .site-nav { column-gap: 4px !important; }
 .has-site-nav > div:first-child > div.site-nav, .has-site-nav > div:first-child > div > div.site-nav { column-gap: 4px !important; }
+
+/* Footer: the same on every page, always at the bottom of the screen */
+body:has(> #site-footer) { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+body:has(> #site-footer) > #site-footer { margin-top: auto; }
+body:has(> #site-footer) > main { margin-bottom: 40px; width: 100%; }
+body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class*="max-w-"] { margin-left: auto; margin-right: auto; }
