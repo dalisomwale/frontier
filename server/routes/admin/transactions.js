@@ -84,10 +84,21 @@ const LIST_FIELDS = `
   (SELECT COUNT(*) FROM orders o WHERE o.checkout_id = c.id) AS items,
   (SELECT GROUP_CONCAT(o.livestock_title ORDER BY o.id SEPARATOR ', ') FROM orders o WHERE o.checkout_id = c.id) AS titles,
   (SELECT GROUP_CONCAT(IF(o.price_unit = 'lot', CONCAT('Lot (', o.quantity, ')'), o.quantity) ORDER BY o.id SEPARATOR ', ') FROM orders o WHERE o.checkout_id = c.id) AS quantities,
+  (SELECT GROUP_CONCAT(o.livestock_title ORDER BY o.id SEPARATOR '|~|') FROM orders o WHERE o.checkout_id = c.id) AS title_list,
+  (SELECT GROUP_CONCAT(IF(o.price_unit = 'lot', CONCAT('Lot (', o.quantity, ')'), o.quantity) ORDER BY o.id SEPARATOR '|~|') FROM orders o WHERE o.checkout_id = c.id) AS qty_list,
   (SELECT COUNT(*) FROM transaction_events e WHERE e.checkout_id = c.id) AS events`;
 
+// Each item with its quantity, in order.
+function itemList(row) {
+  if (!row.title_list) return [];
+  const titles = String(row.title_list).split("|~|");
+  const qtys = String(row.qty_list || "").split("|~|");
+  return titles.map((title, i) => ({ title, qty: qtys[i] || "" }));
+}
+
 function shape(row) {
-  return { ...row, reference: checkoutRef(row.id), total: Number(row.total), alerted: Boolean(row.payment_alert_at) };
+  const { title_list, qty_list, ...rest } = row;
+  return { ...rest, item_list: itemList(row), reference: checkoutRef(row.id), total: Number(row.total), alerted: Boolean(row.payment_alert_at) };
 }
 
 router.get("/", async (req, res, next) => {

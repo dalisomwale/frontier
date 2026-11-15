@@ -141,6 +141,15 @@
           <div class="tx-total txc-failed"><span>Not completed</span><b>${Number(t.failed) || 0}</b></div>`;
       }
 
+      // Items and Qty: one line per item, so each quantity sits beside its item.
+      function itemCells(t) {
+        const list = t.item_list && t.item_list.length ? t.item_list : null;
+        if (!list) return `<td class="tx-items"><span class="tx-items-in">${escapeHtml(t.titles || "")}</span></td><td class="tx-qty">${escapeHtml(t.quantities || "-")}</td>`;
+        if (list.length === 1) return `<td class="tx-items"><span class="tx-items-in">${escapeHtml(list[0].title)}</span></td><td class="tx-qty">${escapeHtml(String(list[0].qty))}</td>`;
+        return `<td class="tx-items"><span class="tx-items-in">${list.map((i) => `<span class="tx-line" title="${escapeHtml(i.title)}">${escapeHtml(i.title)}</span>`).join("")}</span></td>
+          <td class="tx-qty">${list.map((i) => `<span class="tx-line">${escapeHtml(String(i.qty))}</span>`).join("")}</td>`;
+      }
+
       async function loadList(page = state.page) {
         state.page = page;
         listLoaded = true;
@@ -167,8 +176,7 @@
             <tr class="tx-tr" data-open="${t.id}">
               <td class="nowrap tx-when">${new Date(t.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</td>
               <td class="nowrap"><a class="tx-ref-link" href="/admin/transactions.html?id=${t.id}" data-go="${t.id}">${escapeHtml(t.reference)}</a></td>
-              <td class="tx-items"><span class="tx-items-in">${escapeHtml(t.titles || "")}</span></td>
-              <td class="tx-qty">${escapeHtml(t.quantities || "-")}</td>
+              ${itemCells(t)}
               <td><span class="tx-buyer">${escapeHtml(t.full_name)}</span></td>
               <td>${t.email ? `<a class="tx-contact tx-clip" href="mailto:${escapeHtml(t.email)}" title="${escapeHtml(t.email)}">${escapeHtml(t.email)}</a>` : "-"}</td>
               <td class="nowrap">${t.phone ? `<a class="tx-contact" href="tel:${escapeHtml(String(t.phone).replace(/\s+/g, ""))}">${escapeHtml(t.phone)}</a>` : "-"}</td>
