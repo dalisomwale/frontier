@@ -14,6 +14,7 @@
     <script src="/js/seller.js"></script>
     <script src="/js/admin.js"></script>
     <script src="/js/xlsx-lite.js"></script>
+    <script src="/js/pdf-lite.js"></script>
     <script src="/js/livestock.js"></script>
   </head>
   <body class="bg-gray-50 admin-pending">
@@ -208,58 +209,152 @@
         const list = (o.receipt_photos || []).filter((p) => (p.party || "buyer") === party);
         return list.length ? `<div class="order-proof-photos">${list.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="${party === "seller" ? "Seller's photo" : party === "payout" ? "Proof of payment" : "Buyer's photo"}"></a>`).join("")}</div>` : "";
       };
-      function proofHtml(o) {
-        const paid = o.payment_status === "paid" || ["paid", "confirmed"].includes(o.status);
-        if (o.status === "cancelled" || (!paid && !o.sent_at)) return "";
-        if (o.status === "completed" && !o.sent_at && !o.received_at) return "";
+      // The order's steps, newest first. Each step opens and closes; the one
+      // waiting for action (or else the newest) starts open.
+      function orderTimelineHtml(o, checkPay) {
+        const paid = o.payment_status === "paid" || ["paid", "confirmed", "completed"].includes(o.status);
+        const failed = o.payment_status === "failed" && !paid;
         const how = (m) => (m === "delivered" ? "Delivered" : "Collected");
-        const seller = o.sent_at
-          ? `<div class="order-proof-step"><p class="font-bold text-gray-900">1 · ${how(o.sent_method)} · ${escapeHtml(formatDate(o.sent_at))}</p><p class="text-sm text-gray-600">By ${escapeHtml(o.sent_by || "-")}</p>${proofPhotos(o, "seller")}</div>`
-          : o.can_send
-            ? `<form class="order-proof-step" data-sent novalidate>
-                 <p class="font-bold text-gray-900">1 · Delivered or collected?</p>
-                 <p class="text-sm text-gray-600 mb-2">${o.seller_id ? "Waiting for the seller. You can also do it here." : "Frontier's stock."}</p>
-                 <div class="ho-choice" style="max-width:420px">
-                   <label><input type="radio" name="method" value="collected"><span>Collected</span></label>
-                   <label><input type="radio" name="method" value="delivered"><span>Delivered</span></label>
-                 </div>
-                 <p class="field-error hidden" data-error-for="method"></p>
-                 <div class="acc-ph-grid mt-3" data-photos style="max-width:520px"></div>
-                 <p class="field-error hidden" data-error-for="images"></p>
-                 <button type="submit" class="acc-btn mt-3" style="width:auto">Save</button>
-               </form>`
-            : "";
-        const buyer = o.received_at
-          ? `<div class="order-proof-step"><p class="font-bold text-gray-900">2 · Buyer confirmed · ${escapeHtml(formatDate(o.received_at))}</p>${o.received_note ? `<p class="text-sm text-gray-600">"${escapeHtml(o.received_note)}"</p>` : ""}${proofPhotos(o, "buyer")}</div>`
-          : o.sent_at
-            ? `<div class="order-proof-step"><p class="font-bold text-gray-900">2 · Waiting for the buyer</p><p class="text-sm text-gray-600">${o.buyer_id ? "They confirm with photos." : "No account: mark the order Completed when it's done."}</p></div>`
-            : "";
-        const done = o.handed_over_at
-          ? `<div class="order-proof-step"><p class="font-bold text-gray-900">3 · Handed over · ${escapeHtml(formatDate(o.handed_over_at))}</p><p class="text-sm text-gray-600">By ${escapeHtml(o.handed_over_by || "-")}.</p></div>`
-          : o.can_hand_over
-            ? `<form class="order-proof-step" data-handover><p class="font-bold text-gray-900">3 · Hand over</p><p class="text-sm text-gray-600 mb-2">${o.seller_id ? "Waiting for the seller. You can also do it here." : "Completes the order."}</p><button type="submit" class="acc-btn" style="width:auto">Mark as handed over</button></form>`
-            : "";
-        const payout = o.seller_paid_at
-          ? `<div class="order-proof-step"><p class="font-bold text-gray-900">4 · Seller paid · ${escapeHtml(formatDate(o.seller_paid_at))}</p><p class="text-sm text-gray-600">By ${escapeHtml(o.seller_paid_by || "-")}${o.seller_paid_ref ? ` · Ref ${escapeHtml(o.seller_paid_ref)}` : ""}</p>${proofPhotos(o, "payout")}</div>`
-          : o.can_pay_seller
-            ? `<form class="order-proof-step" data-pay-seller novalidate>
-                 <p class="font-bold text-gray-900">4 · Pay the seller</p>
-                 <p class="text-sm text-gray-600 mb-2">Once you've paid ${escapeHtml(o.seller_name || "the seller")}, add the proof of payment.</p>
-                 <label class="field-label" for="pay-ref-${o.id}">Payment reference <span class="text-gray-400 font-normal">(optional)</span></label>
-                 <input id="pay-ref-${o.id}" name="reference" class="field-input" maxlength="150" style="max-width:320px" placeholder="e.g. bank or mobile money reference">
-                 <p class="field-label mt-3">Proof of payment <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 4 photos)</span></p>
-                 <div class="acc-ph-grid" data-photos style="max-width:520px"></div>
-                 <p class="field-error hidden" data-error-for="images"></p>
-                 <button type="submit" class="acc-btn mt-3" style="width:auto">Mark seller paid</button>
-               </form>`
-            : "";
-        return `<div class="order-proof">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <p class="font-bold text-gray-900">Handover</p>
-              ${o.seller_paid_at ? `<span class="so-pill so-done">Seller paid</span>` : o.can_pay_seller ? `<span class="so-pill so-act">Ready to pay the seller</span>` : ""}
-            </div>
-            ${seller}${buyer}${done}${payout}
-          </div>`;
+        const day = (v) => (v ? new Date(v).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "");
+        const at = (v) => (v ? new Date(v).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "");
+        const by = (name, v) => `<p class="tl-body-line">${v ? `<span class="tl-time">${at(v)}</span>` : ""}${name ? `By ${escapeHtml(name)}` : ""}</p>`;
+        const steps = [];
+        steps.push({ name: "Order placed", done: true, date: o.created_at,
+          body: `${by(o.full_name, o.created_at)}<p class="tl-body-line">${escapeHtml(DELIVERY[o.delivery] || "")}${o.delivery === "deliver" && o.delivery_address ? `: ${escapeHtml(o.delivery_address)}` : ""}</p>` });
+        if (o.status === "cancelled") {
+          steps.push({ name: "Cancelled", fail: true, date: o.updated_at, body: `<p class="tl-body-line">This order was cancelled.</p>` });
+        } else {
+          steps.push({ name: paid ? `Paid · ${kwacha(o.total)}` : failed ? "Payment not completed" : "Payment", done: paid, fail: failed, date: o.paid_at,
+            body: paid
+              ? `<p class="tl-body-line">${o.paid_at ? `<span class="tl-time">${at(o.paid_at)}</span>` : ""}${escapeHtml(payMethodText(o))}</p>`
+              : `${failed && o.payment_failure ? `<p class="tl-body-line text-red-700">${escapeHtml(o.payment_failure)}</p>` : `<p class="tl-body-line">Waiting for payment.</p>`}${checkPay}` });
+          steps.push({ name: o.sent_at ? how(o.sent_method) : "Delivered or collected", done: Boolean(o.sent_at), date: o.sent_at,
+            body: o.sent_at
+              ? `${by(o.sent_by || "-", o.sent_at)}${proofPhotos(o, "seller")}`
+              : o.can_send
+                ? `<form data-sent novalidate>
+                     <p class="tl-body-line">${o.seller_id ? "Waiting for the seller. You can also do it here." : "Frontier's stock."}</p>
+                     <div class="ho-choice" style="max-width:420px">
+                       <label><input type="radio" name="method" value="collected"><span>Collected</span></label>
+                       <label><input type="radio" name="method" value="delivered"><span>Delivered</span></label>
+                     </div>
+                     <p class="field-error hidden" data-error-for="method"></p>
+                     <div class="acc-ph-grid mt-3" data-photos style="max-width:520px"></div>
+                     <p class="field-error hidden" data-error-for="images"></p>
+                     <button type="submit" class="acc-btn mt-3" style="width:auto">Save</button>
+                   </form>`
+                : paid ? `<p class="tl-body-line">Waiting for the seller.</p>` : "" });
+          steps.push({ name: "Buyer confirmed", done: Boolean(o.received_at), date: o.received_at,
+            body: o.received_at
+              ? `${by(o.full_name, o.received_at)}${o.received_note ? `<p class="tl-body-line">"${escapeHtml(o.received_note)}"</p>` : ""}${proofPhotos(o, "buyer")}`
+              : o.sent_at ? `<p class="tl-body-line">${o.buyer_id ? "Waiting for the buyer. They confirm with photos." : "No account: mark the order Completed when it's done."}</p>` : "" });
+          steps.push({ name: "Handed over", done: Boolean(o.handed_over_at), date: o.handed_over_at,
+            body: o.handed_over_at
+              ? by(o.handed_over_by || "-", o.handed_over_at)
+              : o.can_hand_over
+                ? `<form data-handover><p class="tl-body-line">${o.seller_id ? "Waiting for the seller. You can also do it here." : "Completes the order."}</p><button type="submit" class="acc-btn mt-2" style="width:auto">Mark as handed over</button></form>`
+                : "" });
+          if (o.seller_id) {
+            steps.push({ name: "Seller paid", done: Boolean(o.seller_paid_at), date: o.seller_paid_at,
+              body: o.seller_paid_at
+                ? `${by(o.seller_paid_by || "-", o.seller_paid_at)}${o.seller_paid_ref ? `<p class="tl-body-line">Ref ${escapeHtml(o.seller_paid_ref)}</p>` : ""}${proofPhotos(o, "payout")}`
+                : o.can_pay_seller
+                  ? `<form data-pay-seller novalidate>
+                       <p class="tl-body-line">Once you've paid ${escapeHtml(o.seller_name || "the seller")}, add the proof of payment.</p>
+                       <label class="field-label" for="pay-ref-${o.id}">Payment reference <span class="text-gray-400 font-normal">(optional)</span></label>
+                       <input id="pay-ref-${o.id}" name="reference" class="field-input" maxlength="150" style="max-width:320px" placeholder="e.g. bank or mobile money reference">
+                       <p class="field-label mt-3">Proof of payment <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 4 photos)</span></p>
+                       <div class="acc-ph-grid" data-photos style="max-width:520px"></div>
+                       <p class="field-error hidden" data-error-for="images"></p>
+                       <button type="submit" class="acc-btn mt-3" style="width:auto">Mark seller paid</button>
+                     </form>`
+                  : "" });
+          }
+        }
+        const nowAt = steps.findIndex((st) => !st.done && !st.fail);
+        const lastDone = steps.map((st, i) => (st.done || st.fail ? i : -1)).filter((i) => i >= 0).pop();
+        const openAt = nowAt >= 0 && steps[nowAt].body ? nowAt : lastDone;
+        const items = steps.map((st, i) => {
+          const state = st.done ? "done" : st.fail ? "fail" : i === nowAt ? "now" : "todo";
+          const dot = state === "done" ? "✓" : state === "fail" ? "✕" : state === "now" ? "…" : i + 1;
+          const head = `<span class="tl-name">${st.name}</span><span class="tl-head-right">${st.date ? `<span class="tl-day">${day(st.date)}</span>` : ""}${st.body ? `<span class="tl-fold-chev" aria-hidden="true"></span>` : ""}</span>`;
+          const body = st.body
+            ? `<details class="tl-fold"${i === openAt ? " open" : ""}><summary class="tl-head">${head}</summary><div class="tl-body">${st.body}</div></details>`
+            : `<div class="tl-head">${head}</div>`;
+          return `<li class="tl-stage tl-${state}"><span class="tl-dot">${dot}</span>${body}</li>`;
+        });
+        return `<ol class="tx-timeline tl">${items.reverse().join("")}</ol>`;
+      }
+
+      // Payment history as a one-page PDF receipt.
+      function orderPdf(o) {
+        const pdf = createPdf();
+        const L = 56, R = pdf.width - 56, MID = L + 170;
+        let y = 64;
+        const when = (v) => (v ? formatDate(v) : "");
+        const room = (h) => { if (y + h > pdf.height - 60) { pdf.addPage(); y = 64; } };
+        const dashed = () => { pdf.line(L, y, R, y, { color: "#d1d5db", dash: [3, 3] }); y += 22; };
+        const heading = (text, color) => { room(40); pdf.text(L, y, text.toUpperCase(), { size: 9.5, font: "bold", color }); y += 20; };
+        const row = (label, value, font = "bold") => {
+          if (!value) return;
+          room(20);
+          pdf.text(L, y, label, { size: 10.5, color: "#6b7280" });
+          pdf.text(R, y, pdf.fit(value, R - MID, 10.5, font), { size: 10.5, font, align: "right" });
+          y += 19;
+        };
+        const lot = o.price_unit === "lot";
+        const PAY = { paid: ["Paid", "#15803d"], pending: ["Waiting", "#b45309"], failed: ["Not completed", "#b91c1c"] };
+        const st = o.status === "cancelled" ? ["Cancelled", "#b91c1c"] : PAY[o.payment_status] || [statusLabel(o.status), "#374151"];
+
+        pdf.text(L, y, "Frontier Marketplace", { size: 16, font: "bold", color: "#14532d" });
+        pdf.text(R, y, "Payment history", { size: 11, color: "#6b7280", align: "right" });
+        y += 16;
+        pdf.text(L, y, "marketplace.frontierfc.co.zm", { size: 9.5, color: "#6b7280" });
+        y += 24;
+        pdf.rect(L, y - 14, R - L, 34, { fill: "#f3f7f1" });
+        pdf.text(L + 12, y + 7, o.reference, { size: 13, font: "mono" });
+        pdf.text(L + 12 + pdf.measure(o.reference, 13, "mono") + 12, y + 7, when(o.created_at), { size: 10, color: "#6b7280" });
+        pdf.text(R - 12, y + 7, st[0], { size: 10.5, font: "bold", color: st[1], align: "right" });
+        y += 44;
+
+        heading("Item", "#b45309");
+        room(20);
+        pdf.text(L, y, pdf.fit(o.livestock_title, R - L, 12, "bold"), { size: 12, font: "bold" });
+        y += 20;
+        row("Quantity", lot ? `Whole lot (${o.quantity})` : String(o.quantity));
+        row("Price", lot ? kwacha(o.total) : `${kwacha(o.unit_price)} each`);
+        row(o.delivery === "deliver" ? "Delivery" : "Collection", `${DELIVERY[o.delivery] || ""}${o.delivery === "deliver" && o.delivery_address ? `: ${o.delivery_address}` : ""}`);
+        y += 2; dashed();
+
+        heading("Payment", "#15803d");
+        row("Method", payMethodText(o));
+        row("Paid on", when(o.paid_at));
+        row("Checkout", o.checkout_reference || "", "mono");
+        row("Payment reference", o.checkout_payment && o.checkout_payment.reference ? o.checkout_payment.reference : "", "mono");
+        row("Provider reference", o.payment_provider_ref || "", "mono");
+        if (o.payment_status === "failed" && o.payment_failure) row("Why it failed", o.payment_failure);
+        y += 2; dashed();
+
+        heading("Buyer", "#0f766e");
+        row("Name", o.full_name || "");
+        row("Phone", o.phone || "");
+        row("Email", o.email || "");
+        y += 2; dashed();
+
+        heading("Seller", "#6d28d9");
+        row("Name", o.seller_id ? o.seller_name || "Seller" : o.seller_name ? `${o.seller_name} (removed)` : "Frontier's stock");
+        if (o.seller_id) row("Phone", o.seller_phone || "");
+        if (o.seller_paid_at) row("Seller paid", `${when(o.seller_paid_at)}${o.seller_paid_ref ? ` · Ref ${o.seller_paid_ref}` : ""}`);
+
+        room(50);
+        y += 6;
+        pdf.line(L, y, R, y, { color: "#111827", width: 1 });
+        y += 20;
+        pdf.text(L, y, "Total", { size: 12, font: "bold" });
+        pdf.text(R, y, kwacha(o.total), { size: 15, font: "bold", align: "right" });
+        y += 40;
+        pdf.text(L, y, `Downloaded ${formatDate(new Date())}`, { size: 8.5, color: "#9ca3af" });
+        pdf.save(`${o.reference}-payment-history.pdf`);
       }
       function bindProof(box, o) {
         const sent = box.querySelector("[data-sent]");
@@ -456,71 +551,81 @@
           ? `<a href="/listing.html?id=${o.livestock_id}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">${escapeHtml(o.livestock_title)}</a>`
           : `${escapeHtml(o.livestock_title)} <span class="text-gray-400">${o.livestock_id ? "(not on the website)" : "(listing deleted)"}</span>`;
 
+        const when = (v) => (v ? escapeHtml(formatDate(v)) : "");
+        const telLink = (p) => `tel:${tel(p)}`;
+        const contactIcons = (phone, email) => `<span class="od-icons">
+            ${phone ? `<a href="https://wa.me/${whatsappNumber(phone)}" target="_blank" rel="noopener" class="tbl-icon od-ic-wa" title="WhatsApp" aria-label="WhatsApp">${OD_ICON.wa}</a><a href="${telLink(phone)}" class="tbl-icon" title="Call" aria-label="Call">${OD_ICON.call}</a>` : ""}
+            ${email ? `<a href="mailto:${escapeHtml(email)}?subject=${encodeURIComponent(`Order ${o.reference} - Frontier Marketplace`)}" class="tbl-icon" title="Email ${escapeHtml(email)}" aria-label="Email">${OD_ICON.mail}</a>` : ""}
+          </span>`;
+        const rrow = (label, value) => (value ? `<div class="txd-row"><dt>${label}</dt><dd>${value}</dd></div>` : "");
+        const checkPay = o.checkout_payment && o.checkout_payment.can_check && o.payment_status !== "paid" && o.status !== "cancelled"
+          ? `<div class="order-check-pay">
+               <button type="button" data-check-pay class="btn-secondary" style="padding:.5rem .9rem;font-size:.85rem">Check payment with Lipila</button>
+               <span>Asks Lipila now. If it was paid, the order is marked Paid and the buyer and seller are emailed.</span>
+             </div>`
+          : "";
+
         box.innerHTML = `
           ${o.status === "cancelled" ? "" : orderTrackerHtml({ paid: o.payment_status === "paid" || ["paid", "confirmed"].includes(o.status), failed: o.payment_status === "failed", sent: Boolean(o.sent_at), received: Boolean(o.received_at), handed: Boolean(o.handed_over_at), paysSeller: Boolean(o.seller_id), sellerPaid: Boolean(o.seller_paid_at), completed: o.status === "completed" && (!o.seller_id || Boolean(o.seller_paid_at) || !o.handed_over_at) })}
-          <div class="od-summary">
-            ${o.thumb_path ? `<span class="od-thumb"><img src="${escapeHtml(o.thumb_path)}" alt=""></span>` : ""}
-            <div class="od-sum-main">
-              <p class="od-sum-title">${listingLink}</p>
-              <p class="od-sum-sub">${lot ? `Whole lot (${escapeHtml(String(o.quantity))})` : `${escapeHtml(String(o.quantity))} × ${kwacha(o.unit_price)}`} · ${escapeHtml(DELIVERY[o.delivery] || "")}${o.delivery === "deliver" && o.delivery_address ? `: ${escapeHtml(o.delivery_address)}` : ""}</p>
-              <p class="od-sum-stock">${stockText(o)}</p>
-            </div>
-            <div class="od-sum-total"><span>Total</span><b>${kwacha(o.total)}</b></div>
-          </div>
-          <div class="od-cards">
-            <section class="od-card">
-              <h3>Buyer</h3>
-              <div class="od-person">
-                <span class="od-av">${escapeHtml(initialsOf(o.full_name))}</span>
-                <div class="min-w-0"><p class="od-name">${escapeHtml(o.full_name)}</p><p class="od-sub">${escapeHtml(o.phone || "")}</p></div>
+          <div class="txd-grid od-layout">
+            <div class="od-left">
+              <section class="txd-card txd-timeline">
+                <h2>Track Timeline Records</h2>
+                ${orderTimelineHtml(o, checkPay)}
+              </section>
+              <div class="order-message">
+                <textarea data-message rows="2" maxlength="2000" class="field-input" placeholder="Message ${escapeHtml(o.full_name)}, e.g. payment details"></textarea>
+                <button type="button" data-send class="chat-send-btn">Send</button>
               </div>
-              <div class="od-actions">
-                ${o.phone ? `<a href="https://wa.me/${whatsappNumber(o.phone)}" target="_blank" rel="noopener" class="od-act od-wa">${OD_ICON.wa}WhatsApp</a><a href="tel:${tel(o.phone)}" class="od-act">${OD_ICON.call}Call</a>` : ""}
-                ${o.email ? `<a href="mailto:${escapeHtml(o.email)}?subject=${encodeURIComponent(`Order ${o.reference} - Frontier Marketplace`)}" class="od-act" title="${escapeHtml(o.email)}">${OD_ICON.mail}Email</a>` : ""}
+            </div>
+            <div class="txd-sep" aria-hidden="true"></div>
+            <section class="txd-card txd-history">
+              <h2 class="txd-h2-row"><span>Payment history</span><button type="button" class="txd-pdf" data-pdf title="Download PDF" aria-label="Download PDF">${uiIcon("download")}<span>PDF</span></button></h2>
+              <div class="txd-receipt-top"><b>${escapeHtml(o.reference)}</b><span>${when(o.created_at)}</span></div>
+              <div class="txd-parts">
+                <div class="txd-part txd-c-items"><h3>Item</h3>
+                  <p class="od-r-title">${listingLink}</p>
+                  <dl class="txd-list">
+                    ${rrow("Quantity", lot ? `Whole lot (${escapeHtml(String(o.quantity))})` : escapeHtml(String(o.quantity)))}
+                    ${rrow("Price", lot ? kwacha(o.total) : `${kwacha(o.unit_price)} each`)}
+                    ${rrow(o.delivery === "deliver" ? "Delivery" : "Collection", escapeHtml(DELIVERY[o.delivery] || "") + (o.delivery === "deliver" && o.delivery_address ? `<span class="od-r-sub">${escapeHtml(o.delivery_address)}</span>` : ""))}
+                    ${rrow("Stock", `<span class="od-r-sub od-r-left">${escapeHtml(stockText(o) || "")}</span>`)}
+                  </dl>
+                </div>
+                <div class="txd-part txd-c-payment"><h3>Payment</h3><dl class="txd-list">
+                  ${rrow("Status", payTag(o) || escapeHtml(statusLabel(o.status)))}
+                  ${rrow("Method", escapeHtml(payMethodText(o)))}
+                  ${rrow("Paid on", when(o.paid_at))}
+                  ${rrow("Checkout", o.checkout_reference ? `<a href="/admin/transactions.html?id=${Number(o.checkout_id)}" class="txd-mono">${escapeHtml(o.checkout_reference)}</a>${o.checkout_orders && o.checkout_orders.length ? `<span class="od-r-sub">with ${o.checkout_orders.map((x) => `<a href="/admin/orders.html?id=${x.id}">${escapeHtml(x.reference)}</a>`).join(", ")}</span>` : ""}` : "")}
+                  ${rrow("Payment reference", o.checkout_payment && o.checkout_payment.reference ? `<span class="txd-mono">${escapeHtml(o.checkout_payment.reference)}</span>` : "")}
+                  ${rrow("Provider reference", o.payment_provider_ref ? `<span class="txd-mono od-trunc" title="${escapeHtml(o.payment_provider_ref)}">${escapeHtml(o.payment_provider_ref)}</span>` : "")}
+                  ${rrow("Status check", o.checkout_payment && o.checkout_payment.check_error && o.payment_status !== "paid" ? `<span class="text-red-600">${escapeHtml(o.checkout_payment.check_error)}</span>` : "")}
+                  ${rrow("Why it failed", o.payment_status === "failed" && o.payment_failure ? escapeHtml(o.payment_failure) : "")}
+                  ${rrow("Bank", o.payment_method === "bank_transfer" && o.payment_bank ? escapeHtml(o.payment_bank) : "")}
+                  ${rrow("Account", o.payment_method === "bank_transfer" && o.payment_account ? escapeHtml(o.payment_account) : "")}
+                </dl></div>
+                <div class="txd-part txd-c-buyer"><h3>Buyer</h3><dl class="txd-list">
+                  ${rrow("Name", escapeHtml(o.full_name))}
+                  ${rrow("Phone", o.phone ? `<a href="${telLink(o.phone)}">${escapeHtml(o.phone)}</a>` : "")}
+                  ${rrow("Email", o.email ? `<a href="mailto:${escapeHtml(o.email)}">${escapeHtml(o.email)}</a>` : "")}
+                  ${rrow("Contact", contactIcons(o.phone, o.email))}
+                </dl></div>
+                <div class="txd-part txd-c-seller"><h3>Seller</h3><dl class="txd-list">
+                  ${o.seller_id
+                    ? `${rrow("Name", `<a href="/admin/sellers.html?id=${o.seller_id}">${escapeHtml(o.seller_name || "Seller")}</a>`)}
+                       ${rrow("Phone", o.seller_phone ? `<a href="${telLink(o.seller_phone)}">${escapeHtml(o.seller_phone)}</a>` : "")}
+                       ${rrow("Told", o.seller_notified_at ? when(o.seller_notified_at) : "Once the payment is confirmed")}
+                       ${rrow("Contact", o.seller_phone || o.seller_email ? contactIcons(o.seller_phone, o.seller_email) : "")}`
+                    : rrow("Name", o.seller_name ? `${escapeHtml(o.seller_name)} (removed)` : "Frontier's stock")}
+                </dl></div>
+                <div class="txd-part txd-part-total"><div class="txd-total"><span>Total</span><b>${kwacha(o.total)}</b></div></div>
               </div>
             </section>
-            <section class="od-card">
-              <h3>Seller</h3>
-              ${o.seller_id
-                ? `<div class="od-person">
-                     <span class="od-av od-av-seller">${escapeHtml(initialsOf(o.seller_name || "S"))}</span>
-                     <div class="min-w-0"><a href="/admin/sellers.html?id=${o.seller_id}" class="od-name od-link">${escapeHtml(o.seller_name || "Seller")}</a>
-                     <p class="od-sub">${o.seller_notified_at ? `Told ${escapeHtml(formatDate(o.seller_notified_at))}` : "Told once the payment is confirmed"}</p></div>
-                   </div>
-                   ${o.seller_phone ? `<div class="od-actions"><a href="https://wa.me/${whatsappNumber(o.seller_phone)}" target="_blank" rel="noopener" class="od-act od-wa">${OD_ICON.wa}WhatsApp</a><a href="tel:${tel(o.seller_phone)}" class="od-act">${OD_ICON.call}Call</a></div>` : ""}`
-                : `<div class="od-person"><span class="od-av od-av-seller">F</span><div><p class="od-name">${o.seller_name ? `${escapeHtml(o.seller_name)} (removed)` : "Frontier's stock"}</p></div></div>`}
-            </section>
-          </div>
-          <section class="od-card od-pay">
-            <div class="od-pay-head">
-              <h3>Payment</h3>
-              ${payTag(o) || ""}
-              ${o.checkout_id ? `<a class="od-history" href="/admin/transactions.html?id=${Number(o.checkout_id)}">Payment history →</a>` : ""}
-            </div>
-            ${rows([
-              ["Method", escapeHtml(payMethodText(o))],
-              ["Paid on", o.paid_at ? escapeHtml(formatDate(o.paid_at)) : null],
-              ["Checkout", o.checkout_reference ? `${escapeHtml(o.checkout_reference)}${o.checkout_orders && o.checkout_orders.length ? ` <span class="od-muted">with ${o.checkout_orders.map((x) => `<a href="/admin/orders.html?id=${x.id}" class="font-semibold hover:underline">${escapeHtml(x.reference)}</a>`).join(", ")}</span>` : ""}` : null],
-              ["Payment reference", o.checkout_payment && o.checkout_payment.reference ? `<span class="od-mono">${escapeHtml(o.checkout_payment.reference)}</span>` : null],
-              ["Provider reference", o.payment_provider_ref ? `<span class="od-mono od-trunc" title="${escapeHtml(o.payment_provider_ref)}">${escapeHtml(o.payment_provider_ref)}</span>` : null],
-              ["Status check", o.checkout_payment && o.checkout_payment.check_error && o.payment_status !== "paid" ? `<span class="text-red-600">${escapeHtml(o.checkout_payment.check_error)}</span>` : null],
-              ["Why it failed", o.payment_status === "failed" && o.payment_failure ? escapeHtml(o.payment_failure) : null],
-              ["Bank", o.payment_method === "bank_transfer" && o.payment_bank ? escapeHtml(o.payment_bank) : null],
-              ["Account", o.payment_method === "bank_transfer" && o.payment_account ? escapeHtml(o.payment_account) : null],
-            ])}
-          </section>
-          ${proofHtml(o)}
-          ${o.checkout_payment && o.checkout_payment.can_check && o.payment_status !== "paid" && o.status !== "cancelled"
-            ? `<div class="order-check-pay">
-                 <button type="button" data-check-pay class="btn-secondary" style="padding:.5rem .9rem;font-size:.85rem">Check payment with Lipila</button>
-                 <span>Asks Lipila now. If it was paid, the order is marked Paid and the buyer and seller are emailed.</span>
-               </div>`
-            : ""}
-          <div class="order-message">
-            <textarea data-message rows="2" maxlength="2000" class="field-input" placeholder="Message ${escapeHtml(o.full_name)}, e.g. payment details"></textarea>
-            <button type="button" data-send class="chat-send-btn">Send</button>
           </div>`;
 
+        box.querySelector("[data-pdf]").addEventListener("click", () => {
+          try { orderPdf(o); } catch (error) { showNotification(`Could not make the PDF: ${error.message}`, "error"); }
+        });
         bindProof(box, o);
         const checkBtn = box.querySelector("[data-check-pay]");
         if (checkBtn) {

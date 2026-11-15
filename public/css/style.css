@@ -6973,3 +6973,29 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .txd-pdf:hover { background: #f3f7f1; }
 .txd-pdf { display: inline-flex; align-items: center; gap: 5px; }
 .txd-pdf svg { width: 15px; height: 15px; }
+
+/* Order page: steps on the left, receipt on the right (like a transaction) */
+.od-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; margin-top: 16px; }
+.od-left { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.od-left .order-message { margin-top: 0; }
+@media (min-width: 1200px) {
+  .od-layout { grid-template-columns: minmax(0, 1fr) 2px minmax(360px, 420px); gap: 22px; }
+  .od-layout > .txd-history { position: sticky; top: 90px; max-width: none; }
+}
+.tl-body { margin: 8px 0 0; padding: 12px 14px; border: 1px solid #eef1ee; border-radius: 10px; font-size: 13.5px; color: #374151; }
+.tl-body-line { margin: 0 0 4px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tl-body .tl-time { min-width: 40px; }
+.tl-body .order-proof-photos { margin-top: 8px; }
+.tl-body .order-check-pay { margin-top: 10px; }
+.txd-c-seller { --hd-c: #6d28d9; }
+.od-r-title { margin: 0 0 6px; font-weight: 700; color: #111827; font-size: 15px; }
+.od-r-sub { display: block; font-size: 12px; font-weight: 500; color: #6b7280; }
+.od-r-left { text-align: right; }
+.od-icons { display: inline-flex; gap: 2px; }
+.od-icons .tbl-icon svg { width: 16px; height: 16px; }
+.od-ic-wa:hover { color: #16a34a; }
+.txd-part dd .pay-tag { margin: 0; }
+.txd-part + .txd-part-total { border-top: 0; padding-top: 0; }
+@media (min-width: 1200px) {
+  .od-layout > .txd-sep { height: auto; border-top: 0; border-left: 2px dashed #d1d5db; margin: 0; align-self: stretch; }
+}
