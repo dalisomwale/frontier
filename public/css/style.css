@@ -6425,3 +6425,12 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
   .gallery-frame .verified-badge .vb-tick { width: 16px; height: 16px; }
   .gallery-frame .verified-badge .vb-tick svg { width: 10px; height: 10px; }
 }
+
+/* Verified: the word only, on a green gradient. */
+.verified-badge { gap: 0; padding: 3px 11px; background: linear-gradient(120deg, #4cb963 0%, #1f7a43 48%, #0d4424 100%); }
+.verified-badge .vb-tick { display: none; }
+.gallery-frame .verified-badge { padding: 5px 14px; }
+@media (max-width: 639px) {
+  .verified-badge { padding: 2px 8px; }
+  .gallery-frame .verified-badge { padding: 3px 10px; }
+}
