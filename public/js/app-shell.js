@@ -18,6 +18,7 @@ function renderBottomNav(variant = "public") {
           { href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", match: ["/admin/inquiries.html"], badge: true },
           { href: "/admin/orders.html", icon: "cart", label: "Orders", match: ["/admin/orders.html"], orderBadge: true },
           { href: "/admin/transactions.html", icon: "receipt", label: "Transactions", match: ["/admin/transactions.html"] },
+          { href: "/admin/payouts.html", icon: "wallet", label: "Payouts", match: ["/admin/payouts.html"] },
           { href: "/admin/sellers.html", icon: "users", label: "Sellers", match: ["/admin/sellers.html"] },
           { href: "/admin/breeds.html", icon: "tag", label: "Breeds", match: ["/admin/breeds.html"] },
           { href: "/admin/categories.html", icon: "layers", label: "Categories", match: ["/admin/categories.html"] },
@@ -64,6 +65,7 @@ function renderSidebar(active) {
     { key: "inquiries", href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", badge: true },
     { key: "orders", href: "/admin/orders.html", icon: "cart", label: "Orders", orderBadge: true },
     { key: "transactions", href: "/admin/transactions.html", icon: "receipt", label: "Transactions" },
+    { key: "payouts", href: "/admin/payouts.html", icon: "wallet", label: "Payouts" },
     { key: "sellers", href: "/admin/sellers.html", icon: "users", label: "Sellers" },
     { key: "breeds", href: "/admin/breeds.html", icon: "tag", label: "Breeds" },
     {

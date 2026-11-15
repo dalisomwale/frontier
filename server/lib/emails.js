@@ -286,6 +286,27 @@ async function sellerOrder(order, event, extra = {}) {
   });
 }
 
+// One payment to a seller for several orders.
+async function sellerPayout(sellerId, orders, extra = {}) {
+  const seller = await sellerById(sellerId);
+  if (!seller) return null;
+  const refs = orders.map((o) => orderRef(o.id));
+  return sendEmail({
+    to: seller.email,
+    subject: `You've been paid for ${orders.length} orders`,
+    log: true,
+    heading: "Frontier has paid you",
+    paragraphs: [hi(seller.name), `Frontier has paid you for ${orders.length} orders in one payment. They're now complete.`],
+    rows: [
+      ...orders.map((o) => [orderRef(o.id), `${o.livestock_title}: ${kwacha(o.total)}`]),
+      ["Total paid", kwacha(extra.total)],
+      ...(extra.reference ? [["Payment reference", extra.reference]] : []),
+    ],
+    after: [`The proof of payment is on each order (${refs.join(", ")}) in your seller account. Thank you for selling on Frontier Marketplace.`],
+    button: { label: "See your orders", url: appUrl("/seller/?tab=orders") },
+  });
+}
+
 function passwordChanged(seller, when = new Date()) {
   const at = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: process.env.APP_TIMEZONE || "Africa/Lusaka" }).format(when);
   return sendEmail({
@@ -370,6 +391,7 @@ module.exports = {
   listingRemoved,
   listingSoldOut,
   sellerOrder,
+  sellerPayout,
   passwordChanged,
   accountStatus,
   unpaidOrder,

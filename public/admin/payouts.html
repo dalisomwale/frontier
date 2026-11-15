@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Payouts - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/xlsx-lite.js"></script>
+    <script src="/js/livestock.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted tx-page-wide mx-auto px-3 sm:px-4 py-6">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Payouts</h1>
+          <p class="text-sm text-gray-500 mt-1">Pay sellers for handed-over orders, from any cart.</p>
+        </div>
+        <button type="button" id="export" class="tx-export">Export Excel</button>
+      </div>
+
+      <div class="tx-totals" id="totals"></div>
+
+      <div class="bg-white rounded-xl border border-gray-100">
+        <div class="tx-filters">
+          <div class="seg" id="tabs"></div>
+          <div class="relative tx-search">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+            <input id="search" type="search" placeholder="Seller, farm, phone" class="field-input !py-2 !pl-9 !text-sm" />
+          </div>
+        </div>
+        <div id="list" class="overflow-x-auto"></div>
+      </div>
+    </main>
+
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+
+      const state = { tab: "owed", q: "", owed: [], paid: [], totals: {} };
+      const TABS = [{ value: "owed", label: "To pay" }, { value: "paid", label: "Paid" }];
+      const dateOnly = (v) => (v ? new Date(v).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "");
+      const telHref = (p) => `tel:${String(p || "").replace(/[^\d+]/g, "")}`;
+      function whatsappNumber(phone) {
+        let d = String(phone).replace(/\D/g, "");
+        if (String(phone).trim().startsWith("+")) return d;
+        if (d.startsWith("0")) d = "260" + d.slice(1);
+        return d;
+      }
+      const sellerName = (s) => s.business_name ? `${s.name} (${s.business_name})` : s.name;
+
+      function renderTabs() {
+        document.getElementById("tabs").innerHTML = TABS.map((t) => {
+          const n = t.value === "owed" ? state.totals.sellers_waiting : null;
+          return `<button type="button" data-tab="${t.value}" class="${state.tab === t.value ? "active" : ""}">${t.label}${n ? `<span class="count">${n}</span>` : ""}</button>`;
+        }).join("");
+        document.querySelectorAll("#tabs [data-tab]").forEach((b) => b.addEventListener("click", () => {
+          state.tab = b.dataset.tab;
+          renderTabs();
+          render();
+        }));
+      }
+
+      function renderTotals(t) {
+        document.getElementById("totals").innerHTML = `
+          <div class="tx-total txc-received"><span>Owed to sellers</span><b>${kwacha(t.owed || 0)}</b></div>
+          <div class="tx-total txc-waiting"><span>Sellers waiting</span><b>${Number(t.sellers_waiting) || 0}</b></div>
+          <div class="tx-total txc-paid"><span>Orders to pay</span><b>${Number(t.owed_orders) || 0}</b></div>
+          <div class="tx-total txc-muted"><span>Paid this month</span><b>${kwacha(t.paid_this_month || 0)}</b></div>`;
+      }
+
+      async function load() {
+        const list = document.getElementById("list");
+        try {
+          const params = new URLSearchParams();
+          if (state.q) params.set("q", state.q);
+          const [owed, paid] = await Promise.all([adminApi(`/api/admin/payouts?${params}`), adminApi("/api/admin/payouts/paid")]);
+          state.owed = owed.data;
+          state.totals = owed.totals;
+          const q = state.q.toLowerCase();
+          state.paid = q ? paid.data.filter((p) => [p.name, p.business_name, p.reference].some((v) => String(v || "").toLowerCase().includes(q))) : paid.data;
+        } catch (error) {
+          return renderEmptyState(list, { title: "Could not load payouts", message: error.message, icon: "alert" });
+        }
+        renderTotals(state.totals);
+        renderTabs();
+        render();
+      }
+
+      function render() {
+        const list = document.getElementById("list");
+        if (state.tab === "owed") {
+          if (!state.owed.length) {
+            return renderEmptyState(list, state.q
+              ? { title: "No matching sellers", message: "Try a different search.", icon: "search" }
+              : { title: "No one to pay", message: "Sellers appear here once their orders have been handed over.", icon: "check" });
+          }
+          list.innerHTML = `<table class="admin-table">
+            <thead><tr><th class="hidden sm:table-cell">Waiting since</th><th>Seller</th><th class="hidden sm:table-cell">Farm</th><th class="hidden md:table-cell">Phone</th><th class="hidden lg:table-cell">Province</th>
+              <th>Orders</th><th class="hidden sm:table-cell">Carts</th><th>Owed</th><th>Actions</th></tr></thead>
+            <tbody>${state.owed.map((s) => `
+              <tr class="cursor-pointer" data-open="${s.id}">
+                <td class="hidden sm:table-cell whitespace-nowrap text-gray-600">${dateOnly(s.waiting_since)}</td>
+                <td class="font-semibold text-gray-900">${escapeHtml(s.name)}</td>
+                <td class="hidden sm:table-cell text-gray-700">${escapeHtml(s.business_name || "-")}</td>
+                <td class="hidden md:table-cell whitespace-nowrap">${s.phone ? `<a class="tx-contact" href="${telHref(s.phone)}" data-stop>${escapeHtml(s.phone)}</a>` : "-"}</td>
+                <td class="hidden lg:table-cell text-gray-700">${escapeHtml(s.province || "-")}</td>
+                <td>${s.orders}</td>
+                <td class="hidden sm:table-cell">${s.carts}</td>
+                <td class="whitespace-nowrap"><b class="text-gray-900">${kwacha(s.owed)}</b></td>
+                <td data-stop><button type="button" class="tbl-icon po-pay-icon" data-pay="${s.id}" title="Pay ${escapeHtml(s.name)}" aria-label="Pay ${escapeHtml(s.name)}">${uiIcon("wallet")}</button></td>
+              </tr>`).join("")}</tbody></table>`;
+          list.querySelectorAll("[data-stop]").forEach((el) => el.addEventListener("click", (e) => e.stopPropagation()));
+          list.querySelectorAll("[data-open]").forEach((tr) => tr.addEventListener("click", () => openPay(tr.dataset.open)));
+          list.querySelectorAll("[data-pay]").forEach((b) => b.addEventListener("click", () => openPay(b.dataset.pay)));
+          return;
+        }
+        if (!state.paid.length) {
+          return renderEmptyState(list, { title: "No payouts yet", message: "Payments to sellers will be listed here.", icon: "inbox" });
+        }
+        list.innerHTML = `<table class="admin-table">
+          <thead><tr><th>Date</th><th>Seller</th><th>Orders</th><th>Amount</th><th class="hidden md:table-cell">Reference</th><th class="hidden lg:table-cell">By</th><th>Proof</th></tr></thead>
+          <tbody>${state.paid.map((p) => `
+            <tr>
+              <td class="whitespace-nowrap text-gray-600">${dateOnly(p.paid_at)}</td>
+              <td><span class="font-semibold text-gray-900">${escapeHtml(p.name || "Removed seller")}</span>${p.business_name ? `<span class="block text-xs text-gray-500">${escapeHtml(p.business_name)}</span>` : ""}</td>
+              <td>${p.orders.map((o) => `<a href="/admin/orders.html?id=${o.id}" class="po-ref" title="${escapeHtml(o.title)}">${escapeHtml(o.reference)}</a>`).join(" ")}</td>
+              <td class="whitespace-nowrap"><b class="text-gray-900">${kwacha(p.amount)}</b></td>
+              <td class="hidden md:table-cell"><span class="txd-mono">${escapeHtml(p.reference || "-")}</span></td>
+              <td class="hidden lg:table-cell text-gray-600">${escapeHtml(p.paid_by || "")}</td>
+              <td><div class="po-proof">${p.proof.map((f) => proofFileHtml(f.image_path, f.thumb_path, "Proof of payment")).join("")}</div></td>
+            </tr>`).join("")}</tbody></table>`;
+      }
+
+      // One seller: tick the orders being paid, add the reference and proof.
+      async function openPay(sellerId) {
+        const s = state.owed.find((x) => String(x.id) === String(sellerId));
+        const view = openAdminView({ title: s ? s.name : "Pay seller", params: { id: sellerId } });
+        view.body.innerHTML = `<span class="btn-spinner chat-spinner"></span>`;
+        let data;
+        try {
+          data = (await adminApi(`/api/admin/payouts/sellers/${sellerId}`)).data;
+        } catch (error) {
+          view.body.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(error.message)}</p>`;
+          return;
+        }
+        const { seller, orders } = data;
+        if (view.setTitle) view.setTitle(seller.name);
+        if (!orders.length) {
+          view.body.innerHTML = `<div class="sv-head"><h1 class="admin-view-title !mb-0">${escapeHtml(sellerName(seller))}</h1></div>
+            <p class="text-sm text-gray-600 mt-3">Nothing to pay ${escapeHtml(seller.name)} right now: orders appear here once they've been handed over.</p>`;
+          return;
+        }
+        const contact = `<span class="od-icons">
+          ${seller.phone ? `<a href="https://wa.me/${whatsappNumber(seller.phone)}" target="_blank" rel="noopener" class="tbl-icon" title="WhatsApp" aria-label="WhatsApp">${uiIcon("phone")}</a>` : ""}
+          ${seller.email ? `<a href="mailto:${escapeHtml(seller.email)}" class="tbl-icon" title="Email ${escapeHtml(seller.email)}" aria-label="Email">${uiIcon("mail")}</a>` : ""}
+        </span>`;
+        view.body.innerHTML = `
+          <div class="sv-head"><h1 class="admin-view-title !mb-0">Pay ${escapeHtml(sellerName(seller))}</h1></div>
+          <form class="txd-grid od-layout" data-payout novalidate>
+            <section class="txd-card txd-timeline">
+              <h2 class="txd-h2-row"><span>Orders to pay</span>
+                <label class="po-all"><input type="checkbox" data-all checked> All</label></h2>
+              <ul class="po-orders">${orders.map((o) => `
+                <li><label class="po-order">
+                  <input type="checkbox" name="order" value="${o.id}" data-amount="${o.total}" checked>
+                  <span class="po-order-main">
+                    <span class="po-order-top"><a href="/admin/orders.html?id=${o.id}" class="po-ref" target="_blank" rel="noopener">${escapeHtml(o.reference)}</a>
+                      ${o.checkout_reference ? `<a href="/admin/transactions.html?id=${o.checkout_id}" class="po-cart" target="_blank" rel="noopener">${escapeHtml(o.checkout_reference)}</a>` : ""}</span>
+                    <b>${escapeHtml(o.livestock_title)}</b>
+                    <small>Qty ${o.price_unit === "lot" ? `Whole lot (${o.quantity})` : o.quantity} · Buyer ${escapeHtml(o.buyer_name)} · Handed over ${dateOnly(o.handed_over_at)}</small>
+                  </span>
+                  <span class="po-amount">${kwacha(o.total)}</span>
+                </label></li>`).join("")}</ul>
+            </section>
+            <div class="txd-sep" aria-hidden="true"></div>
+            <section class="txd-card txd-history">
+              <h2>Payment</h2>
+              <div class="txd-parts">
+                <div class="txd-part txd-c-seller"><h3>Seller</h3><dl class="txd-list">
+                  <div class="txd-row"><dt>Name</dt><dd>${escapeHtml(seller.name)}</dd></div>
+                  ${seller.business_name ? `<div class="txd-row"><dt>Farm</dt><dd>${escapeHtml(seller.business_name)}</dd></div>` : ""}
+                  ${seller.phone ? `<div class="txd-row"><dt>Phone</dt><dd><a href="${telHref(seller.phone)}">${escapeHtml(seller.phone)}</a></dd></div>` : ""}
+                  ${seller.email ? `<div class="txd-row"><dt>Email</dt><dd><a href="mailto:${escapeHtml(seller.email)}">${escapeHtml(seller.email)}</a></dd></div>` : ""}
+                  <div class="txd-row"><dt>Contact</dt><dd>${contact}</dd></div>
+                </dl></div>
+                <div class="txd-part txd-c-payment"><h3>Pay</h3>
+                  <div class="po-sum"><span data-count></span><b data-total></b></div>
+                  <p class="field-error hidden" data-error-for="orders"></p>
+                  <label class="field-label mt-3" for="po-ref">Payment reference <span class="text-gray-400 font-normal">(optional)</span></label>
+                  <input id="po-ref" name="reference" class="field-input" maxlength="150" placeholder="e.g. bank or mobile money reference">
+                  <p class="field-label mt-3">Proof of payment <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 4 photos or PDFs)</span></p>
+                  <div class="acc-ph-grid" data-photos></div>
+                  <p class="field-error hidden" data-error-for="images"></p>
+                  <button type="submit" class="acc-btn mt-4" data-submit>Mark as paid</button>
+                </div>
+              </div>
+            </section>
+          </form>`;
+        const form = view.body.querySelector("[data-payout]");
+        const boxes = [...form.querySelectorAll('input[name="order"]')];
+        const all = form.querySelector("[data-all]");
+        const picked = () => boxes.filter((b) => b.checked);
+        const sum = () => {
+          const list = picked();
+          const total = list.reduce((n, b) => n + Number(b.dataset.amount), 0);
+          form.querySelector("[data-count]").textContent = `${list.length} of ${boxes.length} order${boxes.length === 1 ? "" : "s"}`;
+          form.querySelector("[data-total]").textContent = kwacha(total);
+          form.querySelector("[data-submit]").textContent = list.length ? `Mark ${list.length} order${list.length === 1 ? "" : "s"} paid · ${kwacha(total)}` : "Choose the orders being paid";
+          form.querySelector("[data-submit]").disabled = !list.length;
+          all.checked = list.length === boxes.length;
+          all.indeterminate = list.length > 0 && list.length < boxes.length;
+          if (list.length) form.querySelector('[data-error-for="orders"]').classList.add("hidden");
+        };
+        boxes.forEach((b) => b.addEventListener("change", sum));
+        all.addEventListener("change", () => { boxes.forEach((b) => { b.checked = all.checked; }); sum(); });
+        sum();
+        const picker = bindPhotoPicker(form.querySelector("[data-photos]"), 4, (n) => { if (n) form.querySelector('[data-error-for="images"]').classList.add("hidden"); }, { pdf: true });
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const list = picked();
+          const errors = {};
+          if (!list.length) errors.orders = "Choose at least one order.";
+          if (!picker.files().length) errors.images = "Please add the proof of payment: a photo or a PDF.";
+          if (Object.keys(errors).length) return showFieldErrors(form, { errors });
+          const total = list.reduce((n, b) => n + Number(b.dataset.amount), 0);
+          if (!(await confirmAction({
+            title: `Pay ${seller.name} ${kwacha(total)}?`,
+            message: `${list.length} order${list.length === 1 ? "" : "s"} will be marked as paid and completed. ${seller.name} is told and can see the proof of payment.`,
+            confirmText: "Mark as paid",
+          }))) return;
+          const fd = new FormData();
+          fd.append("order_ids", list.map((b) => b.value).join(","));
+          fd.append("reference", form.reference.value.trim());
+          picker.files().forEach((f) => fd.append("images", f));
+          try {
+            const res = await withBusy(form.querySelector("[data-submit]"), "Saving…", () =>
+              adminApi(`/api/admin/payouts/sellers/${seller.id}/pay`, { method: "POST", body: fd }));
+            showNotification(res.message, "success");
+            view.close(true);
+            await load();
+          } catch (error) {
+            showFieldErrors(form, error);
+            showNotification(error.message, "error");
+          }
+        });
+      }
+
+      function exportExcel() {
+        const day = new Date().toISOString().slice(0, 10);
+        if (state.tab === "owed") {
+          const header = ["Waiting since", "Seller", "Farm", "Phone", "Email", "Province", "Orders", "Carts", "Owed (ZMW)"];
+          const lines = state.owed.map((s) => [dateOnly(s.waiting_since), s.name, s.business_name || "", s.phone || "", s.email || "", s.province || "", s.orders, s.carts, s.owed.toFixed(2)]);
+          return downloadXlsx(`frontier-payouts-to-pay-${day}.xlsx`, "To pay", header, lines, { numberCols: [6, 7, 8] });
+        }
+        const header = ["Date", "Seller", "Farm", "Orders", "Items", "Amount (ZMW)", "Reference", "By"];
+        const lines = state.paid.map((p) => [dateOnly(p.paid_at), p.name || "", p.business_name || "", p.orders.map((o) => o.reference).join(", "), p.orders.map((o) => o.title).join(", "), p.amount.toFixed(2), p.reference || "", p.paid_by || ""]);
+        downloadXlsx(`frontier-payouts-paid-${day}.xlsx`, "Paid", header, lines, { numberCols: [5] });
+      }
+
+      (async () => {
+        await initAdminPage("payouts");
+        let timer;
+        document.getElementById("search").addEventListener("input", (e) => {
+          clearTimeout(timer);
+          timer = setTimeout(() => { state.q = e.target.value.trim(); load(); }, 300);
+        });
+        document.getElementById("export").addEventListener("click", exportExcel);
+        await load();
+        const id = Number(new URLSearchParams(location.search).get("id"));
+        if (id) openPay(id);
+      })();
+    </script>
+  </body>
+</html>

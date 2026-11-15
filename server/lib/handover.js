@@ -284,35 +284,82 @@ async function paySeller(orderId, admin, files, reference, ip = null) {
   if (!order) throw notFound("Order not found.");
   if (order.seller_paid_at) throw new HttpError(409, "The seller has already been marked as paid.");
   if (!canPaySeller(order)) throw new HttpError(409, order.seller_id ? "The seller can be paid once the order has been handed over." : "This order is Frontier's own stock: there's no seller to pay.");
-  const saved = await saveProof(files);
-  const ref = orderRef(order.id);
-  const cleanRef = reference ? String(reference).trim().slice(0, 150) : null;
-  await storeStep(saved, "payout", order.id,
-    `UPDATE orders SET seller_paid_at = NOW(), seller_paid_by = ?, seller_paid_ref = ?, status = 'completed'
-     WHERE id = ? AND seller_paid_at IS NULL AND handed_over_at IS NOT NULL AND status <> 'cancelled'`,
-    [`Frontier (${admin.name})`.slice(0, 150), cleanRef, order.id],
-    "The seller has already been marked as paid.");
-  txlog.record({
-    checkoutId: order.checkout_id,
-    orderId: order.id,
-    reference: ref,
-    event: "seller_paid",
-    status: "completed",
-    actor: "admin",
-    admin,
-    detail: `${admin.name} marked the seller of ${ref} (${order.livestock_title}) as paid${cleanRef ? ` (reference ${cleanRef})` : ""}, with ${saved.length} file${saved.length === 1 ? "" : "s"} of the proof of payment. Order Completed.`,
-    data: { photos: saved.map((p) => p.image_path) },
-    ip,
-  });
-  notifySeller(order.seller_id, {
-    type: "order",
-    title: `You've been paid for order ${ref}`,
-    body: `Frontier paid you for ${order.livestock_title}. The proof of payment is on the order.`,
-    link: `/seller/?tab=orders&id=${order.id}`,
-  });
-  emails.sellerOrder(order, "paid", { units: headCount(order.quantity, order.animal_name, order.animal_kind), reference: cleanRef });
-  broadcastAdmin("order", { id: order.id, checkout_id: order.checkout_id, change: "seller_paid" });
+  await payOrders(order.seller_id, [order.id], admin, files, reference, ip);
   return loadOrder(order.id);
+}
+
+// Pays one seller for several orders at once (from any carts): one payment
+// reference and one proof of payment, every order marked Seller paid and
+// Completed together. The seller gets one notification and one email.
+async function payOrders(sellerId, orderIds, admin, files, reference, ip = null) {
+  const ids = [...new Set((orderIds || []).map(Number).filter((n) => Number.isSafeInteger(n) && n > 0))];
+  if (!ids.length) throw problem(422, "Please choose at least one order to pay.", { orders: "Choose at least one order." });
+  const orders = [];
+  for (const id of ids) {
+    const order = await loadOrder(id);
+    if (!order || Number(order.seller_id) !== Number(sellerId)) throw notFound("Order not found.");
+    if (order.seller_paid_at) throw new HttpError(409, `${orderRef(order.id)} has already been paid.`);
+    if (!canPaySeller(order)) throw new HttpError(409, `${orderRef(order.id)} can be paid once it has been handed over.`);
+    orders.push(order);
+  }
+  const saved = await saveProof(files);
+  const cleanRef = reference ? String(reference).trim().slice(0, 150) : null;
+  const by = `Frontier (${admin.name})`.slice(0, 150);
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    for (const order of orders) {
+      const [result] = await conn.query(
+        `UPDATE orders SET seller_paid_at = NOW(), seller_paid_by = ?, seller_paid_ref = ?, status = 'completed'
+         WHERE id = ? AND seller_paid_at IS NULL AND handed_over_at IS NOT NULL AND status <> 'cancelled'`,
+        [by, cleanRef, order.id],
+      );
+      if (!result.affectedRows) throw new HttpError(409, `${orderRef(order.id)} has already been paid.`);
+      for (const p of saved) {
+        await conn.query("INSERT INTO order_receipt_photos (order_id, party, image_path, thumb_path) VALUES (?, ?, ?, ?)", [order.id, "payout", p.image_path, p.thumb_path]);
+      }
+    }
+    await conn.commit();
+  } catch (error) {
+    await conn.rollback();
+    deleteImageFiles(...saved.flatMap((p) => [p.image_path, p.thumb_path]));
+    throw error;
+  } finally {
+    conn.release();
+  }
+  const total = orders.reduce((sum, o) => sum + Number(o.total), 0);
+  const refs = orders.map((o) => orderRef(o.id));
+  orders.forEach((order) => {
+    const ref = orderRef(order.id);
+    txlog.record({
+      checkoutId: order.checkout_id,
+      orderId: order.id,
+      reference: ref,
+      event: "seller_paid",
+      status: "completed",
+      actor: "admin",
+      admin,
+      detail: `${admin.name} marked the seller of ${ref} (${order.livestock_title}) as paid${cleanRef ? ` (reference ${cleanRef})` : ""}, with ${saved.length} file${saved.length === 1 ? "" : "s"} of the proof of payment${orders.length > 1 ? `, in one payment for ${refs.join(", ")}` : ""}. Order Completed.`,
+      data: { photos: saved.map((p) => p.image_path), payout: refs },
+      ip,
+    });
+    broadcastAdmin("order", { id: order.id, checkout_id: order.checkout_id, change: "seller_paid" });
+  });
+  const first = orders[0];
+  notifySeller(sellerId, {
+    type: "order",
+    title: orders.length === 1 ? `You've been paid for order ${refs[0]}` : `You've been paid for ${orders.length} orders`,
+    body: orders.length === 1
+      ? `Frontier paid you for ${first.livestock_title}. The proof of payment is on the order.`
+      : `Frontier paid you ${kwacha(total)} for ${refs.join(", ")}. The proof of payment is on each order.`,
+    link: orders.length === 1 ? `/seller/?tab=orders&id=${first.id}` : "/seller/?tab=orders",
+  });
+  if (orders.length === 1) {
+    emails.sellerOrder(first, "paid", { units: headCount(first.quantity, first.animal_name, first.animal_kind), reference: cleanRef });
+  } else {
+    emails.sellerPayout(sellerId, orders, { reference: cleanRef, total });
+  }
+  return { orders: refs, total };
 }
 
 // Step 2. files: multer files (images).
@@ -391,4 +438,4 @@ async function confirmReceipt(orderId, buyer, method, files, note, ip = null) {
   return loadOrder(order.id);
 }
 
-module.exports = { METHODS, MIN_PHOTOS, MAX_PHOTOS, loadOrder, photosOf, canSend, canConfirm, canHandOver, canPaySeller, markSent, handOver, paySeller, confirmReceipt, methodText };
+module.exports = { METHODS, MIN_PHOTOS, MAX_PHOTOS, loadOrder, photosOf, canSend, canConfirm, canHandOver, canPaySeller, markSent, handOver, paySeller, payOrders, confirmReceipt, methodText };
