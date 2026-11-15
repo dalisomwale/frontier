@@ -63,15 +63,14 @@
     const k = d.kpis;
     const now = typeof sellerSummary !== "undefined" && sellerSummary ? sellerSummary : null;
     const kpis = [
-      { label: "Sales", value: k.sales >= 1e6 ? compactMoney(k.sales) : money(k.sales), title: money(k.sales), hint: k.orders ? `Average ${money(k.avg_order)} per order` : "In this period", tab: "orders", tone: "forest" },
-      { label: "Orders", value: k.orders.toLocaleString(), hint: k.open ? `${k.open} need you` : "In this period", tab: "orders", tone: "gold" },
-      { label: "Live listings", value: now ? now.listings.live.toLocaleString() : "–", hint: now && now.listings.in_review ? `${now.listings.in_review} in review` : "On the website now", tab: "listings", tone: "night" },
-      { label: "Unread messages", value: now ? now.messages.unread.toLocaleString() : "–", hint: now ? `${now.messages.total} in total` : "", tab: "messages", tone: "teal" },
+      { label: "Sales", value: k.sales >= 1e6 ? compactMoney(k.sales) : money(k.sales), title: money(k.sales), tab: "orders", tone: "forest" },
+      { label: "Orders", value: k.orders.toLocaleString(), tab: "orders", tone: "gold" },
+      { label: "Live listings", value: now ? now.listings.live.toLocaleString() : "–", tab: "listings", tone: "night" },
+      { label: "Unread messages", value: now ? now.messages.unread.toLocaleString() : "–", tab: "messages", tone: "teal" },
     ];
     document.getElementById("sins-kpis").innerHTML = kpis.map((x) => `<a href="/seller/?tab=${x.tab}" data-tab-link="${x.tab}" class="ins-kpi ins-kpi-link kpi-${x.tone}">
         <p class="ins-kpi-label">${x.label}</p>
         <p class="ins-kpi-value" title="${x.title || x.value}">${x.value}</p>
-        <p class="ins-kpi-foot"><span class="ins-kpi-hint">${x.hint}</span></p>
       </a>`).join("");
   }
   window.renderSellerKpis = () => renderKpis();
