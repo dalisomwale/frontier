@@ -6390,3 +6390,38 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 .acc-more .sv-facts { margin-top: 0.5rem; }
 .order-proof-step { padding-top: 12px; margin-top: 12px; border-top: 1px solid #d6e7da; }
 .order-proof-step:first-of-type { border-top: 0; padding-top: 0; }
+
+/* Verified: green pill with a lime tick, in the site's colours. */
+.verified-badge {
+  gap: 5px;
+  padding: 3px 10px 3px 3px;
+  background: linear-gradient(135deg, #1f7a43 0%, #0f4d29 100%);
+  border: 1px solid rgba(198, 233, 74, 0.55);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgba(15, 36, 22, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.verified-badge .vb-tick {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #c6e94a;
+  color: #0f4d29;
+  flex-shrink: 0;
+}
+.verified-badge .vb-tick svg { width: 12px; height: 12px; color: currentColor; }
+.gallery-frame .verified-badge { padding: 4px 13px 4px 4px; font-size: 13px; gap: 6px; }
+.gallery-frame .verified-badge .vb-tick { width: 21px; height: 21px; }
+.gallery-frame .verified-badge .vb-tick svg { width: 13px; height: 13px; }
+@media (max-width: 639px) {
+  .verified-badge { top: 6px; right: 6px; gap: 3px; padding: 2px 7px 2px 2px; font-size: 9.5px; letter-spacing: 0.01em; }
+  .verified-badge .vb-tick { width: 14px; height: 14px; }
+  .verified-badge .vb-tick svg { width: 9px; height: 9px; }
+  .gallery-frame .verified-badge { top: 10px; right: 10px; padding: 3px 9px 3px 3px; font-size: 11px; gap: 4px; }
+  .gallery-frame .verified-badge .vb-tick { width: 16px; height: 16px; }
+  .gallery-frame .verified-badge .vb-tick svg { width: 10px; height: 10px; }
+}

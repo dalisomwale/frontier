@@ -42,7 +42,7 @@ function cardImage(item) {
 
 function verifiedBadge(item) {
   if (item.verification !== "verified") return "";
-  return `<span class="verified-badge" title="Verified by Frontier">Verified</span>`;
+  return `<span class="verified-badge" title="Verified by Frontier"><span class="vb-tick" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none"><path d="M4 8.4l2.6 2.5L12 5.4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Verified</span>`;
 }
 
 // Prices are optional. "K 18,500" with "per head" / "for the lot".
