@@ -214,6 +214,8 @@
     burger.addEventListener("click", openSheet);
     buildSheet();
 
+    addSearchAndAccount(authBox);
+
     const hoverable = window.matchMedia("(hover: hover) and (pointer: fine)");
     slot.querySelectorAll("[data-nav-tab]").forEach((btn) => {
       btn.addEventListener("click", () => (openTab === btn.dataset.navTab ? closeAll() : showPanel(btn.dataset.navTab)));
@@ -242,6 +244,52 @@
     });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAll(); });
     return true;
+  }
+
+  // Phones: Log in / Register become one person icon with a small menu, and
+  // pages without a search box get one in the bar (it searches on the home page).
+  function addSearchAndAccount(authBox) {
+    const homeSearch = header.querySelector("#search-input");
+    if (homeSearch) {
+      const full = homeSearch.placeholder;
+      const phone = window.matchMedia("(max-width: 1023px)");
+      const fit = () => { homeSearch.placeholder = phone.matches ? "Search" : full; };
+      fit();
+      phone.addEventListener("change", fit);
+    }
+    if (!header.querySelector("#site-search") && authBox) {
+      const form = document.createElement("form");
+      form.className = "snav-barsearch";
+      form.action = "/";
+      form.setAttribute("role", "search");
+      form.innerHTML = `<span aria-hidden="true">${typeof uiIcon === "function" ? uiIcon("search") : "🔍"}</span><input name="q" type="search" placeholder="Search" aria-label="Search livestock, feed, provinces" maxlength="100" enterkeyhint="search">`;
+      form.addEventListener("submit", (e) => { if (!form.q.value.trim()) e.preventDefault(); });
+      authBox.before(form);
+    }
+    if (!authBox || !authBox.querySelector("#login-link, .header-login-link")) return;
+    const wrap = document.createElement("div");
+    wrap.className = "snav-acct";
+    wrap.innerHTML = `
+      <button type="button" class="snav-acct-btn" aria-label="Log in or register" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
+      </button>
+      <div class="snav-acct-menu" hidden>
+        <a href="/account/login.html">Log in</a>
+        <a href="/account/register.html" class="snav-acct-reg">Register</a>
+        <a href="/seller/login.html" class="snav-acct-sub">Seller log in</a>
+      </div>`;
+    authBox.appendChild(wrap);
+    const btn = wrap.querySelector("button"), menu = wrap.querySelector(".snav-acct-menu");
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+      btn.setAttribute("aria-expanded", String(!menu.hidden));
+    });
+    document.addEventListener("click", (e) => { if (!wrap.contains(e.target)) { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); } });
+    // Signed in: the account chip replaces it.
+    const sync = () => wrap.classList.toggle("is-signed-in", Boolean(authBox.querySelector(".buyer-chip")));
+    sync();
+    new MutationObserver(sync).observe(authBox, { childList: true });
   }
 
   // Some pages (the account pages) draw their header after loading.
