@@ -119,7 +119,7 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// The filtered list as rows for a CSV file (up to 5,000), built in the browser.
+// The filtered list as rows for the Excel export (up to 5,000), built in the browser.
 router.get("/export", async (req, res, next) => {
   try {
     const f = filters(req.query);

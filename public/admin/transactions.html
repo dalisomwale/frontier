@@ -12,6 +12,7 @@
     <script src="/js/icons.js"></script>
     <script src="/js/app-shell.js"></script>
     <script src="/js/admin.js"></script>
+    <script src="/js/xlsx-lite.js"></script>
     <script src="/js/livestock.js"></script>
   </head>
   <body class="bg-gray-50 admin-pending">
@@ -26,7 +27,7 @@
           <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transactions</h1>
           <p class="text-sm text-gray-500 mt-1">Every payment, step by step.</p>
         </div>
-        <button type="button" id="export" class="tx-export">Download CSV</button>
+        <button type="button" id="export" class="tx-export">Export Excel</button>
       </div>
 
       <div class="tx-totals" id="totals"></div>
@@ -422,25 +423,15 @@
         try { return JSON.stringify(JSON.parse(data), null, 2); } catch { return data; }
       }
 
-      // CSV of the current filters, made in the browser.
+      // Excel file of the current filters, made in the browser.
       async function exportCsv() {
         const btn = document.getElementById("export");
         btn.disabled = true;
         try {
           const { header, lines } = (await adminApi(`/api/admin/transactions/export?${params()}`)).data;
-          const cell = (v) => {
-            const s = String(v ?? "");
-            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-          };
-          const csv = [header, ...lines].map((r) => r.map(cell).join(",")).join("\r\n");
-          const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `frontier-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          setTimeout(() => URL.revokeObjectURL(url), 2000);
+          const amountCol = header.indexOf("Amount (ZMW)");
+          downloadXlsx(`frontier-transactions-${new Date().toISOString().slice(0, 10)}.xlsx`, "Transactions", header, lines,
+            { numberCols: amountCol >= 0 ? [amountCol] : [] });
         } catch (error) {
           showNotification(error.message, "error");
         } finally {
