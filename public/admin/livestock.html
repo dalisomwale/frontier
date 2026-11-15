@@ -169,7 +169,6 @@
                 <th class="hidden md:table-cell">Date</th><th>Listing</th><th class="hidden lg:table-cell col-xw">${FEED ? "Feed type" : "Animal"}</th>
                 <th class="hidden md:table-cell">${FEED ? "Stage" : "Breed"}</th><th class="hidden lg:table-cell col-w text-center">Quantity</th><th class="hidden md:table-cell text-right">Price</th>
                 <th class="hidden lg:table-cell">Seller</th><th class="hidden xl:table-cell col-xw">Province</th>
-                <th class="hidden sm:table-cell text-center">Inquiries</th>
                 <th>Status</th><th class="hidden sm:table-cell">Verification</th><th class="text-right hidden sm:table-cell">Actions</th>
               </tr></thead>
               <tbody>${res.data.map(rowHtml).join("")}</tbody>
@@ -246,7 +245,6 @@
               ? `<a href="/admin/sellers.html?id=${l.seller_id}" class="text-blue-700 font-medium hover:underline" title="${escapeHtml(l.seller_name)}">${escapeHtml(l.seller_business_name || l.seller_name)}</a>`
               : `<span class="text-xs text-gray-500 whitespace-nowrap">Frontier's stock</span>`}${l.location ? `<span class="col-xw-in text-xs text-gray-500">${escapeHtml(l.location)}</span>` : ""}</td>
             <td class="hidden xl:table-cell col-xw text-gray-600">${escapeHtml(l.location)}</td>
-            <td class="hidden sm:table-cell text-center">${l.inquiry_count ? `<a class="text-blue-600 font-semibold hover:underline" href="/admin/inquiries.html?q=${encodeURIComponent(l.title)}">${l.inquiry_count}</a>` : `<span class="text-gray-400">0</span>`}</td>
             <td>${stateSelect(l)}</td>
             <td class="hidden sm:table-cell">${pillSelect("verification", l, VERIFICATION_OPTIONS, l.verification || "unverified")}</td>
             <td class="text-right whitespace-nowrap hidden sm:table-cell">${actionsHtml(l)}</td>
