@@ -412,8 +412,7 @@
           const dot = state === "done" ? "✓" : state === "fail" ? "✕" : state === "now" ? "…" : i + 1;
           const rows = rowsOf(list).reverse();
           const day = list.length ? shortDay(list[list.length - 1].created_at) : "";
-          const key = ["placed", "paid", "sent", "confirmed", "handed", "sellerpaid"][i];
-          return `<li class="tl-stage tl-${state} tl-k-${key}">
+          return `<li class="tl-stage tl-${state}">
             <span class="tl-dot">${dot}</span>
             <div class="tl-head"><span class="tl-name">${name}</span>${day ? `<span class="tl-day">${day}</span>` : ""}</div>
             ${rows.length ? `<ol class="tl-rows">${rows.map((r) => rowHtml(r, t)).join("")}</ol>` : state === "now" ? `<p class="tl-wait">${waiting[i]}</p>` : ""}
