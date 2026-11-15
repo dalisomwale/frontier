@@ -6912,3 +6912,4 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 /* Orders table: Collection column */
 .col-tag { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #6b7280; background: #f3f4f6; }
 .col-tag-done { color: #166534; background: #e6f2e1; }
+@media (max-width: 1359px) { .tx-page-wide .orders-table .tx-clip { max-width: 125px; } }

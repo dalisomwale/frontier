@@ -147,9 +147,10 @@
             <td><p class="font-semibold text-gray-900 whitespace-nowrap">${escapeHtml(o.reference)}</p></td>
             <td class="hidden md:table-cell">
               <div class="min-w-0">
-                <span class="text-gray-800 line-clamp-2">${escapeHtml(o.livestock_title)} <span class="text-gray-500 whitespace-nowrap">× ${escapeHtml(String(units))}</span></span>
+                <span class="text-gray-800 line-clamp-2">${escapeHtml(o.livestock_title)}</span>
               </div>
             </td>
+            <td class="hidden md:table-cell whitespace-nowrap text-gray-700">${escapeHtml(String(units))}</td>
             <td><span class="font-medium text-gray-900 whitespace-nowrap">${escapeHtml(o.full_name)}</span></td>
             <td class="hidden xl:table-cell">${o.email ? `<a class="tx-contact tx-clip" href="mailto:${escapeHtml(o.email)}" title="${escapeHtml(o.email)}">${escapeHtml(o.email)}</a>` : "-"}</td>
             <td class="hidden sm:table-cell whitespace-nowrap">${o.phone ? `<a class="tx-contact" href="${telHref(o.phone)}">${escapeHtml(o.phone)}</a>` : "-"}</td>
@@ -352,7 +353,7 @@
         list.innerHTML = `
           <table class="admin-table orders-table">
             <thead><tr>
-              <th>Date</th><th>Order</th><th class="hidden md:table-cell">Items</th><th>Name</th>
+              <th>Date</th><th>Order</th><th class="hidden md:table-cell">Items</th><th class="hidden md:table-cell" title="Quantity">Qty</th><th>Name</th>
               <th class="hidden xl:table-cell">Email</th><th class="hidden sm:table-cell">Phone</th><th class="hidden lg:table-cell">Paid with</th>
               <th>Amount</th><th class="hidden sm:table-cell">Collection</th><th>Status</th>
             </tr></thead>
