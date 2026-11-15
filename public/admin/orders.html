@@ -100,7 +100,6 @@
         if (o.handed_over_at && o.seller_id) return tag("Ready to pay seller");
         if (o.handed_over_at) return tag("Handed over", true);
         if (o.received_at) return tag("Buyer confirmed");
-        if (["failed", "pending"].includes(o.payment_status) && o.status !== "completed") return `<div class="mt-1">${payTag(o)}</div>`;
         return "";
       }
 
