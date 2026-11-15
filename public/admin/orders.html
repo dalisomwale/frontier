@@ -377,6 +377,18 @@
         await loadList(state.page);
       }
 
+      const OD_ICON = {
+        wa: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.1 5.1 0 0 0 1.1 2.7 11.7 11.7 0 0 0 4.5 4c1.7.7 2.3.8 3.2.7.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.2-.2-.5-.3Z"/></svg>`,
+        call: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2Z"/></svg>`,
+        mail: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>`,
+      };
+      const initialsOf = (name) => String(name || "?").replace(/\(.*?\)/g, "").trim().split(/\s+/).slice(0, 2).map((w) => w[0] || "").join("").toUpperCase() || "?";
+      function payMethodText(o) {
+        if (o.payment_method === "card") return `${CARDS[o.card_brand] || "Card"}${o.card_last4 ? ` ending ${o.card_last4}` : ""}`;
+        if (o.payment_method === "mobile_money") return [o.mobile_operator ? OPERATORS[o.mobile_operator] : "Mobile money", o.payment_phone].filter(Boolean).join(" · ");
+        return PAYMENT[o.payment_method] || "-";
+      }
+
       function rows(pairs) {
         return `<dl class="order-dl">${pairs.filter(([, v]) => v !== null && v !== undefined && v !== "")
           .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>`;
@@ -403,55 +415,57 @@
 
         box.innerHTML = `
           ${o.status === "cancelled" ? "" : orderTrackerHtml({ paid: o.payment_status === "paid" || ["paid", "confirmed"].includes(o.status), failed: o.payment_status === "failed", sent: Boolean(o.sent_at), received: Boolean(o.received_at), handed: Boolean(o.handed_over_at), paysSeller: Boolean(o.seller_id), sellerPaid: Boolean(o.seller_paid_at), completed: o.status === "completed" && (!o.seller_id || Boolean(o.seller_paid_at) || !o.handed_over_at) })}
-          <div class="order-detail-grid">
-            <section>
+          <div class="od-summary">
+            ${o.thumb_path ? `<span class="od-thumb"><img src="${escapeHtml(o.thumb_path)}" alt=""></span>` : ""}
+            <div class="od-sum-main">
+              <p class="od-sum-title">${listingLink}</p>
+              <p class="od-sum-sub">${lot ? `Whole lot (${escapeHtml(String(o.quantity))})` : `${escapeHtml(String(o.quantity))} × ${kwacha(o.unit_price)}`} · ${escapeHtml(DELIVERY[o.delivery] || "")}${o.delivery === "deliver" && o.delivery_address ? `: ${escapeHtml(o.delivery_address)}` : ""}</p>
+              <p class="od-sum-stock">${stockText(o)}</p>
+            </div>
+            <div class="od-sum-total"><span>Total</span><b>${kwacha(o.total)}</b></div>
+          </div>
+          <div class="od-cards">
+            <section class="od-card">
               <h3>Buyer</h3>
-              <p class="font-semibold text-gray-900">${escapeHtml(o.full_name)}</p>
-              <div class="order-contact">
-                <a href="https://wa.me/${whatsappNumber(o.phone)}" target="_blank" rel="noopener">WhatsApp ${escapeHtml(o.phone)}</a>
-                <a href="tel:${tel(o.phone)}">Call</a>
-                <a href="mailto:${escapeHtml(o.email)}?subject=${encodeURIComponent(`Order ${o.reference} - Frontier Marketplace`)}">${escapeHtml(o.email)}</a>
+              <div class="od-person">
+                <span class="od-av">${escapeHtml(initialsOf(o.full_name))}</span>
+                <div class="min-w-0"><p class="od-name">${escapeHtml(o.full_name)}</p><p class="od-sub">${escapeHtml(o.phone || "")}</p></div>
+              </div>
+              <div class="od-actions">
+                ${o.phone ? `<a href="https://wa.me/${whatsappNumber(o.phone)}" target="_blank" rel="noopener" class="od-act od-wa">${OD_ICON.wa}WhatsApp</a><a href="tel:${tel(o.phone)}" class="od-act">${OD_ICON.call}Call</a>` : ""}
+                ${o.email ? `<a href="mailto:${escapeHtml(o.email)}?subject=${encodeURIComponent(`Order ${o.reference} - Frontier Marketplace`)}" class="od-act" title="${escapeHtml(o.email)}">${OD_ICON.mail}Email</a>` : ""}
               </div>
             </section>
-            <section>
-              <h3>Order</h3>
-              ${rows([
-                ["Listing", listingLink],
-                ["Quantity", lot ? `The whole lot (${o.quantity})` : `${o.quantity} × ${kwacha(o.unit_price)}`],
-                ["Total", `<strong>${kwacha(o.total)}</strong>`],
-                ["Stock", stockText(o)],
-              ])}
-            </section>
-            <section>
-              <h3>Collection and payment</h3>
-              ${rows([
-                ["Collection", escapeHtml(DELIVERY[o.delivery])],
-                ["Address", o.delivery === "deliver" ? escapeHtml(o.delivery_address) : null],
-                ["Payment", escapeHtml(PAYMENT[o.payment_method])],
-                ["Cart checkout", o.checkout_reference ? `${escapeHtml(o.checkout_reference)}${o.checkout_orders && o.checkout_orders.length ? `, paid together with ${o.checkout_orders.map((x) => `<a href="/admin/orders.html?id=${x.id}" class="font-semibold hover:underline">${escapeHtml(x.reference)}</a>`).join(", ")}` : ""}` : null],
-                ["Operator", o.payment_method === "mobile_money" && o.mobile_operator ? escapeHtml(OPERATORS[o.mobile_operator]) : null],
-                ["Pay from", o.payment_method === "mobile_money" && o.payment_phone ? `<a href="tel:${tel(o.payment_phone)}" class="hover:underline">${escapeHtml(o.payment_phone)}</a>` : null],
-                ["Online payment", payTag(o) || null],
-                ["Paid on", o.paid_at ? escapeHtml(formatDate(o.paid_at)) : null],
-                ["Payment reference", o.checkout_payment && o.checkout_payment.reference ? escapeHtml(o.checkout_payment.reference) : null],
-                ["Payment history", o.checkout_id ? `<a class="text-green-800 underline" href="/admin/transactions.html?id=${Number(o.checkout_id)}">View every step</a>` : null],
-                ["Provider reference", o.payment_provider_ref ? escapeHtml(o.payment_provider_ref) : null],
-                ["Status check", o.checkout_payment && o.checkout_payment.check_error && o.payment_status !== "paid" ? `<span class="text-red-600">${escapeHtml(o.checkout_payment.check_error)}</span>` : null],
-                ["Why it failed", o.payment_status === "failed" && o.payment_failure ? escapeHtml(o.payment_failure) : null],
-                ["Bank", o.payment_method === "bank_transfer" && o.payment_bank ? escapeHtml(o.payment_bank) : null],
-                ["Account", o.payment_method === "bank_transfer" && o.payment_account ? escapeHtml(o.payment_account) : null],
-                ["Card", o.payment_method === "card" ? `${escapeHtml(CARDS[o.card_brand] || "Card")}${o.card_last4 ? ` ending ${escapeHtml(o.card_last4)}` : ""}` : null],
-              ])}
-            </section>
-            <section>
+            <section class="od-card">
               <h3>Seller</h3>
               ${o.seller_id
-                ? `<a href="/admin/sellers.html?id=${o.seller_id}" class="font-semibold text-gray-900 hover:text-blue-700">${escapeHtml(o.seller_name || "Seller")}</a>
-                   ${rows([["Phone", o.seller_phone ? `<a href="tel:${tel(o.seller_phone)}" class="hover:underline">${escapeHtml(o.seller_phone)}</a>` : null],
-                           ["Told about it", o.seller_notified_at ? formatDate(o.seller_notified_at) : "When the payment is confirmed, or when you confirm the order"]])}`
-                : `<p class="text-sm text-gray-600">${o.seller_name ? `${escapeHtml(o.seller_name)} (removed)` : "Frontier's stock"}</p>`}
+                ? `<div class="od-person">
+                     <span class="od-av od-av-seller">${escapeHtml(initialsOf(o.seller_name || "S"))}</span>
+                     <div class="min-w-0"><a href="/admin/sellers.html?id=${o.seller_id}" class="od-name od-link">${escapeHtml(o.seller_name || "Seller")}</a>
+                     <p class="od-sub">${o.seller_notified_at ? `Told ${escapeHtml(formatDate(o.seller_notified_at))}` : "Told once the payment is confirmed"}</p></div>
+                   </div>
+                   ${o.seller_phone ? `<div class="od-actions"><a href="https://wa.me/${whatsappNumber(o.seller_phone)}" target="_blank" rel="noopener" class="od-act od-wa">${OD_ICON.wa}WhatsApp</a><a href="tel:${tel(o.seller_phone)}" class="od-act">${OD_ICON.call}Call</a></div>` : ""}`
+                : `<div class="od-person"><span class="od-av od-av-seller">F</span><div><p class="od-name">${o.seller_name ? `${escapeHtml(o.seller_name)} (removed)` : "Frontier's stock"}</p></div></div>`}
             </section>
           </div>
+          <section class="od-card od-pay">
+            <div class="od-pay-head">
+              <h3>Payment</h3>
+              ${payTag(o) || ""}
+              ${o.checkout_id ? `<a class="od-history" href="/admin/transactions.html?id=${Number(o.checkout_id)}">Payment history →</a>` : ""}
+            </div>
+            ${rows([
+              ["Method", escapeHtml(payMethodText(o))],
+              ["Paid on", o.paid_at ? escapeHtml(formatDate(o.paid_at)) : null],
+              ["Checkout", o.checkout_reference ? `${escapeHtml(o.checkout_reference)}${o.checkout_orders && o.checkout_orders.length ? ` <span class="od-muted">with ${o.checkout_orders.map((x) => `<a href="/admin/orders.html?id=${x.id}" class="font-semibold hover:underline">${escapeHtml(x.reference)}</a>`).join(", ")}</span>` : ""}` : null],
+              ["Payment reference", o.checkout_payment && o.checkout_payment.reference ? `<span class="od-mono">${escapeHtml(o.checkout_payment.reference)}</span>` : null],
+              ["Provider reference", o.payment_provider_ref ? `<span class="od-mono od-trunc" title="${escapeHtml(o.payment_provider_ref)}">${escapeHtml(o.payment_provider_ref)}</span>` : null],
+              ["Status check", o.checkout_payment && o.checkout_payment.check_error && o.payment_status !== "paid" ? `<span class="text-red-600">${escapeHtml(o.checkout_payment.check_error)}</span>` : null],
+              ["Why it failed", o.payment_status === "failed" && o.payment_failure ? escapeHtml(o.payment_failure) : null],
+              ["Bank", o.payment_method === "bank_transfer" && o.payment_bank ? escapeHtml(o.payment_bank) : null],
+              ["Account", o.payment_method === "bank_transfer" && o.payment_account ? escapeHtml(o.payment_account) : null],
+            ])}
+          </section>
           ${proofHtml(o)}
           ${o.checkout_payment && o.checkout_payment.can_check && o.payment_status !== "paid" && o.status !== "cancelled"
             ? `<div class="order-check-pay">
