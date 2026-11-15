@@ -86,7 +86,7 @@
           ${canRetry ? `
           <form class="pay-retry" novalidate>
             <div class="operator-grid" role="radiogroup" aria-label="Mobile money operator">
-              ${Object.entries(OPERATORS).map(([v, l]) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}" ${v === p.operator_key ? "checked" : ""}><span class="op-tick" aria-hidden="true"></span><span>${l}</span></label>`).join("")}
+              ${Object.entries(OPERATORS).map(([v, l]) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}" ${v === p.operator_key ? "checked" : ""}><span class="op-tick" aria-hidden="true"></span><span title="${l}">${l.split(" ")[0]}</span></label>`).join("")}
             </div>
             <label for="retry-phone" class="field-label mt-4">Mobile money number</label>
             <input id="retry-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" maxlength="25" placeholder="0977 123 456">
@@ -182,7 +182,7 @@
             <form class="pay-form" novalidate>
               <p class="field-label">Choose your mobile money</p>
               <div class="operator-grid ${c.operators && c.operators.length === 2 ? "co-ops" : ""}" role="radiogroup" aria-label="Mobile money operator">
-                ${Object.entries(OPERATORS).filter(([v]) => !c.operators || c.operators.includes(v)).map(([v, l]) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}" ${v === c.operator_key ? "checked" : ""}><span class="op-tick" aria-hidden="true"></span><span>${l}</span></label>`).join("")}
+                ${Object.entries(OPERATORS).filter(([v]) => !c.operators || c.operators.includes(v)).map(([v, l]) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}" ${v === c.operator_key ? "checked" : ""}><span class="op-tick" aria-hidden="true"></span><span title="${l}">${l.split(" ")[0]}</span></label>`).join("")}
               </div>
               <label for="pay-phone" class="field-label mt-4">Mobile money number</label>
               <input id="pay-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" autocomplete="tel" maxlength="25" placeholder="0977 123 456" value="${escapeHtml(lastPhone)}">
@@ -265,7 +265,7 @@
           page(`<div class="text-center">
             <div class="order-done-icon" style="margin:0 auto">${tick}</div>
             <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Payment received</h1>
-            <p class="text-sm text-gray-600 mt-2">Thank you, ${escapeHtml(c.first_name)}. We've received ${kwacha(c.total)} for order ${escapeHtml(c.reference)}. We'll contact you to arrange collection.</p>
+            <p class="text-sm text-gray-600 mt-2">${kwacha(c.total)} · ${escapeHtml(c.reference)}. We'll contact you to arrange collection.</p>
           </div>
           ${items(c)}
           <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to listings</a>`, 3);

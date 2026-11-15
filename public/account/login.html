@@ -21,7 +21,6 @@
       <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 class="page-band-title">Log in</h1>
         <span class="page-band-swoosh" aria-hidden="true"></span>
-        <p class="page-band-sub">See your orders and check out faster.</p>
       </div>
     </header>
 
@@ -31,11 +30,11 @@
           <div id="checkout-note" class="alert alert-info text-sm mb-0" hidden>You need an account to check out. Your cart is kept.</div>
           <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
           <div>
-            <label for="email" class="field-label">Email <span class="text-red-500">*</span></label>
+            <label for="email" class="field-label">Email</label>
             <input id="email" name="email" type="email" class="field-input" autocomplete="username" required />
           </div>
           <div>
-            <label for="password" class="field-label">Password <span class="text-red-500">*</span></label>
+            <label for="password" class="field-label">Password</label>
             <div class="relative">
               <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="current-password" required />
               <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
@@ -49,11 +48,7 @@
           <button id="submit-btn" type="submit" class="acc-btn">Log in</button>
         </form>
       </div>
-      <div class="acc-card acc-card-alt mt-4 text-center">
-        <p class="text-sm text-gray-700">New to Frontier Marketplace?</p>
-        <a id="register-link" href="/account/register.html" class="acc-btn acc-btn-gold mt-3">Create an account</a>
-      </div>
-      <p class="text-sm text-gray-500 text-center mt-6">Selling livestock on Frontier? <a href="/seller/login.html" class="acc-link">Seller log in</a></p>
+      <p class="text-sm text-gray-600 text-center mt-5">New here? <a id="register-link" href="/account/register.html" class="acc-link font-semibold">Create account</a> · <a href="/seller/login.html" class="acc-link font-semibold">Seller log in</a></p>
     </main>
 
     <script src="/js/app-shell.js"></script>

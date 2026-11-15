@@ -100,11 +100,12 @@
         admin_marked_paid: "Marked Paid by hand",
         admin_message: "Message to buyer",
         admin_check_payment: "Checked with Lipila",
+        seller_sent: "Delivered or collected",
         handed_over: "Handed over: ready to pay the seller",
         buyer_confirmed: "Buyer confirmed receipt",
       };
       const TONE = {
-        payment_confirmed: "ok", admin_marked_paid: "ok", stock_taken: "ok", email_sent: "ok", buyer_confirmed: "ok",
+        payment_confirmed: "ok", admin_marked_paid: "ok", stock_taken: "ok", email_sent: "ok", buyer_confirmed: "ok", seller_sent: "ok",
         payment_failed: "bad", payment_request_failed: "bad", email_failed: "bad", stock_short: "bad",
         status_check_error: "warn", unconfirmed_alert: "warn", payment_request_unclear: "warn",
       };
@@ -276,7 +277,7 @@
                     <p class="tx-ev-title">${EVENT[e.event] || escapeHtml(e.event)} <span class="tx-actor">${e.actor === "admin" ? escapeHtml(e.admin_name || "Admin") : ACTOR[e.actor] || escapeHtml(e.actor)}</span></p>
                     <p class="tx-ev-meta">${formatDate(e.created_at)}${e.reference ? ` · ${escapeHtml(e.reference)}` : ""}</p>
                     <p class="tx-ev-text">${escapeHtml(e.detail)}</p>
-                    ${e.event === "buyer_confirmed" ? photosOf(e.data) : e.data ? `<details class="tx-raw"><summary>Lipila's full answer</summary><pre>${escapeHtml(pretty(e.data))}</pre></details>` : ""}
+                    ${["buyer_confirmed", "seller_sent"].includes(e.event) ? photosOf(e.data) : e.data ? `<details class="tx-raw"><summary>Lipila's full answer</summary><pre>${escapeHtml(pretty(e.data))}</pre></details>` : ""}
                   </div>
                 </li>`).join("")}</ol>` : `<p class="text-sm text-gray-500">No steps recorded.</p>`}
             </section>
@@ -316,7 +317,8 @@
             : [card ? "Card accepted" : "PIN approved", paid ? "done" : failed && requested ? "fail" : requested ? "now" : "todo"],
           ["Paid", paid ? "done" : "todo"],
           ["Stock and emails", has("stock_taken", "email_sent", "admin_marked_paid") || (paid && t.rebuilt) ? "done" : paid ? "now" : "todo"],
-          ["Buyer confirmed", has("buyer_confirmed") ? "done" : paid ? "now" : "todo"],
+          ["Delivered", has("seller_sent") ? "done" : paid ? "now" : "todo"],
+          ["Buyer confirmed", has("buyer_confirmed") ? "done" : has("seller_sent") ? "now" : "todo"],
           ["Handed over", has("handed_over") ? "done" : has("buyer_confirmed") ? "now" : "todo"],
         ];
         const mark = { done: "✓", fail: "✕", now: "…", todo: "" };

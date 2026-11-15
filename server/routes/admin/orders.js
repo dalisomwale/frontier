@@ -12,6 +12,7 @@ const { notifySeller } = require("../../services/notifications");
 const emails = require("../../lib/emails");
 const txlog = require("../../lib/txlog");
 const handover = require("../../lib/handover");
+const { uploadImages } = require("../../middleware/upload");
 const { broadcastAdmin } = require("../../services/notifications");
 const { positiveInt, text, oneOf, badRequest, notFound } = require("../../lib/validate");
 const {
@@ -79,6 +80,7 @@ async function loadOrder(id) {
   }
   const photos = await handover.photosOf([order.id]);
   order.receipt_photos = photos.get(order.id) || [];
+  order.can_send = handover.canSend(rows[0]);
   order.can_hand_over = handover.canHandOver(rows[0]);
   return order;
 }
@@ -286,6 +288,19 @@ router.patch("/:id", async (req, res, next) => {
     next(error);
   } finally {
     conn.release();
+  }
+});
+
+// Frontier marks a paid order as delivered or collected, with photos (its own
+// stock, or for a seller). The buyer is then asked to confirm.
+router.post("/:id/sent", uploadImages, async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id);
+    if (!id) throw notFound("Order not found.");
+    await handover.markSent(id, String(req.body.method || ""), { kind: "admin", name: `Frontier (${req.admin.name})`, admin: req.admin }, req.files, text(req.body.note, 500) || null, req.ip);
+    res.json({ success: true, message: "Done. The buyer has been asked to confirm.", data: await loadOrder(id) });
+  } catch (error) {
+    next(error);
   }
 });
 

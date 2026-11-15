@@ -330,6 +330,11 @@ const LATE_COLUMNS = [
   ["orders", "handed_over_by", "VARCHAR(150) NULL AFTER handed_over_at"],
   ["orders", "received_at", "DATETIME NULL AFTER handed_over_by"],
   ["orders", "received_note", "VARCHAR(500) NULL AFTER received_at"],
+  ["orders", "sent_method", "ENUM('collected', 'delivered') NULL AFTER received_note"],
+  ["orders", "sent_at", "DATETIME NULL AFTER sent_method"],
+  ["orders", "sent_by", "VARCHAR(150) NULL AFTER sent_at"],
+  ["orders", "sent_note", "VARCHAR(500) NULL AFTER sent_by"],
+  ["order_receipt_photos", "party", "ENUM('buyer', 'seller') NOT NULL DEFAULT 'buyer' AFTER order_id"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");

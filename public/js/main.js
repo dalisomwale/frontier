@@ -269,8 +269,16 @@ function renderSiteFooter() {
           ${link("/contact.html", "All contact details")}
         </div>
       </div>
+      <nav class="site-footer-mini" aria-label="Footer">
+        <strong>Frontier Marketplace</strong>
+        ${link("/#listings", "Livestock")}
+        ${link("/#feed", "Feed")}
+        ${link("/seller/register.html", "Sell with us")}
+        ${link("/contact.html", "Contact")}
+        ${link("/terms.html", "Policies")}
+      </nav>
       <div class="site-footer-bottom">
-        <p>&copy; ${new Date().getFullYear()} Frontier Farms &amp; Consult. All rights reserved.</p>
+        <p>&copy; ${new Date().getFullYear()} Frontier Farms &amp; Consult</p>
       </div>
     </div>`;
 }
@@ -306,3 +314,38 @@ async function initSellerLink() {
   }
 }
 document.addEventListener("DOMContentLoaded", initSellerLink);
+
+// Photo picker for handover proof: a grid with "Add photo" and remove
+// buttons. Returns { files() } with the chosen File objects.
+function bindPhotoPicker(grid, max = 4, onChange = () => {}) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/jpeg,image/png,image/webp";
+  input.multiple = true;
+  input.hidden = true;
+  grid.insertAdjacentElement("afterend", input);
+  const files = [];
+  const paint = () => {
+    grid.innerHTML = files.map((f, i) => `<div class="acc-ph"><img src="${f.url}" alt=""><button type="button" data-rm="${i}" aria-label="Remove photo">×</button></div>`).join("")
+      + (files.length < max ? `<button type="button" class="acc-ph-add">${uiIcon("camera")}<span>Add photo</span></button>` : "");
+    grid.querySelector(".acc-ph-add")?.addEventListener("click", () => input.click());
+    grid.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => {
+      const [gone] = files.splice(Number(b.dataset.rm), 1);
+      URL.revokeObjectURL(gone.url);
+      paint();
+      onChange(files.length);
+    }));
+  };
+  input.addEventListener("change", () => {
+    [...input.files].slice(0, max - files.length).forEach((file) => {
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return showNotification("Photos must be JPEG, PNG or WebP.", "error");
+      if (file.size > 12 * 1024 * 1024) return showNotification("Each photo must be under 12 MB.", "error");
+      files.push({ file, url: URL.createObjectURL(file) });
+    });
+    input.value = "";
+    paint();
+    onChange(files.length);
+  });
+  paint();
+  return { files: () => files.map((f) => f.file), input };
+}

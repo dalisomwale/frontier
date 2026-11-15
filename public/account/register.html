@@ -19,37 +19,36 @@
     <div id="account-header"></div>
     <header class="page-band">
       <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 class="page-band-title">Create your account</h1>
+        <h1 class="page-band-title">Create account</h1>
         <span class="page-band-swoosh" aria-hidden="true"></span>
-        <p class="page-band-sub">Track your orders, check out faster and confirm when you've received your livestock.</p>
       </div>
     </header>
 
     <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
-      <div class="acc-split">
+      <div class="acc-split acc-single">
         <div class="acc-card">
           <form id="register-form" class="space-y-4" novalidate>
             <div id="checkout-note" class="alert alert-info text-sm mb-0" hidden>You need an account to check out. Your cart is kept.</div>
             <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
             <div>
-              <label for="full_name" class="field-label">Full name <span class="text-red-500">*</span></label>
+              <label for="full_name" class="field-label">Full name </label>
               <input id="full_name" name="full_name" class="field-input" autocomplete="name" maxlength="120" required />
               <p class="field-error hidden" data-error-for="full_name"></p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label for="email" class="field-label">Email <span class="text-red-500">*</span></label>
+                <label for="email" class="field-label">Email </label>
                 <input id="email" name="email" type="email" class="field-input" autocomplete="email" required />
                 <p class="field-error hidden" data-error-for="email"></p>
               </div>
               <div>
-                <label for="phone" class="field-label">Phone number <span class="text-red-500">*</span></label>
+                <label for="phone" class="field-label">Phone number </label>
                 <input id="phone" name="phone" type="tel" class="field-input" autocomplete="tel" placeholder="0977 123 456" required />
                 <p class="field-error hidden" data-error-for="phone"></p>
               </div>
             </div>
           <div>
-            <label for="password" class="field-label">Password <span class="text-red-500">*</span></label>
+            <label for="password" class="field-label">Password </label>
             <div class="relative">
               <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
               <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
@@ -58,21 +57,13 @@
           </div>
             <label class="co-terms-box">
               <input type="checkbox" name="accept_terms" />
-              <span>I have read and accept the <a href="/terms.html" target="_blank" class="acc-link">Terms</a>, <a href="/refund-policy.html" target="_blank" class="acc-link">Refund</a>, <a href="/return-policy.html" target="_blank" class="acc-link">Return</a> and <a href="/cancellation-policy.html" target="_blank" class="acc-link">Cancellation</a> policies.</span>
+              <span>I accept the <a href="/terms.html" target="_blank" class="acc-link">terms and policies</a></span>
             </label>
             <p class="field-error hidden -mt-2" data-error-for="accept_terms"></p>
             <button id="submit-btn" type="submit" class="acc-btn">Create account</button>
-            <p class="text-sm text-gray-600 text-center">Already have an account? <a id="login-link2" href="/account/login.html" class="acc-link font-semibold">Log in</a></p>
+            <p class="text-sm text-gray-600 text-center">Have an account? <a id="login-link2" href="/account/login.html" class="acc-link font-semibold">Log in</a> · <a href="/seller/register.html" class="acc-link font-semibold">Sell with us</a></p>
           </form>
         </div>
-        <aside class="acc-why">
-          <p class="acc-why-title">With an account you can</p>
-          <div class="acc-why-item"><span data-icon="cart"></span><div><b>See all your orders</b><p>Payment, collection and delivery in one place.</p></div></div>
-          <div class="acc-why-item"><span data-icon="camera"></span><div><b>Confirm what you've received</b><p>Add a few photos when you collect or receive your animals.</p></div></div>
-          <div class="acc-why-item"><span data-icon="check"></span><div><b>Check out faster</b><p>Your details are filled in for you.</p></div></div>
-          <p class="acc-why-note">Ordered before? Use the same email. Once you confirm it, your past orders appear in your account.</p>
-          <p class="acc-why-note">Selling livestock? <a href="/seller/register.html" class="acc-link">Register as a seller</a></p>
-        </aside>
       </div>
     </main>
 

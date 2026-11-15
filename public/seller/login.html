@@ -18,17 +18,16 @@
     <main class="max-w-sm mx-auto px-4 py-10 sm:py-16">
       <div class="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
         <h1 class="text-xl font-bold text-gray-900">Seller sign in</h1>
-        <p class="text-sm text-gray-500 mt-1">Manage your listings and messages.</p>
         <form id="login-form" class="space-y-4 mt-6" novalidate>
           <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
           <div>
-            <label for="email" class="field-label">Email <span class="text-red-500">*</span></label>
+            <label for="email" class="field-label">Email</label>
             <input id="email" name="email" type="email" class="field-input" autocomplete="username" required  />
             
             <p class="field-error hidden" data-error-for="email"></p>
           </div>
           <div>
-            <label for="password" class="field-label">Password <span class="text-red-500">*</span></label>
+            <label for="password" class="field-label">Password</label>
             <div class="relative">
               <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="current-password" required />
               <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>

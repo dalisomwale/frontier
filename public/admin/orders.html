@@ -11,6 +11,7 @@
     <script src="/js/main.js"></script>
     <script src="/js/icons.js"></script>
     <script src="/js/app-shell.js"></script>
+    <script src="/js/seller.js"></script>
     <script src="/js/admin.js"></script>
     <script src="/js/livestock.js"></script>
   </head>
@@ -87,6 +88,17 @@
         return `Not taken yet: comes off when the payment is confirmed (${on})`;
       }
 
+      // One small tag under the status: a failed payment, or where the handover is.
+      function stageTag(o) {
+        if (o.status === "cancelled") return "";
+        const tag = (t, ok) => `<div class="mt-1"><span class="ho-tag ${ok ? "ho-tag-ok" : ""}">${t}</span></div>`;
+        if (o.handed_over_at) return tag("Ready to pay seller", true);
+        if (o.received_at) return tag("Buyer confirmed");
+        if (o.sent_at) return tag(o.sent_method === "delivered" ? "Delivered" : "Collected");
+        if (["failed", "pending"].includes(o.payment_status) && o.status !== "completed") return `<div class="mt-1">${payTag(o)}</div>`;
+        return "";
+      }
+
       function paymentShort(o) {
         if (o.payment_method === "mobile_money") return OPERATORS[o.mobile_operator] || "Mobile money";
         if (o.payment_method === "bank_transfer") return o.payment_bank || "Bank transfer";
@@ -128,15 +140,16 @@
             <td class="hidden md:table-cell">
               <div class="flex items-center gap-2.5 min-w-0">
                 <span class="order-item-thumb">${o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="">` : livestockFallbackMedia("w-5 h-5")}</span>
-                <span class="text-sm text-gray-800 line-clamp-2">${escapeHtml(o.livestock_title)}</span>
+                <span class="text-sm text-gray-800 line-clamp-2">${escapeHtml(o.livestock_title)} <span class="text-gray-500 whitespace-nowrap">× ${escapeHtml(String(units))}</span></span>
               </div>
             </td>
-            <td class="hidden sm:table-cell text-center">${escapeHtml(String(units))}</td>
-            <td class="font-semibold text-gray-900 whitespace-nowrap">${kwacha(o.total)}</td>
-            <td class="hidden lg:table-cell text-sm text-gray-700">${escapeHtml(paymentShort(o))}${payTag(o) ? `<div class="mt-1">${payTag(o)}</div>` : ""}</td>
-            <td>${statusSelect(o)}${o.handed_over_at ? `<div class="mt-1"><span class="ho-tag ho-tag-ok">Ready to pay seller</span></div>` : o.received_at && o.status !== "cancelled" ? `<div class="mt-1"><span class="ho-tag">Received by buyer</span></div>` : ""}</td>
+            <td class="whitespace-nowrap">
+              <p class="font-semibold text-gray-900">${kwacha(o.total)}</p>
+              <p class="text-xs text-gray-500 hidden sm:block">${escapeHtml(paymentShort(o))}</p>
+            </td>
+            <td>${statusSelect(o)}${stageTag(o)}</td>
           </tr>
-          ${isOpen ? `<tr class="order-detail-row"><td colspan="7"><div class="order-detail" data-detail="${o.id}"><span class="btn-spinner chat-spinner"></span></div></td></tr>` : ""}`;
+          ${isOpen ? `<tr class="order-detail-row"><td colspan="5"><div class="order-detail" data-detail="${o.id}"><span class="btn-spinner chat-spinner"></span></div></td></tr>` : ""}`;
       }
 
       function listParams(page) {
@@ -144,6 +157,89 @@
         if (state.status) params.set("status", state.status);
         if (state.q) params.set("q", state.q);
         return params;
+      }
+
+      // Handover: the seller's delivery or collection (with photos), then the
+      // buyer's confirmation (with photos), then "handed over" completes it.
+      const proofPhotos = (o, party) => {
+        const list = (o.receipt_photos || []).filter((p) => (p.party || "buyer") === party);
+        return list.length ? `<div class="order-proof-photos">${list.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="${party === "seller" ? "Seller's" : "Buyer's"} photo"></a>`).join("")}</div>` : "";
+      };
+      function proofHtml(o) {
+        const paid = o.payment_status === "paid" || ["paid", "confirmed"].includes(o.status);
+        if (o.status === "cancelled" || (!paid && !o.sent_at)) return "";
+        if (o.status === "completed" && !o.sent_at && !o.received_at) return "";
+        const how = (m) => (m === "delivered" ? "Delivered" : "Collected");
+        const seller = o.sent_at
+          ? `<div class="order-proof-step"><p class="font-bold text-gray-900">1 · ${how(o.sent_method)} · ${escapeHtml(formatDate(o.sent_at))}</p><p class="text-sm text-gray-600">By ${escapeHtml(o.sent_by || "-")}</p>${proofPhotos(o, "seller")}</div>`
+          : o.can_send
+            ? `<form class="order-proof-step" data-sent novalidate>
+                 <p class="font-bold text-gray-900">1 · Delivered or collected?</p>
+                 <p class="text-sm text-gray-600 mb-2">${o.seller_id ? "Waiting for the seller. You can also do it here." : "Frontier's stock."}</p>
+                 <div class="ho-choice" style="max-width:420px">
+                   <label><input type="radio" name="method" value="collected"><span>Collected</span></label>
+                   <label><input type="radio" name="method" value="delivered"><span>Delivered</span></label>
+                 </div>
+                 <p class="field-error hidden" data-error-for="method"></p>
+                 <div class="acc-ph-grid mt-3" data-photos style="max-width:520px"></div>
+                 <p class="field-error hidden" data-error-for="images"></p>
+                 <button type="submit" class="acc-btn mt-3" style="width:auto">Save</button>
+               </form>`
+            : "";
+        const buyer = o.received_at
+          ? `<div class="order-proof-step"><p class="font-bold text-gray-900">2 · Buyer confirmed · ${escapeHtml(formatDate(o.received_at))}</p>${o.received_note ? `<p class="text-sm text-gray-600">"${escapeHtml(o.received_note)}"</p>` : ""}${proofPhotos(o, "buyer")}</div>`
+          : o.sent_at
+            ? `<div class="order-proof-step"><p class="font-bold text-gray-900">2 · Waiting for the buyer</p><p class="text-sm text-gray-600">${o.buyer_id ? "They confirm with photos." : "No account: mark the order Completed when it's done."}</p></div>`
+            : "";
+        const done = o.handed_over_at
+          ? `<div class="order-proof-step"><p class="font-bold text-gray-900">3 · Handed over · ${escapeHtml(formatDate(o.handed_over_at))}</p><p class="text-sm text-gray-600">By ${escapeHtml(o.handed_over_by || "-")}. The seller can be paid.</p></div>`
+          : o.can_hand_over
+            ? `<form class="order-proof-step" data-handover><p class="font-bold text-gray-900">3 · Hand over</p><p class="text-sm text-gray-600 mb-2">${o.seller_id ? "Waiting for the seller. You can also do it here." : "Completes the order."}</p><button type="submit" class="acc-btn" style="width:auto">Mark as handed over</button></form>`
+            : "";
+        return `<div class="order-proof">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <p class="font-bold text-gray-900">Handover</p>
+              ${o.handed_over_at ? `<span class="so-pill so-done">Ready to pay the seller</span>` : ""}
+            </div>
+            ${seller}${buyer}${done}
+          </div>`;
+      }
+      function bindProof(box, o) {
+        const sent = box.querySelector("[data-sent]");
+        if (sent) {
+          const errorFor = (k) => sent.querySelector(`[data-error-for="${k}"]`);
+          const picker = bindPhotoPicker(sent.querySelector("[data-photos]"), 4, (n) => { if (n) errorFor("images").classList.add("hidden"); });
+          sent.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const errors = {};
+            if (!sent.method.value) errors.method = "Please choose one.";
+            if (!picker.files().length) errors.images = "Please add at least one photo.";
+            if (Object.keys(errors).length) return showFieldErrors(sent, { errors });
+            const fd = new FormData();
+            fd.append("method", sent.method.value);
+            picker.files().forEach((f) => fd.append("images", f));
+            try {
+              const res = await withBusy(sent.querySelector("button[type=submit]"), "Saving…", () =>
+                adminApi(`/api/admin/orders/${o.id}/sent`, { method: "POST", body: fd }));
+              showNotification(res.message, "success");
+              await loadList(state.page);
+            } catch (error) {
+              showFieldErrors(sent, error);
+              showNotification(error.message, "error");
+            }
+          });
+        }
+        box.querySelector("[data-handover]")?.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          if (!(await confirmAction({ title: "Mark as handed over?", message: "The order will be completed and the seller can be paid.", confirmText: "Mark as handed over" }))) return;
+          try {
+            const res = await adminApi(`/api/admin/orders/${o.id}/handover`, { method: "POST", body: {} });
+            showNotification(res.message, "success");
+            await loadList(state.page);
+          } catch (error) {
+            showNotification(error.message, "error");
+          }
+        });
       }
 
       async function loadList(page = state.page, preloaded) {
@@ -178,8 +274,8 @@
         list.innerHTML = `
           <table class="admin-table orders-table">
             <thead><tr>
-              <th>Order</th><th>Buyer</th><th class="hidden md:table-cell">Listing</th><th class="hidden sm:table-cell text-center">Qty</th>
-              <th>Total</th><th class="hidden lg:table-cell">Payment</th><th>Status</th>
+              <th>Order</th><th>Buyer</th><th class="hidden md:table-cell">Listing</th>
+              <th>Total</th><th>Status</th>
             </tr></thead>
             <tbody>${state.rows.map(rowHtml).join("")}</tbody>
           </table>`;
@@ -309,28 +405,7 @@
                 : `<p class="text-sm text-gray-600">${o.seller_name ? `${escapeHtml(o.seller_name)} (removed)` : "Frontier's stock"}</p>`}
             </section>
           </div>
-          ${o.received_at ? `
-            <div class="order-proof">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <p class="font-bold text-gray-900">Proof of ${o.handover_method === "delivered" ? "delivery" : "collection"}</p>
-                <span class="so-pill so-done">${o.handed_over_at ? "Ready to pay the seller" : "Received by buyer"}</span>
-              </div>
-              <p class="text-sm text-gray-600 mt-1">${escapeHtml(o.full_name)} confirmed on ${escapeHtml(formatDate(o.received_at))}${o.received_note ? ` · "${escapeHtml(o.received_note)}"` : ""}.</p>
-              <div class="order-proof-photos">${(o.receipt_photos || []).map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="Buyer's photo"></a>`).join("")}</div>
-              ${o.handed_over_at
-                ? `<p class="text-sm text-gray-700 mt-3"><b>Handed over</b> by ${escapeHtml(o.handed_over_by || "-")} on ${escapeHtml(formatDate(o.handed_over_at))}. The seller's funds can be processed.</p>`
-                : o.can_hand_over
-                  ? `<form class="order-handover mt-3" data-handover>
-                       <p class="text-sm text-gray-600 mb-2">${o.seller_id ? "Waiting for the seller to mark it as handed over. You can also mark it here." : "Frontier's stock: mark it as handed over to complete the order."}</p>
-                       <button type="submit" class="acc-btn" style="width:auto">Mark as handed over</button>
-                     </form>`
-                  : ""}
-            </div>`
-          : !["completed", "cancelled"].includes(o.status) && (o.payment_status === "paid" || ["paid", "confirmed"].includes(o.status)) ? `
-            <div class="order-proof order-proof-wait">
-              <p class="font-bold text-gray-900">Waiting for the buyer to confirm</p>
-              <p class="text-sm text-gray-600 mt-1">${o.buyer_id ? "Once the buyer has the order, they confirm with photos. Then the seller marks it as handed over." : "This buyer has no account, so they can't confirm online. Mark the order Completed when it's done."}</p>
-            </div>` : ""}
+          ${proofHtml(o)}
           ${o.checkout_payment && o.checkout_payment.can_check && o.payment_status !== "paid" && o.status !== "cancelled"
             ? `<div class="order-check-pay">
                  <button type="button" data-check-pay class="btn-secondary" style="padding:.5rem .9rem;font-size:.85rem">Check payment with Lipila</button>
@@ -342,17 +417,7 @@
             <button type="button" data-send class="chat-send-btn">Send</button>
           </div>`;
 
-        box.querySelector("[data-handover]")?.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          if (!(await confirmAction({ title: "Mark as handed over?", message: "The order will be marked Completed and the seller's funds can be processed.", confirmText: "Mark as handed over" }))) return;
-          try {
-            const res = await adminApi(`/api/admin/orders/${o.id}/handover`, { method: "POST", body: {} });
-            showNotification(res.message, "success");
-            await loadList(state.page);
-          } catch (error) {
-            showNotification(error.message, "error");
-          }
-        });
+        bindProof(box, o);
         const checkBtn = box.querySelector("[data-check-pay]");
         if (checkBtn) {
           checkBtn.addEventListener("click", async () => {

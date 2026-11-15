@@ -235,7 +235,7 @@ async function sellerOrder(order, event, { units, leftOnListing } = {}) {
       text: `Good news: ${order.price_unit === "lot" ? "the whole lot" : units} from ${order.livestock_title} ${order.quantity === 1 && order.price_unit !== "lot" ? "has" : "have"} been ordered.`,
       rows: [["Order", ref], ["Quantity", what], ["Total", kwacha(order.total)], ["Payment", order.payment_status === "paid" ? "Paid online" : "Being arranged by Frontier"],
         ...(leftOnListing !== undefined ? [["Left on the listing", String(leftOnListing)]] : [])],
-      after: ["Our team will contact you to arrange the handover. Please keep these aside for this buyer. Once the buyer confirms they have them, mark the order as handed over and Frontier will process your payment."],
+      after: ["Please keep these aside for the buyer. When they have them, mark the order as delivered or collected, with photos, in your seller account. Frontier pays you once the order is complete."],
     },
     received: {
       subject: `Buyer confirmed order ${ref}: please mark it as handed over`,

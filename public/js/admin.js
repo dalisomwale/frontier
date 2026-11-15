@@ -79,6 +79,7 @@ function listenForChanges() {
     const ref = detail.checkout_id ? `FMC-${1000 + Number(detail.checkout_id)}` : detail.id ? `FM-${1000 + Number(detail.id)}` : "";
     const note = {
       paid: `Payment received: ${ref}`,
+      sent: `Order ${detail.id ? `FM-${1000 + Number(detail.id)}` : ""} delivered or collected`,
       received: `Buyer confirmed they received ${detail.id ? `FM-${1000 + Number(detail.id)}` : "an order"}`,
       handed_over: `Order ${detail.id ? `FM-${1000 + Number(detail.id)}` : ""} complete: ready to pay the seller`,
     }[detail.change] || (detail.kind === "inquiry" ? "New inquiry received" : "");

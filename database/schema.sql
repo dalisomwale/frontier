@@ -318,6 +318,10 @@ CREATE TABLE IF NOT EXISTS orders (
   handed_over_by   VARCHAR(150) NULL,
   received_at      DATETIME NULL,
   received_note    VARCHAR(500) NULL,
+  sent_method      ENUM('collected', 'delivered') NULL,
+  sent_at          DATETIME NULL,
+  sent_by          VARCHAR(150) NULL,
+  sent_note        VARCHAR(500) NULL,
   email_status     ENUM('pending', 'sent', 'failed') NOT NULL DEFAULT 'pending',
   email_error      VARCHAR(500) NULL,
   ip_address       VARCHAR(45) NULL,
@@ -416,10 +420,12 @@ CREATE TABLE IF NOT EXISTS buyer_notifications (
   INDEX idx_buyer_notifications (buyer_id, read_at, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Photos a buyer uploads when confirming they've received an order.
+-- Photos of an order changing hands: the seller's (when they deliver or the
+-- buyer collects) and the buyer's (when they confirm they've received it).
 CREATE TABLE IF NOT EXISTS order_receipt_photos (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   order_id    INT UNSIGNED NOT NULL,
+  party       ENUM('buyer', 'seller') NOT NULL DEFAULT 'buyer',
   image_path  VARCHAR(255) NOT NULL,
   thumb_path  VARCHAR(255) NOT NULL,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

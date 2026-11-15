@@ -94,19 +94,18 @@
             <div class="checkout-main">
               <div id="co-alert" class="hidden alert alert-error text-sm" role="alert"></div>
               <section class="checkout-section">
-                <h2>Your details</h2>
                 <div class="co-who">
                   <span class="acc-av">${escapeHtml(buyerInitials(buyer.full_name))}</span>
                   <div class="min-w-0 flex-1">
                     <p class="font-bold text-gray-900 truncate">${escapeHtml(buyer.full_name)}</p>
-                    <p class="text-sm text-gray-600 truncate">${escapeHtml(buyer.email)}</p>
+                    <p class="text-sm text-gray-600 truncate" data-who-phone>${escapeHtml(buyer.phone || buyer.email)}</p>
                   </div>
-                  <a href="/account/?tab=profile" class="acc-link text-sm">Change</a>
+                  <button type="button" class="acc-link text-sm" data-change-phone>Change</button>
                 </div>
                 <input type="hidden" name="full_name" value="${escapeHtml(buyer.full_name)}">
                 <input type="hidden" name="email" value="${escapeHtml(buyer.email)}">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                  <div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 co-fields">
+                  <div data-phone-box ${buyer.phone ? "hidden" : ""}>
                     <label for="co-phone" class="field-label">Phone number</label>
                     <input id="co-phone" name="phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" required placeholder="0977 123 456">
                     <p class="field-error hidden" data-error-for="phone"></p>
@@ -126,7 +125,6 @@
               </section>
 
               <section class="checkout-section">
-                <h2>Payment</h2>
                 ${methods.length > 1 ? `
                 <div class="pm-choices" role="radiogroup" aria-label="How you'd like to pay">
                   ${methods.map((m, n) => `<label class="pm-choice"><input type="radio" name="payment_method" value="${m}" ${n === 0 ? "checked" : ""}>
@@ -138,9 +136,9 @@
 
                 ${methods.includes("mobile_money") ? `
                 <div data-method-panel="mobile_money" class="pm-panel">
-                  <p class="field-label" id="co-op-label">Your network</p>
+                  <p class="sr-only" id="co-op-label">Your network</p>
                   <div class="operator-grid ${ops.length === 2 ? "co-ops" : ""}" data-logo-group role="radiogroup" aria-labelledby="co-op-label">
-                    ${ops.map((v) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}"><span class="op-tick" aria-hidden="true"></span>${payLogo(v, "", "op-logo")}<span>${OP_NAMES[v]}</span></label>`).join("")}
+                    ${ops.map((v) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}"><span class="op-tick" aria-hidden="true"></span>${payLogo(v, "", "op-logo")}<span title="${OP_NAMES[v]}">${OP_NAMES[v].split(" ")[0]}</span></label>`).join("")}
                   </div>
                   <p class="field-error hidden" data-error-for="mobile_operator"></p>
                   <label for="co-pay-phone" class="field-label mt-4">Mobile money number</label>
@@ -160,7 +158,7 @@
               <div class="co-terms">
                 <label class="co-terms-box">
                   <input type="checkbox" name="accept_terms" value="1">
-                  <span>I have read and accept the <a href="/terms.html" target="_blank" rel="noopener">Terms</a>, <a href="/refund-policy.html" target="_blank" rel="noopener">Refund</a>, <a href="/return-policy.html" target="_blank" rel="noopener">Return</a> and <a href="/cancellation-policy.html" target="_blank" rel="noopener">Cancellation</a> policies.</span>
+                  <span>I accept the <a href="/terms.html" target="_blank" rel="noopener">terms and policies</a></span>
                 </label>
                 <p class="field-error hidden" data-error-for="accept_terms"></p>
               </div>
@@ -229,6 +227,10 @@
           });
           pp.addEventListener("input", () => { pp.dataset.edited = "1"; });
         }
+        // The phone from the account; "Change" opens the field.
+        const phoneBox = form.querySelector("[data-phone-box]");
+        form.querySelector("[data-change-phone]").addEventListener("click", () => { phoneBox.hidden = false; ph.focus(); });
+        ph.addEventListener("input", () => { form.querySelector("[data-who-phone]").textContent = ph.value || buyer.email; });
         submits.forEach((b) => { b.textContent = label; });
         form.addEventListener("submit", (e) => { e.preventDefault(); place(form, submits, label, method()); });
       }
@@ -241,6 +243,7 @@
           el.classList.toggle("hidden", !msg);
           if (input && input.classList) { input.classList.toggle("has-error", Boolean(msg)); input.setAttribute("aria-invalid", msg ? "true" : "false"); }
         });
+        if (errors.phone) { const box = form.querySelector("[data-phone-box]"); if (box) box.hidden = false; }
         const first = Object.keys(errors).find((k) => form.elements[k]);
         if (first) {
           const el = form.elements[first];

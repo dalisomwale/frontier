@@ -894,6 +894,7 @@
       // Orders on this seller's listings (no buyer details: Frontier handles them).
       const ORDER_TABS = [
         { key: "all", label: "All" },
+        { key: "send", label: "To deliver" },
         { key: "buyer", label: "Waiting for buyer" },
         { key: "open", label: "To hand over" },
         { key: "completed", label: "Completed" },
@@ -901,15 +902,14 @@
       ];
       const orderState = { tab: "all", rows: [], q: "" };
       const isOpen = (o) => !["completed", "cancelled"].includes(o.status);
-      const inTab = (o, tab) => tab === "all" || (tab === "open" ? isOpen(o) && Boolean(o.received_at) : tab === "buyer" ? isOpen(o) && !o.received_at : o.status === tab);
+      const inTab = (o, tab) => tab === "all" || (tab === "send" ? isOpen(o) && !o.sent_at : tab === "open" ? isOpen(o) && Boolean(o.received_at) : tab === "buyer" ? isOpen(o) && Boolean(o.sent_at) && !o.received_at : o.status === tab);
 
       function orderStatus(o) {
-        if (o.status === "completed") return { cls: "so-done", label: "Completed", help: o.handed_over_at ? "Handed over. Frontier will process your payment. Thank you for selling on Frontier." : "Thank you for selling on Frontier." };
-        if (o.status === "cancelled") return { cls: "so-off", label: "Cancelled", help: "This order was cancelled. The quantity is back on your listing." };
-        if (o.received_at) return { cls: "so-act", label: "To hand over",
-          help: "The buyer confirmed they received it. Mark the order as handed over so Frontier can process your payment." };
-        return { cls: "so-open", label: "Waiting for buyer",
-          help: "Please keep these aside for the buyer. Once they have them, the buyer confirms with photos, and then you can mark the order as handed over." };
+        if (o.status === "completed") return { cls: "so-done", label: "Completed" };
+        if (o.status === "cancelled") return { cls: "so-off", label: "Cancelled" };
+        if (o.received_at) return { cls: "so-act", label: "To hand over" };
+        if (o.sent_at) return { cls: "so-open", label: "Waiting for buyer" };
+        return { cls: "so-act", label: "To deliver" };
       }
 
       function orderRow(o) {
@@ -927,66 +927,108 @@
           </li>`;
       }
 
-      // One order on its own page: Orders / FM-1234.
+      // One order on its own page: Orders / FM-1234. One card for the step
+      // the seller is on, then a short list of details.
+      const proofPhotos = (o, party, alt) => {
+        const list = (o.photos || []).filter((p) => (p.party || "buyer") === party);
+        return list.length ? `<div class="acc-photos mt-3">${list.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="${alt}"></a>`).join("")}</div>` : "";
+      };
+      const howWord = (m) => (m === "delivered" ? "Delivered" : "Collected");
+
+      function stepCard(o) {
+        if (o.status === "cancelled") return `<div class="txd-card"><p class="text-sm text-gray-700">Cancelled. The quantity is back on your listing.</p></div>`;
+        if (o.status === "completed") {
+          return `<div class="txd-card acc-card-ok"><b>Completed</b><p class="text-sm text-gray-600 mt-1">${o.handed_over_at ? "Frontier will process your payment." : "Thank you for selling on Frontier."}</p>${proofPhotos(o, "buyer", "Buyer's photo")}</div>`;
+        }
+        if (o.received_at) {
+          return `<form class="txd-card acc-card-ok" data-handover>
+              <b>Buyer confirmed · ${escapeHtml(formatDateShort(o.received_at))}</b>
+              ${o.received_note ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(o.received_note)}"</p>` : ""}
+              ${proofPhotos(o, "buyer", "Buyer's photo")}
+              <button type="submit" class="acc-btn mt-4">Mark as handed over</button>
+            </form>`;
+        }
+        if (o.sent_at) {
+          return `<div class="txd-card">
+              <b>${howWord(o.sent_method)} · ${escapeHtml(formatDateShort(o.sent_at))}</b>
+              ${proofPhotos(o, "seller", "Your photo")}
+              <p class="text-sm text-gray-600 mt-3">Waiting for the buyer to confirm.</p>
+              <button type="button" class="acc-btn mt-3" disabled>Mark as handed over</button>
+            </div>`;
+        }
+        return `<form class="txd-card" data-sent novalidate>
+            <b>Delivered or collected?</b>
+            <div class="ho-choice mt-3">
+              <label><input type="radio" name="method" value="collected"><span>Buyer collected</span></label>
+              <label><input type="radio" name="method" value="delivered"><span>I delivered</span></label>
+            </div>
+            <p class="field-error hidden" data-error-for="method"></p>
+            <p class="field-label mt-4">Photos <span class="text-gray-400 font-normal">(1 to 4)</span></p>
+            <div class="acc-ph-grid" data-photos></div>
+            <p class="field-error hidden" data-error-for="images"></p>
+            <button type="submit" class="acc-btn mt-4">Save</button>
+          </form>`;
+      }
+
       function openOrder(id) {
         const o = orderState.rows.find((x) => String(x.id) === String(id));
         if (!o) return;
         const st = orderStatus(o);
-        const unitPrice = o.price_unit === "lot" ? `${kwacha(o.unit_price)} for the lot` : `${kwacha(o.unit_price)} each`;
         const view = openAdminView({ title: o.reference, params: { id: o.id } });
         view.body.innerHTML = `
           <div class="sv-head">
             <div class="min-w-0">
               <h1 class="admin-view-title !mb-1">${escapeHtml(o.title)}</h1>
-              <p class="text-sm text-gray-500">Order ${escapeHtml(o.reference)} · ${escapeHtml(formatDate(o.ordered_at))}</p>
+              <p class="text-sm text-gray-500">${escapeHtml(formatDateShort(o.ordered_at))}</p>
             </div>
             <span class="so-pill ${st.cls} so-pill-lg">${st.label}</span>
           </div>
           <div class="so-detail">
+            <div class="space-y-4 min-w-0">${stepCard(o)}</div>
             <div class="txd-card">
-              <h3 class="txd-card-title">Order details</h3>
               <dl class="sv-facts">
-                <div><dt>Order number</dt><dd>${escapeHtml(o.reference)}</dd></div>
-                <div><dt>Listing</dt><dd>${escapeHtml(o.title)}</dd></div>
                 <div><dt>Quantity</dt><dd>${escapeHtml(o.price_unit === "lot" ? `Whole lot (${o.units})` : o.units)}</dd></div>
-                <div><dt>Price</dt><dd>${escapeHtml(unitPrice)}</dd></div>
-                <div><dt>Order total</dt><dd>${kwacha(o.total)}</dd></div>
+                <div><dt>Total</dt><dd>${kwacha(o.total)}</dd></div>
                 <div><dt>Payment</dt><dd>${o.paid ? "Paid" : "Arranged by Frontier"}</dd></div>
-                ${o.location ? `<div><dt>Province</dt><dd>${escapeHtml(o.location)}</dd></div>` : ""}
-                <div><dt>Ordered</dt><dd>${escapeHtml(formatDate(o.ordered_at))}</dd></div>
+                ${o.livestock_id ? `<div><dt>Listing</dt><dd><a href="/listing.html?id=${o.livestock_id}" target="_blank" rel="noopener" class="font-semibold text-blue-600">View</a></dd></div>` : ""}
               </dl>
             </div>
-            <div class="space-y-4">
-              <div class="txd-card">
-                <h3 class="txd-card-title">What happens next</h3>
-                <p class="text-sm text-gray-700">${st.help}</p>
-              </div>
-              ${isOpen(o) ? `
-              <form class="txd-card ho-card" data-handover>
-                <h3 class="txd-card-title">Hand over</h3>
-                <p class="text-sm text-gray-700 mb-3">${o.can_hand_over ? "The buyer has confirmed. Mark the order as handed over and Frontier will process your payment." : "You can mark the order as handed over once the buyer has confirmed they received it."}</p>
-                <button type="submit" class="acc-btn" ${o.can_hand_over ? "" : "disabled"}>${o.can_hand_over ? "Mark as handed over" : "Waiting for the buyer to confirm"}</button>
-              </form>` : ""}
-              ${o.received_at ? `
-              <div class="txd-card acc-card-ok">
-                <h3 class="txd-card-title">Buyer's confirmation</h3>
-                <p class="text-sm text-gray-700">${o.handover_method === "delivered" ? "Delivered" : "Collected"} · confirmed on ${escapeHtml(formatDate(o.received_at))}${o.received_note ? `: "${escapeHtml(o.received_note)}"` : "."}</p>
-                ${o.photos.length ? `<div class="acc-photos mt-3">${o.photos.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt="Buyer's photo"></a>`).join("")}</div>` : ""}
-              </div>` : ""}
-              <div class="txd-card so-listing-card">
-                <span class="so-thumb">${o.thumb_path ? `<img src="${escapeHtml(o.thumb_path)}" alt="" loading="lazy">` : livestockFallbackMedia("w-6 h-6")}</span>
-                <div class="min-w-0 flex-1">
-                  <p class="so-title">${escapeHtml(o.title)}</p>
-                  ${o.livestock_id ? `<a href="/listing.html?id=${o.livestock_id}" target="_blank" rel="noopener" class="text-sm font-semibold text-blue-600 hover:text-blue-700">View listing</a>` : `<p class="text-sm text-gray-500">This listing has been removed.</p>`}
-                </div>
-              </div>
-            </div>
           </div>`;
+        const refresh = async () => {
+          await view.close(true);
+          await loadOrders();
+          openOrder(o.id);
+        };
+        const sent = view.body.querySelector("[data-sent]");
+        if (sent) {
+          const errorFor = (k) => sent.querySelector(`[data-error-for="${k}"]`);
+          const picker = bindPhotoPicker(sent.querySelector("[data-photos]"), 4, (n) => { if (n) errorFor("images").classList.add("hidden"); });
+          sent.querySelectorAll('input[name="method"]').forEach((r) => r.addEventListener("change", () => errorFor("method").classList.add("hidden")));
+          sent.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const errors = {};
+            if (!sent.method.value) errors.method = "Please choose one.";
+            if (!picker.files().length) errors.images = "Please add at least one photo.";
+            if (Object.keys(errors).length) return showFieldErrors(sent, { errors });
+            const fd = new FormData();
+            fd.append("method", sent.method.value);
+            picker.files().forEach((f) => fd.append("images", f));
+            try {
+              const res = await withBusy(sent.querySelector("button[type=submit]"), "Saving…", () =>
+                sellerApi(`/api/seller/orders/${o.id}/sent`, { method: "POST", body: fd }));
+              showNotification(res.message, "success");
+              await refresh();
+            } catch (error) {
+              showFieldErrors(sent, error);
+              showNotification(error.message, "error");
+            }
+          });
+        }
         view.body.querySelector("[data-handover]")?.addEventListener("submit", async (e) => {
           e.preventDefault();
           const ok = await confirmAction({
             title: "Mark as handed over?",
-            message: "The order will be marked Completed and Frontier will process your payment.",
+            message: "The order will be completed and Frontier will process your payment.",
             confirmText: "Mark as handed over",
           });
           if (!ok) return;
@@ -994,9 +1036,7 @@
             const res = await withBusy(e.target.querySelector("button[type=submit]"), "Saving…", () =>
               sellerApi(`/api/seller/orders/${o.id}/handover`, { method: "POST", body: {} }));
             showNotification(res.message, "success");
-            await view.close(true);
-            await loadOrders();
-            openOrder(o.id);
+            await refresh();
           } catch (error) {
             showNotification(error.message, "error");
           }
@@ -1017,8 +1057,9 @@
         }
         if (!rows.length) {
           const empty = {
-            buyer: ["Nothing waiting", "Paid orders wait here until the buyer confirms they've received them."],
-            open: ["Nothing to hand over right now", "Orders the buyer has confirmed appear here, ready for you to mark as handed over."],
+            send: ["Nothing to deliver", "New paid orders appear here."],
+            buyer: ["Nothing waiting", "Orders wait here until the buyer confirms."],
+            open: ["Nothing to hand over", "Orders the buyer has confirmed appear here."],
             completed: ["No completed orders yet", "Orders you've handed over appear here."],
             cancelled: ["No cancelled orders", "Cancelled orders appear here."],
             all: ["No orders yet", "When a buyer orders and pays for one of your listings, it appears here and we email you."],

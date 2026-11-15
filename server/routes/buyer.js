@@ -297,12 +297,14 @@ router.patch("/me/password", requireBuyer, async (req, res, next) => {
 // Orders
 // ---------------------------------------------------------------------------
 
-// ordered -> paid -> received (buyer confirmed) -> completed (seller handed
-// over, or completed by the team), or unpaid / cancelled.
+// ordered -> paid -> sent (seller delivered / buyer collected) -> received
+// (buyer confirmed) -> completed (seller handed over, or completed by the
+// team), or unpaid / cancelled.
 function stageOf(o) {
   if (o.status === "cancelled") return "cancelled";
   if (o.status === "completed") return "completed";
   if (o.received_at) return "received";
+  if (o.sent_at) return "sent";
   if (o.payment_status === "paid" || ["paid", "confirmed"].includes(o.status)) return "paid";
   return "unpaid";
 }
@@ -343,6 +345,8 @@ function orderView(o, photos = []) {
     paid_at: o.paid_at,
     handover_method: o.handover_method,
     handed_over_at: o.handed_over_at,
+    sent_method: o.sent_method,
+    sent_at: o.sent_at,
     received_at: o.received_at,
     received_note: o.received_note,
     pay_url: payable ? `/pay.html?checkout=${o.checkout_id}&token=${o.checkout_token}` : null,

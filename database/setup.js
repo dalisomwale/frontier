@@ -312,6 +312,15 @@ async function main() {
     ["received_at", "DATETIME NULL AFTER handed_over_by"],
     ["received_note", "VARCHAR(500) NULL AFTER received_at"],
   ], "orders record the handover and the buyer's confirmation");
+  await addColumns("orders", [
+    ["sent_method", "ENUM('collected', 'delivered') NULL AFTER received_note"],
+    ["sent_at", "DATETIME NULL AFTER sent_method"],
+    ["sent_by", "VARCHAR(150) NULL AFTER sent_at"],
+    ["sent_note", "VARCHAR(500) NULL AFTER sent_by"],
+  ], "orders record the seller's delivery or collection, with photos");
+  await addColumns("order_receipt_photos", [
+    ["party", "ENUM('buyer', 'seller') NOT NULL DEFAULT 'buyer' AFTER order_id"],
+  ], "order photos say who took them");
   await addColumns("inquiries", [
     ["forwarded_at", "DATETIME NULL AFTER seller_name"],
     ["forward_message", "TEXT NULL AFTER forwarded_at"],

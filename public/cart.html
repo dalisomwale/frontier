@@ -107,14 +107,9 @@
               <a href="/#listings" class="cart-continue">${uiIcon("chevronLeft")}<span>Continue shopping</span></a>
             </div>
             <aside class="cart-summary">
-              <h2>Order summary</h2>
-              <div class="cart-sum-row"><span>Items</span><span>${ok.length}</span></div>
-              ${quote.sellers > 1 ? `<div class="cart-sum-row"><span>Sellers</span><span>${quote.sellers}</span></div>` : ""}
-              <div class="cart-sum-row"><span>Collection</span><span>From the farm</span></div>
               <div class="buy-total"><span>Total</span><strong>${kwacha(quote.total)}</strong></div>
-              ${quote.sellers > 1 ? `<p class="cart-sum-note">Your cart has items from ${quote.sellers} sellers. You pay once and we arrange collection from each farm.</p>` : ""}
-              <a href="/checkout.html" class="btn-checkout btn-lg w-full ${ok.length && !gone ? "" : "is-disabled"}" ${ok.length && !gone ? "" : 'aria-disabled="true" tabindex="-1"'}>Proceed to checkout</a>
-              <p class="cart-pay-with"><span>Pay with mobile money</span><span class="pay-names"><i class="pay-airtel">Airtel</i><i class="pay-mtn">MTN</i><i class="pay-zamtel">Zamtel</i></span></p>
+              ${quote.sellers > 1 ? `<p class="cart-sum-note">From ${quote.sellers} sellers · you pay once.</p>` : ""}
+              <a href="/checkout.html" class="btn-checkout btn-lg w-full ${ok.length && !gone ? "" : "is-disabled"}" ${ok.length && !gone ? "" : 'aria-disabled="true" tabindex="-1"'}>Checkout</a>
             </aside>
           </div>`;
         bind(quote);
