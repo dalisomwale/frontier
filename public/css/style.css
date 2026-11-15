@@ -6826,3 +6826,31 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .txc-failed { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); }
 @media (max-width: 767px) { .tx-total[class*="txc-"] b { font-size: 22px; } }
 .tx-total[class*="txc-"] { box-shadow: none !important; }
+/* Transactions: use the full width so every column fits */
+.tx-page-wide { max-width: none; }
+.tx-page-wide .tx-table th, .tx-page-wide .tx-table td { padding-left: 8px; padding-right: 8px; }
+.tx-page-wide .tx-table th { white-space: normal; line-height: 1.25; vertical-align: bottom; }
+.tx-page-wide .tx-table .tx-items { max-width: 140px; }
+.tx-page-wide .tx-table .tx-clip { display: block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx-page-wide .tx-refs .tx-clip { max-width: 130px; color: #6b7280; }
+.tx-page-wide .tx-refs span { display: block; white-space: nowrap; }
+.tx-page-wide .tx-buyer { white-space: nowrap; }
+.tx-page-wide .tx-table .tx-clip { max-width: 160px; }
+.tx-page-wide .tx-table .tx-items { max-width: 120px; }
+.tx-page-wide .tx-refs .tx-clip { max-width: 120px; }
+@media (max-width: 1400px) {
+  .tx-page-wide .tx-table th, .tx-page-wide .tx-table td { padding-left: 6px; padding-right: 6px; font-size: 12.5px; }
+  .tx-page-wide .tx-table .tx-clip { max-width: 140px; }
+  .tx-page-wide .tx-table .tx-items { max-width: 105px; }
+}
+@media (max-width: 1400px) {
+  .tx-page-wide .tx-table .tx-clip { max-width: 125px; }
+  .tx-page-wide .tx-table .tx-items { max-width: 92px; }
+  .tx-page-wide .tx-refs .tx-clip { max-width: 100px; }
+  .tx-page-wide .tx-table .tx-items { white-space: normal; }
+}
+.tx-page-wide .tx-table td.tx-items { width: 110px; white-space: normal; }
+@media (max-width: 1400px) { .tx-page-wide .tx-table td.tx-items { width: 90px; } }
+.tx-page-wide .tx-items-in { display: block; width: 110px; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 1400px) { .tx-page-wide .tx-items-in { width: 88px; } }
+.tx-page-wide .tx-table td.tx-items { min-width: 0 !important; max-width: none !important; }

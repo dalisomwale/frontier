@@ -18,7 +18,7 @@
     <div id="app-sidebar"></div>
     <div id="admin-topbar"></div>
 
-    <main class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="app-content-shifted tx-page-wide mx-auto px-3 sm:px-4 py-6">
       <div id="detail-view" hidden></div>
       <div id="list-view">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
@@ -159,24 +159,22 @@
         const cols = 11;
         list.innerHTML = `<div class="tx-table-wrap"><table class="tx-table">
           <thead><tr>
-            <th>Date</th><th>Order</th><th>Items</th><th>Name</th><th>Email</th><th>Phone</th><th>Method</th><th>Network</th><th>Paying number</th>
-            <th class="num">Amount</th><th>Status</th><th>Payment reference</th><th>Lipila ID</th>
+            <th>Date</th><th>Order</th><th>Items</th><th>Name</th><th>Email</th><th>Phone</th><th>Paid with</th><th>Paying number</th>
+            <th class="num">Amount</th><th>Status</th><th>References</th>
           </tr></thead>
           <tbody>${res.data.map((t) => `
             <tr class="tx-tr" data-open="${t.id}">
-              <td class="nowrap">${time(t.created_at)}</td>
+              <td class="nowrap tx-when">${new Date(t.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</td>
               <td class="nowrap"><a class="tx-ref-link" href="/admin/transactions.html?id=${t.id}" data-go="${t.id}">${escapeHtml(t.reference)}</a></td>
-              <td class="tx-items">${escapeHtml(t.titles || "")}</td>
-              <td class="nowrap"><span class="tx-buyer">${escapeHtml(t.full_name)}</span></td>
-              <td class="nowrap">${t.email ? `<a class="tx-contact" href="mailto:${escapeHtml(t.email)}">${escapeHtml(t.email)}</a>` : "-"}</td>
+              <td class="tx-items"><span class="tx-items-in">${escapeHtml(t.titles || "")}</span></td>
+              <td><span class="tx-buyer">${escapeHtml(t.full_name)}</span></td>
+              <td>${t.email ? `<a class="tx-contact tx-clip" href="mailto:${escapeHtml(t.email)}" title="${escapeHtml(t.email)}">${escapeHtml(t.email)}</a>` : "-"}</td>
               <td class="nowrap">${t.phone ? `<a class="tx-contact" href="tel:${escapeHtml(String(t.phone).replace(/\s+/g, ""))}">${escapeHtml(t.phone)}</a>` : "-"}</td>
-              <td class="nowrap">${escapeHtml(METHOD[t.payment_method] || t.payment_method || "-")}${t.payment_attempts > 1 ? `<small>${t.payment_attempts} attempts</small>` : ""}</td>
-              <td class="nowrap">${escapeHtml(NETWORK[t.mobile_operator] || "-")}</td>
+              <td class="nowrap">${escapeHtml(t.payment_method === "mobile_money" && NETWORK[t.mobile_operator] ? `${NETWORK[t.mobile_operator]} Money` : METHOD[t.payment_method] || t.payment_method || "-")}${t.payment_attempts > 1 ? `<small>${t.payment_attempts} attempts</small>` : ""}</td>
               <td class="nowrap">${escapeHtml(t.payment_phone || "-")}</td>
               <td class="num nowrap"><b>${kwacha(t.total)}</b></td>
               <td class="nowrap">${tag(t.payment_status)}${t.alerted && t.payment_status === "pending" ? `<small class="text-amber-700">Check in Lipila</small>` : ""}</td>
-              <td class="nowrap mono">${escapeHtml(t.payment_reference || "-")}</td>
-              <td class="nowrap mono">${escapeHtml(t.payment_provider_ref || "-")}</td>
+              <td class="mono tx-refs"><span title="Payment reference">${escapeHtml(t.payment_reference || "-")}</span>${t.payment_provider_ref ? `<small class="tx-clip" title="Lipila ID: ${escapeHtml(t.payment_provider_ref)}">${escapeHtml(t.payment_provider_ref)}</small>` : ""}</td>
             </tr>
             </tr>`).join("")}</tbody></table></div>`;
         list.querySelectorAll("[data-open]").forEach((row) => row.addEventListener("click", (e) => {
