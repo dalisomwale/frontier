@@ -159,14 +159,16 @@
         const cols = 11;
         list.innerHTML = `<div class="tx-table-wrap"><table class="tx-table">
           <thead><tr>
-            <th>Date</th><th>Order</th><th>Buyer</th><th>Items</th><th>Method</th><th>Network</th><th>Paying number</th>
+            <th>Date</th><th>Order</th><th>Name</th><th>Email</th><th>Phone</th><th>Items</th><th>Method</th><th>Network</th><th>Paying number</th>
             <th class="num">Amount</th><th>Status</th><th>Payment reference</th><th>Lipila ID</th>
           </tr></thead>
           <tbody>${res.data.map((t) => `
             <tr class="tx-tr" data-open="${t.id}">
               <td class="nowrap">${time(t.created_at)}</td>
               <td class="nowrap"><a class="tx-ref-link" href="/admin/transactions.html?id=${t.id}" data-go="${t.id}">${escapeHtml(t.reference)}</a></td>
-              <td><span class="tx-buyer">${escapeHtml(t.full_name)}</span><small>${escapeHtml(t.email)}</small></td>
+              <td class="nowrap"><span class="tx-buyer">${escapeHtml(t.full_name)}</span></td>
+              <td class="nowrap">${t.email ? `<a class="tx-contact" href="mailto:${escapeHtml(t.email)}">${escapeHtml(t.email)}</a>` : "-"}</td>
+              <td class="nowrap">${t.phone ? `<a class="tx-contact" href="tel:${escapeHtml(String(t.phone).replace(/\s+/g, ""))}">${escapeHtml(t.phone)}</a>` : "-"}</td>
               <td class="tx-items">${escapeHtml(t.titles || "")}</td>
               <td class="nowrap">${escapeHtml(METHOD[t.payment_method] || t.payment_method || "-")}${t.payment_attempts > 1 ? `<small>${t.payment_attempts} attempts</small>` : ""}</td>
               <td class="nowrap">${escapeHtml(NETWORK[t.mobile_operator] || "-")}</td>

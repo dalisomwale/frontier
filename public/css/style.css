@@ -6814,3 +6814,4 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
   .od-sum-total { text-align: left; width: 100%; display: flex; align-items: baseline; justify-content: space-between; border-top: 1px solid #f1f3f1; padding-top: 10px; }
   .od-pay .order-dl { grid-template-columns: 130px minmax(0, 1fr); }
 }
+.tx-contact { color: #374151; } .tx-contact:hover { color: #1a6b3a; text-decoration: underline; }
