@@ -134,10 +134,10 @@
 
       function renderTotals(t) {
         document.getElementById("totals").innerHTML = `
-          <div class="tx-total"><span>Received</span><b>${kwacha(t.paid_amount)}</b></div>
-          <div class="tx-total"><span>Paid</span><b>${Number(t.paid) || 0}</b></div>
-          <div class="tx-total"><span>Waiting</span><b>${Number(t.pending) || 0}</b></div>
-          <div class="tx-total"><span>Not completed</span><b>${Number(t.failed) || 0}</b></div>`;
+          <div class="tx-total txc-received"><span>Received</span><b>${kwacha(t.paid_amount)}</b></div>
+          <div class="tx-total txc-paid"><span>Paid</span><b>${Number(t.paid) || 0}</b></div>
+          <div class="tx-total txc-waiting"><span>Waiting</span><b>${Number(t.pending) || 0}</b></div>
+          <div class="tx-total txc-failed"><span>Not completed</span><b>${Number(t.failed) || 0}</b></div>`;
       }
 
       async function loadList(page = state.page) {

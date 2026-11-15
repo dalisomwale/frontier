@@ -6815,3 +6815,13 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
   .od-pay .order-dl { grid-template-columns: 130px minmax(0, 1fr); }
 }
 .tx-contact { color: #374151; } .tx-contact:hover { color: #1a6b3a; text-decoration: underline; }
+/* Transactions: full-colour summary cards */
+.tx-total[class*="txc-"] { border: 0; border-radius: 16px; padding: 16px 18px; color: #fff; box-shadow: 0 10px 24px -16px rgba(15, 36, 22, 0.6); }
+.tx-total[class*="txc-"] span { color: rgba(255, 255, 255, 0.85); font-size: 13px; font-weight: 600; }
+.tx-total[class*="txc-"] b { display: block; margin-top: 4px; font-size: 28px; font-weight: 800; color: inherit; line-height: 1.1; }
+.txc-received { background: linear-gradient(135deg, #166534 0%, #14532d 100%); }
+.txc-paid { background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); }
+.txc-waiting { background: linear-gradient(135deg, #fde047 0%, #bef264 100%); color: #14532d !important; }
+.txc-waiting span { color: #3f6212 !important; }
+.txc-failed { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); }
+@media (max-width: 767px) { .tx-total[class*="txc-"] b { font-size: 22px; } }
