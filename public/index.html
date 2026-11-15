@@ -83,8 +83,9 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="mb-6">
             <h2 id="feed-heading" class="text-xl sm:text-2xl font-bold text-gray-900">Animal Feed</h2>
+            <p class="text-gray-500 mt-1">Quality feed for every stage</p>
           </div>
-          <div id="feed-tiles" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5"></div>
+          <div id="feed-tiles" class="feed-bento"></div>
         </div>
       </section>
 
@@ -221,7 +222,8 @@
           feedTypes = [];
         }
         document.getElementById("feed").hidden = !feedTypes.length;
-        box.innerHTML = feedTypes.map(feedTileHtml).join("");
+        box.innerHTML = feedBentoHtml(feedTypes);
+        revealFeedBento(box);
       }
 
       async function loadAnimals() {

@@ -161,3 +161,55 @@ function feedTileHtml(feed) {
       </span>
     </a>`;
 }
+
+// Animal Feed as a bento grid: the feed type with the most products is one
+// big dark tile; the rest get their own soft colour, an animal icon and a
+// product count. A tile spans two columns where needed to fill the rows.
+const FEED_ICONS = [
+  [/pig|swine|hog/i, "🐖"], [/poultry|chicken|broiler|layer|hen/i, "🐔"], [/dairy|milk/i, "🐄"],
+  [/beef|cattle|cow/i, "🐂"], [/fish|tilapia|aqua/i, "🐟"], [/duck/i, "🦆"], [/goat/i, "🐐"],
+  [/sheep|lamb/i, "🐑"], [/rabbit/i, "🐇"], [/horse/i, "🐎"], [/turkey/i, "🦃"], [/dog|pet/i, "🐕"],
+];
+const feedIcon = (name) => (FEED_ICONS.find(([re]) => re.test(name)) || [null, "🌾"])[1];
+
+function feedBentoHtml(types) {
+  const list = [...types].sort((a, b) => Number(b.livestock_count || 0) - Number(a.livestock_count || 0));
+  const n = list.length;
+  // Cells to fill: the big tile takes 4 on desktop (2x2) and 2 on phones.
+  const spareDesk = (4 - ((n + 3) % 4)) % 4;
+  const sparePhone = (2 - ((n + 1) % 2)) % 2;
+  return list.map((feed, i) => {
+    const count = Number(feed.livestock_count || 0);
+    const photo = feed.image_path || feed.cover_image;
+    const fromEnd = n - 1 - i;
+    const cls = [
+      "fb-tile",
+      i === 0 ? "fb-big" : `fb-c${(i - 1) % 8}`,
+      i > 0 && fromEnd < spareDesk ? "fb-wide" : "",
+      i > 0 && fromEnd < sparePhone ? "fb-wide-p" : "",
+      photo ? "fb-photo" : "",
+    ].filter(Boolean).join(" ");
+    return `
+      <a href="${feedUrl(feed.id)}" class="${cls}" style="--i:${i}" aria-label="${escapeHtml(feed.name)}">
+        ${photo ? `<img src="${escapeHtml(photo)}" alt="" loading="lazy" decoding="async">` : `<span class="fb-icon" aria-hidden="true">${feedIcon(feed.name)}</span>`}
+        <span class="fb-body">
+          <span class="fb-name">${escapeHtml(feed.name)}</span>
+          ${feed.description ? `<span class="fb-desc">${escapeHtml(feed.description)}</span>` : ""}
+          <span class="fb-count">${count ? `${count} product${count === 1 ? "" : "s"}` : "Coming soon"}</span>
+        </span>
+      </a>`;
+  }).join("");
+}
+
+// Tiles rise in one after another when the grid scrolls into view.
+function revealFeedBento(box) {
+  box.classList.add("fb-ready");
+  if (!("IntersectionObserver" in window)) return box.classList.add("fb-in");
+  const io = new IntersectionObserver((entries) => {
+    if (entries.some((e) => e.isIntersecting)) {
+      box.classList.add("fb-in");
+      io.disconnect();
+    }
+  }, { threshold: 0.15 });
+  io.observe(box);
+}

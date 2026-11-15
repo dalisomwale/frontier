@@ -43,7 +43,7 @@
         <p id="feed-subtitle" class="text-sm text-gray-600 mt-1">Select a livestock feed type for more information</p>
       </div>
 
-      <div id="feed-types" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5"></div>
+      <div id="feed-types" class="feed-bento"></div>
 
       <div id="feed-listings" hidden>
         <div class="lv-bar mb-6">
@@ -83,7 +83,8 @@
         if (!state.feedTypes.length) {
           return renderEmptyState(box, { title: "No feed listed yet", message: "Please check back soon.", icon: "layers" });
         }
-        box.innerHTML = state.feedTypes.map(feedTileHtml).join("");
+        box.innerHTML = feedBentoHtml(state.feedTypes);
+        revealFeedBento(box);
       }
 
       async function loadStages() {
