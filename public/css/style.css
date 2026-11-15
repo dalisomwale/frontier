@@ -5859,7 +5859,7 @@ a.btn-checkout { text-decoration: none; }
 .tx-ev-meta { margin: 1px 0 0; font-size: 12px; color: #9ca3af; }
 .tx-ev-text { margin-top: 4px; }
 #detail-view .tx-path { margin-bottom: 16px; }
-@media (max-width: 1023px) {
+@media (max-width: 1199px) {
   .txd-grid { grid-template-columns: 1fr; }
   .txd-side { order: -1; }
 }
@@ -6943,3 +6943,8 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .txd-part .txd-row { padding: 6px 0; border-top: 0; }
 .txd-part .txd-total { border-top: 1px solid #111827; margin-top: 10px; padding-top: 10px; font-weight: 700; color: #111827; }
 .txd-part .txd-total b { font-size: 18px; }
+/* Receipt beside the Timeline on wide screens */
+@media (min-width: 1200px) {
+  #detail-view .txd-grid { grid-template-columns: minmax(0, 1fr) minmax(360px, 420px); }
+  .txd-history { max-width: none; position: sticky; top: 90px; }
+}
