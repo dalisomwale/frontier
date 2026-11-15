@@ -212,15 +212,8 @@ async function handOver(orderId, by, ip = null) {
     detail: `${ref} (${order.livestock_title}) marked as handed over by ${by.kind === "admin" ? "Frontier" : "the seller"}${by.kind === "seller" && by.name ? ` (${by.name})` : ""}. Order Completed; the seller's funds can be processed.`,
     ip,
   });
-  if (order.buyer_id) {
-    notifyBuyer(order.buyer_id, {
-      type: "order",
-      title: `Order ${ref} is complete`,
-      body: `Thank you for buying ${order.livestock_title} on Frontier Marketplace.`,
-      link: `/account/?tab=orders&id=${order.id}`,
-    });
-    pingBuyer(order.buyer_id, "order", { id: order.id });
-  }
+  // For the buyer the order was already complete when they confirmed.
+  if (order.buyer_id) pingBuyer(order.buyer_id, "order", { id: order.id });
   if (order.seller_id) {
     if (by.kind === "admin") {
       notifySeller(order.seller_id, {

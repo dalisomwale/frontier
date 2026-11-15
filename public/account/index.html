@@ -128,15 +128,15 @@
         unpaid: { label: "Not paid", cls: "so-off" },
         paid: { label: "Paid", cls: "so-open" },
         sent: { label: "Confirm receipt", cls: "so-act" },
-        received: { label: "Received", cls: "so-open" },
+        received: { label: "Completed", cls: "so-done" },
         completed: { label: "Completed", cls: "so-done" },
         cancelled: { label: "Cancelled", cls: "so-off" },
       };
       const ORDER_TABS = [
         { key: "all", label: "All", test: () => true },
         { key: "confirm", label: "To confirm", test: (o) => o.stage === "sent" },
-        { key: "progress", label: "In progress", test: (o) => ["paid", "received"].includes(o.stage) },
-        { key: "done", label: "Completed", test: (o) => o.stage === "completed" },
+        { key: "progress", label: "In progress", test: (o) => o.stage === "paid" },
+        { key: "done", label: "Completed", test: (o) => ["received", "completed"].includes(o.stage) },
         { key: "unpaid", label: "Not paid", test: (o) => ["unpaid", "cancelled"].includes(o.stage) },
       ];
       const filter = { tab: "all", q: "" };
@@ -227,7 +227,7 @@
           case "sent":
             return `<div class="acc-card acc-card-warn"><b>Seller: ${sentLine(o)}</b>${photoRow(byParty(o, "seller"), "Seller's photo")}<p class="text-sm text-gray-700 mt-3">Got it? Confirm with a few photos.</p></div>`;
           case "received":
-            return `<div class="acc-card acc-card-ok">${proofHtml(o)}<p class="text-sm text-gray-600 mt-3">Waiting for the seller to complete it.</p></div>`;
+            return `<div class="acc-card acc-card-ok">${proofHtml(o)}<p class="text-sm text-gray-700 mt-3">This order is complete.</p></div>`;
           case "completed":
             return `<div class="acc-card acc-card-ok">${o.received_at ? proofHtml(o) : ""}<p class="${o.received_at ? "text-sm text-gray-700 mt-3" : "font-bold text-green-900"}">This order is complete.</p></div>`;
           default:
@@ -269,7 +269,7 @@
           </div>
           <div class="acc-order">
             <div class="space-y-4 min-w-0">
-              ${orderTrackerHtml({ paid: o.paid || !["unpaid", "cancelled"].includes(o.stage), sent: Boolean(o.sent_at), received: Boolean(o.received_at), handed: Boolean(o.handed_over_at), completed: o.stage === "completed", cancelled: o.stage === "cancelled" })}
+              ${orderTrackerHtml({ buyer: true, paid: o.paid || !["unpaid", "cancelled"].includes(o.stage), sent: Boolean(o.sent_at), received: Boolean(o.received_at), completed: ["received", "completed"].includes(o.stage), cancelled: o.stage === "cancelled" })}
               ${nextStepHtml(o)}
             </div>
             <div class="space-y-4">
@@ -377,7 +377,7 @@
           try {
             await withBusy(form.querySelector("#confirm-btn"), "Sending…", () =>
               buyerApi(`/api/buyer/orders/${o.id}/confirm`, { method: "POST", body: fd }));
-            showNotification("Thank you! We've told the seller.", "success");
+            showNotification("Thank you! Your order is complete.", "success");
             await view.close(true);
             await loadOrders();
             if (orderView) openOrder(o.id, { replace: true });

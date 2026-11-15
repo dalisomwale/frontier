@@ -385,7 +385,7 @@ router.post("/orders/:id/confirm", requireBuyer, uploadImages, async (req, res, 
     await handover.confirmReceipt(id, req.buyer, String(req.body.method || ""), req.files, text(req.body.note, 500) || null, req.ip);
     const [[o]] = await pool.query(`${ORDER_SQL} WHERE o.id = ?`, [id]);
     const photos = await handover.photosOf([id]);
-    res.json({ success: true, message: "Thank you! We've told the seller.", data: orderView(o, photos.get(id) || []) });
+    res.json({ success: true, message: "Thank you! Your order is complete.", data: orderView(o, photos.get(id) || []) });
   } catch (error) {
     next(error);
   }

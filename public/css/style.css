@@ -6441,3 +6441,4 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 }
 .so-detail.so-detail-first { grid-template-columns: 340px minmax(0, 1fr); }
 @media (max-width: 1023px) { .so-detail.so-detail-first { grid-template-columns: 1fr; } }
+.tx-path.tx-path-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
