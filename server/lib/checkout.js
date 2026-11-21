@@ -43,7 +43,7 @@ function checkoutIdFromReference(reference) {
   return match ? Number(match[1]) - 1000 : null;
 }
 // Where the buyer pays (and waits for the PIN prompt): our payment page.
-const ourPayPage = (checkout) => `/pay.html?checkout=${checkout.id}&token=${checkout.public_token}`;
+const ourPayPage = (checkout) => `/pay?checkout=${checkout.id}&token=${checkout.public_token}`;
 const payUrl = ourPayPage;
 const provider = () => (lipila.enabled() ? "lipila" : lenco.enabled() ? "lenco" : null);
 // Mobile money networks the buyer can choose.
@@ -352,7 +352,7 @@ async function notifyCreated(checkout, created) {
         ["Email", checkout.email],
         ...created.filter((o) => o.sellerName).map((o) => [`Seller (${orderRef(o.id)})`, o.sellerName]),
       ],
-      button: { label: "Open orders", url: appUrl(`/admin/orders.html?id=${created[0].id}`) },
+      button: { label: "Open orders", url: appUrl(`/admin/orders?id=${created[0].id}`) },
       replyTo: checkout.email,
     }),
     sendEmail({
@@ -651,7 +651,7 @@ async function markPaid(checkout, data) {
       ["Email", checkout.email],
       ...orders.filter((o) => o.seller_name).map((o) => [`Seller (${orderRef(o.id)})`, o.seller_name]),
     ],
-    button: orders[0] ? { label: "Open orders", url: appUrl(`/admin/orders.html?id=${orders[0].id}`) } : undefined,
+    button: orders[0] ? { label: "Open orders", url: appUrl(`/admin/orders?id=${orders[0].id}`) } : undefined,
     replyTo: checkout.email,
   }), { checkoutId: checkout.id, who: "team", to: recipients().join(", ") });
   for (const o of orders) {
@@ -967,7 +967,7 @@ async function alertIfUnconfirmed(checkout) {
       `Look up ${checkout.payment_reference} in the Lipila dashboard. If it was paid there, open the order and press "Check payment with Lipila", or mark the orders Paid; the buyer and seller are then emailed. The website keeps checking in the meantime.`,
     ],
     rows: [...items, ["Amount", amount], ["Payment reference", checkout.payment_reference], ["Buyer", checkout.full_name], ["WhatsApp", checkout.phone], ["Email", checkout.email]],
-    button: orders[0] ? { label: "Open order", url: appUrl(`/admin/orders.html?id=${orders[0].id}`) } : undefined,
+    button: orders[0] ? { label: "Open order", url: appUrl(`/admin/orders?id=${orders[0].id}`) } : undefined,
     replyTo: checkout.email,
   });
 }
@@ -1008,7 +1008,7 @@ function reminderEmails(checkout, orders) {
       heading: `Order ${ref} is unpaid`,
       paragraphs: [`${checkout.full_name} hasn't completed the payment for order ${ref}${checkout.payment_failure ? ` (${checkout.payment_failure})` : ""}. You may want to follow up.`],
       rows: [...items, ["Amount", amount], ["WhatsApp", checkout.phone], ["Attempts", String(checkout.payment_attempts || 0)]],
-      button: orders[0] ? { label: "Open orders", url: appUrl(`/admin/orders.html?id=${orders[0].id}`) } : undefined,
+      button: orders[0] ? { label: "Open orders", url: appUrl(`/admin/orders?id=${orders[0].id}`) } : undefined,
     }),
   ]);
 }

@@ -301,7 +301,7 @@
                     ${o.paid ? `<div><dt>Paid with</dt><dd>${escapeHtml(o.paid_with)}</dd></div>` : ""}
                     ${o.location ? `<div><dt>Province</dt><dd>${escapeHtml(o.location)}</dd></div>` : ""}
                     <div><dt>Ordered</dt><dd>${escapeHtml(formatDateShort(o.ordered_at))}</dd></div>
-                    ${o.livestock_id ? `<div><dt>Listing</dt><dd><a href="/listing.html?id=${o.livestock_id}" class="acc-link">View</a></dd></div>` : ""}
+                    ${o.livestock_id ? `<div><dt>Listing</dt><dd><a href="/listing?id=${o.livestock_id}" class="acc-link">View</a></dd></div>` : ""}
                   </dl>
                 </details>
               </div>

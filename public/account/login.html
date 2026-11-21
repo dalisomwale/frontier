@@ -44,12 +44,12 @@
           </div>
           <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 -mt-1 text-sm">
             <label class="inline-flex items-center gap-2 text-gray-700 whitespace-nowrap"><input id="remember" name="remember" type="checkbox" checked /> Keep me logged in</label>
-            <a href="/account/forgot.html" class="acc-link">Forgot password?</a>
+            <a href="/account/forgot" class="acc-link">Forgot password?</a>
           </div>
           <button id="submit-btn" type="submit" class="acc-btn">Log in</button>
         </form>
       </div>
-      <p class="text-sm text-gray-600 text-center mt-5">New here? <a id="register-link" href="/account/register.html" class="acc-link font-semibold">Create account</a> · <a href="/seller/login.html" class="acc-link font-semibold">Seller log in</a></p>
+      <p class="text-sm text-gray-600 text-center mt-5">New here? <a id="register-link" href="/account/register" class="acc-link font-semibold">Create account</a> · <a href="/seller/login" class="acc-link font-semibold">Seller log in</a></p>
     </main>
     <footer id="site-footer"></footer>
 
@@ -67,7 +67,7 @@
       const form = document.getElementById("login-form");
       const next = buyerNext();
       if (next.startsWith("/checkout")) document.getElementById("checkout-note").hidden = false;
-      document.getElementById("register-link").href = `/account/register.html${location.search}`;
+      document.getElementById("register-link").href = `/account/register${location.search}`;
       if (getQueryParams().reset) showAlert("Password updated. You can now log in.", "success");
       buyerApi("/api/buyer/auth/me").then(() => { setBuyerHint(true); window.location.href = next; }).catch(() => form.email.focus());
       form.addEventListener("submit", async (event) => {

@@ -169,7 +169,7 @@
         const tel = (p) => escapeHtml(p.replace(/[^\d+]/g, ""));
         const mailSubject = encodeURIComponent(`Your inquiry about ${i.livestock_title} - Frontier Marketplace`);
         const listingLink = i.livestock_id && i.livestock_status === "published"
-          ? `<a href="/listing.html?id=${i.livestock_id}" target="_blank" rel="noopener" class="hover:underline">${escapeHtml(i.livestock_title)}</a>`
+          ? `<a href="/listing?id=${i.livestock_id}" target="_blank" rel="noopener" class="hover:underline">${escapeHtml(i.livestock_title)}</a>`
           : `${escapeHtml(i.livestock_title)} <span class="text-gray-400 font-normal">${i.livestock_id ? "(unpublished)" : "(listing deleted)"}</span>`;
         const messages = i.messages || [];
         const seenAt = i.seller_seen_at ? new Date(i.seller_seen_at) : null;
@@ -215,7 +215,7 @@
               <span class="inbox-avatar inbox-avatar-seller">${initials(sellerName)}</span>
               <div class="min-w-0 flex-1">
                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Seller</p>
-                <a href="/admin/sellers.html?id=${i.seller_id}" class="block font-semibold text-gray-900 truncate hover:text-blue-700">${escapeHtml(sellerName)}</a>
+                <a href="/admin/sellers?id=${i.seller_id}" class="block font-semibold text-gray-900 truncate hover:text-blue-700">${escapeHtml(sellerName)}</a>
                 <p class="text-xs text-gray-500 truncate">${escapeHtml(sellerPhone)}${i.seller_email ? ` · ${escapeHtml(i.seller_email)}` : ""}</p>
               </div>
             </div>

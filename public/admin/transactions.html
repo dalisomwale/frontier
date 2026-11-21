@@ -178,7 +178,7 @@
           <tbody>${res.data.map((t) => `
             <tr class="tx-tr" data-open="${t.id}">
               <td class="nowrap tx-when">${new Date(t.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</td>
-              <td class="nowrap"><a class="tx-ref-link" href="/admin/transactions.html?id=${t.id}" data-go="${t.id}">${escapeHtml(t.reference)}</a></td>
+              <td class="nowrap"><a class="tx-ref-link" href="/admin/transactions?id=${t.id}" data-go="${t.id}">${escapeHtml(t.reference)}</a></td>
               ${itemCells(t)}
               <td><span class="tx-buyer">${escapeHtml(t.full_name)}</span></td>
               <td>${t.email ? `<a class="tx-contact tx-clip" href="mailto:${escapeHtml(t.email)}" title="${escapeHtml(t.email)}">${escapeHtml(t.email)}</a>` : "-"}</td>
@@ -201,14 +201,14 @@
       // One transaction on its own page: Transactions / FMC-1023.
       let listLoaded = false;
       function openTransaction(id, push = true) {
-        if (push) history.pushState({ id, fromList: true }, "", `/admin/transactions.html?id=${id}`);
+        if (push) history.pushState({ id, fromList: true }, "", `/admin/transactions?id=${id}`);
         document.getElementById("list-view").hidden = true;
         document.getElementById("detail-view").hidden = false;
         window.scrollTo(0, 0);
         loadDetail(id);
       }
       function showList(push = true) {
-        if (push) history.pushState({}, "", "/admin/transactions.html");
+        if (push) history.pushState({}, "", "/admin/transactions");
         document.getElementById("detail-view").hidden = true;
         document.getElementById("list-view").hidden = false;
         if (!listLoaded) loadList(1);
@@ -235,7 +235,7 @@
 
       async function loadDetail(id, { quiet = false } = {}) {
         const view = document.getElementById("detail-view");
-        const crumbs = (ref) => `<nav class="tx-crumbs" aria-label="Breadcrumb"><a href="/admin/transactions.html" data-back>Transactions</a><span aria-hidden="true">/</span><b>${escapeHtml(ref)}</b></nav>`;
+        const crumbs = (ref) => `<nav class="tx-crumbs" aria-label="Breadcrumb"><a href="/admin/transactions" data-back>Transactions</a><span aria-hidden="true">/</span><b>${escapeHtml(ref)}</b></nav>`;
         if (!quiet) view.innerHTML = `${crumbs(`FMC-${1000 + id}`)}<p class="text-sm text-gray-500">Loading…</p>`;
         const bindBack = () => view.querySelector("[data-back]").addEventListener("click", (e) => {
           e.preventDefault();
@@ -268,7 +268,7 @@
         const UNIT = (o) => (o.price_unit === "lot" ? `Whole lot (${o.quantity})` : `${o.quantity}`);
         const items = t.orders.map((o) => `
           <li class="txd-item">
-            <div><a href="/admin/orders.html?id=${o.id}" class="txd-item-ref">${escapeHtml(o.reference)}</a>
+            <div><a href="/admin/orders?id=${o.id}" class="txd-item-ref">${escapeHtml(o.reference)}</a>
               <p>${escapeHtml(o.livestock_title)}</p>
               <small>Qty ${escapeHtml(UNIT(o))}${o.seller_name ? ` · ${escapeHtml(o.seller_name)}` : ""}</small></div>
             <b>${kwacha(o.total)}</b>

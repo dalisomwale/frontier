@@ -150,7 +150,7 @@
         const other = document.getElementById("other-pending");
         other.classList.toggle("hidden", !otherPending);
         other.classList.toggle("inline-block", Boolean(otherPending));
-        other.href = `/admin/livestock.html?${FEED ? "" : "kind=feed&"}review=pending`;
+        other.href = `/admin/livestock?${FEED ? "" : "kind=feed&"}review=pending`;
         other.textContent = `${otherPending} ${otherKind} listing${otherPending === 1 ? "" : "s"} waiting for review`;
 
         if (!res.data.length) {
@@ -215,7 +215,7 @@
       function actionsHtml(l) {
         const published = l.status === "published";
         return `
-              ${published ? `<a href="/listing.html?id=${l.id}" target="_blank" rel="noopener" class="tbl-icon" title="View on website" aria-label="View on website">${uiIcon("external")}</a>` : ""}
+              ${published ? `<a href="/listing?id=${l.id}" target="_blank" rel="noopener" class="tbl-icon" title="View on website" aria-label="View on website">${uiIcon("external")}</a>` : ""}
               <button type="button" data-edit="${l.id}" class="tbl-icon" title="Edit" aria-label="Edit">${uiIcon("edit")}</button>
               <button type="button" data-delete="${l.id}" data-title="${escapeHtml(l.title)}" class="tbl-icon tbl-icon-danger" title="Delete" aria-label="Delete">${uiIcon("trash")}</button>
             `;
@@ -233,7 +233,7 @@
                   <p class="text-xs text-gray-500 col-w-in">${[l.livestock_type, l.quantity > 1 ? quantityLabel(l.quantity, l.animal_name, l.animal_kind) : ""].filter(Boolean).join(", ")}</p>
                   ${FEED ? `<p class="text-xs text-gray-500 md:hidden">${escapeHtml(l.animal_name)}: ${escapeHtml(l.category_name)}</p>` : l.breed_name ? `<p class="text-xs text-gray-500 md:hidden">${escapeHtml(l.breed_name)}</p>` : ""}
                   <p class="text-xs text-gray-700 md:hidden">${priceCell(l)}</p>
-                  ${l.seller_id ? `<a href="/admin/sellers.html?id=${l.seller_id}" class="lg:hidden inline-flex text-xs text-blue-700 hover:underline mt-0.5">${escapeHtml(l.seller_business_name || l.seller_name)}</a>` : ""}
+                  ${l.seller_id ? `<a href="/admin/sellers?id=${l.seller_id}" class="lg:hidden inline-flex text-xs text-blue-700 hover:underline mt-0.5">${escapeHtml(l.seller_business_name || l.seller_name)}</a>` : ""}
                   <div class="sm:hidden mt-1.5">${pillSelect("verification", l, VERIFICATION_OPTIONS, l.verification || "unverified")}</div>
                   <div class="sm:hidden mt-1.5">${actionsHtml(l)}</div>
                 </div>
@@ -244,7 +244,7 @@
             <td class="hidden lg:table-cell col-w text-center text-gray-700">${escapeHtml(String(l.quantity ?? ""))}</td>
             <td class="hidden md:table-cell whitespace-nowrap font-semibold text-gray-900">${priceCell(l)}</td>
             <td class="hidden lg:table-cell">${l.seller_id
-              ? `<a href="/admin/sellers.html?id=${l.seller_id}" class="text-blue-700 font-medium hover:underline" title="${escapeHtml(l.seller_name)}">${escapeHtml(l.seller_business_name || l.seller_name)}</a>`
+              ? `<a href="/admin/sellers?id=${l.seller_id}" class="text-blue-700 font-medium hover:underline" title="${escapeHtml(l.seller_name)}">${escapeHtml(l.seller_business_name || l.seller_name)}</a>`
               : `<span class="text-xs text-gray-500 whitespace-nowrap">Frontier's stock</span>`}${l.location ? `<span class="col-xw-in text-xs text-gray-500">${escapeHtml(l.location)}</span>` : ""}</td>
             <td class="hidden xl:table-cell col-xw text-gray-600">${escapeHtml(l.location)}</td>
             <td>${stateSelect(l)}</td>

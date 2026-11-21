@@ -201,7 +201,7 @@
               <tr>
                 <td><p class="font-semibold text-gray-900">${escapeHtml(p.name)}</p>${p.description ? `<p class="text-xs text-gray-500 line-clamp-1">${escapeHtml(p.description)}</p>` : ""}</td>
                 <td><span class="tag tag-category">${escapeHtml(p.animal_name)}</span></td>
-                ${kind === "feed" ? "" : `<td class="text-center"><a href="/admin/breeds.html?animal_id=${p.animal_id}&category_id=${p.id}" class="text-blue-600 font-semibold hover:underline">${p.breed_count}</a></td>`}
+                ${kind === "feed" ? "" : `<td class="text-center"><a href="/admin/breeds?animal_id=${p.animal_id}&category_id=${p.id}" class="text-blue-600 font-semibold hover:underline">${p.breed_count}</a></td>`}
                 <td class="text-center hidden sm:table-cell">${p.livestock_count}</td>
                 <td>${statusPill(p.status)}</td>
                 <td class="text-right whitespace-nowrap">

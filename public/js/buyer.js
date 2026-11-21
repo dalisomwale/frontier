@@ -25,10 +25,10 @@ async function buyerApi(url, options = {}) {
     return await apiRequest(url, { ...options, headers: { ...BUYER_HEADER, ...options.headers } });
   } catch (error) {
     const formRequest = /\/auth\/(login|register|forgot|reset|verify)$/.test(url.split("?")[0]);
-    const formPage = /\/account\/(login|register|forgot|reset|verify)\.html$/.test(location.pathname);
+    const formPage = /\/account\/(login|register|forgot|reset|verify)(\.html)?$/.test(location.pathname);
     if (error.status === 401 && !formRequest && !formPage) {
       setBuyerHint(false);
-      window.location.href = `/account/login.html?next=${encodeURIComponent(location.pathname + location.search)}`;
+      window.location.href = `/account/login?next=${encodeURIComponent(location.pathname + location.search)}`;
       await new Promise(() => {});
     }
     throw error;
@@ -38,7 +38,7 @@ async function buyerApi(url, options = {}) {
 // After logging in: back to the account, the checkout or the cart only.
 function buyerNext(fallback = "/account/") {
   const next = getQueryParams().next || "";
-  const allowed = /^\/(account\/|checkout\.html|cart\.html|pay\.html)/.test(next) && !next.startsWith("//");
+  const allowed = /^\/(account\/|(checkout|cart|pay)(\.html)?([?#]|$))/.test(next) && !next.startsWith("//");
   return allowed ? next : fallback;
 }
 
@@ -73,7 +73,7 @@ function accountHeader(buyer) {
         </a>
         <div class="site-nav ml-4" data-site-nav aria-label="Categories"></div>
         <div class="flex items-center gap-2 sm:gap-3 header-auth-acc" data-cart-slot>
-          ${buyer ? buyerChip(buyer) : `<a href="/account/login.html" class="header-login-link">Log in</a>`}
+          ${buyer ? buyerChip(buyer) : `<a href="/account/login" class="header-login-link">Log in</a>`}
         </div>
       </div>
     </nav>`;

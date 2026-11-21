@@ -67,7 +67,7 @@ function updateCartBadges() {
 function renderCartButtons() {
   document.querySelectorAll(".header-auth, [data-cart-slot]").forEach((slot) => {
     if (slot.querySelector(".header-cart")) return;
-    slot.insertAdjacentHTML("afterbegin", `<a href="/cart.html" class="header-cart" aria-label="Cart">${CART_ICON}<span class="header-cart-count" data-cart-count hidden></span></a>`);
+    slot.insertAdjacentHTML("afterbegin", `<a href="/cart" class="header-cart" aria-label="Cart">${CART_ICON}<span class="header-cart-count" data-cart-count hidden></span></a>`);
   });
   updateCartBadges();
 }
@@ -87,7 +87,7 @@ function showCartToast(title) {
   }
   toast.innerHTML = `<span class="cart-toast-icon">${CART_ICON}</span>
     <span class="cart-toast-text"><b>Added to cart</b><small>${escapeHtml(title)}</small></span>
-    <a href="/cart.html" class="cart-toast-link">View cart</a>`;
+    <a href="/cart" class="cart-toast-link">View cart</a>`;
   toast.classList.add("is-shown");
   clearTimeout(showCartToast.timer);
   showCartToast.timer = setTimeout(() => toast.classList.remove("is-shown"), 4000);
@@ -96,7 +96,7 @@ function showCartToast(title) {
 // Buy now: put the item in the cart and go straight to checkout.
 function buyNow(listing, qty = 1) {
   addToCart(listing.id, listing.price_unit === "lot" ? Number(listing.quantity) || 1 : qty);
-  window.location.href = "/checkout.html";
+  window.location.href = "/checkout";
 }
 // Older pages call it by this name.
 function openBuyModal(listing, qty = 1) {

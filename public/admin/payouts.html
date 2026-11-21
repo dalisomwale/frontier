@@ -137,7 +137,7 @@
             <tr>
               <td class="whitespace-nowrap text-gray-600">${dateOnly(p.paid_at)}</td>
               <td><span class="font-semibold text-gray-900">${escapeHtml(p.name || "Removed seller")}</span>${p.business_name ? `<span class="block text-xs text-gray-500">${escapeHtml(p.business_name)}</span>` : ""}</td>
-              <td>${p.orders.map((o) => `<a href="/admin/orders.html?id=${o.id}" class="po-ref" title="${escapeHtml(o.title)}">${escapeHtml(o.reference)}</a>`).join(" ")}</td>
+              <td>${p.orders.map((o) => `<a href="/admin/orders?id=${o.id}" class="po-ref" title="${escapeHtml(o.title)}">${escapeHtml(o.reference)}</a>`).join(" ")}</td>
               <td class="whitespace-nowrap"><b class="text-gray-900">${kwacha(p.amount)}</b></td>
               <td class="hidden md:table-cell"><span class="txd-mono">${escapeHtml(p.reference || "-")}</span></td>
               <td class="hidden lg:table-cell text-gray-600">${escapeHtml(p.paid_by || "")}</td>
@@ -178,8 +178,8 @@
                 <li><label class="po-order">
                   <input type="checkbox" name="order" value="${o.id}" data-amount="${o.total}" checked>
                   <span class="po-order-main">
-                    <span class="po-order-top"><a href="/admin/orders.html?id=${o.id}" class="po-ref" target="_blank" rel="noopener">${escapeHtml(o.reference)}</a>
-                      ${o.checkout_reference ? `<a href="/admin/transactions.html?id=${o.checkout_id}" class="po-cart" target="_blank" rel="noopener">${escapeHtml(o.checkout_reference)}</a>` : ""}</span>
+                    <span class="po-order-top"><a href="/admin/orders?id=${o.id}" class="po-ref" target="_blank" rel="noopener">${escapeHtml(o.reference)}</a>
+                      ${o.checkout_reference ? `<a href="/admin/transactions?id=${o.checkout_id}" class="po-cart" target="_blank" rel="noopener">${escapeHtml(o.checkout_reference)}</a>` : ""}</span>
                     <b>${escapeHtml(o.livestock_title)}</b>
                     <small>Qty ${o.price_unit === "lot" ? `Whole lot (${o.quantity})` : o.quantity} · Buyer ${escapeHtml(o.buyer_name)} · Handed over ${dateOnly(o.handed_over_at)}</small>
                   </span>

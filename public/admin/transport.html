@@ -80,13 +80,13 @@
           <div class="tx-total"><span>Refunds due</span><b>${kwacha(o.money.refunds_due)}</b></div>`;
         const alerts = [];
         if (!o.routing.enabled) alerts.push(["warn", `Transport is not offered at checkout: ${escapeHtml(o.routing.problem || "no road-distance service set up")}. Set ROUTING_PROVIDER and its key in .env.`]);
-        if (!o.enabled) alerts.push(["warn", `Transport is switched off in <a class="underline" href="/admin/transport-pricing.html">Transport pricing &amp; settings</a>.`]);
-        if (!o.bands) alerts.push(["warn", `There are no active price bands: <a class="underline" href="/admin/transport-pricing.html">add them</a> to offer transport.`]);
-        if (!o.frontier_pickup_set) alerts.push(["note", `Frontier's own pickup point isn't set, so transport isn't offered for Frontier's stock. <a class="underline" href="/admin/transport-pricing.html#pickup">Set it</a>.`]);
-        if (o.alerts.sellers_without_pickup) alerts.push(["note", `${o.alerts.sellers_without_pickup} approved seller${o.alerts.sellers_without_pickup === 1 ? " has" : "s have"} no pickup point, so buyers can't choose transport for their listings. <a class="underline" href="/admin/transport-pricing.html#sellers">See sellers</a>.`]);
+        if (!o.enabled) alerts.push(["warn", `Transport is switched off in <a class="underline" href="/admin/transport-pricing">Transport pricing &amp; settings</a>.`]);
+        if (!o.bands) alerts.push(["warn", `There are no active price bands: <a class="underline" href="/admin/transport-pricing">add them</a> to offer transport.`]);
+        if (!o.frontier_pickup_set) alerts.push(["note", `Frontier's own pickup point isn't set, so transport isn't offered for Frontier's stock. <a class="underline" href="/admin/transport-pricing#pickup">Set it</a>.`]);
+        if (o.alerts.sellers_without_pickup) alerts.push(["note", `${o.alerts.sellers_without_pickup} approved seller${o.alerts.sellers_without_pickup === 1 ? " has" : "s have"} no pickup point, so buyers can't choose transport for their listings. <a class="underline" href="/admin/transport-pricing#sellers">See sellers</a>.`]);
         if (o.alerts.unaccepted) alerts.push(["warn", `<button type="button" class="underline" data-alert="unaccepted">${o.alerts.unaccepted} paid deliver${o.alerts.unaccepted === 1 ? "y hasn't" : "ies haven't"} been accepted</button> within the acceptance window. Assign a provider.`]);
         if (o.alerts.delayed) alerts.push(["warn", `<button type="button" class="underline" data-alert="delayed">${o.alerts.delayed} deliver${o.alerts.delayed === 1 ? "y may be" : "ies may be"} delayed</button> (no GPS updates, or much longer than the route).`]);
-        if (o.providers.pending) alerts.push(["note", `<a class="underline" href="/admin/transport-providers.html?status=pending">${o.providers.pending} transport provider${o.providers.pending === 1 ? " is" : "s are"} waiting for approval</a>.`]);
+        if (o.providers.pending) alerts.push(["note", `<a class="underline" href="/admin/transport-providers?status=pending">${o.providers.pending} transport provider${o.providers.pending === 1 ? " is" : "s are"} waiting for approval</a>.`]);
         const box = document.getElementById("alerts");
         box.innerHTML = alerts.map(([k, t]) => `<div class="${k === "warn" ? "tr-warn-box" : "tr-note-box"}">${t}</div>`).join("");
         box.querySelectorAll("[data-alert]").forEach((b) => b.addEventListener("click", () => { state.alert = b.dataset.alert; state.tab = "all"; renderTabs(); load(); }));
@@ -221,10 +221,10 @@
             </div>
             <div class="space-y-4 min-w-0">
               <div class="acc-card"><h2 class="txd-card-title">Delivery</h2>${trFactsHtml(d, { role: "admin" })}
-                <ul class="tr-qty mt-3">${d.orders.map((o) => `<li><a class="acc-link" href="/admin/orders.html?id=${o.id}">${escapeHtml(o.reference)}</a><span>${escapeHtml(o.title)}${o.cancelled ? " (cancelled)" : ""}</span><b>${escapeHtml(o.units)} · ${kwacha(o.total)}</b></li>`).join("")}</ul>
-                <p class="text-sm mt-3">Checkout <a class="acc-link" href="/admin/transactions.html?id=${d.checkout_id}">${escapeHtml(d.checkout_reference)}</a></p>
+                <ul class="tr-qty mt-3">${d.orders.map((o) => `<li><a class="acc-link" href="/admin/orders?id=${o.id}">${escapeHtml(o.reference)}</a><span>${escapeHtml(o.title)}${o.cancelled ? " (cancelled)" : ""}</span><b>${escapeHtml(o.units)} · ${kwacha(o.total)}</b></li>`).join("")}</ul>
+                <p class="text-sm mt-3">Checkout <a class="acc-link" href="/admin/transactions?id=${d.checkout_id}">${escapeHtml(d.checkout_reference)}</a></p>
               </div>
-              <div class="acc-card"><h2 class="txd-card-title">Provider</h2>${d.provider ? `${trProviderHtml(d)}<p class="text-sm mt-2"><a class="acc-link" href="/admin/transport-providers.html?id=${d.provider.id}">Open provider</a></p>` : `<p class="text-sm text-gray-600">Not assigned.</p>`}
+              <div class="acc-card"><h2 class="txd-card-title">Provider</h2>${d.provider ? `${trProviderHtml(d)}<p class="text-sm mt-2"><a class="acc-link" href="/admin/transport-providers?id=${d.provider.id}">Open provider</a></p>` : `<p class="text-sm text-gray-600">Not assigned.</p>`}
                 ${d.rating ? `<p class="mt-3"><b>Buyer's rating:</b> ${trStarsHtml(d.rating.stars)}${d.rating.hidden ? " (hidden)" : ""}</p>${d.rating.feedback ? `<p class="text-sm text-gray-700">"${escapeHtml(d.rating.feedback)}"</p>` : ""}` : ""}
               </div>
               <div class="acc-card"><h2 class="txd-card-title">Buyer</h2>${d.customer ? `<dl class="sv-facts"><div><dt>Name</dt><dd>${escapeHtml(d.customer.name)}</dd></div><div><dt>Phone</dt><dd><a href="tel:${escapeHtml(String(d.customer.phone).replace(/[^\d+]/g, ""))}">${escapeHtml(d.customer.phone)}</a></dd></div><div><dt>Email</dt><dd><a href="mailto:${escapeHtml(d.customer.email)}">${escapeHtml(d.customer.email)}</a></dd></div></dl>` : "-"}</div>

@@ -170,7 +170,7 @@ router.post("/auth/register", async (req, res, next) => {
       "New seller waiting for approval",
       ["A seller has registered on Frontier Marketplace and is waiting for approval."],
       [["Name", data.name], ["Farm / business", data.business_name || "-"], ["Phone", data.phone], ["Email", data.email], ["Province", data.province]],
-      `/admin/sellers.html?id=${result.insertId}`,
+      `/admin/sellers?id=${result.insertId}`,
     );
     res.status(201).json({ success: true, data: await loadSeller(result.insertId) });
   } catch (error) {
@@ -238,7 +238,7 @@ router.post("/auth/forgot", async (req, res, next) => {
           `Use the button below to choose a new password. The link works for ${RESET_HOURS} hour.`,
           "If you didn't ask for this, you can ignore this email.",
         ],
-        button: { label: "Choose a new password", url: appUrl(`/seller/reset.html?token=${token}`) },
+        button: { label: "Choose a new password", url: appUrl(`/seller/reset?token=${token}`) },
       });
     }
     res.json({ success: true, message: "If that email has a seller account, we've sent a link to reset the password." });
@@ -540,7 +540,7 @@ function listingNotice(seller, listing, edited, listingId) {
     edited ? "A seller updated a listing" : "A seller added a listing",
     [`${sellerLabel(seller)} ${edited ? "updated" : "added"} a listing. It is hidden from the website until you approve it.`],
     [["Listing", listing.title], ["Seller", sellerLabel(seller)], ["Phone", seller.phone]],
-    "/admin/livestock.html?review=pending",
+    "/admin/livestock?review=pending",
   );
 }
 
@@ -652,7 +652,7 @@ router.delete("/listings/:id", requireSeller, async (req, res, next) => {
       "A seller deleted a listing",
       [`${sellerLabel(seller)} deleted a listing. It is no longer on the website.`],
       [["Listing", listing.title], ["Seller", sellerLabel(seller)], ["Phone", seller.phone]],
-      "/admin/livestock.html",
+      "/admin/livestock",
     ).catch((error) => console.error(`Listing deleted email: ${error.message}`));
     res.json({ success: true });
   } catch (error) {
@@ -750,7 +750,7 @@ router.post("/messages/:id/reply", requireSeller, async (req, res, next) => {
       "A seller replied",
       [`${sellerLabel(req.seller)} replied about "${message.livestock_title}":`, reply],
       [["Seller phone", req.seller.phone]],
-      `/admin/inquiries.html?id=${id}`,
+      `/admin/inquiries?id=${id}`,
     );
     res.json({ success: true, data: (await withThreads([await ownMessage(id, req.seller.id)]))[0] });
   } catch (error) {

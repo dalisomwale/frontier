@@ -13,7 +13,7 @@
         const q = new URLSearchParams(location.search);
         const id = Number.parseInt(q.get("id"), 10);
         if (id > 0) addToCart(id, Number.parseInt(q.get("qty"), 10) || 1);
-        location.replace(id > 0 ? "/checkout.html" : "/cart.html");
+        location.replace(id > 0 ? "/checkout" : "/cart");
       })();
     </script>
   </head>

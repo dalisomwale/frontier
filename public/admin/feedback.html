@@ -60,8 +60,8 @@
             <td class="whitespace-nowrap">${trStarsHtml(r.stars)}</td>
             <td class="text-gray-800">${r.feedback ? escapeHtml(r.feedback) : `<span class="text-gray-400">No comment</span>`}</td>
             <td class="hidden md:table-cell">${state.type === "platform"
-              ? `<a class="acc-link" href="/admin/transactions.html?id=${r.checkout_id}">${escapeHtml(r.reference)}</a><small class="block text-gray-500">${r.delivery_option === "transport" ? "Transport" : "Self-collection"}</small>`
-              : `<a class="acc-link" href="/admin/transport-providers.html?id=${r.provider_id}">${escapeHtml(r.provider)}</a><small class="block"><a class="acc-link" href="/admin/transport.html?id=${r.booking_id}">${escapeHtml(r.reference)}</a></small>`}</td>
+              ? `<a class="acc-link" href="/admin/transactions?id=${r.checkout_id}">${escapeHtml(r.reference)}</a><small class="block text-gray-500">${r.delivery_option === "transport" ? "Transport" : "Self-collection"}</small>`
+              : `<a class="acc-link" href="/admin/transport-providers?id=${r.provider_id}">${escapeHtml(r.provider)}</a><small class="block"><a class="acc-link" href="/admin/transport?id=${r.booking_id}">${escapeHtml(r.reference)}</a></small>`}</td>
             <td class="hidden md:table-cell text-gray-700">${escapeHtml(r.buyer || "")}</td>
             <td><button type="button" class="acc-mini-btn" data-id="${r.id}" data-hide="${r.hidden ? 0 : 1}">${r.hidden ? "Show" : "Hide"}</button></td></tr>`).join("")}</tbody></table>`;
         list.querySelectorAll("[data-id]").forEach((b) => b.addEventListener("click", async () => {

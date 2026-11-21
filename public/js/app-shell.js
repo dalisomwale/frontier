@@ -5,31 +5,32 @@ function renderBottomNav(variant = "public") {
   mount.classList.add("app-bottom-nav");
   mount.dataset.variant = variant;
 
-  const path = window.location.pathname.replace(/\/$/, "/index.html");
+  // Clean page addresses ("/admin/orders", "/admin/"); an old ".html" link is redirected anyway.
+  const path = window.location.pathname.replace(/\.html$/, "").replace(/\/index$/, "/");
   const hash = window.location.hash;
   const feedPage = new URLSearchParams(window.location.search).get("kind") === "feed";
 
   const tabs =
     variant === "admin"
       ? [
-          { href: "/admin/index.html", icon: "dashboard", label: "Overview", match: ["/admin/index.html"] },
-          { href: "/admin/livestock.html", icon: "listings", label: "Livestock", match: ["/admin/livestock.html"], feed: false },
-          { href: "/admin/livestock.html?kind=feed", icon: "feed", label: "Feed", match: ["/admin/livestock.html"], feed: true },
-          { href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", match: ["/admin/inquiries.html"], badge: true },
-          { href: "/admin/orders.html", icon: "cart", label: "Orders", match: ["/admin/orders.html"], orderBadge: true },
-          { href: "/admin/transactions.html", icon: "receipt", label: "Transactions", match: ["/admin/transactions.html"] },
-          { href: "/admin/payouts.html", icon: "wallet", label: "Payouts", match: ["/admin/payouts.html"] },
-          { href: "/admin/transport.html", icon: "truck", label: "Transport", match: ["/admin/transport.html", "/admin/transport-providers.html", "/admin/transport-pricing.html"] },
-          { href: "/admin/sellers.html", icon: "users", label: "Sellers", match: ["/admin/sellers.html"] },
-          { href: "/admin/breeds.html", icon: "tag", label: "Breeds", match: ["/admin/breeds.html"] },
-          { href: "/admin/categories.html", icon: "layers", label: "Categories", match: ["/admin/categories.html"] },
+          { href: "/admin/", icon: "dashboard", label: "Overview", match: ["/admin/"] },
+          { href: "/admin/livestock", icon: "listings", label: "Livestock", match: ["/admin/livestock"], feed: false },
+          { href: "/admin/livestock?kind=feed", icon: "feed", label: "Feed", match: ["/admin/livestock"], feed: true },
+          { href: "/admin/inquiries", icon: "inbox", label: "Inquiries", match: ["/admin/inquiries"], badge: true },
+          { href: "/admin/orders", icon: "cart", label: "Orders", match: ["/admin/orders"], orderBadge: true },
+          { href: "/admin/transactions", icon: "receipt", label: "Transactions", match: ["/admin/transactions"] },
+          { href: "/admin/payouts", icon: "wallet", label: "Payouts", match: ["/admin/payouts"] },
+          { href: "/admin/transport", icon: "truck", label: "Transport", match: ["/admin/transport", "/admin/transport-providers", "/admin/transport-pricing"] },
+          { href: "/admin/sellers", icon: "users", label: "Sellers", match: ["/admin/sellers"] },
+          { href: "/admin/breeds", icon: "tag", label: "Breeds", match: ["/admin/breeds"] },
+          { href: "/admin/categories", icon: "layers", label: "Categories", match: ["/admin/categories"] },
         ]
       : [
-          { href: "/", icon: "home", label: "Home", match: ["/index.html"], exactHash: "" },
-          { href: "/#listings", icon: "search", label: "Browse", match: ["/index.html"], exactHash: "#listings" },
-          { href: "/#feed", icon: "feed", label: "Feed", match: ["/index.html"], exactHash: "#feed" },
+          { href: "/", icon: "home", label: "Home", match: ["/"], exactHash: "" },
+          { href: "/#listings", icon: "search", label: "Browse", match: ["/"], exactHash: "#listings" },
+          { href: "/#feed", icon: "feed", label: "Feed", match: ["/"], exactHash: "#feed" },
           { href: "/account/", icon: "users", label: "Account",
-            match: ["/account/index.html", "/account/login.html", "/account/register.html", "/account/forgot.html", "/account/reset.html", "/account/verify.html"] },
+            match: ["/account/", "/account/login", "/account/register", "/account/forgot", "/account/reset", "/account/verify"] },
         ];
 
   mount.innerHTML = tabs
@@ -61,29 +62,29 @@ function renderSidebar(active) {
 
   // Grouped under small headings; "section" starts a new group.
   const items = [
-    { key: "dashboard", href: "/admin/index.html", icon: "dashboard", label: "Dashboard" },
+    { key: "dashboard", href: "/admin/", icon: "dashboard", label: "Dashboard" },
     { section: "Listings" },
-    { key: "livestock", href: "/admin/livestock.html", icon: "listings", label: "Manage Listing", crumb: "Livestock" },
-    { key: "feed", href: "/admin/livestock.html?kind=feed", icon: "feed", label: "Manage Feed", crumb: "Feed" },
+    { key: "livestock", href: "/admin/livestock", icon: "listings", label: "Manage Listing", crumb: "Livestock" },
+    { key: "feed", href: "/admin/livestock?kind=feed", icon: "feed", label: "Manage Feed", crumb: "Feed" },
     { section: "Sales" },
-    { key: "orders", href: "/admin/orders.html", icon: "cart", label: "Orders", orderBadge: true },
-    { key: "inquiries", href: "/admin/inquiries.html", icon: "inbox", label: "Inquiries", badge: true },
-    { key: "transactions", href: "/admin/transactions.html", icon: "receipt", label: "Transactions" },
-    { key: "payouts", href: "/admin/payouts.html", icon: "wallet", label: "Payouts" },
-    { key: "feedback", href: "/admin/feedback.html", icon: "star", label: "Feedback" },
+    { key: "orders", href: "/admin/orders", icon: "cart", label: "Orders", orderBadge: true },
+    { key: "inquiries", href: "/admin/inquiries", icon: "inbox", label: "Inquiries", badge: true },
+    { key: "transactions", href: "/admin/transactions", icon: "receipt", label: "Transactions" },
+    { key: "payouts", href: "/admin/payouts", icon: "wallet", label: "Payouts" },
+    { key: "feedback", href: "/admin/feedback", icon: "star", label: "Feedback" },
     { section: "Transport" },
-    { key: "transport", href: "/admin/transport.html", icon: "truck", label: "Deliveries" },
-    { key: "transport-providers", href: "/admin/transport-providers.html", icon: "users", label: "Transport providers" },
-    { key: "transport-pricing", href: "/admin/transport-pricing.html", icon: "route", label: "Pricing & settings" },
+    { key: "transport", href: "/admin/transport", icon: "truck", label: "Deliveries" },
+    { key: "transport-providers", href: "/admin/transport-providers", icon: "users", label: "Transport providers" },
+    { key: "transport-pricing", href: "/admin/transport-pricing", icon: "route", label: "Pricing & settings" },
     { section: "People" },
-    { key: "sellers", href: "/admin/sellers.html", icon: "users", label: "Sellers" },
+    { key: "sellers", href: "/admin/sellers", icon: "users", label: "Sellers" },
     { section: "Setup" },
-    { key: "breeds", href: "/admin/breeds.html", icon: "tag", label: "Breeds" },
+    { key: "breeds", href: "/admin/breeds", icon: "tag", label: "Breeds" },
     {
-      key: "categories", href: "/admin/categories.html", icon: "layers", label: "Categories & Purposes",
+      key: "categories", href: "/admin/categories", icon: "layers", label: "Categories & Purposes",
       children: [
-        { href: "/admin/categories.html", label: "Livestock", feed: false },
-        { href: "/admin/categories.html?kind=feed", label: "Feed", feed: true },
+        { href: "/admin/categories", label: "Livestock", feed: false },
+        { href: "/admin/categories?kind=feed", label: "Feed", feed: true },
       ],
     },
     { section: "Website" },

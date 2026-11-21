@@ -43,7 +43,7 @@
         e.preventDefault();
         try {
           await withBusy(document.getElementById("submit-btn"), "Saving…", () => transportApi("/api/transport/auth/reset", { method: "POST", body: { token: getQueryParams().token || "", password: form.password.value } }));
-          window.location.href = "/transport/login.html?reset=1";
+          window.location.href = "/transport/login?reset=1";
         } catch (error) {
           showFieldErrors(form, error);
           box.className = "alert alert-error text-sm mb-0";

@@ -7,7 +7,7 @@ const { orderRef, kwacha, headCount, paymentText, STATUS_LABELS, OPERATOR_LABELS
 
 const firstName = (name) => String(name || "").trim().split(/\s+/)[0] || "there";
 const hi = (name) => `Hi ${firstName(name)},`;
-const listingLink = (id) => appUrl(`/listing.html?id=${id}`);
+const listingLink = (id) => appUrl(`/listing?id=${id}`);
 const isFeed = (kind) => kind === "feed";
 const reservedWord = (kind) => (isFeed(kind) ? "The feed is" : "The animals are");
 
@@ -135,7 +135,7 @@ function paymentReminder(order) {
       `Your mobile money payment for order ${ref} wasn't completed${order.payment_failure ? ` (reason: ${order.payment_failure})` : ""}. Don't worry: your order is still reserved for you.`,
     ],
     rows: [["Order", ref], ["Listing", order.livestock_title], ["Amount", kwacha(order.total)]],
-    button: { label: "Try the payment again", url: appUrl(`/pay.html?order=${order.id}&token=${order.public_token}`) },
+    button: { label: "Try the payment again", url: appUrl(`/pay?order=${order.id}&token=${order.public_token}`) },
     after: ["Prefer to pay another way? Reply to this email and we'll help."],
   });
 }
@@ -318,7 +318,7 @@ function passwordChanged(seller, when = new Date()) {
       `The password for your seller account was changed on ${at}.`,
       "If this was you, there's nothing to do. If it wasn't, reset your password straight away and reply to this email so we can help.",
     ],
-    button: { label: "Reset my password", url: appUrl("/seller/forgot.html") },
+    button: { label: "Reset my password", url: appUrl("/seller/forgot") },
   });
 }
 
@@ -353,7 +353,7 @@ function unpaidOrder(order) {
       ["Paying from", `${OPERATOR_LABELS[order.mobile_operator] || "Mobile money"} ${order.payment_phone || ""}`.trim()],
       ["Attempts", String(order.payment_attempts || 1)],
     ],
-    button: { label: "Open order", url: appUrl(`/admin/orders.html?id=${order.id}`) },
+    button: { label: "Open order", url: appUrl(`/admin/orders?id=${order.id}`) },
   });
 }
 

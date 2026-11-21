@@ -193,7 +193,7 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
       heading: "A transport provider is waiting for approval",
       paragraphs: ["Please review their details and documents, then approve or reject them and set their coverage."],
       rows: [["Name", data.name], ["Type", data.kind === "company" ? "Company" : "Individual"], ["Phone", data.phone], ["Email", data.email], ["Area", `${data.district}, ${data.province}`], ["Documents", String(req.files.length)]],
-      button: { label: "Review the provider", url: appUrl(`/admin/transport-providers.html?id=${r.insertId}`) },
+      button: { label: "Review the provider", url: appUrl(`/admin/transport-providers?id=${r.insertId}`) },
     });
     notifications.broadcastAdmin("transport", { change: "provider_registered", provider_id: r.insertId });
     res.status(201).json({ success: true, data: await loadProvider(r.insertId) });
@@ -244,7 +244,7 @@ router.post("/auth/forgot", async (req, res, next) => {
         subject: "Reset your Frontier transport password",
         heading: "Reset your password",
         paragraphs: [`Hi ${String(p.contact_person || p.name).split(/\s+/)[0]},`, `Use the button below to choose a new password. The link works for ${RESET_HOURS} hour.`, "If you didn't ask for this, you can ignore this email."],
-        button: { label: "Choose a new password", url: appUrl(`/transport/reset.html?token=${token}`) },
+        button: { label: "Choose a new password", url: appUrl(`/transport/reset?token=${token}`) },
       });
     }
     res.json({ success: true, message: "If that email has a transport account, we've sent a link to reset the password." });
@@ -343,7 +343,7 @@ router.post("/me/documents", requireProvider, uploadDocuments, async (req, res, 
     await conn.beginTransaction();
     await storeDocuments(conn, req.provider.id, req.files, docTypesOf(req.body));
     await conn.commit();
-    sendEmail({ to: recipients(), subject: `New documents from ${req.provider.name}`, heading: "A transport provider added documents", paragraphs: [`${req.provider.name} added ${req.files.length} document${req.files.length === 1 ? "" : "s"}.`], button: { label: "Review", url: appUrl(`/admin/transport-providers.html?id=${req.provider.id}`) } });
+    sendEmail({ to: recipients(), subject: `New documents from ${req.provider.name}`, heading: "A transport provider added documents", paragraphs: [`${req.provider.name} added ${req.files.length} document${req.files.length === 1 ? "" : "s"}.`], button: { label: "Review", url: appUrl(`/admin/transport-providers?id=${req.provider.id}`) } });
     res.json({ success: true, message: "Uploaded. Frontier will review it." });
   } catch (error) {
     await conn.rollback().catch(() => {});

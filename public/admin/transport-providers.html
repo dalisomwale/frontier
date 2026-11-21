@@ -72,7 +72,7 @@
           return renderEmptyState(list, { title: "Could not load providers", message: error.message, icon: "alert" });
         }
         renderTabs();
-        if (!state.rows.length) return renderEmptyState(list, { title: "No transport providers", message: "Providers register at /transport/register.html.", icon: "users" });
+        if (!state.rows.length) return renderEmptyState(list, { title: "No transport providers", message: "Providers register at /transport/register.", icon: "users" });
         list.innerHTML = `<table class="admin-table"><thead><tr><th>Provider</th><th class="hidden md:table-cell">Area</th><th>Status</th><th>Coverage</th><th class="hidden sm:table-cell">Vehicles</th><th class="hidden lg:table-cell">Deliveries</th><th class="hidden lg:table-cell">Rating</th></tr></thead>
           <tbody>${state.rows.map((p) => `<tr class="cursor-pointer" data-open="${p.id}">
             <td><b class="text-gray-900">${escapeHtml(p.name)}</b><small class="block text-gray-500">${escapeHtml(p.phone)}${p.kind === "company" ? " · company" : ""}</small></td>
@@ -219,7 +219,7 @@
             refresh();
           } catch (error) { showNotification(error.message, "error"); }
         }));
-        view.body.querySelectorAll("[data-booking]").forEach((tr) => tr.addEventListener("click", () => { location.href = `/admin/transport.html?id=${tr.dataset.booking}`; }));
+        view.body.querySelectorAll("[data-booking]").forEach((tr) => tr.addEventListener("click", () => { location.href = `/admin/transport?id=${tr.dataset.booking}`; }));
         view.body.querySelector("[data-edit-base]").addEventListener("click", () => editBase(p));
       }
 

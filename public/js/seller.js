@@ -7,10 +7,10 @@ async function sellerApi(url, options = {}) {
     // Signed out: go to the sign-in page (and back here afterwards). Not for
     // the sign-in forms themselves, or from the pages that hold them.
     const formRequest = /\/auth\/(login|register|forgot|reset)$/.test(url.split("?")[0]);
-    const formPage = /\/seller\/(login|register|forgot|reset)\.html$/.test(location.pathname);
+    const formPage = /\/seller\/(login|register|forgot|reset)(\.html)?$/.test(location.pathname);
     if (error.status === 401 && !formRequest && !formPage) {
       setSellerHint(false);
-      window.location.href = `/seller/login.html?next=${encodeURIComponent(location.pathname + location.search)}`;
+      window.location.href = `/seller/login?next=${encodeURIComponent(location.pathname + location.search)}`;
       await new Promise(() => {});
     }
     throw error;
@@ -280,7 +280,7 @@ function initSellerNotifications({ onNotification } = {}) {
     stream.addEventListener("signed-out", () => {
       stream.close();
       setSellerHint(false);
-      window.location.href = "/seller/login.html";
+      window.location.href = "/seller/login";
     });
   }
   document.addEventListener("visibilitychange", () => { if (!document.hidden) n.load(); });

@@ -218,7 +218,7 @@ async function markSent(orderId, method, by, files, note, ip = null) {
     heading: `${ref} was ${how}`,
     paragraphs: [`${by.kind === "admin" ? "Frontier" : `The seller${by.name ? ` (${by.name})` : ""}`} marked ${ref} (${order.livestock_title}) as ${how}, with ${saved.length} photo${saved.length === 1 ? "" : "s"}. ${order.buyer_id ? "The buyer has been asked to confirm." : "The buyer has no account, so they can't confirm online."}`],
     rows: [["Order", ref], ["Seller", await sellerName(order.seller_id)], ["Buyer", order.full_name], ["Quantity", units], ["Total", kwacha(order.total)]],
-    button: { label: "Open the order", url: appUrl(`/admin/orders.html?id=${order.id}`) },
+    button: { label: "Open the order", url: appUrl(`/admin/orders?id=${order.id}`) },
     log: true,
   });
   broadcastAdmin("order", { id: order.id, checkout_id: order.checkout_id, change: "sent" });
@@ -274,7 +274,7 @@ async function handOver(orderId, by, ip = null) {
       ["Quantity", units],
       ["Total", kwacha(order.total)],
     ],
-    button: { label: "Open the order", url: appUrl(`/admin/orders.html?id=${order.id}`) },
+    button: { label: "Open the order", url: appUrl(`/admin/orders?id=${order.id}`) },
     log: true,
   });
   broadcastAdmin("order", { id: order.id, checkout_id: order.checkout_id, change: "handed_over" });
@@ -416,7 +416,7 @@ async function confirmReceipt(orderId, buyer, method, files, note, ip = null) {
       ["Photos", String(saved.length)],
       ...(clean ? [["Buyer's note", clean]] : []),
     ],
-    button: { label: "Open the order", url: appUrl(`/admin/orders.html?id=${order.id}`) },
+    button: { label: "Open the order", url: appUrl(`/admin/orders?id=${order.id}`) },
     log: true,
   });
   // For the buyer, confirming completes the order.

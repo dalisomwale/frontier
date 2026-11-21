@@ -249,19 +249,37 @@ app.use(
 // visitors somewhere sensible instead of a 404.
 // ---------------------------------------------------------------------------
 const RETIRED_PAGES = {
-  "/marketplace.html": "/#listings",
-  "/login.html": "/seller/login.html",
-  "/register.html": "/seller/register.html",
-  "/dashboard.html": "/seller/",
-  "/messages.html": "/",
-  "/profile.html": "/",
-  "/seller.html": "/",
-  "/admin/users.html": "/admin/",
-  "/admin/reports.html": "/admin/",
-  "/admin/listings.html": "/admin/livestock.html",
-  "/photo-credits.html": "/",
+  "/marketplace": "/#listings",
+  "/login": "/seller/login",
+  "/register": "/seller/register",
+  "/dashboard": "/seller/",
+  "/messages": "/",
+  "/profile": "/",
+  "/admin/users": "/admin/",
+  "/admin/reports": "/admin/",
+  "/admin/listings": "/admin/livestock",
+  "/photo-credits": "/",
 };
+// Old addresses with ".html" too.
+Object.keys(RETIRED_PAGES).forEach((k) => { RETIRED_PAGES[`${k}.html`] = RETIRED_PAGES[k]; });
+RETIRED_PAGES["/seller.html"] = "/";
 app.get(Object.keys(RETIRED_PAGES), (req, res) => res.redirect(301, RETIRED_PAGES[req.path]));
+
+// Pages are addressed without ".html" (/checkout, /admin/orders, /account/).
+// Old links (bookmarks, emails already sent) are sent to the clean address,
+// keeping the query string. express.static below finds the .html file.
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  const p = req.path;
+  if (p.startsWith("/api/") || p.startsWith("/uploads/") || p.startsWith("/vendor/")) return next();
+  let clean = null;
+  if (p.endsWith(".html")) clean = p.slice(0, -5);
+  else if (p.endsWith("/index")) clean = p;
+  if (clean === null) return next();
+  if (clean.endsWith("/index")) clean = clean.slice(0, -5);
+  const q = req.originalUrl.indexOf("?");
+  return res.redirect(301, clean + (q >= 0 ? req.originalUrl.slice(q) : ""));
+});
 
 // ---------------------------------------------------------------------------
 // Static files. Uploaded photos have unique names, so they can be cached

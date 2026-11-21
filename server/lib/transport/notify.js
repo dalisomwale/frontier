@@ -11,7 +11,7 @@ const links = {
   customer: (b) => `/account/?tab=orders&delivery=${b.id}`,
   seller: (b) => `/seller/?tab=orders&delivery=${b.id}`,
   provider: (b) => `/transport/?booking=${b.id}`,
-  admin: (b) => `/admin/transport.html?id=${b.id}`,
+  admin: (b) => `/admin/transport?id=${b.id}`,
 };
 
 async function contactOf(b) {
@@ -112,7 +112,7 @@ function team(b, { subject, heading, paragraphs = [], rows = [] }) {
       heading: heading || subject,
       paragraphs,
       rows: [...(b ? [["Delivery", bookingRef(b.id)], ["Status", STATUS_LABELS[b.status] || b.status]] : []), ...rows],
-      button: b ? { label: "Open the delivery", url: appUrl(links.admin(b)) } : { label: "Open transport", url: appUrl("/admin/transport.html") },
+      button: b ? { label: "Open the delivery", url: appUrl(links.admin(b)) } : { label: "Open transport", url: appUrl("/admin/transport") },
       log: true,
     });
   });

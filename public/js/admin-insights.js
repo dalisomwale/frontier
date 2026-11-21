@@ -160,7 +160,7 @@
       },
       options: {
         indexAxis: "y",
-        onClick: (e, els) => { if (els[0]) window.location.href = `/admin/livestock.html?edit=${top[els[0].index].id}`; },
+        onClick: (e, els) => { if (els[0]) window.location.href = `/admin/livestock?edit=${top[els[0].index].id}`; },
         plugins: { legend: { position: "top", align: "end" }, tooltip: { callbacks: { title: (items) => top[items[0].dataIndex].title } } },
         scales: { x: axis({ stacked: true, beginAtZero: true, ticks: { precision: 0, padding: 4 } }), y: noGrid({ stacked: true, ticks: { autoSkip: false, color: C.ink } }) },
       },

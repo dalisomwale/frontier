@@ -66,7 +66,7 @@ function validate(body) {
 
 function adminUrl(req, id) {
   const base = (process.env.APP_URL || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
-  return `${base}/admin/inquiries.html?id=${id}`;
+  return `${base}/admin/inquiries?id=${id}`;
 }
 
 router.post("/", async (req, res, next) => {

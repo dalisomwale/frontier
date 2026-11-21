@@ -6,7 +6,7 @@ async function adminApi(url, options = {}) {
     return await apiRequest(url, { ...options, headers: { ...ADMIN_HEADER, ...options.headers } });
   } catch (error) {
     if (error.status === 401 && !url.includes("/auth/login")) {
-      window.location.href = `/admin/login.html?next=${encodeURIComponent(location.pathname + location.search)}`;
+      window.location.href = `/admin/login?next=${encodeURIComponent(location.pathname + location.search)}`;
       await new Promise(() => {});
     }
     throw error;
@@ -27,7 +27,7 @@ async function adminLogout() {
   try {
     await adminApi("/api/admin/auth/logout", { method: "POST" });
   } finally {
-    window.location.href = "/admin/login.html";
+    window.location.href = "/admin/login";
   }
 }
 
@@ -40,7 +40,7 @@ async function initAdminPage(active) {
     topbar.innerHTML = `
       <nav id="page-topnav" class="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div class="px-4 sm:px-6 h-16 flex justify-between items-center">
-          <a href="/admin/index.html" class="flex items-center gap-3">
+          <a href="/admin/" class="flex items-center gap-3">
             <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div>
             <span class="font-bold text-gray-900">Admin</span>
           </a>

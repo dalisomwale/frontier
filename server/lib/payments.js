@@ -91,7 +91,7 @@ async function markPaid(order, data) {
     heading: `Order ${ref} has been paid`,
     paragraphs: [`${order.full_name} paid ${kwacha(data.amount || order.total)} by ${how}. The order is now marked paid.`],
     rows: [...rows, ["Buyer", order.full_name], ["WhatsApp", order.phone]],
-    button: { label: "Open order", url: appUrl(`/admin/orders.html?id=${order.id}`) },
+    button: { label: "Open order", url: appUrl(`/admin/orders?id=${order.id}`) },
   });
   tellSeller(order).catch((error) => console.error(`Order ${ref}: seller notice failed (${error.message})`));
 }

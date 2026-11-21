@@ -228,7 +228,7 @@ pages.get("/return/:id/:token", async (req, res) => {
   } catch (error) {
     console.error(`Card return: ${error.message}`);
   }
-  res.redirect(303, `/pay.html?checkout=${id}&token=${encodeURIComponent(token)}&returned=1`);
+  res.redirect(303, `/pay?checkout=${id}&token=${encodeURIComponent(token)}&returned=1`);
 });
 
 module.exports = router;

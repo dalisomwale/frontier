@@ -272,7 +272,7 @@
               <p class="text-sm text-gray-500 mt-1">${escapeHtml(stateHelp[st.key])}${st.key === "published" && l.published_at ? ` Since ${formatDateShort(l.published_at)}.` : ""}</p>
             </div>
             <div class="sv-actions">
-              ${st.key === "published" ? `<a href="/listing.html?id=${l.id}" target="_blank" rel="noopener" class="sv-icon-btn" title="View on the website" aria-label="View on the website"><span>${uiIcon("eye")}</span></a>` : ""}
+              ${st.key === "published" ? `<a href="/listing?id=${l.id}" target="_blank" rel="noopener" class="sv-icon-btn" title="View on the website" aria-label="View on the website"><span>${uiIcon("eye")}</span></a>` : ""}
               ${approved() ? `<button type="button" data-edit class="sv-icon-btn sv-icon-primary" title="Edit" aria-label="Edit"><span>${uiIcon("edit")}</span></button>` : ""}
               <button type="button" data-delete class="sv-icon-btn sv-icon-danger" title="Delete" aria-label="Delete"><span>${uiIcon("trash")}</span></button>
             </div>
@@ -686,7 +686,7 @@
               <p class="sm-chat-title truncate">${escapeHtml(m.livestock_title)}</p>
               <p class="text-xs text-gray-500">Conversation with Frontier</p>
             </div>
-            ${m.livestock_id ? `<a href="/listing.html?id=${m.livestock_id}" target="_blank" rel="noopener" class="sm-view">View<span class="sm-view-more"> listing</span></a>` : ""}
+            ${m.livestock_id ? `<a href="/listing?id=${m.livestock_id}" target="_blank" rel="noopener" class="sm-view">View<span class="sm-view-more"> listing</span></a>` : ""}
           </header>
           <div class="chat-body" id="msg-body">${thread}</div>
           <form class="chat-composer chat-composer-row" id="msg-form" novalidate>
@@ -1087,7 +1087,7 @@
                 <div><dt>Quantity</dt><dd>${escapeHtml(o.price_unit === "lot" ? `Whole lot (${o.units})` : o.units)}</dd></div>
                 <div><dt>Total</dt><dd>${kwacha(o.total)}</dd></div>
                 <div><dt>Payment</dt><dd>${o.paid ? "Paid" : "Arranged by Frontier"}</dd></div>
-                ${o.livestock_id ? `<div><dt>Listing</dt><dd><a href="/listing.html?id=${o.livestock_id}" target="_blank" rel="noopener" class="font-semibold text-blue-600">View</a></dd></div>` : ""}
+                ${o.livestock_id ? `<div><dt>Listing</dt><dd><a href="/listing?id=${o.livestock_id}" target="_blank" rel="noopener" class="font-semibold text-blue-600">View</a></dd></div>` : ""}
               </dl>
             </div>
             <div class="space-y-4 min-w-0">${stepCard(o)}</div>

@@ -130,7 +130,7 @@ router.post("/:id/reply", async (req, res, next) => {
       [id],
     );
     if (!row) throw notFound("Inquiry not found.");
-    const listingUrl = row.livestock_id && row.livestock_status === "published" ? appUrl(`/listing.html?id=${row.livestock_id}`) : null;
+    const listingUrl = row.livestock_id && row.livestock_status === "published" ? appUrl(`/listing?id=${row.livestock_id}`) : null;
     const customer = await sendEmail({
       to: row.customer_email,
       subject: `Re: your inquiry about ${row.livestock_title}`,

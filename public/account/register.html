@@ -59,11 +59,11 @@
           </div>
             <label class="co-terms-box">
               <input type="checkbox" name="accept_terms" />
-              <span>I have read and accept the <a href="/terms.html" target="_blank" class="acc-link">Terms</a>, <a href="/refund-policy.html" target="_blank" class="acc-link">Refund</a>, <a href="/return-policy.html" target="_blank" class="acc-link">Return</a> and <a href="/cancellation-policy.html" target="_blank" class="acc-link">Cancellation</a> policies.</span>
+              <span>I have read and accept the <a href="/terms" target="_blank" class="acc-link">Terms</a>, <a href="/refund-policy" target="_blank" class="acc-link">Refund</a>, <a href="/return-policy" target="_blank" class="acc-link">Return</a> and <a href="/cancellation-policy" target="_blank" class="acc-link">Cancellation</a> policies.</span>
             </label>
             <p class="field-error hidden -mt-2" data-error-for="accept_terms"></p>
             <button id="submit-btn" type="submit" class="acc-btn">Create account</button>
-            <p class="text-sm text-gray-600 text-center">Already have an account? <a id="login-link2" href="/account/login.html" class="acc-link font-semibold">Log in</a></p>
+            <p class="text-sm text-gray-600 text-center">Already have an account? <a id="login-link2" href="/account/login" class="acc-link font-semibold">Log in</a></p>
           </form>
         </div>
         <aside class="acc-why">
@@ -72,7 +72,7 @@
           <div class="acc-why-item"><span data-icon="camera"></span><div><b>Confirm what you've received</b><p>Add a few photos when you collect or receive your animals.</p></div></div>
           <div class="acc-why-item"><span data-icon="check"></span><div><b>Check out faster</b><p>Your details are filled in for you.</p></div></div>
           <p class="acc-why-note">Ordered before? Use the same email. Once you confirm it, your past orders appear in your account.</p>
-          <p class="acc-why-note">Selling livestock? <a href="/seller/register.html" class="acc-link">Register as a seller</a></p>
+          <p class="acc-why-note">Selling livestock? <a href="/seller/register" class="acc-link">Register as a seller</a></p>
         </aside>
       </div>
     </main>
@@ -92,7 +92,7 @@
       const form = document.getElementById("register-form");
       const next = buyerNext();
       if (next.startsWith("/checkout")) document.getElementById("checkout-note").hidden = false;
-      document.getElementById("login-link2").href = `/account/login.html${location.search}`;
+      document.getElementById("login-link2").href = `/account/login${location.search}`;
       bindPasswordMeter(form.password, () => ({ email: form.email.value, phone: form.phone.value }));
       form.addEventListener("submit", async (event) => {
         event.preventDefault();

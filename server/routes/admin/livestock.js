@@ -511,7 +511,7 @@ router.post("/:id/review", async (req, res, next) => {
           : [`Hi ${String(row.seller_name).split(" ")[0]},`, `Before ${row.title} can go live, please make this change:`],
         quote: note || null,
         button: action === "approve"
-          ? { label: "View it on the website", url: appUrl(`/listing.html?id=${id}`) }
+          ? { label: "View it on the website", url: appUrl(`/listing?id=${id}`) }
           : { label: "Edit the listing", url: appUrl("/seller/") },
       });
       emailed = result.sent;

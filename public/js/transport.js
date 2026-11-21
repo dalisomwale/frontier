@@ -9,9 +9,9 @@ async function transportApi(url, options = {}) {
     return await apiRequest(url, { ...options, headers: { ...TRANSPORT_HEADER, ...options.headers } });
   } catch (error) {
     const formRequest = /\/auth\/(login|register|forgot|reset)$/.test(url.split("?")[0]);
-    const formPage = /\/transport\/(login|register|forgot|reset)\.html$/.test(location.pathname);
+    const formPage = /\/transport\/(login|register|forgot|reset)(\.html)?$/.test(location.pathname);
     if (error.status === 401 && !formRequest && !formPage) {
-      window.location.href = `/transport/login.html?next=${encodeURIComponent(location.pathname + location.search)}`;
+      window.location.href = `/transport/login?next=${encodeURIComponent(location.pathname + location.search)}`;
       await new Promise(() => {});
     }
     throw error;
@@ -41,7 +41,7 @@ async function transportLogout() {
   try {
     await transportApi("/api/transport/auth/logout", { method: "POST" });
   } finally {
-    window.location.href = "/transport/login.html";
+    window.location.href = "/transport/login";
   }
 }
 

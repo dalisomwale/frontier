@@ -57,7 +57,7 @@
 
       function nextUrl() {
         const next = getQueryParams().next || "";
-        return next.startsWith("/admin/") && !next.startsWith("//") ? next : "/admin/index.html";
+        return next.startsWith("/admin/") && !next.startsWith("//") ? next : "/admin/";
       }
 
       apiRequest("/api/admin/auth/me", { headers: ADMIN_HEADER })

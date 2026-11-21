@@ -25,7 +25,7 @@
   const esc = (s) => (typeof escapeHtml === "function" ? escapeHtml(s) : String(s ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`));
   const icon = (name) => (NAV_ICONS.find(([re]) => re.test(name)) || [null, "🌾"])[1];
   const photoOf = (a) => a.image_path || NAV_PHOTOS[Object.keys(NAV_PHOTOS).find((k) => a.name.toLowerCase().includes(k))] || "";
-  const feedHref = (typeId, stageId) => `/feed.html?type=${encodeURIComponent(typeId)}${stageId ? `&stage=${encodeURIComponent(stageId)}` : ""}`;
+  const feedHref = (typeId, stageId) => `/feed?type=${encodeURIComponent(typeId)}${stageId ? `&stage=${encodeURIComponent(stageId)}` : ""}`;
   const listHref = (animalId, purposeId) => `/?animal_id=${encodeURIComponent(animalId)}${purposeId ? `&category_id=${encodeURIComponent(purposeId)}` : ""}#listings`;
 
   const getJson = (url) => fetch(url, { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : Promise.reject(r))).then((r) => r.data || []);
@@ -147,7 +147,7 @@
       <div class="snav-seg"><button type="button" data-sheet-tab="livestock" class="is-on">Livestock</button><button type="button" data-sheet-tab="feed">Feed</button></div>
       <div class="snav-sheet-body" data-sheet-body></div>
       <div class="snav-sheet-foot">
-        <a href="/seller/register.html" class="snav-sell">Sell with us</a>
+        <a href="/seller/register" class="snav-sell">Sell with us</a>
         <span data-sheet-auth></span>
       </div>`;
     document.body.appendChild(sheet);
@@ -180,7 +180,7 @@
     const chip = header.querySelector(".buyer-chip");
     sheet.querySelector("[data-sheet-auth]").innerHTML = chip
       ? `<a href="/account/" class="snav-auth-btn snav-auth-solid">My account</a>`
-      : `<a href="/account/login.html" class="snav-auth-btn">Log in</a><a href="/account/register.html" class="snav-auth-btn snav-auth-solid">Register</a>`;
+      : `<a href="/account/login" class="snav-auth-btn">Log in</a><a href="/account/register" class="snav-auth-btn snav-auth-solid">Register</a>`;
     sheetBody("livestock");
     sheet.querySelector("[data-sheet-close]").focus();
   }
@@ -195,7 +195,7 @@
     slot.innerHTML = `
       <button type="button" class="snav-tab" data-nav-tab="livestock" aria-haspopup="true" aria-expanded="false">Livestock <span class="snav-caret" aria-hidden="true">▾</span></button>
       <button type="button" class="snav-tab" data-nav-tab="feed" aria-haspopup="true" aria-expanded="false">Feed <span class="snav-caret" aria-hidden="true">▾</span></button>
-      <a class="snav-tab" href="/seller/register.html">Sell with us</a>`;
+      <a class="snav-tab" href="/seller/register">Sell with us</a>`;
     panel = document.createElement("div");
     panel.className = "snav-panel";
     panel.hidden = true;
@@ -274,9 +274,9 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
       </button>
       <div class="snav-acct-menu" hidden>
-        <a href="/account/login.html">Log in</a>
-        <a href="/account/register.html" class="snav-acct-reg">Register</a>
-        <a href="/seller/login.html" class="snav-acct-sub">Seller log in</a>
+        <a href="/account/login">Log in</a>
+        <a href="/account/register" class="snav-acct-reg">Register</a>
+        <a href="/seller/login" class="snav-acct-sub">Seller log in</a>
       </div>`;
     authBox.appendChild(wrap);
     const btn = wrap.querySelector("button"), menu = wrap.querySelector(".snav-acct-menu");

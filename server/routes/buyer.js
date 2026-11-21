@@ -127,7 +127,7 @@ function sendVerifyEmail(buyer, token) {
       `Hi ${String(buyer.full_name).split(/\s+/)[0]},`,
       "Welcome to Frontier Marketplace. Please confirm this is your email address. Any orders you placed before with this email will then appear in your account.",
     ],
-    button: { label: "Confirm my email", url: appUrl(`/account/verify.html?token=${token}`) },
+    button: { label: "Confirm my email", url: appUrl(`/account/verify?token=${token}`) },
     after: [`The link works for ${VERIFY_DAYS} days. If you didn't create an account, you can ignore this email.`],
   });
 }
@@ -212,7 +212,7 @@ router.post("/auth/forgot", async (req, res, next) => {
           `Use the button below to choose a new password. The link works for ${RESET_HOURS} hour.`,
           "If you didn't ask for this, you can ignore this email.",
         ],
-        button: { label: "Choose a new password", url: appUrl(`/account/reset.html?token=${token}`) },
+        button: { label: "Choose a new password", url: appUrl(`/account/reset?token=${token}`) },
       });
     }
     res.json({ success: true, message: "If that email has an account, we've sent a link to reset the password." });
@@ -357,7 +357,7 @@ function orderView(o, photos = []) {
     sent_at: o.sent_at,
     received_at: o.received_at,
     received_note: o.received_note,
-    pay_url: payable ? `/pay.html?checkout=${o.checkout_id}&token=${o.checkout_token}` : null,
+    pay_url: payable ? `/pay?checkout=${o.checkout_id}&token=${o.checkout_token}` : null,
     photos,
     delivery_option: o.checkout_delivery || "collect",
     // Include transport: the delivery this order travels in.

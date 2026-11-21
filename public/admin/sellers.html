@@ -400,7 +400,7 @@
         };
         const paint = () => {
           const listingRows = s.listings.map((l) => `
-            <a href="/admin/livestock.html?edit=${l.id}" class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
+            <a href="/admin/livestock?edit=${l.id}" class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
               <span class="w-14 h-10 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : livestockFallbackMedia("w-6 h-6")}</span>
               <div class="min-w-0 flex-1">
                 <p class="font-semibold text-gray-900 truncate">${escapeHtml(l.title)}</p>
@@ -415,7 +415,7 @@
             </a>`).join("");
 
           const inquiryRows = s.inquiries.map((i) => `
-            <a href="/admin/inquiries.html?id=${i.id}" class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
+            <a href="/admin/inquiries?id=${i.id}" class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
               <span class="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0">${escapeHtml(i.full_name.charAt(0).toUpperCase())}</span>
               <div class="min-w-0 flex-1">
                 <p class="font-semibold text-gray-900 truncate">${escapeHtml(i.full_name)}</p>
@@ -502,8 +502,8 @@
                   <div class="flex items-center justify-between mb-2">
                     <h3 class="txd-card-title !mb-0">Listings</h3>
                     <div class="flex items-center gap-3 text-sm">
-                      ${s.listings.length ? `<a href="/admin/livestock.html?seller_id=${s.id}" class="font-medium text-blue-600 hover:text-blue-700">View all</a>` : ""}
-                      <a href="/admin/livestock.html?new=1&seller_id=${s.id}" class="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700"><span class="w-4 h-4">${uiIcon("plus")}</span>Add listing</a>
+                      ${s.listings.length ? `<a href="/admin/livestock?seller_id=${s.id}" class="font-medium text-blue-600 hover:text-blue-700">View all</a>` : ""}
+                      <a href="/admin/livestock?new=1&seller_id=${s.id}" class="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700"><span class="w-4 h-4">${uiIcon("plus")}</span>Add listing</a>
                     </div>
                   </div>
                   <div class="rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden">
@@ -514,7 +514,7 @@
                 <section class="txd-card">
                   <div class="flex items-center justify-between mb-2">
                     <h3 class="txd-card-title !mb-0">Inquiries</h3>
-                    ${s.inquiries.length ? `<a href="/admin/inquiries.html?seller_id=${s.id}" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>` : ""}
+                    ${s.inquiries.length ? `<a href="/admin/inquiries?seller_id=${s.id}" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>` : ""}
                   </div>
                   <div class="rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden">
                     ${inquiryRows || `<p class="px-3 py-4 text-sm text-gray-500">No inquiries about this seller's listings yet.</p>`}

@@ -29,7 +29,7 @@ function animalPhoto(animal) {
 }
 
 function listingUrl(id) {
-  return `/listing.html?id=${encodeURIComponent(id)}`;
+  return `/listing?id=${encodeURIComponent(id)}`;
 }
 
 function cardImage(item) {
@@ -145,7 +145,7 @@ function feedUrl(typeId, stageId) {
   const params = new URLSearchParams();
   if (typeId) params.set("type", typeId);
   if (stageId) params.set("stage", stageId);
-  return `/feed.html${params.toString() ? `?${params}` : ""}`;
+  return `/feed${params.toString() ? `?${params}` : ""}`;
 }
 
 // A feed type tile: the photo uploaded in the admin, else a listing photo,

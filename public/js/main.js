@@ -249,16 +249,16 @@ function renderSiteFooter() {
         </nav>
         <nav class="site-footer-col" aria-label="Sell with us">
           <h2>Sell with us</h2>
-          ${link("/seller/register.html", "Register as a seller")}
-          ${link("/seller/login.html", "Seller sign in")}
+          ${link("/seller/register", "Register as a seller")}
+          ${link("/seller/login", "Seller sign in")}
         </nav>
         <nav class="site-footer-col" aria-label="Policies">
           <h2>Policies</h2>
-          ${link("/terms.html", "Terms of Service")}
-          ${link("/privacy.html", "Privacy Policy")}
-          ${link("/refund-policy.html", "Refund Policy")}
-          ${link("/return-policy.html", "Return Policy")}
-          ${link("/cancellation-policy.html", "Cancellation Policy")}
+          ${link("/terms", "Terms of Service")}
+          ${link("/privacy", "Privacy Policy")}
+          ${link("/refund-policy", "Refund Policy")}
+          ${link("/return-policy", "Return Policy")}
+          ${link("/cancellation-policy", "Cancellation Policy")}
         </nav>
         <div class="site-footer-col site-footer-contact">
           <h2>Contact us</h2>
@@ -266,7 +266,7 @@ function renderSiteFooter() {
           <a href="tel:+260974129569">+260 974 129 569</a>
           <a href="tel:+260974594174">+260 974 594 174</a>
           <p>Piziya Office Park, Plot 2374 Thabo Mbeki Road, Lusaka</p>
-          ${link("/contact.html", "All contact details")}
+          ${link("/contact", "All contact details")}
         </div>
       </div>
       <div class="site-footer-bottom">

@@ -29,8 +29,8 @@
           </a>
           <div class="site-nav ml-4 mr-auto" data-site-nav aria-label="Categories"></div>
           <div class="header-auth">
-            <a id="login-link" href="/account/login.html" class="header-login-link">Log in</a>
-            <a id="seller-link" href="/account/register.html" class="header-seller-link">Register</a>
+            <a id="login-link" href="/account/login" class="header-login-link">Log in</a>
+            <a id="seller-link" href="/account/register" class="header-seller-link">Register</a>
           </div>
         </div>
       </div>
@@ -66,11 +66,11 @@
       }
 
       let buyer = null;
-      const toLogin = () => window.location.replace(`/account/login.html?next=${encodeURIComponent("/checkout.html")}`);
+      const toLogin = () => window.location.replace(`/account/login?next=${encodeURIComponent("/checkout")}`);
 
       async function load() {
         const lines = readCart();
-        if (!lines.length) { window.location.replace("/cart.html"); return; }
+        if (!lines.length) { window.location.replace("/cart"); return; }
         // A buyer account is needed to check out; the cart is kept meanwhile.
         try {
           buyer = (await buyerApi("/api/buyer/auth/me")).data;
@@ -85,7 +85,7 @@
           root.innerHTML = `<div class="alert alert-error text-sm">${escapeHtml(error.message)}</div>`;
           return;
         }
-        if (quote.items.some((i) => !i.available) || !quote.items.length) { window.location.replace("/cart.html"); return; }
+        if (quote.items.some((i) => !i.available) || !quote.items.length) { window.location.replace("/cart"); return; }
         quote.items.forEach((i) => { if (i.adjusted) setCartQty(i.id, i.quantity); });
         ops = (quote.payment && quote.payment.operators) || [];
         methods = (quote.payment && quote.payment.methods) || [];
@@ -226,7 +226,7 @@
               <div class="co-terms">
                 <label class="co-terms-box">
                   <input type="checkbox" name="accept_terms" value="1">
-                  <span>I accept the <a href="/terms.html" target="_blank" rel="noopener">terms and policies</a></span>
+                  <span>I accept the <a href="/terms" target="_blank" rel="noopener">terms and policies</a></span>
                 </label>
                 <p class="field-error hidden" data-error-for="accept_terms"></p>
               </div>
@@ -237,7 +237,7 @@
             <aside class="cart-summary">
               <div class="flex items-center justify-between mb-3">
                 <h2 class="!mb-0">Your order</h2>
-                <a href="/cart.html" class="text-sm font-semibold text-green-800 hover:underline">Edit cart</a>
+                <a href="/cart" class="text-sm font-semibold text-green-800 hover:underline">Edit cart</a>
               </div>
               <ul class="co-lines">${quote.items.map(summaryLine).join("")}</ul>
               <div class="co-breakdown" data-breakdown hidden></div>
@@ -483,7 +483,7 @@
           if (error.status === 401) return toLogin();
           if (error.errors) showErrors(form, error.errors);
           alertBox.innerHTML = escapeHtml(error.message || "Your order could not be placed. Please try again.")
-            + (error.status === 409 ? ` <a href="/cart.html" class="underline font-semibold">Review your cart</a>` : "");
+            + (error.status === 409 ? ` <a href="/cart" class="underline font-semibold">Review your cart</a>` : "");
           alertBox.classList.remove("hidden");
           alertBox.scrollIntoView({ behavior: "smooth", block: "center" });
           // Transport changed meanwhile (prices, providers): ask for a new quote.

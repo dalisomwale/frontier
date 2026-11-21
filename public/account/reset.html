@@ -63,7 +63,7 @@
         try {
           await withBusy(document.getElementById("submit-btn"), "Saving…", () =>
             buyerApi("/api/buyer/auth/reset", { method: "POST", body: { token, password: form.password.value } }));
-          window.location.href = "/account/login.html?reset=1";
+          window.location.href = "/account/login?reset=1";
         } catch (error) {
           showFieldErrors(form, error);
           showAlert(error.message);

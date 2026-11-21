@@ -31,7 +31,7 @@
           </div>
           <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Save password</button>
         </form>
-        <p class="text-sm text-gray-600 text-center mt-6"><a href="/seller/forgot.html" class="text-blue-700 font-medium hover:underline">Send a new link</a></p>
+        <p class="text-sm text-gray-600 text-center mt-6"><a href="/seller/forgot" class="text-blue-700 font-medium hover:underline">Send a new link</a></p>
       </div>
     </main>
 
@@ -50,7 +50,7 @@
         try {
           await withBusy(document.getElementById("submit-btn"), "Saving…", () =>
             sellerApi("/api/seller/auth/reset", { method: "POST", body: { token, password: form.password.value } }));
-          window.location.href = "/seller/login.html?reset=1";
+          window.location.href = "/seller/login?reset=1";
         } catch (error) {
           alertBox.textContent = error.message;
           alertBox.classList.remove("hidden");
