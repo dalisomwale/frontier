@@ -326,6 +326,22 @@ async function main() {
     ["seller_paid_by", "VARCHAR(150) NULL AFTER seller_paid_at"],
     ["seller_paid_ref", "VARCHAR(150) NULL AFTER seller_paid_by"],
   ], "orders record when Frontier paid the seller");
+  // Transport: sellers' pickup points, orders carried by a transport
+  // booking, and checkouts that include transport (fee kept apart from the
+  // product total).
+  await addColumns("sellers", [
+    ["pickup_district", "VARCHAR(80) NULL AFTER address"],
+    ["pickup_address", "VARCHAR(255) NULL AFTER pickup_district"],
+    ["pickup_lat", "DECIMAL(9,6) NULL AFTER pickup_address"],
+    ["pickup_lng", "DECIMAL(9,6) NULL AFTER pickup_lat"],
+  ], "sellers can set a pickup point for transport");
+  await addColumns("orders", [
+    ["transport_booking_id", "INT UNSIGNED NULL AFTER seller_paid_ref, ADD INDEX idx_orders_transport (transport_booking_id)"],
+  ], "orders can be carried by a transport provider");
+  await addColumns("checkouts", [
+    ["delivery_option", "ENUM('collect', 'transport') NOT NULL DEFAULT 'collect' AFTER total"],
+    ["transport_total", "DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER delivery_option"],
+  ], "checkouts can include transport");
   const [[partyColumn]] = await conn.query(
     "SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = ? AND table_name = 'order_receipt_photos' AND column_name = 'party'",
     [DB_NAME],

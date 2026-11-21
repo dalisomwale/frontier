@@ -291,7 +291,11 @@ app.use((err, req, res, next) => {
 // Tables added by later updates are created at startup if missing, so a
 // deploy that forgot "npm run db:setup" still works. Column changes still
 // need db:setup.
-const LATE_TABLES = ["seller_password_resets", "seller_sessions", "seller_notifications", "inquiry_messages", "orders", "app_state", "checkouts", "transaction_events", "buyers", "buyer_tokens", "buyer_notifications", "order_receipt_photos"];
+const LATE_TABLES = ["seller_password_resets", "seller_sessions", "seller_notifications", "inquiry_messages", "orders", "app_state", "checkouts", "transaction_events", "buyers", "buyer_tokens", "buyer_notifications", "order_receipt_photos",
+  "transport_providers", "transport_provider_documents", "transport_provider_sessions", "transport_provider_resets", "transport_provider_notifications",
+  "transport_vehicles", "transport_vehicle_cargo", "transport_vehicle_files", "transport_price_bands", "transport_settings", "transport_bookings",
+  "transport_booking_orders", "transport_offers", "transport_quantities", "transport_submissions", "transport_photos", "transport_disputes",
+  "transport_events", "transport_locations", "transport_ratings", "platform_ratings"];
 // Columns added by later updates, added at startup when missing.
 const LATE_COLUMNS = [
   ["livestock", "price", "DECIMAL(12,2) NULL AFTER quantity"],
@@ -338,6 +342,13 @@ const LATE_COLUMNS = [
   ["orders", "seller_paid_at", "DATETIME NULL AFTER sent_note"],
   ["orders", "seller_paid_by", "VARCHAR(150) NULL AFTER seller_paid_at"],
   ["orders", "seller_paid_ref", "VARCHAR(150) NULL AFTER seller_paid_by"],
+  ["sellers", "pickup_district", "VARCHAR(80) NULL AFTER address"],
+  ["sellers", "pickup_address", "VARCHAR(255) NULL AFTER pickup_district"],
+  ["sellers", "pickup_lat", "DECIMAL(9,6) NULL AFTER pickup_address"],
+  ["sellers", "pickup_lng", "DECIMAL(9,6) NULL AFTER pickup_lat"],
+  ["orders", "transport_booking_id", "INT UNSIGNED NULL AFTER seller_paid_ref, ADD INDEX idx_orders_transport (transport_booking_id)"],
+  ["checkouts", "delivery_option", "ENUM('collect', 'transport') NOT NULL DEFAULT 'collect' AFTER total"],
+  ["checkouts", "transport_total", "DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER delivery_option"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");

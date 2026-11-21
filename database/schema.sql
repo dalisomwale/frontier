@@ -99,6 +99,10 @@ CREATE TABLE IF NOT EXISTS sellers (
   email          VARCHAR(255) NULL,
   province       VARCHAR(50) NULL,
   address        VARCHAR(255) NULL,
+  pickup_district VARCHAR(80) NULL,
+  pickup_address VARCHAR(255) NULL,
+  pickup_lat     DECIMAL(9,6) NULL,
+  pickup_lng     DECIMAL(9,6) NULL,
   notes          TEXT NULL,
   status         ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
   password_hash  VARCHAR(255) NULL,
@@ -325,6 +329,7 @@ CREATE TABLE IF NOT EXISTS orders (
   seller_paid_at   DATETIME NULL,
   seller_paid_by   VARCHAR(150) NULL,
   seller_paid_ref  VARCHAR(150) NULL,
+  transport_booking_id INT UNSIGNED NULL,
   email_status     ENUM('pending', 'sent', 'failed') NOT NULL DEFAULT 'pending',
   email_error      VARCHAR(500) NULL,
   ip_address       VARCHAR(45) NULL,
@@ -339,7 +344,8 @@ CREATE TABLE IF NOT EXISTS orders (
   INDEX idx_orders_seller (seller_id),
   INDEX idx_orders_checkout (checkout_id),
   INDEX idx_orders_buyer (buyer_id),
-  INDEX idx_orders_payment_ref (payment_reference)
+  INDEX idx_orders_payment_ref (payment_reference),
+  INDEX idx_orders_transport (transport_booking_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- A shopping-cart checkout. The buyer pays once for the whole cart; each
@@ -354,6 +360,8 @@ CREATE TABLE IF NOT EXISTS checkouts (
   email               VARCHAR(255) NOT NULL,
   item_count          SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   total               DECIMAL(14,2) NOT NULL,
+  delivery_option     ENUM('collect', 'transport') NOT NULL DEFAULT 'collect',
+  transport_total     DECIMAL(12,2) NOT NULL DEFAULT 0,
   mobile_operator     ENUM('airtel', 'mtn', 'zamtel') NULL,
   payment_phone       VARCHAR(30) NULL,
   payment_status      ENUM('unpaid', 'pending', 'paid', 'failed') NOT NULL DEFAULT 'unpaid',
@@ -465,4 +473,398 @@ CREATE TABLE IF NOT EXISTS transaction_events (
   KEY idx_tx_checkout (checkout_id, id),
   KEY idx_tx_created (created_at),
   KEY idx_tx_reference (reference)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ===========================================================================
+-- Transport: delivery of paid orders by approved transport providers.
+-- The provider is the driver/operator (there are no separate driver accounts).
+-- Frontier sets each provider's coverage and the distance-based prices; the
+-- provider never sets either.
+-- ===========================================================================
+
+-- transport_providers: individuals or companies who carry the goods. They
+-- register, Frontier approves them and sets how far they cover.
+CREATE TABLE IF NOT EXISTS transport_providers (
+  id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  kind                ENUM('individual', 'company') NOT NULL DEFAULT 'individual',
+  name                VARCHAR(150) NOT NULL,
+  contact_person      VARCHAR(120) NULL,
+  phone               VARCHAR(30) NOT NULL,
+  email               VARCHAR(255) NOT NULL,
+  province            VARCHAR(50) NOT NULL,
+  district            VARCHAR(80) NOT NULL,
+  address             VARCHAR(255) NOT NULL,
+  base_label          VARCHAR(255) NULL,
+  base_lat            DECIMAL(9,6) NULL,
+  base_lng            DECIMAL(9,6) NULL,
+  registration_number VARCHAR(80) NULL,
+  licence_number      VARCHAR(80) NULL,
+  password_hash       VARCHAR(255) NOT NULL,
+  status              ENUM('pending', 'approved', 'rejected', 'suspended') NOT NULL DEFAULT 'pending',
+  is_active           TINYINT(1) NOT NULL DEFAULT 1,
+  is_available        TINYINT(1) NOT NULL DEFAULT 1,
+  coverage_km         DECIMAL(7,1) NULL,
+  coverage_active     TINYINT(1) NOT NULL DEFAULT 0,
+  admin_note          VARCHAR(500) NULL,
+  approved_at         DATETIME NULL,
+  last_login_at       DATETIME NULL,
+  created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_transport_providers_email (email),
+  INDEX idx_transport_providers_match (status, is_active, coverage_active, is_available)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Licences, permits and registration papers. Kept outside the public folder
+-- (storage/transport) and served only to the provider and admins.
+CREATE TABLE IF NOT EXISTS transport_provider_documents (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  provider_id    INT UNSIGNED NOT NULL,
+  doc_type       VARCHAR(40) NOT NULL,
+  file_name      VARCHAR(255) NOT NULL,
+  original_name  VARCHAR(255) NULL,
+  mime           VARCHAR(80) NOT NULL,
+  size_bytes     INT UNSIGNED NOT NULL DEFAULT 0,
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_tp_documents_provider FOREIGN KEY (provider_id)
+    REFERENCES transport_providers(id) ON DELETE CASCADE,
+  INDEX idx_tp_documents (provider_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS transport_provider_sessions (
+  session_id  VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  expires     INT UNSIGNED NOT NULL,
+  data        MEDIUMTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+  PRIMARY KEY (session_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS transport_provider_resets (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  provider_id  INT UNSIGNED NOT NULL,
+  token_hash   CHAR(64) NOT NULL,
+  expires_at   DATETIME NOT NULL,
+  used_at      DATETIME NULL,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_tp_resets_provider FOREIGN KEY (provider_id)
+    REFERENCES transport_providers(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_tp_resets_token (token_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS transport_provider_notifications (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  provider_id  INT UNSIGNED NOT NULL,
+  type         VARCHAR(40) NOT NULL,
+  title        VARCHAR(200) NOT NULL,
+  body         VARCHAR(1000) NULL,
+  link         VARCHAR(255) NULL,
+  read_at      DATETIME NULL,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_tp_notifications_provider FOREIGN KEY (provider_id)
+    REFERENCES transport_providers(id) ON DELETE CASCADE,
+  INDEX idx_tp_notifications (provider_id, read_at, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Vehicles a provider has registered. What each one can carry is listed in
+-- transport_vehicle_cargo: an animal category (cargo_key 'a<animal id>') or
+-- feed ('feed'), with the most it can carry at once.
+CREATE TABLE IF NOT EXISTS transport_vehicles (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  provider_id    INT UNSIGNED NOT NULL,
+  registration   VARCHAR(30) NOT NULL,
+  vehicle_type   VARCHAR(60) NOT NULL,
+  capacity_note  VARCHAR(255) NULL,
+  status         ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_tv_provider FOREIGN KEY (provider_id)
+    REFERENCES transport_providers(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_tv_registration (registration),
+  INDEX idx_tv_provider (provider_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS transport_vehicle_cargo (
+  vehicle_id    INT UNSIGNED NOT NULL,
+  cargo_key     VARCHAR(20) NOT NULL,
+  max_quantity  INT UNSIGNED NOT NULL,
+  PRIMARY KEY (vehicle_id, cargo_key),
+  CONSTRAINT fk_tvc_vehicle FOREIGN KEY (vehicle_id)
+    REFERENCES transport_vehicles(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Vehicle photos (public uploads) and papers (private, file_name only).
+CREATE TABLE IF NOT EXISTS transport_vehicle_files (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  vehicle_id     INT UNSIGNED NOT NULL,
+  kind           ENUM('photo', 'document') NOT NULL,
+  image_path     VARCHAR(255) NULL,
+  thumb_path     VARCHAR(255) NULL,
+  file_name      VARCHAR(255) NULL,
+  original_name  VARCHAR(255) NULL,
+  mime           VARCHAR(80) NULL,
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_tvf_vehicle FOREIGN KEY (vehicle_id)
+    REFERENCES transport_vehicles(id) ON DELETE CASCADE,
+  INDEX idx_tvf_vehicle (vehicle_id, kind)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Distance-based prices set by Frontier. A journey of d km uses the active
+-- band with min_km <= d < max_km (max_km NULL = no upper limit):
+-- fee = base_fee + per_km * d.
+CREATE TABLE IF NOT EXISTS transport_price_bands (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  min_km      DECIMAL(7,1) NOT NULL,
+  max_km      DECIMAL(7,1) NULL,
+  base_fee    DECIMAL(12,2) NOT NULL,
+  per_km      DECIMAL(10,2) NOT NULL DEFAULT 0,
+  is_active   TINYINT(1) NOT NULL DEFAULT 1,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_tpb_active (is_active, min_km)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Transport settings (Frontier's own pickup point, how long providers have
+-- to accept, commission ...). Small key/value list, edited in the admin.
+CREATE TABLE IF NOT EXISTS transport_settings (
+  name        VARCHAR(64) PRIMARY KEY,
+  value       TEXT NULL,
+  updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One transport booking per pickup point (seller) in a checkout. The road
+-- distance, the price band used and the fee are stored when the buyer checks
+-- out and never change afterwards. Status changes are checked by the server
+-- (server/lib/transport) and every change is written to transport_events.
+CREATE TABLE IF NOT EXISTS transport_bookings (
+  id                       INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  checkout_id              INT UNSIGNED NOT NULL,
+  buyer_id                 INT UNSIGNED NULL,
+  seller_id                INT UNSIGNED NULL,
+  pickup_label             VARCHAR(150) NOT NULL,
+  pickup_address           VARCHAR(255) NULL,
+  pickup_district          VARCHAR(80) NULL,
+  pickup_province          VARCHAR(50) NULL,
+  pickup_phone             VARCHAR(30) NULL,
+  pickup_lat               DECIMAL(9,6) NOT NULL,
+  pickup_lng               DECIMAL(9,6) NOT NULL,
+  dest_province            VARCHAR(50) NOT NULL,
+  dest_district            VARCHAR(80) NOT NULL,
+  dest_address             VARCHAR(255) NOT NULL,
+  dest_notes               VARCHAR(255) NULL,
+  dest_lat                 DECIMAL(9,6) NOT NULL,
+  dest_lng                 DECIMAL(9,6) NOT NULL,
+  contact_name             VARCHAR(120) NOT NULL,
+  contact_phone            VARCHAR(30) NOT NULL,
+  distance_km              DECIMAL(8,2) NOT NULL,
+  duration_min             INT UNSIGNED NULL,
+  route_geometry           MEDIUMTEXT NULL,
+  routing_provider         VARCHAR(20) NOT NULL,
+  band_id                  INT UNSIGNED NULL,
+  band_min_km              DECIMAL(7,1) NOT NULL,
+  band_max_km              DECIMAL(7,1) NULL,
+  base_fee                 DECIMAL(12,2) NOT NULL,
+  per_km                   DECIMAL(10,2) NOT NULL DEFAULT 0,
+  fee                      DECIMAL(12,2) NOT NULL,
+  commission_pct           DECIMAL(5,2) NOT NULL DEFAULT 0,
+  platform_commission      DECIMAL(12,2) NOT NULL DEFAULT 0,
+  provider_earning         DECIMAL(12,2) NOT NULL DEFAULT 0,
+  cargo_summary            VARCHAR(500) NULL,
+  status                   VARCHAR(30) NOT NULL DEFAULT 'pending_payment',
+  provider_id              INT UNSIGNED NULL,
+  vehicle_id               INT UNSIGNED NULL,
+  paid_at                  DATETIME NULL,
+  offers_sent_at           DATETIME NULL,
+  accepted_at              DATETIME NULL,
+  seller_ready_at          DATETIME NULL,
+  collection_confirmed_at  DATETIME NULL,
+  started_at               DATETIME NULL,
+  arrived_at               DATETIME NULL,
+  delivery_submitted_at    DATETIME NULL,
+  completed_at             DATETIME NULL,
+  disputed_at              DATETIME NULL,
+  cancelled_at             DATETIME NULL,
+  cancel_reason            VARCHAR(500) NULL,
+  refunded_at              DATETIME NULL,
+  refund_ref               VARCHAR(150) NULL,
+  unaccepted_alert_at      DATETIME NULL,
+  delay_alert_at           DATETIME NULL,
+  last_lat                 DECIMAL(9,6) NULL,
+  last_lng                 DECIMAL(9,6) NULL,
+  last_location_at         DATETIME NULL,
+  provider_paid_at         DATETIME NULL,
+  provider_paid_ref        VARCHAR(150) NULL,
+  provider_paid_by         VARCHAR(150) NULL,
+  created_at               TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at               TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_tb_provider FOREIGN KEY (provider_id)
+    REFERENCES transport_providers(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_tb_vehicle FOREIGN KEY (vehicle_id)
+    REFERENCES transport_vehicles(id) ON DELETE RESTRICT,
+  INDEX idx_tb_checkout (checkout_id),
+  INDEX idx_tb_status (status, created_at),
+  INDEX idx_tb_provider (provider_id, status),
+  INDEX idx_tb_vehicle (vehicle_id, status),
+  INDEX idx_tb_seller (seller_id),
+  INDEX idx_tb_buyer (buyer_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Which orders each booking carries. An order is in at most one booking.
+CREATE TABLE IF NOT EXISTS transport_booking_orders (
+  booking_id  INT UNSIGNED NOT NULL,
+  order_id    INT UNSIGNED NOT NULL,
+  PRIMARY KEY (booking_id, order_id),
+  UNIQUE KEY uq_tbo_order (order_id),
+  CONSTRAINT fk_tbo_booking FOREIGN KEY (booking_id)
+    REFERENCES transport_bookings(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tbo_order FOREIGN KEY (order_id)
+    REFERENCES orders(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Requests sent to eligible providers, and their answers.
+CREATE TABLE IF NOT EXISTS transport_offers (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  booking_id    INT UNSIGNED NOT NULL,
+  provider_id   INT UNSIGNED NOT NULL,
+  status        ENUM('offered', 'declined', 'accepted', 'withdrawn') NOT NULL DEFAULT 'offered',
+  reason        VARCHAR(255) NULL,
+  pickup_km     DECIMAL(8,2) NULL,
+  dest_km       DECIMAL(8,2) NULL,
+  offered_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  responded_at  DATETIME NULL,
+  CONSTRAINT fk_to_booking FOREIGN KEY (booking_id)
+    REFERENCES transport_bookings(id) ON DELETE CASCADE,
+  CONSTRAINT fk_to_provider FOREIGN KEY (provider_id)
+    REFERENCES transport_providers(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_to_booking_provider (booking_id, provider_id),
+  INDEX idx_to_provider (provider_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Quantities recorded at each step, per order: what the seller released,
+-- what the provider collected and what the provider delivered.
+CREATE TABLE IF NOT EXISTS transport_quantities (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  booking_id  INT UNSIGNED NOT NULL,
+  order_id    INT UNSIGNED NOT NULL,
+  stage       ENUM('seller_release', 'provider_collected', 'provider_delivered') NOT NULL,
+  quantity    INT UNSIGNED NOT NULL,
+  id_details  VARCHAR(500) NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_tq_booking FOREIGN KEY (booking_id)
+    REFERENCES transport_bookings(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_tq_step (booking_id, order_id, stage)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Each party's record of a step (one per party and step; never replaced).
+CREATE TABLE IF NOT EXISTS transport_submissions (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  booking_id   INT UNSIGNED NOT NULL,
+  stage        ENUM('seller_collection', 'provider_collection', 'provider_delivery', 'customer_delivery') NOT NULL,
+  party        ENUM('seller', 'provider', 'customer', 'admin') NOT NULL,
+  actor_name   VARCHAR(150) NULL,
+  note         VARCHAR(1000) NULL,
+  discrepancy  TINYINT(1) NOT NULL DEFAULT 0,
+  lat          DECIMAL(9,6) NULL,
+  lng          DECIMAL(9,6) NULL,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ts_booking FOREIGN KEY (booking_id)
+    REFERENCES transport_bookings(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_ts_step (booking_id, stage)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Photos taken at collection and delivery. Each party's photos are kept
+-- separately and are only ever added, never replaced.
+CREATE TABLE IF NOT EXISTS transport_photos (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  booking_id  INT UNSIGNED NOT NULL,
+  stage       ENUM('seller_collection', 'provider_collection', 'provider_delivery', 'customer_delivery') NOT NULL,
+  party       ENUM('seller', 'provider', 'customer', 'admin') NOT NULL,
+  image_path  VARCHAR(255) NOT NULL,
+  thumb_path  VARCHAR(255) NOT NULL,
+  lat         DECIMAL(9,6) NULL,
+  lng         DECIMAL(9,6) NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_tph_booking FOREIGN KEY (booking_id)
+    REFERENCES transport_bookings(id) ON DELETE CASCADE,
+  INDEX idx_tph_booking (booking_id, stage)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- A problem the buyer reports at delivery. Frontier investigates and resolves it.
+CREATE TABLE IF NOT EXISTS transport_disputes (
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  booking_id       INT UNSIGNED NOT NULL,
+  buyer_id         INT UNSIGNED NULL,
+  reason           ENUM('missing', 'quantity', 'damaged', 'condition', 'other') NOT NULL,
+  description      VARCHAR(2000) NOT NULL,
+  status           ENUM('open', 'resolved') NOT NULL DEFAULT 'open',
+  resolution       ENUM('completed', 'refund') NULL,
+  resolution_note  VARCHAR(1000) NULL,
+  resolved_by      VARCHAR(150) NULL,
+  resolved_at      DATETIME NULL,
+  created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_td_booking FOREIGN KEY (booking_id)
+    REFERENCES transport_bookings(id) ON DELETE CASCADE,
+  INDEX idx_td_booking (booking_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Full history of every booking: each status change and action, in order.
+CREATE TABLE IF NOT EXISTS transport_events (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  booking_id   INT UNSIGNED NOT NULL,
+  from_status  VARCHAR(30) NULL,
+  to_status    VARCHAR(30) NULL,
+  event        VARCHAR(40) NOT NULL,
+  actor        ENUM('system', 'customer', 'seller', 'provider', 'admin') NOT NULL DEFAULT 'system',
+  actor_name   VARCHAR(150) NULL,
+  detail       VARCHAR(1000) NOT NULL DEFAULT '',
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_te_booking (booking_id, id),
+  INDEX idx_te_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- GPS positions sent by the provider's phone while delivering.
+CREATE TABLE IF NOT EXISTS transport_locations (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  booking_id   INT UNSIGNED NOT NULL,
+  provider_id  INT UNSIGNED NOT NULL,
+  lat          DECIMAL(9,6) NOT NULL,
+  lng          DECIMAL(9,6) NOT NULL,
+  accuracy_m   DECIMAL(8,1) NULL,
+  speed_mps    DECIMAL(6,2) NULL,
+  heading      DECIMAL(5,1) NULL,
+  recorded_at  DATETIME NOT NULL,
+  received_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_tl_booking FOREIGN KEY (booking_id)
+    REFERENCES transport_bookings(id) ON DELETE CASCADE,
+  INDEX idx_tl_booking (booking_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- The buyer's rating of the provider, once per completed booking.
+CREATE TABLE IF NOT EXISTS transport_ratings (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  booking_id   INT UNSIGNED NOT NULL,
+  provider_id  INT UNSIGNED NOT NULL,
+  buyer_id     INT UNSIGNED NULL,
+  stars        TINYINT UNSIGNED NOT NULL,
+  feedback     VARCHAR(1000) NULL,
+  hidden       TINYINT(1) NOT NULL DEFAULT 0,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_tr_booking (booking_id),
+  CONSTRAINT fk_tr_booking FOREIGN KEY (booking_id)
+    REFERENCES transport_bookings(id) ON DELETE CASCADE,
+  CONSTRAINT fk_tr_provider FOREIGN KEY (provider_id)
+    REFERENCES transport_providers(id) ON DELETE CASCADE,
+  INDEX idx_tr_provider (provider_id, hidden)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- The buyer's rating of Frontier Marketplace, once per purchase (checkout),
+-- for self-collection and transport alike. Kept apart from provider ratings.
+CREATE TABLE IF NOT EXISTS platform_ratings (
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  checkout_id      INT UNSIGNED NOT NULL,
+  buyer_id         INT UNSIGNED NULL,
+  delivery_option  ENUM('collect', 'transport') NOT NULL,
+  stars            TINYINT UNSIGNED NOT NULL,
+  feedback         VARCHAR(1000) NULL,
+  hidden           TINYINT(1) NOT NULL DEFAULT 0,
+  created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_pr_checkout (checkout_id),
+  INDEX idx_pr_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

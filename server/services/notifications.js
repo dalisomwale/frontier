@@ -158,8 +158,81 @@ function broadcastAdmin(kind, data = {}) {
   }
 }
 
+// A live update for a seller's open dashboards (no stored notification),
+// e.g. a delivery's new position.
+function pingSeller(sellerId, event, data = {}) {
+  const open = streams.get(Number(sellerId));
+  if (open) open.forEach((res) => send(res, event, data));
+}
+
+// Admins: a named live event (e.g. "transport" for delivery positions) that
+// does not count as a change to refresh lists for.
+function pingAdmins(event, data = {}) {
+  try {
+    adminStreams.forEach((set) => set.forEach((res) => send(res, event, data)));
+  } catch (error) {
+    console.error("Admin live update failed:", error.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Transport providers: stored notifications and live updates for their
+// dashboard, like sellers.
+// ---------------------------------------------------------------------------
+const providerStreams = new Map(); // providerId -> Set
+
+async function providerUnreadCount(providerId) {
+  const [[{ unread }]] = await pool.query(
+    "SELECT COUNT(*) AS unread FROM transport_provider_notifications WHERE provider_id = ? AND read_at IS NULL",
+    [providerId],
+  );
+  return Number(unread);
+}
+
+// Never throws.
+async function notifyProvider(providerId, { type, title, body = null, link = null }) {
+  if (!providerId) return null;
+  try {
+    const [result] = await pool.query(
+      "INSERT INTO transport_provider_notifications (provider_id, type, title, body, link) VALUES (?, ?, ?, ?, ?)",
+      [providerId, type, String(title).slice(0, 200), body ? String(body).slice(0, 1000) : null, link],
+    );
+    const [[row]] = await pool.query("SELECT * FROM transport_provider_notifications WHERE id = ?", [result.insertId]);
+    const open = providerStreams.get(Number(providerId));
+    if (open && open.size) {
+      const unread = await providerUnreadCount(providerId);
+      open.forEach((res) => send(res, "notification", { notification: row, unread }));
+    }
+    return row;
+  } catch (error) {
+    console.error("Provider notification failed:", error.message);
+    return null;
+  }
+}
+
+function pingProvider(providerId, event, data = {}) {
+  const open = providerStreams.get(Number(providerId));
+  if (open) open.forEach((res) => send(res, event, data));
+}
+
+function subscribeProvider(providerId, req, res) {
+  const id = Number(providerId);
+  stream(res, req, providerStreams, id, () => providerUnreadCount(id).then((unread) => send(res, "ready", { unread })).catch(() => {}));
+}
+
+function disconnectProvider(providerId) {
+  const open = providerStreams.get(Number(providerId));
+  if (!open) return;
+  open.forEach((res) => {
+    send(res, "signed-out", {});
+    res.end();
+  });
+  providerStreams.delete(Number(providerId));
+}
+
 module.exports = {
-  notifySeller, subscribe, disconnectSeller, unreadCount,
+  notifySeller, subscribe, disconnectSeller, unreadCount, pingSeller,
   notifyBuyer, pingBuyer, subscribeBuyer, buyerUnreadCount,
-  subscribeAdmin, broadcastAdmin,
+  subscribeAdmin, broadcastAdmin, pingAdmins,
+  notifyProvider, pingProvider, subscribeProvider, disconnectProvider, providerUnreadCount,
 };
