@@ -246,6 +246,7 @@
                      <p class="field-error hidden" data-error-for="images"></p>
                      <button type="submit" class="acc-btn mt-3" style="width:auto">Save</button>
                    </form>`
+                : o.transport && paid ? `<p class="tl-body-line">By transport: <a class="underline" href="/admin/transport.html?id=${Number(o.transport.id)}">${escapeHtml(o.transport.reference)}</a> (${escapeHtml(o.transport.status_label)}). Delivered, confirmed and handed over when the buyer confirms the delivery.</p>`
                 : paid ? `<p class="tl-body-line">Waiting for the seller to mark it as delivered or collected, with photos.</p>` : "" });
           steps.push({ name: "Buyer confirmed", done: Boolean(o.received_at), date: o.received_at,
             body: o.received_at
@@ -596,6 +597,7 @@
                   ${rrow("Status", payTag(o) || escapeHtml(statusLabel(o.status)))}
                   ${rrow("Method", escapeHtml(payMethodText(o)))}
                   ${rrow("Paid on", when(o.paid_at))}
+                  ${o.transport ? rrow("Transport", `<a href="/admin/transport.html?id=${Number(o.transport.id)}" class="txd-mono">${escapeHtml(o.transport.reference)}</a><span class="od-r-sub">${escapeHtml(o.transport.status_label)} · ${Number(o.transport.distance_km)} km · ${kwacha(o.transport.fee)}</span>`) : ""}
                   ${rrow("Checkout", o.checkout_reference ? `<a href="/admin/transactions.html?id=${Number(o.checkout_id)}" class="txd-mono">${escapeHtml(o.checkout_reference)}</a>${o.checkout_orders && o.checkout_orders.length ? `<span class="od-r-sub">with ${o.checkout_orders.map((x) => `<a href="/admin/orders.html?id=${x.id}">${escapeHtml(x.reference)}</a>`).join(", ")}</span>` : ""}` : "")}
                   ${rrow("Payment reference", o.checkout_payment && o.checkout_payment.reference ? `<span class="txd-mono">${escapeHtml(o.checkout_payment.reference)}</span>` : "")}
                   ${rrow("Provider reference", o.payment_provider_ref ? `<span class="txd-mono od-trunc" title="${escapeHtml(o.payment_provider_ref)}">${escapeHtml(o.payment_provider_ref)}</span>` : "")}

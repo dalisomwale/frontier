@@ -96,6 +96,20 @@ async function tick() {
   }
 }
 
+// Transport: re-offers, unaccepted and delay alerts, reminders (every 2 minutes).
+let transporting = false;
+async function transportTick() {
+  if (transporting) return;
+  transporting = true;
+  try {
+    await require("../lib/transport/jobs").tick();
+  } catch (error) {
+    console.error("Transport checks:", error.message);
+  } finally {
+    transporting = false;
+  }
+}
+
 // Pending website payments are checked with Lipila every minute, so orders
 // show as paid soon after the buyer approves, even if Lipila's callback
 // doesn't reach us.
@@ -116,6 +130,8 @@ function start() {
   setTimeout(tick, 30 * 1000).unref();
   setInterval(tick, EVERY_MS).unref();
   setInterval(checkPayments, 60 * 1000).unref();
+  setTimeout(transportTick, 45 * 1000).unref();
+  setInterval(transportTick, 2 * 60 * 1000).unref();
 }
 
-module.exports = { start, tick, paymentReminders, dailySummary, summaryStats };
+module.exports = { start, tick, paymentReminders, dailySummary, summaryStats, transportTick };

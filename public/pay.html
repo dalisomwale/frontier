@@ -152,6 +152,11 @@
             <span class="co-thumb">${i.thumb_path ? `<img src="${escapeHtml(i.thumb_path)}" alt="">` : livestockFallbackMedia("w-6 h-6")}</span>
             <span class="co-info"><b>${escapeHtml(i.title)}</b><small>${escapeHtml(i.quantity)}${i.cancelled ? " · cancelled" : ""}</small></span>
             <span class="co-price">${kwacha(i.total)}</span>
+          </li>`).join("")}${(c.transport || []).map((t) => `
+          <li class="co-line">
+            <span class="co-thumb pay-truck">${uiIcon("truck")}</span>
+            <span class="co-info"><b>Transport ${escapeHtml(t.reference)}</b><small>${escapeHtml(t.from || "Seller")} → ${escapeHtml(t.to)} · ${Number(t.distance_km).toLocaleString("en-GB", { maximumFractionDigits: 1 })} km by road</small></span>
+            <span class="co-price">${kwacha(t.fee)}</span>
           </li>`).join("")}</ul>`;
 
         function page(inner, step = 2) {
@@ -171,7 +176,8 @@
           if (!c.online) {
             return page(`${head(c, "Order placed")}${items(c)}
               <p class="pay-text">Thank you, ${escapeHtml(c.first_name)}. Your items are reserved. Our team will contact you on WhatsApp to complete the mobile money payment.</p>
-              <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to listings</a>`, 3);
+              ${c.delivery_option === "transport" ? `<a href="/account/?tab=orders" class="btn-checkout btn-lg w-full mt-5">Follow your delivery</a>` : ""}
+          <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to listings</a>`, 3);
           }
           if (c.closed) {
             return page(`${head(c, "This order is closed")}${items(c)}<p class="pay-text">There's nothing left to pay on this order. Questions? Email <a class="underline" href="mailto:info@frontierfc.co.zm">info@frontierfc.co.zm</a>.</p>`);
@@ -267,7 +273,7 @@
           page(`<div class="text-center">
             <div class="order-done-icon" style="margin:0 auto">${tick}</div>
             <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Payment received</h1>
-            <p class="text-sm text-gray-600 mt-2">${kwacha(c.total)} · ${escapeHtml(c.reference)}. We'll contact you to arrange collection.</p>
+            <p class="text-sm text-gray-600 mt-2">${kwacha(c.total)} · ${escapeHtml(c.reference)}. ${c.delivery_option === "transport" ? "We're now finding a transport provider. You can follow your delivery in your account." : "We'll contact you to arrange collection."}</p>
           </div>
           ${items(c)}
           <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to listings</a>`, 3);

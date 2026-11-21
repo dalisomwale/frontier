@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Transport Dashboard - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/livestock.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/password-rules.js"></script>
+    <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+    <script src="/js/transport-ui.js"></script>
+    <script src="/js/transport.js"></script>
+  </head>
+  <body class="bg-gray-50">
+    <div id="app-sidebar"></div>
+    <div id="transport-topbar"></div>
+
+    <main id="tp-main" class="app-content-shifted max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" hidden>
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-6">
+        <div>
+          <h1 id="page-title" class="text-xl sm:text-2xl font-bold text-gray-900">Requests</h1>
+          <p id="page-sub" class="text-gray-500 mt-1 text-sm"></p>
+        </div>
+        <label class="tp-switch" title="Switch off when you can't take new deliveries"><input type="checkbox" id="available"><span id="available-label">Available for new requests</span></label>
+      </div>
+      <div id="tp-banner" class="tp-status-banner"></div>
+      <div id="tp-stats" class="tp-stats"></div>
+
+      <section id="tab-requests"><div id="requests-list" class="tp-card-list"></div></section>
+      <section id="tab-deliveries" hidden>
+        <div class="sl-card">
+          <div class="sl-toolbar"><div class="seg" id="delivery-tabs"></div></div>
+          <div id="deliveries-list" class="p-3 tp-card-list"></div>
+        </div>
+      </section>
+      <section id="tab-vehicles" hidden>
+        <div class="flex justify-end mb-4"><button type="button" class="acc-btn" id="add-vehicle" style="width:auto">Add a vehicle</button></div>
+        <div id="vehicles-list" class="tp-vehicles"></div>
+      </section>
+      <section id="tab-ratings" hidden><div id="ratings-list"></div></section>
+      <section id="tab-notifications" hidden><div class="sl-card"><div id="notifications-list"></div></div></section>
+      <section id="tab-profile" hidden><div id="profile-box" class="tr-two"></div></section>
+    </main>
+
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      let me = null;
+      let meta = { cargo_types: [], doc_types: {} };
+      let vehicles = [];
+      let deliveries = [];
+      const state = { tab: "requests", dtab: "active" };
+      const TITLES = { requests: "Requests", deliveries: "My deliveries", vehicles: "Vehicles", ratings: "Ratings", notifications: "Notifications", profile: "Profile" };
+      const SUBS = {
+        requests: "Paid deliveries in your area that you can accept. The first provider to accept gets the job.",
+        deliveries: "Deliveries you've accepted.",
+        vehicles: "The vehicles you use. When you accept a request you choose which one goes.",
+        ratings: "What buyers said about your deliveries.",
+        notifications: "",
+        profile: "Your details. Your coverage area is set by Frontier.",
+      };
+      const ACTIVE = ["provider_accepted", "vehicle_selected", "awaiting_collection", "collection_submitted", "collection_confirmed", "in_transit", "arrived", "delivery_submitted", "awaiting_confirmation", "disputed"];
+      const approved = () => me && me.status === "approved" && me.is_active;
+
+      // --------------------------------------------------------------- shell
+      function setTab(name) {
+        if (!TITLES[name]) name = "requests";
+        state.tab = name;
+        closeAllAdminViews();
+        Object.keys(TITLES).forEach((t) => (document.getElementById(`tab-${t}`).hidden = t !== name));
+        document.querySelectorAll("[data-tab-link]").forEach((a) => a.classList.toggle("active", a.dataset.tabLink === name));
+        document.getElementById("page-title").textContent = TITLES[name];
+        document.getElementById("page-sub").textContent = SUBS[name];
+        document.getElementById("tp-stats").hidden = !["requests", "deliveries"].includes(name);
+        const url = new URL(location.href);
+        url.searchParams.set("tab", name);
+        ["booking", "welcome"].forEach((k) => url.searchParams.delete(k));
+        history.replaceState(null, "", url.pathname + url.search);
+        ({ requests: loadRequests, deliveries: loadDeliveries, vehicles: loadVehicles, ratings: loadRatings, notifications: loadNotifications, profile: renderProfile })[name]();
+      }
+      document.addEventListener("click", (e) => {
+        const a = e.target.closest("[data-tab-link]");
+        if (!a) return;
+        e.preventDefault();
+        setTab(a.dataset.tabLink);
+      });
+
+      function renderBanner() {
+        const box = document.getElementById("tp-banner");
+        let html = "";
+        if (me.status === "pending") html = `<div class="tr-warn-box"><b>Waiting for Frontier's approval.</b> We're reviewing your details and documents. Add your vehicles in the meantime: you'll start receiving requests once you're approved and your coverage is set.</div>`;
+        else if (me.status === "rejected") html = `<div class="tr-warn-box"><b>Your registration was not approved.</b>${me.admin_note ? ` ${escapeHtml(me.admin_note)}` : ""} Please contact Frontier.</div>`;
+        else if (me.status === "suspended") html = `<div class="tr-warn-box"><b>Your account is suspended.</b>${me.admin_note ? ` ${escapeHtml(me.admin_note)}` : ""} You won't receive requests. Please contact Frontier.</div>`;
+        else if (!me.is_active) html = `<div class="tr-warn-box"><b>Your account has been deactivated by Frontier.</b> Please contact us.</div>`;
+        else if (!me.coverage_active || !me.coverage_km) html = `<div class="tr-note-box">You're approved. Frontier hasn't switched on your coverage yet, so you won't receive requests until it does.</div>`;
+        else if (!vehicles.some((v) => v.status === "active")) html = `<div class="tr-note-box">Add a vehicle to start receiving requests.</div>`;
+        box.innerHTML = html;
+        const sw = document.getElementById("available");
+        sw.checked = me.is_available;
+        document.getElementById("available-label").textContent = me.is_available ? "Available for new requests" : "Not taking new requests";
+      }
+
+      async function loadStats() {
+        try {
+          const s = (await transportApi("/api/transport/summary")).data;
+          setBadge("[data-requests-badge]", s.requests);
+          setBadge("[data-active-badge]", s.active);
+          document.getElementById("tp-stats").innerHTML = `
+            <div class="tx-total"><span>Open requests</span><b>${s.requests}</b></div>
+            <div class="tx-total"><span>Active deliveries</span><b>${s.active}</b></div>
+            <div class="tx-total"><span>Completed</span><b>${s.completed}</b></div>
+            <div class="tx-total"><span>Owed to you</span><b>${kwacha(s.owed)}</b></div>`;
+        } catch {
+        }
+      }
+
+      // ------------------------------------------------------------ requests
+      const jobCard = (b, attr) => `<button type="button" class="tp-job" ${attr}="${b.id}">
+          <span class="tp-job-top"><span class="text-sm text-gray-500">${escapeHtml(b.reference)}${b.offered_at ? ` · ${escapeHtml(timeAgo(b.offered_at))}` : ""}</span>${trPill(b)}</span>
+          <span class="tp-job-route block">${escapeHtml(b.from)} → ${escapeHtml(b.to)}</span>
+          <span class="tp-job-meta block">${trKm(b.distance_km)} by road · ${escapeHtml(b.cargo_summary || "")}${b.provider_earning !== undefined ? ` · <b>${kwacha(b.provider_earning)}</b>` : ""}</span>
+        </button>`;
+
+      async function loadRequests() {
+        const list = document.getElementById("requests-list");
+        if (!approved()) {
+          list.innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">No requests yet</p><p class="text-sm mt-1">You'll see paid delivery requests here once Frontier has approved your account.</p></div>`;
+          return;
+        }
+        let rows = [];
+        try { rows = (await transportApi("/api/transport/requests")).data; } catch (error) { list.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(error.message)}</p>`; return; }
+        list.innerHTML = rows.length ? rows.map((b) => jobCard(b, "data-request")).join("")
+          : `<div class="empty-state"><p class="font-semibold text-gray-800">No open requests</p><p class="text-sm mt-1">${me.is_available ? "New paid deliveries in your area appear here, and you'll get a notification." : "You're marked as not taking new requests."}</p></div>`;
+        list.querySelectorAll("[data-request]").forEach((b) => b.addEventListener("click", () => openBooking(b.dataset.request)));
+        loadStats();
+      }
+
+      // ---------------------------------------------------------- deliveries
+      const DTABS = [{ key: "active", label: "Active", test: (b) => ACTIVE.includes(b.status) }, { key: "done", label: "Completed", test: (b) => b.status === "completed" }, { key: "all", label: "All", test: () => true }];
+      async function loadDeliveries() {
+        try { deliveries = (await transportApi("/api/transport/bookings")).data; } catch (error) { return showNotification(error.message, "error"); }
+        document.getElementById("delivery-tabs").innerHTML = DTABS.map((t) => `<button type="button" data-dtab="${t.key}" class="${t.key === state.dtab ? "active" : ""}">${t.label}<span class="count">${deliveries.filter(t.test).length}</span></button>`).join("");
+        document.querySelectorAll("[data-dtab]").forEach((b) => b.addEventListener("click", () => { state.dtab = b.dataset.dtab; loadDeliveries(); }));
+        const rows = deliveries.filter(DTABS.find((t) => t.key === state.dtab).test);
+        const list = document.getElementById("deliveries-list");
+        list.innerHTML = rows.length ? rows.map((b) => jobCard(b, "data-booking")).join("")
+          : `<div class="empty-state"><p class="font-semibold text-gray-800">Nothing here</p><p class="text-sm mt-1">Deliveries you accept appear here.</p></div>`;
+        list.querySelectorAll("[data-booking]").forEach((b) => b.addEventListener("click", () => openBooking(b.dataset.booking)));
+        loadStats();
+      }
+
+      // One request or delivery on its own page.
+      let bookingView = null;
+      let follow = null;
+      async function openBooking(id, { replace = false } = {}) {
+        let d;
+        try { d = (await transportApi(`/api/transport/bookings/${id}`)).data; } catch (error) { return showNotification(error.message, "error"); }
+        if (!(replace && bookingView)) {
+          bookingView = openAdminView({ title: d.reference, params: { booking: d.id }, onClose: () => { bookingView = null; follow = null; } });
+        }
+        bookingView.bookingId = d.id;
+        if (d.offer) return paintOffer(bookingView, d);
+        paintDelivery(bookingView, d);
+      }
+
+      function paintOffer(view, d) {
+        const vs = d.vehicles || [];
+        view.body.innerHTML = `
+          <div class="sv-head"><h1 class="admin-view-title !mb-0">${escapeHtml(d.pickup.district || d.pickup.province || "")} → ${escapeHtml(d.destination.district)}</h1>${trPill(d, true)}</div>
+          <div class="tr-two">
+            <div class="space-y-4 min-w-0">
+              <div class="acc-card"><h2 class="txd-card-title">Request</h2>
+                <dl class="sv-facts">
+                  <div><dt>Pickup area</dt><dd>${escapeHtml([d.pickup.district, d.pickup.province].filter(Boolean).join(", "))}</dd></div>
+                  <div><dt>Destination area</dt><dd>${escapeHtml(`${d.destination.district}, ${d.destination.province}`)}</dd></div>
+                  <div><dt>Road distance</dt><dd>${trKm(d.distance_km)}${d.duration_min ? ` · about ${trDuration(d.duration_min)}` : ""}</dd></div>
+                  ${d.offer.pickup_km !== null ? `<div><dt>From your base to pickup</dt><dd>${trKm(d.offer.pickup_km)}</dd></div>` : ""}
+                  <div><dt>Load</dt><dd>${escapeHtml(d.cargo_summary || "-")}</dd></div>
+                  <div><dt>Your earning</dt><dd><b>${kwacha(d.provider_earning)}</b></dd></div>
+                </dl>
+                <ul class="tr-qty mt-3">${d.orders.filter((o) => !o.cancelled).map((o) => `<li><span>${escapeHtml(o.title)}</span><b>${escapeHtml(o.units)}</b></li>`).join("")}</ul>
+                <p class="text-sm text-gray-500 mt-3">The exact pickup and delivery addresses and contacts are shown once you accept.</p>
+              </div>
+            </div>
+            <div class="space-y-4 min-w-0">
+              ${d.can.accept ? `<form class="acc-card" data-accept novalidate>
+                <h2 class="txd-card-title">Accept with a vehicle</h2>
+                ${vs.length ? `<div class="tp-choice">${vs.map((v) => `<label class="${v.fits && !v.busy ? "" : "is-off"}"><input type="radio" name="vehicle_id" value="${v.id}" ${v.fits && !v.busy ? "" : "disabled"}><span><b>${escapeHtml(v.registration)}</b> · ${escapeHtml(v.vehicle_type)}${v.busy ? " · on another delivery" : !v.fits ? " · can't carry this load" : ""}</span></label>`).join("")}</div>`
+                  : `<p class="text-sm text-gray-600">You have no active vehicles.</p>`}
+                <p class="field-error hidden" data-error-for="vehicle_id"></p>
+                <div class="tr-actions mt-4"><button type="submit" class="acc-btn">Accept delivery</button><button type="button" class="acc-mini-btn" data-decline>Decline</button></div>
+              </form>` : `<div class="acc-card"><p class="text-sm text-gray-700">${d.offer.status === "declined" ? "You declined this request." : "This request is no longer open."}</p></div>`}
+            </div>
+          </div>`;
+        const form = view.body.querySelector("[data-accept]");
+        if (!form) return;
+        const first = form.querySelector('input[name="vehicle_id"]:not([disabled])');
+        if (first) first.checked = true;
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const v = form.querySelector('input[name="vehicle_id"]:checked');
+          if (!v) return showFieldErrors(form, { errors: { vehicle_id: "Choose the vehicle you'll use." } });
+          try {
+            const res = await withBusy(form.querySelector("button[type=submit]"), "Accepting…", () => transportApi(`/api/transport/bookings/${d.id}/accept`, { method: "POST", body: { vehicle_id: Number(v.value) } }));
+            showNotification(res.message, "success");
+            openBooking(d.id, { replace: true });
+            loadStats();
+          } catch (error) {
+            showFieldErrors(form, error);
+            showNotification(error.message, "error");
+            if (error.status === 409) openBooking(d.id, { replace: true });
+          }
+        });
+        form.querySelector("[data-decline]").addEventListener("click", async () => {
+          const reason = await trPrompt({ title: "Decline this request?", label: "Reason", placeholder: "e.g. Vehicle not available that day", confirmText: "Decline" });
+          if (reason === null) return;
+          try {
+            const res = await transportApi(`/api/transport/bookings/${d.id}/decline`, { method: "POST", body: { reason } });
+            showNotification(res.message, "success");
+            await view.close(true);
+            loadRequests();
+          } catch (error) { showNotification(error.message, "error"); }
+        });
+      }
+
+      function paintDelivery(view, d) {
+        const can = d.can || {};
+        const subs = (stage) => d.submissions.find((s) => s.stage === stage);
+        const collected = (o) => { const q = d.quantities.find((x) => x.stage === "provider_collected" && Number(x.order_id) === Number(o.id)); return q ? q.quantity : o.quantity; };
+        let action = "";
+        if (can.collect) {
+          action = `<form class="acc-card" data-collect novalidate>
+            <h2 class="txd-card-title">Record the collection</h2>
+            <p class="text-sm text-gray-600">At the pickup point, check the goods with the seller. Record what you actually collect, any identification (ear tags, brands), and your own photos. The seller records theirs separately.</p>
+            ${d.times.seller_ready_at ? `<p class="tr-note-box mt-3">The seller marked the goods ready · ${escapeHtml(trWhen(d.times.seller_ready_at))}</p>` : ""}
+            <div class="mt-4">${trQtyFields(d.orders, { label: "Collected", ids: true })}</div>
+            <label class="field-label mt-4" for="c-note">Notes <span class="text-gray-400 font-normal">(required if anything differs from the order)</span></label>
+            <textarea id="c-note" name="note" rows="2" maxlength="1000" class="field-input"></textarea>
+            <p class="field-error hidden" data-error-for="note"></p>
+            <p class="field-label mt-4">Your photos of the goods <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 6)</span></p>
+            <div class="acc-ph-grid" data-photos></div>
+            <p class="field-error hidden" data-error-for="images"></p>
+            <button type="submit" class="acc-btn mt-4">Save collection record</button>
+          </form>`;
+        } else if (["awaiting_collection", "collection_submitted"].includes(d.status) && subs("provider_collection")) {
+          action = `<div class="acc-card"><b>Collection recorded</b><p class="text-sm text-gray-600 mt-1">${subs("seller_collection") ? "Waiting for the seller to confirm the collection." : "Waiting for the seller to record the handover and confirm."}</p></div>`;
+        } else if (can.start) {
+          action = `<div class="acc-card acc-card-ok"><b>Collection confirmed</b><p class="text-sm text-gray-700 mt-1">Start the delivery when you leave. Keep this page open on your phone during the trip so the buyer, seller and Frontier can follow it.</p><button type="button" class="acc-btn mt-3" data-start>${uiIcon("truck")}<span>Start delivery</span></button></div>`;
+        } else if (can.arrive) {
+          action = `<div class="acc-card"><b>On the way</b><p class="text-sm text-gray-600 mt-1">When you reach ${escapeHtml(d.destination.address || d.destination.district)}, mark your arrival.</p><button type="button" class="acc-btn mt-3" data-arrive>I've arrived at the destination</button></div>`;
+        } else if (can.deliver) {
+          action = `<form class="acc-card" data-deliver novalidate>
+            <h2 class="txd-card-title">Mark as delivered</h2>
+            <p class="text-sm text-gray-600">Check the goods with the receiver. Record what you hand over and add photos. The buyer then confirms with their own photos.</p>
+            <div class="mt-4">${trQtyFields(d.orders, { label: "Delivered", start: collected })}</div>
+            <label class="field-label mt-4" for="d-note">Notes <span class="text-gray-400 font-normal">(required if anything differs from what you collected)</span></label>
+            <textarea id="d-note" name="note" rows="2" maxlength="1000" class="field-input"></textarea>
+            <p class="field-error hidden" data-error-for="note"></p>
+            <p class="field-label mt-4">Photos of the delivered goods <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 6)</span></p>
+            <div class="acc-ph-grid" data-photos></div>
+            <p class="field-error hidden" data-error-for="images"></p>
+            <button type="submit" class="acc-btn mt-4">Submit for the buyer's confirmation</button>
+          </form>`;
+        } else if (d.status === "awaiting_confirmation") action = `<div class="acc-card"><b>Waiting for the buyer</b><p class="text-sm text-gray-600 mt-1">The buyer has been asked to check the goods and confirm.</p></div>`;
+        else if (d.status === "disputed") action = `<div class="tr-warn-box"><b>The buyer reported a problem.</b> Frontier is reviewing the records and may contact you.</div>`;
+        else if (d.status === "completed") action = `<div class="acc-card acc-card-ok"><b>Completed · ${escapeHtml(trWhen(d.times.completed_at))}</b><p class="text-sm text-gray-700 mt-1">Your earning: <b>${kwacha(d.provider_earning)}</b>.</p>${d.rating ? `<p class="mt-2">${trStarsHtml(d.rating.stars)}</p>${d.rating.feedback ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(d.rating.feedback)}"</p>` : ""}` : ""}</div>`;
+        const showMap = ["collection_confirmed", "in_transit", "arrived", "delivery_submitted", "awaiting_confirmation", "awaiting_collection", "collection_submitted"].includes(d.status);
+        view.body.innerHTML = `
+          <div class="sv-head"><h1 class="admin-view-title !mb-0">${escapeHtml(d.pickup.label)} → ${escapeHtml(d.destination.district)}</h1>${trPill(d, true)}</div>
+          ${trProgressHtml(d.status)}
+          <div class="tr-two">
+            <div class="space-y-4 min-w-0">
+              ${can.share_location ? `<div data-gps></div>` : ""}
+              ${action}
+              ${showMap ? `<div class="acc-card"><h2 class="txd-card-title">Route</h2><div data-track></div>
+                <p class="text-sm mt-2"><a class="acc-link" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${["in_transit", "arrived"].includes(d.status) ? `${d.destination.lat},${d.destination.lng}` : `${d.pickup.lat},${d.pickup.lng}`}">Open directions in your maps app</a></p></div>` : ""}
+              <div class="acc-card"><h2 class="txd-card-title">Collection and delivery records</h2>${trEvidenceHtml(d)}</div>
+            </div>
+            <div class="space-y-4 min-w-0">
+              <div class="acc-card"><h2 class="txd-card-title">Delivery details</h2>${trFactsHtml(d, { role: "provider" })}
+                ${d.vehicle ? `<p class="text-sm text-gray-700 mt-3 tr-inline-icon">${uiIcon("truck")} Vehicle <b>${escapeHtml(d.vehicle.registration)}</b> · ${escapeHtml(d.vehicle.type)}</p>` : ""}
+                <ul class="tr-qty mt-3">${d.orders.filter((o) => !o.cancelled).map((o) => `<li><span>${escapeHtml(o.reference)} · ${escapeHtml(o.title)}</span><b>${escapeHtml(o.units)}</b></li>`).join("")}</ul>
+              </div>
+              <details class="acc-card acc-more"><summary>History</summary>${trTimelineHtml(d.events)}</details>
+            </div>
+          </div>`;
+        const reopen = () => openBooking(d.id, { replace: true });
+        const bindForm = (sel, url, label) => {
+          const form = view.body.querySelector(sel);
+          if (!form) return;
+          const picker = bindPhotoPicker(form.querySelector("[data-photos]"), 6, (n) => { if (n) form.querySelector('[data-error-for="images"]').classList.add("hidden"); });
+          form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (!picker.files().length) return showFieldErrors(form, { errors: { images: "Please add at least one photo." } });
+            const fd = new FormData(form);
+            picker.files().forEach((f) => fd.append("images", f));
+            const btn = form.querySelector("button[type=submit]");
+            try {
+              const res = await withBusy(btn, label, async () => {
+                const here = await currentPosition();
+                if (here) { fd.append("lat", here.lat); fd.append("lng", here.lng); }
+                return transportApi(url, { method: "POST", body: fd });
+              });
+              showNotification(res.message, "success");
+              if (sel === "[data-deliver]") gps.stop();
+              reopen();
+            } catch (error) {
+              showFieldErrors(form, error);
+              showNotification(error.message, "error");
+            }
+          });
+        };
+        bindForm("[data-collect]", `/api/transport/bookings/${d.id}/collection`, "Saving…");
+        bindForm("[data-deliver]", `/api/transport/bookings/${d.id}/delivery`, "Submitting…");
+        view.body.querySelector("[data-start]")?.addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          if (!(await confirmAction({ title: "Start the delivery?", message: "Your phone's location will be shared with the buyer, the seller and Frontier until you mark the delivery as delivered. Keep this page open during the trip.", confirmText: "Start delivery" }))) return;
+          try {
+            const res = await withBusy(btn, "Starting…", async () => {
+              const here = await currentPosition();
+              return transportApi(`/api/transport/bookings/${d.id}/start`, { method: "POST", body: here || {} });
+            });
+            showNotification(res.message, "success");
+            reopen();
+          } catch (error) { showNotification(error.message, "error"); }
+        });
+        view.body.querySelector("[data-arrive]")?.addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          if (!(await confirmAction({ title: "Mark your arrival?", message: "The buyer is told you've arrived.", confirmText: "I've arrived" }))) return;
+          try {
+            const res = await withBusy(btn, "Saving…", async () => transportApi(`/api/transport/bookings/${d.id}/arrive`, { method: "POST", body: (await currentPosition()) || {} }));
+            showNotification(res.message, "success");
+            reopen();
+          } catch (error) { showNotification(error.message, "error"); }
+        });
+        const gpsBox = view.body.querySelector("[data-gps]");
+        if (gpsBox) {
+          const paint = (g) => {
+            if (!gpsBox.isConnected) return;
+            const on = g.status === "on" && g.bookingId === d.id;
+            gpsBox.innerHTML = `<div class="tr-gps ${on ? "tr-gps-on" : "tr-gps-off"}"><span class="tr-gps-dot"></span><span>${on
+              ? `Sharing your location${g.sentAt ? ` · last sent ${escapeHtml(g.sentAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }))}` : ""}. Keep this page open.`
+              : escapeHtml(g.error || (g.status === "waiting" ? "Getting your location…" : "Location sharing is off."))}</span>
+              ${on ? "" : `<button type="button" class="acc-mini-btn ml-auto" data-gps-on>Share location</button>`}</div>`;
+            gpsBox.querySelector("[data-gps-on]")?.addEventListener("click", () => gps.start(d.id, paint));
+          };
+          gps.start(d.id, paint);
+        }
+        const track = view.body.querySelector("[data-track]");
+        if (track) trFollow(track, d, `/api/transport/bookings/${d.id}/track`, transportApi).then((f) => { follow = f; });
+      }
+
+      // ------------------------------------------------------------ vehicles
+      async function loadVehicles() {
+        const res = await transportApi("/api/transport/vehicles");
+        vehicles = res.data;
+        meta.cargo_types = res.cargo_types;
+        const list = document.getElementById("vehicles-list");
+        const label = (k) => (meta.cargo_types.find((c) => c.key === k) || { label: k }).label;
+        list.innerHTML = vehicles.length ? vehicles.map((v) => `
+          <div class="tp-vehicle">
+            ${v.photos[0] ? `<img src="${escapeHtml(v.photos[0].thumb_path)}" alt="${escapeHtml(v.registration)}">` : ""}
+            <div class="tp-vehicle-body">
+              <div class="flex items-center justify-between gap-2"><b>${escapeHtml(v.registration)}</b><span class="so-pill ${v.status === "active" ? (v.busy_booking ? "so-act" : "so-done") : "so-off"}">${v.status === "active" ? (v.busy_booking ? `On ${escapeHtml(v.busy_booking.reference)}` : "Active") : "Inactive"}</span></div>
+              <p class="text-sm text-gray-600 mt-1">${escapeHtml(v.vehicle_type)}${v.capacity_note ? ` · ${escapeHtml(v.capacity_note)}` : ""}</p>
+              <p class="text-sm text-gray-700 mt-2">${v.cargo.map((c) => `${escapeHtml(label(c.key))}: up to ${c.max}`).join(" · ")}</p>
+              <div class="tr-actions mt-3"><button type="button" class="acc-mini-btn" data-edit="${v.id}">Edit</button>
+                <button type="button" class="acc-mini-btn" data-toggle="${v.id}">${v.status === "active" ? "Deactivate" : "Activate"}</button></div>
+            </div>
+          </div>`).join("")
+          : `<div class="empty-state"><p class="font-semibold text-gray-800">No vehicles yet</p><p class="text-sm mt-1">Add the vehicles you use, with what each can carry at once.</p></div>`;
+        list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openVehicle(vehicles.find((v) => String(v.id) === b.dataset.edit))));
+        list.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", async () => {
+          const v = vehicles.find((x) => String(x.id) === b.dataset.toggle);
+          try {
+            const res = await transportApi(`/api/transport/vehicles/${v.id}/status`, { method: "PATCH", body: { status: v.status === "active" ? "inactive" : "active" } });
+            showNotification(res.message, "success");
+            loadVehicles();
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+        renderBanner();
+      }
+      document.getElementById("add-vehicle").addEventListener("click", () => openVehicle(null));
+
+      function openVehicle(v) {
+        const view = openAdminView({ title: v ? v.registration : "Add a vehicle", params: {} });
+        const cargoOf = (k) => (v ? (v.cargo.find((c) => c.key === k) || {}).max || "" : "");
+        view.body.innerHTML = `
+          <form class="acc-card max-w-2xl" novalidate>
+            <h1 class="admin-view-title">${v ? `Edit ${escapeHtml(v.registration)}` : "Add a vehicle"}</h1>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div><label class="field-label" for="v-reg">Registration number</label><input id="v-reg" name="registration" class="field-input" maxlength="30" value="${escapeHtml(v ? v.registration : "")}" placeholder="e.g. ABC 1234"><p class="field-error hidden" data-error-for="registration"></p></div>
+              <div><label class="field-label" for="v-type">Vehicle type</label><input id="v-type" name="vehicle_type" class="field-input" maxlength="60" value="${escapeHtml(v ? v.vehicle_type : "")}" placeholder="e.g. 7-tonne truck with crate"><p class="field-error hidden" data-error-for="vehicle_type"></p></div>
+              <div class="sm:col-span-2"><label class="field-label" for="v-cap">Capacity notes <span class="text-gray-400 font-normal">(optional)</span></label><input id="v-cap" name="capacity_note" class="field-input" maxlength="255" value="${escapeHtml(v && v.capacity_note ? v.capacity_note : "")}" placeholder="e.g. Double-deck crate, ventilated"></div>
+            </div>
+            <p class="field-label mt-5">What it can carry at once <span class="text-gray-400 font-normal">(leave empty what it doesn't carry)</span></p>
+            <div class="tp-cargo-grid">${meta.cargo_types.map((c) => `<div><label class="field-label !text-xs" for="cg-${c.key}">${escapeHtml(c.label)} (${escapeHtml(c.unit)})</label><input id="cg-${c.key}" name="cargo_${c.key}" type="number" min="1" step="1" class="field-input" value="${cargoOf(c.key)}"><p class="field-error hidden" data-error-for="cargo_${c.key}"></p></div>`).join("")}</div>
+            <p class="field-error hidden" data-error-for="cargo"></p>
+            <p class="field-label mt-5">Photos <span class="text-gray-400 font-normal">(${v ? "add more, up to 4 at a time" : "1 to 4"})</span></p>
+            ${v && v.photos.length ? `<div class="acc-photos mb-2">${v.photos.map((p) => `<span class="relative inline-block"><a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt=""></a><button type="button" class="tr-rm" data-rm-file="${p.id}" aria-label="Remove photo">×</button></span>`).join("")}</div>` : ""}
+            <div class="acc-ph-grid" data-photos></div>
+            <p class="field-error hidden" data-error-for="photos"></p>
+            <p class="field-label mt-5">Vehicle papers <span class="text-gray-400 font-normal">(registration book, fitness, insurance: PDF or photo, optional)</span></p>
+            ${v && v.documents.length ? `<ul class="tr-qty mb-2">${v.documents.map((f) => `<li><a class="acc-link" href="/api/transport/vehicles/${v.id}/files/${f.id}" target="_blank" rel="noopener">${escapeHtml(f.original_name || "Document")}</a><button type="button" class="acc-mini-btn" data-rm-file="${f.id}">Remove</button></li>`).join("")}</ul>` : ""}
+            <input type="file" name="documents" multiple accept="application/pdf,image/jpeg,image/png,image/webp" class="text-sm">
+            <div class="acc-actionbar"><button type="submit" class="acc-btn">${v ? "Save vehicle" : "Add vehicle"}</button></div>
+          </form>`;
+        const form = view.body.querySelector("form");
+        const picker = bindPhotoPicker(form.querySelector("[data-photos]"), 4);
+        form.querySelectorAll("[data-rm-file]").forEach((b) => b.addEventListener("click", async () => {
+          if (!(await confirmAction({ title: "Remove this file?", confirmText: "Remove", variant: "danger" }))) return;
+          try {
+            await transportApi(`/api/transport/vehicles/${v.id}/files/${b.dataset.rmFile}`, { method: "DELETE" });
+            await view.close(true);
+            await loadVehicles();
+            openVehicle(vehicles.find((x) => x.id === v.id));
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const fd = new FormData();
+          ["registration", "vehicle_type", "capacity_note"].forEach((k) => fd.append(k, form[k].value.trim()));
+          meta.cargo_types.forEach((c) => fd.append(`cargo_${c.key}`, form[`cargo_${c.key}`].value.trim()));
+          picker.files().forEach((f) => fd.append("photos", f));
+          [...form.documents.files].forEach((f) => fd.append("documents", f));
+          try {
+            const res = await withBusy(form.querySelector("button[type=submit]"), "Saving…", () => transportApi(v ? `/api/transport/vehicles/${v.id}` : "/api/transport/vehicles", { method: v ? "PUT" : "POST", body: fd }));
+            showNotification(res.message, "success");
+            await view.close(true);
+            loadVehicles();
+          } catch (error) {
+            showFieldErrors(form, error);
+            showNotification(error.message, "error");
+          }
+        });
+      }
+
+      // ------------------------------------------------------------- ratings
+      async function loadRatings() {
+        const [rows, s] = await Promise.all([transportApi("/api/transport/ratings").then((r) => r.data), transportApi("/api/transport/summary").then((r) => r.data)]);
+        document.getElementById("ratings-list").innerHTML = `
+          <div class="acc-card mb-4"><p class="text-sm text-gray-600">Your average from buyers</p><p class="text-2xl mt-1">${trStarsHtml(s.rating, s.ratings)}</p></div>
+          ${rows.length ? `<div class="tp-card-list">${rows.map((r) => `<div class="acc-card"><div class="flex justify-between gap-2"><span>${trStarsHtml(r.stars)}</span><span class="text-sm text-gray-500">${escapeHtml(r.reference)} · ${escapeHtml(formatDateShort(r.created_at))}</span></div>${r.feedback ? `<p class="text-sm text-gray-700 mt-2">"${escapeHtml(r.feedback)}"</p>` : ""}</div>`).join("")}</div>`
+            : `<div class="empty-state"><p class="font-semibold text-gray-800">No ratings yet</p><p class="text-sm mt-1">Buyers rate you after they confirm a delivery.</p></div>`}`;
+      }
+
+      // ------------------------------------------------------- notifications
+      async function loadNotifications() {
+        const res = await transportApi("/api/transport/notifications");
+        const list = document.getElementById("notifications-list");
+        list.innerHTML = res.data.length ? `<ul class="nt-list">${res.data.map((n) => `
+          <li><a href="${escapeHtml(n.link || "/transport/")}" data-link class="nt-item ${n.read_at ? "" : "is-unread"}">
+            <span class="nt-icon nt-order" aria-hidden="true">${uiIcon(n.type === "account" ? "users" : "truck")}</span>
+            <span class="nt-text"><span class="nt-title">${escapeHtml(n.title)}</span>${n.body ? `<span class="nt-body">${escapeHtml(n.body)}</span>` : ""}<span class="nt-time">${timeAgo(n.created_at)}</span></span>
+            ${n.read_at ? "" : `<span class="nt-new">New</span>`}</a></li>`).join("")}</ul>`
+          : `<div class="empty-state"><p class="font-semibold text-gray-800">No notifications yet</p></div>`;
+        list.querySelectorAll("[data-link]").forEach((a) => a.addEventListener("click", (e) => {
+          const url = new URL(a.href, location.origin);
+          if (url.pathname !== "/transport/") return;
+          e.preventDefault();
+          goTo(Object.fromEntries(url.searchParams));
+        }));
+        if (res.unread) {
+          await transportApi("/api/transport/notifications/read", { method: "POST" }).catch(() => {});
+          setBadge("[data-notif-badge]", 0);
+        }
+      }
+
+      // ------------------------------------------------------------- profile
+      async function renderProfile() {
+        const docs = await transportApi("/api/transport/me/documents");
+        const box = document.getElementById("profile-box");
+        const statusText = { pending: "Waiting for approval", approved: "Approved", rejected: "Not approved", suspended: "Suspended" }[me.status];
+        box.innerHTML = `
+          <div class="space-y-4 min-w-0">
+            <div class="acc-card"><h2 class="txd-card-title">Your account</h2>
+              <dl class="sv-facts">
+                <div><dt>Name</dt><dd>${escapeHtml(me.name)}${me.kind === "company" ? " (company)" : ""}</dd></div>
+                <div><dt>Status</dt><dd>${escapeHtml(statusText)}${me.is_active ? "" : " · deactivated"}</dd></div>
+                <div><dt>Area</dt><dd>${escapeHtml(`${me.district}, ${me.province}`)}</dd></div>
+                <div><dt>Coverage (set by Frontier)</dt><dd>${me.coverage_active && me.coverage_km ? `${me.coverage_km} km by road from your operating location` : "Not set yet"}</dd></div>
+                <div><dt>Licence / permit</dt><dd>${escapeHtml(me.licence_number || "-")}</dd></div>
+                ${me.registration_number ? `<div><dt>Business registration</dt><dd>${escapeHtml(me.registration_number)}</dd></div>` : ""}
+              </dl>
+              <p class="text-sm text-gray-500 mt-3">To change your operating location or area, please contact Frontier.</p>
+            </div>
+            <form class="acc-card" data-contact novalidate><h2 class="txd-card-title">Contact details</h2>
+              <div class="space-y-4">
+                ${me.kind === "company" ? `<div><label class="field-label" for="p-cp">Contact person</label><input id="p-cp" name="contact_person" class="field-input" maxlength="120" value="${escapeHtml(me.contact_person || "")}"></div>` : ""}
+                <div><label class="field-label" for="p-phone">Phone</label><input id="p-phone" name="phone" class="field-input" maxlength="30" value="${escapeHtml(me.phone)}"><p class="field-error hidden" data-error-for="phone"></p></div>
+                <div><label class="field-label" for="p-email">Email</label><input id="p-email" name="email" type="email" class="field-input" maxlength="255" value="${escapeHtml(me.email)}"><p class="field-error hidden" data-error-for="email"></p></div>
+                <div><label class="field-label" for="p-addr">Physical address</label><input id="p-addr" name="address" class="field-input" maxlength="255" value="${escapeHtml(me.address)}"><p class="field-error hidden" data-error-for="address"></p></div>
+              </div>
+              <button type="submit" class="acc-btn mt-4">Save details</button>
+            </form>
+          </div>
+          <div class="space-y-4 min-w-0">
+            <div class="acc-card"><h2 class="txd-card-title">Documents</h2>
+              ${docs.data.length ? `<ul class="tr-qty">${docs.data.map((d0) => `<li><a class="acc-link" href="/api/transport/me/documents/${d0.id}" target="_blank" rel="noopener">${escapeHtml(d0.original_name || d0.type_label)}</a><span class="text-gray-500">${escapeHtml(d0.type_label)}</span></li>`).join("")}</ul>` : `<p class="text-sm text-gray-600">No documents.</p>`}
+              <form data-docs class="mt-4" novalidate>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <select name="doc_types" class="field-input">${Object.entries(docs.types).map(([k, v]) => `<option value="${k}">${escapeHtml(v)}</option>`).join("")}</select>
+                  <input type="file" name="documents" accept="application/pdf,image/jpeg,image/png,image/webp" class="text-sm">
+                </div>
+                <p class="field-error hidden" data-error-for="documents"></p>
+                <button type="submit" class="acc-mini-btn mt-3">Upload document</button>
+              </form>
+            </div>
+            <form class="acc-card" data-password novalidate><h2 class="txd-card-title">Change password</h2>
+              <div class="space-y-4">
+                <div><label class="field-label" for="p-cur">Current password</label><input id="p-cur" name="current_password" type="password" class="field-input" autocomplete="current-password"><p class="field-error hidden" data-error-for="current_password"></p></div>
+                <div><label class="field-label" for="p-new">New password</label><input id="p-new" name="new_password" type="password" class="field-input" autocomplete="new-password"><p class="field-error hidden" data-error-for="new_password"></p></div>
+              </div>
+              <button type="submit" class="acc-btn mt-4">Change password</button>
+            </form>
+            <button type="button" class="acc-btn lg:hidden" data-transport-logout>Log out</button>
+          </div>`;
+        box.querySelector("[data-transport-logout]").addEventListener("click", transportLogout);
+        const contact = box.querySelector("[data-contact]");
+        contact.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          try {
+            const res = await withBusy(contact.querySelector("button[type=submit]"), "Saving…", () => transportApi("/api/transport/me", { method: "PUT", body: Object.fromEntries(new FormData(contact)) }));
+            me = { ...me, ...res.data };
+            showNotification(res.message, "success");
+          } catch (error) { showFieldErrors(contact, error); showNotification(error.message, "error"); }
+        });
+        const docForm = box.querySelector("[data-docs]");
+        docForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          if (!docForm.documents.files.length) return showFieldErrors(docForm, { errors: { documents: "Choose a file." } });
+          try {
+            const res = await withBusy(docForm.querySelector("button[type=submit]"), "Uploading…", () => transportApi("/api/transport/me/documents", { method: "POST", body: new FormData(docForm) }));
+            showNotification(res.message, "success");
+            renderProfile();
+          } catch (error) { showFieldErrors(docForm, error); showNotification(error.message, "error"); }
+        });
+        const pw = box.querySelector("[data-password]");
+        bindPasswordMeter(pw.new_password, () => ({ email: me.email, phone: me.phone }));
+        pw.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          try {
+            const res = await withBusy(pw.querySelector("button[type=submit]"), "Saving…", () => transportApi("/api/transport/me/password", { method: "PATCH", body: { current_password: pw.current_password.value, new_password: pw.new_password.value } }));
+            pw.reset();
+            showNotification(res.message, "success");
+          } catch (error) { showFieldErrors(pw, error); showNotification(error.message, "error"); }
+        });
+      }
+
+      document.getElementById("available").addEventListener("change", async (e) => {
+        try {
+          const res = await transportApi("/api/transport/me/availability", { method: "PATCH", body: { available: e.target.checked } });
+          me = { ...me, ...res.data };
+          showNotification(res.message, "success");
+          renderBanner();
+        } catch (error) {
+          e.target.checked = !e.target.checked;
+          showNotification(error.message, "error");
+        }
+      });
+
+      // ------------------------------------------------------- go to / live
+      async function goTo(q) {
+        setTab(q.tab || (q.booking ? "deliveries" : "requests"));
+        if (q.booking) await openBooking(q.booking);
+      }
+
+      function listen() {
+        if (!window.EventSource) return;
+        const es = new EventSource("/api/transport/events");
+        es.addEventListener("ready", (e) => setBadge("[data-notif-badge]", JSON.parse(e.data).unread));
+        es.addEventListener("notification", async (e) => {
+          const { notification, unread } = JSON.parse(e.data);
+          setBadge("[data-notif-badge]", unread);
+          showNotification(notification.title, "info");
+          if (notification.type === "account") { me = { ...me, ...(await transportApi("/api/transport/auth/me")).data }; renderBanner(); }
+          if (state.tab === "requests") loadRequests();
+          if (state.tab === "deliveries") loadDeliveries();
+          if (state.tab === "notifications") loadNotifications();
+          loadStats();
+        });
+        es.addEventListener("transport", (e) => {
+          const t = JSON.parse(e.data);
+          if (bookingView && bookingView.bookingId === t.booking_id) {
+            if (trEditing(bookingView.el)) showNotification("This delivery was just updated. Your form is kept; reopen the delivery after saving to see the change.", "info");
+            else openBooking(t.booking_id, { replace: true });
+          }
+          loadStats();
+        });
+        es.addEventListener("signed-out", () => { es.close(); window.location.href = "/transport/login.html"; });
+      }
+
+      (async () => {
+        try { me = (await transportApi("/api/transport/auth/me")).data; } catch { return; }
+        renderTransportShell(me);
+        document.getElementById("tp-main").hidden = false;
+        setBadge("[data-notif-badge]", me.unread);
+        try { vehicles = (await transportApi("/api/transport/vehicles")).data; } catch {}
+        renderBanner();
+        const q = getQueryParams();
+        if (q.welcome) showNotification("Thank you for registering. Frontier will review your details.", "success");
+        await goTo(q);
+        listen();
+      })().catch((error) => showNotification(error.message, "error"));
+    </script>
+  </body>
+</html>

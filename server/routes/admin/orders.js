@@ -80,6 +80,14 @@ async function loadOrder(id) {
   }
   const photos = await handover.photosOf([order.id]);
   order.receipt_photos = photos.get(order.id) || [];
+  // Carried by a transport provider: the delivery's state and where to see it.
+  if (rows[0].transport_booking_id) {
+    const [[b]] = await pool.query("SELECT id, status, provider_id, fee, distance_km FROM transport_bookings WHERE id = ?", [rows[0].transport_booking_id]);
+    if (b) {
+      const { STATUS_LABELS: TL, bookingRef } = require("../../lib/transport/core");
+      order.transport = { id: b.id, reference: bookingRef(b.id), status: b.status, status_label: TL[b.status] || b.status, fee: Number(b.fee), distance_km: Number(b.distance_km) };
+    }
+  }
   // Only Frontier's own stock: a seller's order is marked by the seller.
   order.can_send = !rows[0].seller_id && handover.canSend(rows[0]);
   order.can_hand_over = handover.canHandOver(rows[0]);
@@ -221,13 +229,27 @@ router.patch("/:id", async (req, res, next) => {
 
     // Every open order of the cart paid: the cart's payment counts as done, so
     // a later confirmation from Lipila doesn't email everyone a second time.
+    let checkoutSettled = false;
     if (markedPaid && order.checkout_id) {
-      await pool.query(
+      const [settled] = await pool.query(
         `UPDATE checkouts SET payment_status = 'paid', payment_failure = NULL, paid_at = COALESCE(paid_at, NOW())
          WHERE id = ? AND payment_status <> 'paid'
            AND NOT EXISTS (SELECT 1 FROM orders WHERE checkout_id = ? AND payment_status <> 'paid' AND status NOT IN ('cancelled', 'completed'))`,
         [order.checkout_id, order.checkout_id],
       );
+      checkoutSettled = settled.affectedRows > 0;
+    }
+    // Include transport: the whole cart is now paid (the team collected the
+    // products and the transport fee), so its deliveries go to providers.
+    // A cancelled order comes off its delivery.
+    const transport = require("../../lib/transport/bookings");
+    if (checkoutSettled) {
+      transport.onPaid(order.checkout_id, { actor: "admin", actorName: req.admin.name })
+        .catch((error) => console.error(`Order ${orderRef(id)}: transport not released (${error.message})`));
+    }
+    if (changed && newStatus === "cancelled" && order.transport_booking_id) {
+      transport.orderCancelled(id, { actorName: req.admin.name })
+        .catch((error) => console.error(`Order ${orderRef(id)}: transport not updated after cancelling (${error.message})`));
     }
 
     // Transaction trail: who changed what on this order.

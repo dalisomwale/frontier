@@ -14,6 +14,10 @@
     <script src="/js/livestock.js"></script>
     <script src="/js/cart.js"></script>
     <script src="/js/buyer.js"></script>
+    <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css" />
+    <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/transport-ui.js"></script>
   </head>
   <body class="bg-gray-50">
     <nav id="page-topnav" class="site-topnav sticky top-0 z-50">
@@ -88,7 +92,13 @@
         render();
       }
 
+      // Include transport: the delivery details, the road-distance quote, and
+      // whether the quote still matches what's in the form.
+      const tstate = { quote: null, sig: "", busy: false, picker: null, timer: null };
+      let transportOn = false;
+
       function render() {
+        transportOn = Boolean(quote.transport && quote.transport.offered);
         root.innerHTML = `
           ${checkoutSteps(1)}
           <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mb-5">Checkout</h1>
@@ -123,6 +133,62 @@
                     <input id="co-address" name="address" type="text" class="field-input" autocomplete="street-address" maxlength="120" placeholder="e.g. Plot 12, Kabulonga Road">
                     <p class="field-error hidden" data-error-for="address"></p>
                   </div>` : ""}
+                </div>
+              </section>
+
+              <section class="checkout-section co-delivery">
+                <h2>Delivery</h2>
+                <div class="pm-choices" role="radiogroup" aria-label="How you'd like to receive your order">
+                  <label class="pm-choice"><input type="radio" name="delivery_option" value="collect" checked>
+                    <span class="pm-icon">${uiIcon("location")}</span>
+                    <span class="pm-text"><b>Self-collection</b><small class="pm-sub"><span class="pm-sub-text">Collect from the seller. We'll arrange it with you.</span></small></span>
+                    <span class="pm-dot" aria-hidden="true"></span></label>
+                  <label class="pm-choice${transportOn ? "" : " is-off"}"${transportOn ? "" : ' title="Not available right now"'}><input type="radio" name="delivery_option" value="transport" ${transportOn ? "" : "disabled"}>
+                    <span class="pm-icon">${uiIcon("truck")}</span>
+                    <span class="pm-text"><b>Include transport</b><small class="pm-sub"><span class="pm-sub-text">${transportOn ? "Delivered by an approved transport provider" : escapeHtml(quote.transport.reason || "Not available right now")}</span></small></span>
+                    <span class="pm-dot" aria-hidden="true"></span></label>
+                </div>
+                <p class="field-error hidden" data-error-for="delivery_option"></p>
+                <div class="co-delivery-panel" data-transport-panel hidden>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label for="co-dprov" class="field-label">Province</label>
+                      <select id="co-dprov" name="dest_province" class="field-input">
+                        <option value="">Choose…</option>${ZAMBIA_PROVINCES.map((p) => `<option>${p}</option>`).join("")}
+                      </select>
+                      <p class="field-error hidden" data-error-for="dest_province"></p>
+                    </div>
+                    <div>
+                      <label for="co-ddist" class="field-label">District</label>
+                      <input id="co-ddist" name="dest_district" class="field-input" maxlength="80" placeholder="e.g. Chibombo">
+                      <p class="field-error hidden" data-error-for="dest_district"></p>
+                    </div>
+                    <div class="sm:col-span-2">
+                      <label for="co-daddr" class="field-label">Delivery address or directions</label>
+                      <input id="co-daddr" name="dest_address" class="field-input" maxlength="255" placeholder="e.g. Farm 12, 3 km past Chisamba turn-off">
+                      <p class="field-error hidden" data-error-for="dest_address"></p>
+                    </div>
+                    <div>
+                      <label for="co-cname" class="field-label">Person receiving it</label>
+                      <input id="co-cname" name="contact_name" class="field-input" maxlength="120" autocomplete="name">
+                      <p class="field-error hidden" data-error-for="contact_name"></p>
+                    </div>
+                    <div>
+                      <label for="co-cphone" class="field-label">Their phone number</label>
+                      <input id="co-cphone" name="contact_phone" type="tel" class="field-input" maxlength="25" inputmode="tel" placeholder="0977 123 456">
+                      <p class="field-error hidden" data-error-for="contact_phone"></p>
+                    </div>
+                    <div class="sm:col-span-2">
+                      <label for="co-dnotes" class="field-label">Notes for the driver <span class="text-gray-400 font-normal">(optional)</span></label>
+                      <input id="co-dnotes" name="dest_notes" class="field-input" maxlength="255" placeholder="e.g. Green gate, call on arrival">
+                    </div>
+                  </div>
+                  <div>
+                    <p class="field-label">Delivery point on the map</p>
+                    <div data-dest-map></div>
+                    <p class="field-error hidden" data-error-for="dest_point"></p>
+                  </div>
+                  <div data-journeys></div>
                 </div>
               </section>
 
@@ -174,26 +240,111 @@
                 <a href="/cart.html" class="text-sm font-semibold text-green-800 hover:underline">Edit cart</a>
               </div>
               <ul class="co-lines">${quote.items.map(summaryLine).join("")}</ul>
-              <div class="buy-total"><span>Total</span><strong>${kwacha(quote.total)}</strong></div>
+              <div class="co-breakdown" data-breakdown hidden></div>
+              <div class="buy-total" data-total-line><span>Total</span><strong>${kwacha(quote.total)}</strong></div>
               <button type="submit" class="btn-checkout btn-lg w-full checkout-submit-desktop" data-submit></button>
             </aside>
           </form>`;
         const form = root.querySelector("#checkout-form");
         const submits = root.querySelectorAll("[data-submit]");
         const method = () => (form.elements.payment_method ? form.elements.payment_method.value : methods[0]) || "";
-        const labelFor = (m) => ({
-          mobile_money: `Pay ${kwacha(quote.total)}`,
-          card: "Enter card details",
-        }[m] || `Place order · ${kwacha(quote.total)}`);
+        const delivery = () => (form.elements.delivery_option.value || "collect");
+        const payable = () => (delivery() === "transport" && tstate.quote && tstate.quote.available ? tstate.quote.grand_total : quote.total);
+        const labelFor = (m) => {
+          if (delivery() === "transport" && !(tstate.quote && tstate.quote.available && tstate.sig === destSig(form))) return "Add the delivery details to see the total";
+          return {
+            mobile_money: `Pay ${kwacha(payable())}`,
+            card: "Enter card details",
+          }[m] || `Place order · ${kwacha(payable())}`;
+        };
         let label = labelFor(method());
+        const paintSubmit = () => {
+          label = labelFor(method());
+          const blocked = delivery() === "transport" && !(tstate.quote && tstate.quote.available && tstate.sig === destSig(form));
+          submits.forEach((b) => { if (!b.dataset.busy) { b.textContent = label; b.disabled = blocked; } });
+        };
+        // Delivery: self-collection, or transport with the delivery details.
+        const panel = form.querySelector("[data-transport-panel]");
+        const paintTotals = () => {
+          const box = form.querySelector("[data-breakdown]");
+          const totalLine = form.querySelector("[data-total-line]");
+          const tq = tstate.quote;
+          if (delivery() === "transport" && tq && tq.available) {
+            box.innerHTML = `<div><span>Products</span><span>${kwacha(tq.product_total)}</span></div>
+              <div><span>Transport</span><span>${kwacha(tq.transport_total)}</span></div>
+              <div class="co-grand"><span>Total to pay</span><span>${kwacha(tq.grand_total)}</span></div>`;
+            box.hidden = false;
+            totalLine.hidden = true;
+          } else {
+            box.hidden = true;
+            totalLine.hidden = false;
+          }
+          paintSubmit();
+        };
+        const paintJourneys = (msg) => {
+          const box = form.querySelector("[data-journeys]");
+          const tq = tstate.quote;
+          if (msg) { box.innerHTML = `<p class="co-quote-state">${msg}</p>`; return; }
+          if (!tq) { box.innerHTML = `<p class="co-quote-state">Fill in the delivery details and mark the point on the map to see the transport charge.</p>`; return; }
+          box.innerHTML = `<p class="field-label">Transport</p><ul class="co-journeys">${tq.journeys.map((j) => `
+            <li class="co-journey${j.problem ? " is-problem" : ""}">
+              <span><b>${escapeHtml(j.seller)}</b><small>${escapeHtml(j.from || "")} → your delivery point${j.distance_km !== null ? ` · ${trKm(j.distance_km)} by road` : ""}${j.band ? ` · ${escapeHtml(j.band)} band` : ""}</small>${j.problem ? `<small>${escapeHtml(j.problem)}</small>` : ""}</span>
+              <b>${j.fee !== null ? kwacha(j.fee) : "-"}</b>
+            </li>`).join("")}</ul>
+            ${tq.journeys.length > 1 ? `<p class="co-quote-state">Your items come from ${tq.journeys.length} sellers, so each is delivered separately and charged for its own road distance.</p>` : ""}
+            ${!tq.available ? `<p class="tr-warn-box mt-3">${escapeHtml(tq.reason || "Transport isn't available for this order.")} You can choose self-collection instead.</p>` : ""}`;
+        };
+        const requote = () => {
+          clearTimeout(tstate.timer);
+          if (delivery() !== "transport") return paintTotals();
+          const v = destValues(form, tstate);
+          const ready = v.dest_province && v.dest_district.length >= 2 && v.dest_address.length >= 3 && v.dest_lat;
+          if (!ready) { tstate.quote = null; tstate.sig = ""; paintJourneys(); return paintTotals(); }
+          const sig = destSig(form);
+          if (sig === tstate.sig && tstate.quote) return paintTotals();
+          paintJourneys(`<span class="btn-spinner"></span> Working out the road distance…`);
+          paintSubmit();
+          tstate.timer = setTimeout(async () => {
+            try {
+              const res = await apiRequest("/api/checkout/transport-quote", { method: "POST", body: { items: readCart(), ...v } });
+              if (sig !== destSig(form)) return;
+              tstate.quote = res.data;
+              tstate.sig = sig;
+              paintJourneys();
+            } catch (error) {
+              tstate.quote = null;
+              tstate.sig = "";
+              if (error.errors) showErrors(form, error.errors);
+              paintJourneys(escapeHtml(error.message));
+            }
+            paintTotals();
+          }, 500);
+        };
+        const showDelivery = async () => {
+          const on = delivery() === "transport";
+          panel.hidden = !on;
+          if (on && !tstate.picker) {
+            form.elements.contact_name.value = buyer.full_name || "";
+            form.elements.contact_phone.value = buyer.phone || "";
+            paintJourneys();
+            tstate.picker = await trPointPicker(form.querySelector("[data-dest-map]"), {
+              kind: "dest", label: "Delivery point",
+              onChange: () => { form.querySelector('[data-error-for="dest_point"]').classList.add("hidden"); requote(); },
+            });
+          }
+          if (on && tstate.picker && tstate.picker.map) setTimeout(() => tstate.picker.map.invalidateSize(), 50);
+          requote();
+        };
+        tstate.requote = requote;
+        form.querySelectorAll('input[name="delivery_option"]').forEach((r) => r.addEventListener("change", showDelivery));
+        ["dest_province", "dest_district", "dest_address"].forEach((n) => form.elements[n].addEventListener(n === "dest_province" ? "change" : "input", requote));
         // Show the fields for the chosen way to pay.
         const showPanel = () => {
           const m = method();
           form.querySelectorAll("[data-method-panel]").forEach((panel) => { panel.hidden = panel.dataset.methodPanel !== m; });
           // Address and town: only card payments need them.
           form.querySelectorAll("[data-card-only]").forEach((el) => { el.hidden = m !== "card"; });
-          label = labelFor(m);
-          submits.forEach((b) => { if (!b.disabled) b.textContent = label; });
+          paintSubmit();
         };
         form.querySelectorAll('input[name="payment_method"]').forEach((r) => r.addEventListener("change", showPanel));
         showPanel();
@@ -233,8 +384,27 @@
         const phoneBox = form.querySelector("[data-phone-box]");
         form.querySelector("[data-change-phone]").addEventListener("click", () => { phoneBox.hidden = false; ph.focus(); });
         ph.addEventListener("input", () => { form.querySelector("[data-who-phone]").textContent = ph.value || buyer.email; });
-        submits.forEach((b) => { b.textContent = label; });
-        form.addEventListener("submit", (e) => { e.preventDefault(); place(form, submits, label, method()); });
+        paintTotals();
+        form.addEventListener("submit", (e) => { e.preventDefault(); place(form, submits, labelFor(method()), method(), delivery()); });
+      }
+
+      function destValues(form, st) {
+        const p = st && st.picker ? st.picker.get() : null;
+        return {
+          dest_province: form.elements.dest_province.value,
+          dest_district: form.elements.dest_district.value.trim(),
+          dest_address: form.elements.dest_address.value.trim(),
+          dest_notes: form.elements.dest_notes.value.trim(),
+          contact_name: form.elements.contact_name.value.trim(),
+          contact_phone: form.elements.contact_phone.value.trim(),
+          dest_lat: p ? p.lat : "",
+          dest_lng: p ? p.lng : "",
+        };
+      }
+      // What the transport quote depends on.
+      function destSig(form) {
+        const v = destValues(form, tstate);
+        return [v.dest_province, v.dest_district, v.dest_address, v.dest_lat, v.dest_lng].join("|");
       }
 
       function showErrors(form, errors) {
@@ -271,7 +441,7 @@
         return e;
       }
 
-      async function place(form, submits, label, chosen) {
+      async function place(form, submits, label, chosen, deliveryOption = "collect") {
         const alertBox = root.querySelector("#co-alert");
         alertBox.classList.add("hidden");
         const values = {
@@ -285,11 +455,21 @@
           city: chosen === "card" ? form.elements.city.value.trim() : "",
           accept_terms: form.elements.accept_terms.checked,
         };
+        Object.assign(values, { delivery_option: deliveryOption }, deliveryOption === "transport" ? destValues(form, tstate) : {});
         const errors = check(values);
+        if (deliveryOption === "transport") {
+          if (!values.dest_province) errors.dest_province = "Please choose the province.";
+          if (values.dest_district.length < 2) errors.dest_district = "Please enter the district.";
+          if (values.dest_address.length < 3) errors.dest_address = "Please enter the delivery address or directions.";
+          if (values.contact_name.length < 2) errors.contact_name = "Please enter who is receiving it.";
+          if (values.contact_phone.replace(/\D/g, "").length < 9) errors.contact_phone = "Please enter their phone number.";
+          if (!values.dest_lat) errors.dest_point = "Please mark the delivery point on the map.";
+          if (!errors.dest_point && !(tstate.quote && tstate.quote.available)) errors.dest_point = "Transport isn't available for this delivery point. Choose self-collection, or try another point.";
+        }
         showErrors(form, errors);
         if (Object.keys(errors).length) return;
         const busy = { mobile_money: "Sending the payment request…", card: "Opening the secure card page…" }[chosen] || "Placing your order…";
-        submits.forEach((b) => { b.disabled = true; b.innerHTML = `<span class="btn-spinner"></span> ${busy}`; });
+        submits.forEach((b) => { b.disabled = true; b.dataset.busy = "1"; b.innerHTML = `<span class="btn-spinner"></span> ${busy}`; });
         try {
           const res = await apiRequest("/api/checkout", {
             method: "POST",
@@ -306,7 +486,10 @@
             + (error.status === 409 ? ` <a href="/cart.html" class="underline font-semibold">Review your cart</a>` : "");
           alertBox.classList.remove("hidden");
           alertBox.scrollIntoView({ behavior: "smooth", block: "center" });
-          submits.forEach((b) => { b.disabled = false; b.textContent = label; });
+          // Transport changed meanwhile (prices, providers): ask for a new quote.
+          if (error.errors && Object.keys(error.errors).some((k) => k.startsWith("dest_") || k.startsWith("contact_"))) { tstate.quote = null; tstate.sig = ""; }
+          if (error.status === 409 && deliveryOption === "transport") { tstate.quote = null; tstate.sig = ""; if (tstate.requote) tstate.requote(); }
+          submits.forEach((b) => { delete b.dataset.busy; b.disabled = false; b.textContent = label; });
         }
       }
 

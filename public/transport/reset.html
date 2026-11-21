@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Choose a New Password - Frontier Transport</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/password-rules.js"></script>
+    <script src="/js/transport.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div id="page-header"></div>
+    <main class="max-w-sm mx-auto px-4 py-10 sm:py-16">
+      <div class="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
+        <h1 class="text-xl font-bold text-gray-900">Choose a new password</h1>
+        <form id="form" class="space-y-4 mt-6" novalidate>
+          <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
+          <div>
+            <label for="password" class="field-label">New password</label>
+            <div class="relative">
+              <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
+              <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400" aria-label="Show password"></button>
+            </div>
+            <p class="field-error hidden" data-error-for="password"></p>
+          </div>
+          <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold">Save password</button>
+        </form>
+      </div>
+    </main>
+    <script>
+      document.getElementById("page-header").innerHTML = transportPageHeader();
+      bindPasswordToggles();
+      bindPasswordMeter(document.getElementById("password"));
+      const form = document.getElementById("form");
+      const box = document.getElementById("form-alert");
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+          await withBusy(document.getElementById("submit-btn"), "Saving…", () => transportApi("/api/transport/auth/reset", { method: "POST", body: { token: getQueryParams().token || "", password: form.password.value } }));
+          window.location.href = "/transport/login.html?reset=1";
+        } catch (error) {
+          showFieldErrors(form, error);
+          box.className = "alert alert-error text-sm mb-0";
+          box.textContent = error.message;
+        }
+      });
+    </script>
+  </body>
+</html>

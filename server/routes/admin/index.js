@@ -22,6 +22,7 @@ router.use("/orders", require("./orders"));
 router.use("/transactions", require("./transactions"));
 router.use("/payouts", require("./payouts"));
 router.use("/sellers", require("./sellers"));
+router.use("/transport", require("./transport"));
 router.use("/email", require("./email"));
 
 module.exports = router;

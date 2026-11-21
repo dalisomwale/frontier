@@ -342,6 +342,13 @@ async function main() {
     ["delivery_option", "ENUM('collect', 'transport') NOT NULL DEFAULT 'collect' AFTER total"],
     ["transport_total", "DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER delivery_option"],
   ], "checkouts can include transport");
+  // Bookings keep the chosen vehicle's details as they were at the time, and
+  // can be held back from providers until the team sends them.
+  await addColumns("transport_bookings", [
+    ["vehicle_registration", "VARCHAR(30) NULL AFTER provider_paid_by"],
+    ["vehicle_type", "VARCHAR(60) NULL AFTER vehicle_registration"],
+    ["on_hold", "TINYINT(1) NOT NULL DEFAULT 0 AFTER vehicle_type"],
+  ], "transport bookings record the vehicle used");
   const [[partyColumn]] = await conn.query(
     "SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = ? AND table_name = 'order_receipt_photos' AND column_name = 'party'",
     [DB_NAME],

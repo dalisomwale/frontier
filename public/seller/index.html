@@ -16,6 +16,9 @@
     <script src="/js/password-rules.js"></script>
     <script src="/vendor/chart-4.4.1.umd.min.js"></script>
     <script src="/js/seller-insights.js"></script>
+    <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css" />
+    <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+    <script src="/js/transport-ui.js"></script>
   </head>
   <body class="bg-gray-50">
     <div id="app-sidebar"></div>
@@ -115,6 +118,25 @@
         <div id="pf-view" class="pf-card">
           <div class="pf-card-head"><h2>Your details</h2></div>
           <dl id="pf-details" class="pf-list"></dl>
+        </div>
+
+        <div id="pf-pickup" class="pf-card">
+          <div class="pf-card-head"><h2>Pickup point for transport</h2><p>Where approved transport providers collect your goods when a buyer chooses delivery. Buyers can only choose transport for your listings once this is set.</p></div>
+          <div data-pickup-view></div>
+          <form data-pickup-form novalidate hidden>
+            <div data-alert class="hidden alert text-sm mb-4" role="alert"></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div><label class="field-label" for="pk-district">District</label><input id="pk-district" name="pickup_district" class="field-input" maxlength="80"><p class="field-error hidden" data-error-for="pickup_district"></p></div>
+              <div><label class="field-label" for="pk-address">Address or directions</label><input id="pk-address" name="pickup_address" class="field-input" maxlength="255" placeholder="e.g. Farm 9, 2 km off Great North Rd"><p class="field-error hidden" data-error-for="pickup_address"></p></div>
+            </div>
+            <p class="field-label mt-4">The exact pickup point</p>
+            <div data-pickup-map></div>
+            <p class="field-error hidden" data-error-for="pickup_point"></p>
+            <div class="pf-actions">
+              <button type="button" class="pf-btn pf-btn-outline" data-pickup-cancel>Cancel</button>
+              <button type="submit" class="pf-btn pf-btn-primary">Save pickup point</button>
+            </div>
+          </form>
         </div>
 
         <form id="profile-form" class="pf-card" novalidate hidden>
@@ -790,8 +812,53 @@
         document.querySelectorAll("[data-pf-cancel]").forEach((b) => b.addEventListener("click", () => showProfilePanel("view")));
       })();
 
+      // Pickup point: shown with a button to change it; the form has a map.
+      function renderPickup() {
+        const view = document.querySelector("[data-pickup-view]");
+        const set = seller.pickup_lat !== null && seller.pickup_lat !== undefined;
+        view.innerHTML = set
+          ? `<dl class="pf-list"><div><dt>District</dt><dd>${escapeHtml(seller.pickup_district || "-")}</dd></div><div><dt>Address</dt><dd>${escapeHtml(seller.pickup_address || "-")}</dd></div><div><dt>Map point</dt><dd>${Number(seller.pickup_lat).toFixed(5)}, ${Number(seller.pickup_lng).toFixed(5)}</dd></div></dl>
+             <button type="button" class="pf-btn pf-btn-outline mt-3" data-pickup-edit>Change pickup point</button>`
+          : `<p class="tr-warn-box">No pickup point yet: buyers can't choose transport for your listings.</p><button type="button" class="pf-btn pf-btn-primary mt-3" data-pickup-edit>Set pickup point</button>`;
+        view.querySelector("[data-pickup-edit]").addEventListener("click", openPickupForm);
+      }
+      let pickupPicker = null;
+      async function openPickupForm() {
+        const form = document.querySelector("[data-pickup-form]");
+        document.querySelector("[data-pickup-view]").hidden = true;
+        form.hidden = false;
+        form.pickup_district.value = seller.pickup_district || "";
+        form.pickup_address.value = seller.pickup_address || "";
+        pickupPicker = await trPointPicker(form.querySelector("[data-pickup-map]"), {
+          kind: "pickup", label: "Pickup point", lat: seller.pickup_lat, lng: seller.pickup_lng,
+          hint: "Tap the map where the goods are collected (farm gate, kraal or store), then drag the pin to the exact spot.",
+        });
+      }
+      (() => {
+        const form = document.querySelector("[data-pickup-form]");
+        form.querySelector("[data-pickup-cancel]").addEventListener("click", () => { form.hidden = true; document.querySelector("[data-pickup-view]").hidden = false; });
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const p = pickupPicker && pickupPicker.get();
+          try {
+            const res = await withBusy(form.querySelector("button[type=submit]"), "Saving…", () => sellerApi("/api/seller/me/pickup", {
+              method: "PUT", body: { pickup_district: form.pickup_district.value.trim(), pickup_address: form.pickup_address.value.trim(), pickup_lat: p ? p.lat : "", pickup_lng: p ? p.lng : "" },
+            }));
+            seller = res.data;
+            showNotification(res.message, "success");
+            form.hidden = true;
+            document.querySelector("[data-pickup-view]").hidden = false;
+            renderPickup();
+          } catch (error) {
+            showFieldErrors(form, error);
+            showNotification(error.message, "error");
+          }
+        });
+      })();
+
       function renderProfile() {
         renderProfileCard();
+        renderPickup();
         const form = document.getElementById("profile-form");
         form.querySelector("[data-fields]").innerHTML = `
           ${field({ name: "name", label: "Full name", value: seller.name, required: true, attrs: 'maxlength="120" autocomplete="name"' })}
@@ -920,6 +987,10 @@
 
       function orderStatus(o) {
         if (o.status === "cancelled") return { cls: "so-off", label: "Cancelled" };
+        if (o.transport && !o.handed_over_at) {
+          const needsMe = ["awaiting_collection", "collection_submitted"].includes(o.transport.status);
+          return { cls: needsMe ? "so-act" : TR_PILL[o.transport.group] || "so-open", label: needsMe ? "Transport collection" : o.transport.status_label };
+        }
         if (o.handed_over_at && !o.seller_paid_at) return { cls: "so-open", label: "Awaiting payment" };
         if (o.status === "completed") return { cls: "so-done", label: "Completed" };
         if (o.received_at) return { cls: "so-act", label: "To hand over" };
@@ -952,6 +1023,8 @@
 
       function stepCard(o) {
         if (o.status === "cancelled") return `<div class="txd-card"><p class="text-sm text-gray-700">Cancelled. The quantity is back on your listing.</p></div>`;
+        // Coming by transport: collection by the provider instead of the usual steps.
+        if (o.transport && !o.handed_over_at) return `<div data-transport><div class="txd-card"><span class="btn-spinner chat-spinner"></span></div></div>`;
         if (o.seller_paid_at) {
           return `<div class="txd-card acc-card-ok"><b>Paid · ${escapeHtml(formatDateShort(o.seller_paid_at))}</b>
               <p class="text-sm text-gray-600 mt-1">${o.seller_paid_ref ? `Reference ${escapeHtml(o.seller_paid_ref)}. ` : ""}Thank you for selling on Frontier.</p>
@@ -1024,6 +1097,8 @@
           await loadOrders();
           openOrder(o.id);
         };
+        const tbox = view.body.querySelector("[data-transport]");
+        if (tbox) loadTransport(view, tbox, o, refresh);
         const sent = view.body.querySelector("[data-sent]");
         if (sent) {
           const errorFor = (k) => sent.querySelector(`[data-error-for="${k}"]`);
@@ -1066,6 +1141,86 @@
             showNotification(error.message, "error");
           }
         });
+      }
+
+      // ------------------------------------------- transport collection
+      let sellerFollow = null;
+      async function loadTransport(view, box, o, refresh) {
+        let d;
+        try {
+          d = (await sellerApi(`/api/seller/transport/${o.transport.id}`)).data;
+        } catch (error) {
+          box.innerHTML = `<div class="txd-card"><p class="text-sm text-red-600">${escapeHtml(error.message)}</p></div>`;
+          return;
+        }
+        view.deliveryId = d.id;
+        const mine = d.submissions.find((x) => x.stage === "seller_collection");
+        const theirs = d.submissions.find((x) => x.stage === "provider_collection");
+        const differs = (d.quantities || []).some((q) => q.stage === "provider_collected" && d.orders.some((x) => Number(x.id) === Number(q.order_id) && Number(x.quantity) !== Number(q.quantity)));
+        const onRoad = ["in_transit", "arrived", "delivery_submitted", "awaiting_confirmation"].includes(d.status);
+        box.innerHTML = `
+          <div class="txd-card">
+            <div class="flex items-center justify-between gap-3 mb-3"><b>Transport ${escapeHtml(d.reference)}</b>${trPill(d)}</div>
+            ${trProgressHtml(d.status)}
+            ${trProviderHtml(d)}
+            <p class="text-sm text-gray-600 mt-3">To ${escapeHtml(d.destination.district)}, ${escapeHtml(d.destination.province)} · ${trKm(d.distance_km)} by road · ${escapeHtml(d.cargo_summary || "")}</p>
+            ${d.can.ready ? `<button type="button" class="acc-btn mt-4" data-t-ready>Goods are ready for collection</button>` : d.times.seller_ready_at && ["awaiting_collection", "collection_submitted"].includes(d.status) ? `<p class="tr-note-box mt-4">You marked the goods ready · ${escapeHtml(trWhen(d.times.seller_ready_at))}</p>` : ""}
+          </div>
+          ${d.can.record ? `<form class="txd-card mt-4" data-t-record novalidate>
+            <b>Record the handover</b>
+            <p class="text-sm text-gray-600 mt-1">When the provider arrives, check the goods together. Add your own photos and the quantity you release for each order. The provider records theirs separately.</p>
+            <div class="mt-4">${trQtyFields(d.orders, { label: "Released" })}</div>
+            <label class="field-label mt-4" for="t-note">Notes <span class="text-gray-400 font-normal">(required if anything differs from the order)</span></label>
+            <textarea id="t-note" name="note" rows="2" maxlength="1000" class="field-input" placeholder="e.g. 3 heifers, ear tags 101 to 103"></textarea>
+            <p class="field-error hidden" data-error-for="note"></p>
+            <p class="field-label mt-4">Photos of the goods being handed over <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 6)</span></p>
+            <div class="acc-ph-grid" data-photos></div>
+            <p class="field-error hidden" data-error-for="images"></p>
+            <button type="submit" class="acc-btn mt-4">Save handover record</button>
+          </form>` : ""}
+          ${d.can.confirm ? `<div class="txd-card acc-card-warn mt-4"><b>Both records are in</b>
+            <p class="text-sm text-gray-700 mt-1">${differs ? "The provider recorded a different quantity from the order. Check the records below before you confirm, or contact Frontier." : "Check the provider's record below, then confirm the collection so the delivery can start."}</p>
+            <button type="button" class="acc-btn mt-3" data-t-confirm>Confirm collection</button></div>` : ""}
+          ${mine && !theirs && ["awaiting_collection", "collection_submitted"].includes(d.status) ? `<p class="tr-note-box mt-4">Your handover record is saved. Waiting for the provider to record the collection.</p>` : ""}
+          ${onRoad || d.status === "collection_confirmed" ? `<div class="txd-card mt-4"><b>Follow the delivery</b><div class="mt-3" data-t-track></div></div>` : ""}
+          <div class="txd-card mt-4"><b>Collection and delivery records</b><div class="mt-3">${trEvidenceHtml(d)}</div></div>
+          <details class="txd-card mt-4 acc-more"><summary>History</summary>${trTimelineHtml(d.events)}</details>`;
+        box.querySelector("[data-t-ready]")?.addEventListener("click", async (e) => {
+          try {
+            const res = await withBusy(e.currentTarget, "Saving…", () => sellerApi(`/api/seller/transport/${d.id}/ready`, { method: "POST", body: {} }));
+            showNotification(res.message, "success");
+            await refresh();
+          } catch (error) { showNotification(error.message, "error"); }
+        });
+        box.querySelector("[data-t-confirm]")?.addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          if (!(await confirmAction({ title: "Confirm the collection?", message: "The provider can then start the delivery. Both records stay on the order as they are.", confirmText: "Confirm collection" }))) return;
+          try {
+            const res = await withBusy(btn, "Saving…", () => sellerApi(`/api/seller/transport/${d.id}/confirm`, { method: "POST", body: {} }));
+            showNotification(res.message, "success");
+            await refresh();
+          } catch (error) { showNotification(error.message, "error"); }
+        });
+        const rec = box.querySelector("[data-t-record]");
+        if (rec) {
+          const picker = bindPhotoPicker(rec.querySelector("[data-photos]"), 6, (n) => { if (n) rec.querySelector('[data-error-for="images"]').classList.add("hidden"); });
+          rec.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (!picker.files().length) return showFieldErrors(rec, { errors: { images: "Please add at least one photo." } });
+            const fd = new FormData(rec);
+            picker.files().forEach((f) => fd.append("images", f));
+            try {
+              const res = await withBusy(rec.querySelector("button[type=submit]"), "Saving…", () => sellerApi(`/api/seller/transport/${d.id}/collection`, { method: "POST", body: fd }));
+              showNotification(res.message, "success");
+              await refresh();
+            } catch (error) {
+              showFieldErrors(rec, error);
+              showNotification(error.message, "error");
+            }
+          });
+        }
+        const track = box.querySelector("[data-t-track]");
+        sellerFollow = track ? await trFollow(track, d, `/api/seller/transport/${d.id}/track`, sellerApi) : null;
       }
 
       function renderOrders() {
@@ -1113,6 +1268,11 @@
         if (q.tab === "messages" && q.id) selectedMsg = String(q.id);
         setTab(q.tab || "overview");
         if (q.tab === "listings" && approved() && (q.edit || q.new)) return openEditor(q.edit || undefined);
+        if (q.tab === "orders" && q.delivery && !q.id) {
+          await loadOrders();
+          const o = orderState.rows.find((x) => x.transport && String(x.transport.id) === String(q.delivery));
+          if (o) q = { ...q, id: o.id };
+        }
         if (q.tab === "orders" && q.id) {
           await loadOrders();
           if (orderState.rows.some((o) => String(o.id) === String(q.id))) openOrder(q.id);
@@ -1155,6 +1315,24 @@
         renderSellerShell(seller);
         initSellerNotifications({ onNotification: refreshAfterNotice });
         window.addEventListener("seller:navigate", (e) => goTo(e.detail).catch((err) => showNotification(err.message, "error")));
+        // A delivery moved on: refresh the open order (positions just move the map).
+        let tTimer = null;
+        window.addEventListener("seller:transport", (e) => {
+          const t = e.detail || {};
+          const open = document.querySelector(".admin-view");
+          const openId = getQueryParams().id;
+          if (t.change === "location") { if (sellerFollow) sellerFollow.push(); return; }
+          clearTimeout(tTimer);
+          tTimer = setTimeout(async () => {
+            if (document.getElementById("tab-orders").hidden) return;
+            await loadOrders();
+            const row = orderState.rows.find((x) => String(x.id) === String(openId));
+            if (open && row && row.transport && Number(row.transport.id) === Number(t.booking_id) && !trEditing(open)) {
+              closeAllAdminViews();
+              openOrder(openId);
+            }
+          }, 400);
+        });
         const hour = new Date().getHours();
         document.getElementById("welcome-line").textContent = "";
         document.getElementById("seller-main").hidden = false;

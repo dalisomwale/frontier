@@ -15,6 +15,10 @@ const { helpers } = require("./admin/livestock");
 const { subscribe, unreadCount, notifySeller } = require("../services/notifications");
 const { orderRef, headCount } = require("../lib/orders");
 const handover = require("../lib/handover");
+const { uploadTransportPhotos } = require("../middleware/upload");
+const transportCore = require("../lib/transport/core");
+const transport = require("../lib/transport/bookings");
+const transportViews = require("../lib/transport/views");
 
 const router = express.Router();
 const DUMMY_HASH = bcrypt.hashSync("frontier-seller-timing-guard", 12);
@@ -26,7 +30,7 @@ const REMEMBER_MS = 30 * 24 * 60 * 60 * 1000;
 const RESET_HOURS = 1;
 
 const SELLER_FIELDS = `id, name, business_name, phone, email, province, address, status,
-  account_status, account_note, approved_at, created_at`;
+  account_status, account_note, approved_at, created_at, pickup_district, pickup_address, pickup_lat, pickup_lng`;
 
 // ---------------------------------------------------------------------------
 // Middleware
@@ -769,13 +773,15 @@ router.get("/orders", requireSeller, async (req, res, next) => {
       `SELECT o.id, o.livestock_id, o.livestock_title, o.quantity, o.unit_price, o.price_unit, o.total,
               o.status, o.payment_status, o.created_at, o.paid_at, o.seller_notified_at, o.updated_at,
               o.handover_method, o.handed_over_at, o.handed_over_by, o.received_at, o.received_note,
-              o.sent_method, o.sent_at, o.sent_note, o.seller_paid_at, o.seller_paid_ref,
+              o.sent_method, o.sent_at, o.sent_note, o.seller_paid_at, o.seller_paid_ref, o.transport_booking_id,
+              tb.status AS transport_status, tb.provider_id AS transport_provider_id,
               a.name AS animal_name, a.kind AS animal_kind, l.location,
               (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = o.livestock_id ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path
        FROM orders o
        LEFT JOIN livestock l ON l.id = o.livestock_id
        LEFT JOIN categories c ON c.id = l.category_id
        LEFT JOIN animals a ON a.id = c.animal_id
+       LEFT JOIN transport_bookings tb ON tb.id = o.transport_booking_id
        WHERE o.seller_id = ? AND o.seller_notified_at IS NOT NULL
        ORDER BY o.seller_notified_at DESC, o.id DESC
        LIMIT 500`,
@@ -813,6 +819,13 @@ router.get("/orders", requireSeller, async (req, res, next) => {
         can_send: handover.canSend(o),
         can_hand_over: handover.canHandOver(o),
         photos: photos.get(o.id) || [],
+        transport: o.transport_booking_id ? {
+          id: o.transport_booking_id,
+          reference: transportCore.bookingRef(o.transport_booking_id),
+          status: o.transport_status,
+          status_label: transportCore.STATUS_LABELS[o.transport_status] || o.transport_status,
+          group: transportViews.groupOf(o.transport_status),
+        } : null,
       })),
     });
   } catch (error) {
@@ -848,6 +861,93 @@ router.post("/orders/:id/handover", requireSeller, async (req, res, next) => {
     if (!own) throw notFound("Order not found.");
     await handover.handOver(id, { kind: "seller", name: sellerLabel(req.seller) }, req.ip);
     res.json({ success: true, message: "Marked as handed over. Frontier will now pay you." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Transport: the seller's pickup point, and the collection of their paid
+// orders by a transport provider.
+// ---------------------------------------------------------------------------
+
+// Where transport providers collect this seller's goods.
+router.put("/me/pickup", requireSeller, async (req, res, next) => {
+  try {
+    const district = text(req.body.pickup_district, 80);
+    const address = text(req.body.pickup_address, 255);
+    const point = transportCore.point(req.body.pickup_lat, req.body.pickup_lng);
+    const errors = {};
+    if (!district || district.length < 2) errors.pickup_district = "Please enter the district.";
+    if (!address || address.length < 3) errors.pickup_address = "Please enter the address or directions to the pickup point.";
+    if (!point) errors.pickup_point = "Please mark the pickup point on the map.";
+    else if (!require("../lib/transport/pricing").inZambia(point)) errors.pickup_point = "The pickup point must be in Zambia.";
+    if (Object.keys(errors).length) throw validationError(errors);
+    await pool.query("UPDATE sellers SET pickup_district = ?, pickup_address = ?, pickup_lat = ?, pickup_lng = ? WHERE id = ?", [district, address, point.lat, point.lng, req.seller.id]);
+    res.json({ success: true, message: "Pickup point saved. Buyers can now choose transport for your listings.", data: await loadSeller(req.seller.id) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+async function sellerBooking(req) {
+  const id = positiveInt(req.params.id);
+  const b = id ? await transport.loadBooking(id) : null;
+  if (!b || Number(b.seller_id) !== Number(req.seller.id)) throw notFound("Delivery not found.");
+  return b;
+}
+const sellerWho = (req) => ({ party: "seller", id: req.seller.id, name: sellerLabel(req.seller) });
+
+router.get("/transport/:id", requireSeller, async (req, res, next) => {
+  try {
+    const b = await sellerBooking(req);
+    const data = await transportViews.detail(b, "seller");
+    const subs = await transport.submissionsOf(pool, b.id);
+    data.can = {
+      ready: transport.COLLECTING.includes(b.status) && !b.seller_ready_at,
+      record: transport.COLLECTING.includes(b.status) && !subs.has("seller_collection"),
+      confirm: b.status === "collection_submitted" && subs.has("seller_collection") && subs.has("provider_collection"),
+    };
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/transport/:id/track", requireSeller, async (req, res, next) => {
+  try {
+    const b = await sellerBooking(req);
+    res.json({ success: true, data: await transportViews.track(b.id, req.query.after) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/transport/:id/ready", requireSeller, async (req, res, next) => {
+  try {
+    const b = await sellerBooking(req);
+    await transport.sellerReady(sellerWho(req), b.id);
+    res.json({ success: true, message: "The provider has been told the goods are ready." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/transport/:id/collection", requireSeller, uploadTransportPhotos, async (req, res, next) => {
+  try {
+    const b = await sellerBooking(req);
+    await transport.submitCollection(sellerWho(req), b.id, req.files, req.body);
+    res.json({ success: true, message: "Handover recorded." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/transport/:id/confirm", requireSeller, async (req, res, next) => {
+  try {
+    const b = await sellerBooking(req);
+    await transport.confirmCollection(sellerWho(req), b.id);
+    res.json({ success: true, message: "Collection confirmed. The provider can start the delivery." });
   } catch (error) {
     next(error);
   }

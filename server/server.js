@@ -30,6 +30,19 @@ if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.l
 app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 1));
 app.disable("x-powered-by");
 
+// Map tiles for the transport maps (delivery point, tracking). OpenStreetMap
+// by default; MAP_TILE_URL can point at another tile service.
+const MAP_TILES = process.env.MAP_TILE_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const MAP_ATTRIBUTION = process.env.MAP_TILE_ATTRIBUTION || '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
+const MAP_TILE_ORIGIN = (() => {
+  try {
+    const u = new URL(MAP_TILES.replace(/\{[a-z]\}/gi, "0"));
+    return MAP_TILES.includes("{s}.") ? `${u.protocol}//*.${u.host.split(".").slice(1).join(".")}` : u.origin;
+  } catch {
+    return "https://tile.openstreetmap.org";
+  }
+})();
+
 // ---------------------------------------------------------------------------
 // Security headers. Styles are a prebuilt Tailwind file (public/css/
 // tailwind.css) plus small inline page scripts; hero photography is served
@@ -42,7 +55,7 @@ app.use(
         "script-src": ["'self'", "'unsafe-inline'"],
         "script-src-attr": ["'unsafe-inline'"],
         "style-src": ["'self'", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:", "blob:", "https://images.unsplash.com"],
+        "img-src": ["'self'", "data:", "blob:", "https://images.unsplash.com", MAP_TILE_ORIGIN],
         "connect-src": ["'self'"],
         // Lipila's secure card form can be shown inside the checkout page.
         "frame-src": ["'self'", "https:", ...(isProduction ? [] : ["http://127.0.0.1:*"])],
@@ -73,7 +86,16 @@ const limiter = (max, windowMinutes = 15) =>
     skip: () => !isProduction,
   });
 
-app.use("/api", limiter(300));
+// GPS positions from a provider's phone have their own, higher limit.
+const isLocation = (req) => /^\/api\/transport\/bookings\/\d+\/location$/.test(req.originalUrl.split("?")[0]);
+app.use("/api", rateLimit({ windowMs: 15 * 60 * 1000, max: 300, handler: limitHandler, standardHeaders: true, legacyHeaders: false, skip: (req) => !isProduction || isLocation(req) }));
+app.use("/api/transport/bookings", rateLimit({ windowMs: 15 * 60 * 1000, max: 600, handler: limitHandler, standardHeaders: true, legacyHeaders: false, skip: (req) => !isProduction || !isLocation(req) }));
+app.use("/api/transport/auth/login", limiter(10));
+app.use("/api/transport/auth/register", limiter(5, 60));
+app.use("/api/transport/auth/forgot", limiter(5, 60));
+app.use("/api/transport/auth/reset", limiter(10, 60));
+app.use("/api/checkout/transport-quote", limiter(60));
+app.use("/api/checkout/geocode", limiter(60));
 app.use("/api/admin/auth/login", limiter(10));
 app.use("/api/seller/auth/login", limiter(10));
 app.use("/api/seller/auth/register", limiter(5, 60));
@@ -191,6 +213,37 @@ app.use(
   }),
 );
 
+// Transport provider sessions: their own cookie, scoped to the transport API.
+const TRANSPORT_COOKIE = "frontier.transport";
+const transportSessionStore = new MySQLStore(
+  {
+    createDatabaseTable: true,
+    clearExpired: true,
+    checkExpirationInterval: 15 * 60 * 1000,
+    schema: { tableName: "transport_provider_sessions" },
+  },
+  pool,
+);
+app.set("transportCookieName", TRANSPORT_COOKIE);
+app.use(
+  "/api/transport",
+  session({
+    name: TRANSPORT_COOKIE,
+    secret: process.env.SESSION_SECRET || "development-only-change-this-secret",
+    store: transportSessionStore,
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,
+    cookie: {
+      path: "/api/transport",
+      secure: isProduction,
+      httpOnly: true,
+      sameSite: "strict",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    },
+  }),
+);
+
 // ---------------------------------------------------------------------------
 // v1 pages that no longer exist (public accounts, selling, messaging) send
 // visitors somewhere sensible instead of a 404.
@@ -232,6 +285,23 @@ app.get("/api/health", async (req, res) => {
     res.status(503).json({ success: false, status: "database unavailable" });
   }
 });
+// Place search for the transport maps (delivery, pickup and operating
+// points), through the routing service's geocoder. Rate limited.
+app.get("/api/geocode", limiter(60), async (req, res, next) => {
+  try {
+    const q = String(req.query.q || "").trim().slice(0, 120);
+    if (q.length < 3) return res.json({ success: true, data: [] });
+    res.json({ success: true, data: await require("./services/routing").geocode(q) });
+  } catch (error) {
+    // Place search is a convenience: when the geocoder fails, the pin is placed by hand.
+    console.error(`Place search failed: ${error.message}`);
+    res.json({ success: true, data: [] });
+  }
+});
+app.get("/api/map-config", (req, res) => {
+  res.set("Cache-Control", "public, max-age=3600");
+  res.json({ success: true, data: { tiles: MAP_TILES, attribution: MAP_ATTRIBUTION, search: Boolean(require("./services/routing").geocoderName()) } });
+});
 app.use("/api", publicRoutes);
 app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/orders", orderRoutes);
@@ -242,6 +312,7 @@ app.use("/api/payments", require("./routes/payments"));
 app.use("/api/admin", adminRoutes);
 app.use("/api/seller", sellerRoutes);
 app.use("/api/buyer", require("./routes/buyer"));
+app.use("/api/transport", require("./routes/transport"));
 
 // ---------------------------------------------------------------------------
 // 404 + errors
@@ -260,7 +331,7 @@ app.use((err, req, res, next) => {
       err.code === "LIMIT_FILE_SIZE"
         ? "Each photo must be 12 MB or smaller."
         : err.code === "LIMIT_FILE_COUNT" || err.code === "LIMIT_UNEXPECTED_FILE"
-          ? "Too many photos - a listing can have at most 10."
+          ? "Too many files. Please add fewer photos or documents."
           : err.message;
     return res.status(400).json({ success: false, message });
   }
@@ -349,6 +420,9 @@ const LATE_COLUMNS = [
   ["orders", "transport_booking_id", "INT UNSIGNED NULL AFTER seller_paid_ref, ADD INDEX idx_orders_transport (transport_booking_id)"],
   ["checkouts", "delivery_option", "ENUM('collect', 'transport') NOT NULL DEFAULT 'collect' AFTER total"],
   ["checkouts", "transport_total", "DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER delivery_option"],
+  ["transport_bookings", "vehicle_registration", "VARCHAR(30) NULL AFTER provider_paid_by"],
+  ["transport_bookings", "vehicle_type", "VARCHAR(60) NULL AFTER vehicle_registration"],
+  ["transport_bookings", "on_hold", "TINYINT(1) NOT NULL DEFAULT 0 AFTER vehicle_type"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");
@@ -421,6 +495,7 @@ if (require.main === module) {
     server.close(() => {
       sessionStore.close().catch(() => {});
       sellerSessionStore.close().catch(() => {});
+      transportSessionStore.close().catch(() => {});
       pool.end().finally(() => process.exit(0));
     });
   };

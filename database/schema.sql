@@ -692,6 +692,9 @@ CREATE TABLE IF NOT EXISTS transport_bookings (
   provider_paid_at         DATETIME NULL,
   provider_paid_ref        VARCHAR(150) NULL,
   provider_paid_by         VARCHAR(150) NULL,
+  vehicle_registration     VARCHAR(30) NULL,
+  vehicle_type             VARCHAR(60) NULL,
+  on_hold                  TINYINT(1) NOT NULL DEFAULT 0,
   created_at               TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at               TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_tb_provider FOREIGN KEY (provider_id)

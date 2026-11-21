@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Transport - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/xlsx-lite.js"></script>
+    <script src="/js/livestock.js"></script>
+    <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+    <script src="/js/transport-ui.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted tx-page-wide mx-auto px-3 sm:px-4 py-6">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transport</h1>
+          <p class="text-sm text-gray-500 mt-1">Deliveries by approved transport providers: acceptance, collection, tracking, confirmation and disputes.</p>
+        </div>
+      </div>
+      <div id="alerts" class="space-y-2 mb-4"></div>
+      <div class="tx-totals" id="totals"></div>
+
+      <div class="bg-white rounded-xl border border-gray-100">
+        <div class="tx-filters">
+          <div class="seg" id="tabs"></div>
+        </div>
+        <div class="ad-tr-filters" id="filters">
+          <div class="relative flex-1 min-w-[200px]">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+            <input id="search" type="search" placeholder="TR- or FM- number, buyer, seller, provider, district, vehicle" class="field-input !py-2 !pl-9 !text-sm" />
+          </div>
+          <select id="f-provider" class="field-input !py-2 !text-sm" aria-label="Provider"><option value="">All providers</option></select>
+          <select id="f-seller" class="field-input !py-2 !text-sm" aria-label="Seller"><option value="">All sellers</option><option value="frontier">Frontier's own stock</option></select>
+          <label class="text-sm text-gray-600">From <input id="f-from" type="date" class="field-input !py-2 !text-sm"></label>
+          <label class="text-sm text-gray-600">To <input id="f-to" type="date" class="field-input !py-2 !text-sm"></label>
+          <button type="button" id="export" class="tx-export">Export Excel</button>
+        </div>
+        <div id="list" class="overflow-x-auto"></div>
+        <div id="live" class="p-3" hidden></div>
+      </div>
+    </main>
+
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      const state = { tab: "all", q: "", provider: "", seller: "", from: "", to: "", alert: "", rows: [], overview: null };
+      const TABS = [
+        { value: "all", label: "All" }, { value: "pending", label: "Pending acceptance" }, { value: "accepted", label: "Accepted" },
+        { value: "active", label: "Active" }, { value: "disputed", label: "Disputed" }, { value: "completed", label: "Completed" },
+        { value: "closed", label: "Cancelled / refunds" }, { value: "unpaid", label: "Awaiting payment" }, { value: "live", label: "Live map" },
+      ];
+      const when = (v) => (v ? new Date(v).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
+
+      async function loadOverview() {
+        const o = (await adminApi("/api/admin/transport/overview")).data;
+        state.overview = o;
+        const g = o.groups;
+        document.getElementById("totals").innerHTML = `
+          <div class="tx-total txc-waiting"><span>Pending acceptance</span><b>${g.pending}</b></div>
+          <div class="tx-total txc-received"><span>Accepted / collecting</span><b>${g.accepted}</b></div>
+          <div class="tx-total txc-paid"><span>Active</span><b>${g.active}</b></div>
+          <div class="tx-total txc-muted"><span>Disputed</span><b>${g.disputed}</b></div>
+          <div class="tx-total"><span>Completed</span><b>${g.completed}</b></div>
+          <div class="tx-total"><span>Transport fees paid</span><b>${kwacha(o.money.fees)}</b></div>
+          <div class="tx-total"><span>Owed to providers</span><b>${kwacha(o.money.owed_providers)}</b></div>
+          <div class="tx-total"><span>Refunds due</span><b>${kwacha(o.money.refunds_due)}</b></div>`;
+        const alerts = [];
+        if (!o.routing.enabled) alerts.push(["warn", `Transport is not offered at checkout: ${escapeHtml(o.routing.problem || "no road-distance service set up")}. Set ROUTING_PROVIDER and its key in .env.`]);
+        if (!o.enabled) alerts.push(["warn", `Transport is switched off in <a class="underline" href="/admin/transport-pricing.html">Transport pricing &amp; settings</a>.`]);
+        if (!o.bands) alerts.push(["warn", `There are no active price bands: <a class="underline" href="/admin/transport-pricing.html">add them</a> to offer transport.`]);
+        if (!o.frontier_pickup_set) alerts.push(["note", `Frontier's own pickup point isn't set, so transport isn't offered for Frontier's stock. <a class="underline" href="/admin/transport-pricing.html#pickup">Set it</a>.`]);
+        if (o.alerts.sellers_without_pickup) alerts.push(["note", `${o.alerts.sellers_without_pickup} approved seller${o.alerts.sellers_without_pickup === 1 ? " has" : "s have"} no pickup point, so buyers can't choose transport for their listings. <a class="underline" href="/admin/transport-pricing.html#sellers">See sellers</a>.`]);
+        if (o.alerts.unaccepted) alerts.push(["warn", `<button type="button" class="underline" data-alert="unaccepted">${o.alerts.unaccepted} paid deliver${o.alerts.unaccepted === 1 ? "y hasn't" : "ies haven't"} been accepted</button> within the acceptance window. Assign a provider.`]);
+        if (o.alerts.delayed) alerts.push(["warn", `<button type="button" class="underline" data-alert="delayed">${o.alerts.delayed} deliver${o.alerts.delayed === 1 ? "y may be" : "ies may be"} delayed</button> (no GPS updates, or much longer than the route).`]);
+        if (o.providers.pending) alerts.push(["note", `<a class="underline" href="/admin/transport-providers.html?status=pending">${o.providers.pending} transport provider${o.providers.pending === 1 ? " is" : "s are"} waiting for approval</a>.`]);
+        const box = document.getElementById("alerts");
+        box.innerHTML = alerts.map(([k, t]) => `<div class="${k === "warn" ? "tr-warn-box" : "tr-note-box"}">${t}</div>`).join("");
+        box.querySelectorAll("[data-alert]").forEach((b) => b.addEventListener("click", () => { state.alert = b.dataset.alert; state.tab = "all"; renderTabs(); load(); }));
+        renderTabs();
+      }
+
+      function renderTabs() {
+        const g = state.overview ? state.overview.groups : {};
+        document.getElementById("tabs").innerHTML = TABS.map((t) => {
+          const n = t.value === "all" ? state.overview && state.overview.total : g[t.value];
+          return `<button type="button" data-tab="${t.value}" class="${state.tab === t.value ? "active" : ""}">${t.label}${n ? `<span class="count">${n}</span>` : ""}</button>`;
+        }).join("");
+        document.querySelectorAll("#tabs [data-tab]").forEach((b) => b.addEventListener("click", () => {
+          state.tab = b.dataset.tab;
+          state.alert = "";
+          renderTabs();
+          load();
+        }));
+      }
+
+      async function loadFilters() {
+        const [p, s] = await Promise.all([adminApi("/api/admin/transport/providers"), adminApi("/api/admin/transport/sellers")]);
+        document.getElementById("f-provider").insertAdjacentHTML("beforeend", p.data.map((x) => `<option value="${x.id}">${escapeHtml(x.name)}</option>`).join(""));
+        document.getElementById("f-seller").insertAdjacentHTML("beforeend", s.data.map((x) => `<option value="${x.id}">${escapeHtml(x.business_name || x.name)}</option>`).join(""));
+      }
+
+      async function load() {
+        const live = state.tab === "live";
+        document.getElementById("list").hidden = live;
+        document.getElementById("filters").hidden = live;
+        document.getElementById("live").hidden = !live;
+        if (live) return loadLive();
+        const params = new URLSearchParams();
+        if (state.tab !== "all") params.set("group", state.tab);
+        ["q", "provider", "seller", "from", "to", "alert"].forEach((k) => { if (state[k]) params.set(k, state[k]); });
+        const list = document.getElementById("list");
+        try {
+          state.rows = (await adminApi(`/api/admin/transport/bookings?${params}`)).data;
+        } catch (error) {
+          return renderEmptyState(list, { title: "Could not load deliveries", message: error.message, icon: "alert" });
+        }
+        if (!state.rows.length) return renderEmptyState(list, { title: state.alert ? "Nothing needs attention" : "No deliveries", message: "Deliveries appear here once buyers choose transport at checkout.", icon: "inbox" });
+        list.innerHTML = `<table class="admin-table">
+          <thead><tr><th>Delivery</th><th class="hidden md:table-cell">Booked</th><th>Route</th><th class="hidden lg:table-cell">Seller</th><th class="hidden lg:table-cell">Buyer</th><th class="hidden sm:table-cell">Provider</th><th>Status</th><th class="hidden sm:table-cell">Fee</th></tr></thead>
+          <tbody>${state.rows.map((b) => `
+            <tr class="cursor-pointer" data-open="${b.id}">
+              <td class="whitespace-nowrap font-semibold text-gray-900">${escapeHtml(b.reference)}${b.delayed ? ` <span class="so-pill tr-pill-alert">Delayed?</span>` : b.unaccepted ? ` <span class="so-pill tr-pill-alert">Not accepted</span>` : b.on_hold ? ` <span class="so-pill so-open">Held</span>` : ""}</td>
+              <td class="hidden md:table-cell whitespace-nowrap text-gray-600">${escapeHtml(when(b.created_at))}</td>
+              <td><span class="block text-gray-900">${escapeHtml(b.from)} → ${escapeHtml(b.to)}</span><small class="text-gray-500">${trKm(b.distance_km)} · ${escapeHtml(b.cargo_summary || "")}</small></td>
+              <td class="hidden lg:table-cell text-gray-700">${escapeHtml(b.seller_label || "")}</td>
+              <td class="hidden lg:table-cell text-gray-700">${escapeHtml(b.customer_name || "")}</td>
+              <td class="hidden sm:table-cell text-gray-700">${escapeHtml(b.provider_name || "-")}${b.vehicle_registration ? `<small class="block text-gray-500">${escapeHtml(b.vehicle_registration)}</small>` : ""}</td>
+              <td>${trPill(b)}</td>
+              <td class="hidden sm:table-cell whitespace-nowrap">${kwacha(b.fee)}</td>
+            </tr>`).join("")}</tbody></table>`;
+        list.querySelectorAll("[data-open]").forEach((tr) => tr.addEventListener("click", () => openDelivery(tr.dataset.open)));
+      }
+
+      // ------------------------------------------------------------ live map
+      let liveMap = null;
+      let liveLayer = null;
+      async function loadLive() {
+        const box = document.getElementById("live");
+        const rows = (await adminApi("/api/admin/transport/active")).data;
+        if (!liveMap) {
+          box.innerHTML = `<div class="tr-map ad-tr-map" data-map></div><div data-live-list class="mt-3"></div>`;
+          liveMap = await trBaseMap(box.querySelector("[data-map]"), { scroll: true });
+        }
+        if (!liveMap) return;
+        if (liveLayer) liveLayer.remove();
+        liveLayer = L.layerGroup().addTo(liveMap);
+        const pts = [];
+        rows.forEach((b) => {
+          const at = b.last ? [b.last.lat, b.last.lng] : null;
+          if (at) {
+            pts.push(at);
+            L.marker(at, { icon: trPin(b.stale || b.delayed ? "dest" : "live", b.reference) }).addTo(liveLayer)
+              .bindPopup(`<b>${escapeHtml(b.reference)}</b><br>${escapeHtml(b.provider_name || "")} · ${escapeHtml(b.vehicle_registration || "")}<br>${escapeHtml(b.status_label)}<br>Last position ${escapeHtml(when(b.last.at))}<br><a href="#" data-pop="${b.id}">Open</a>`);
+          }
+          L.marker([b.dest.lat, b.dest.lng], { icon: trPin("pickup", "Destination"), opacity: 0.5 }).addTo(liveLayer).bindTooltip(`${b.reference} destination`);
+        });
+        if (pts.length) liveMap.fitBounds(pts, { padding: [40, 40], maxZoom: 12 });
+        liveMap.off("popupopen").on("popupopen", (e) => {
+          e.popup.getElement().querySelector("[data-pop]")?.addEventListener("click", (ev) => { ev.preventDefault(); openDelivery(ev.target.dataset.pop); });
+        });
+        box.querySelector("[data-live-list]").innerHTML = rows.length ? `<table class="admin-table"><thead><tr><th>Delivery</th><th>Provider</th><th>Status</th><th>Last GPS</th></tr></thead><tbody>${rows.map((b) => `
+          <tr class="cursor-pointer" data-open="${b.id}"><td class="font-semibold">${escapeHtml(b.reference)}<small class="block text-gray-500">${escapeHtml(b.from)} → ${escapeHtml(b.to)}</small></td>
+          <td>${escapeHtml(b.provider_name || "-")}<small class="block text-gray-500">${escapeHtml(b.vehicle_registration || "")}</small></td><td>${trPill(b)}</td>
+          <td class="${b.stale ? "text-red-700 font-semibold" : "text-gray-700"}">${b.last ? escapeHtml(when(b.last.at)) : "None yet"}${b.stale ? " · no recent update" : ""}</td></tr>`).join("")}</tbody></table>`
+          : `<p class="text-sm text-gray-600 p-3">No deliveries on the road right now.</p>`;
+        box.querySelectorAll("[data-open]").forEach((tr) => tr.addEventListener("click", () => openDelivery(tr.dataset.open)));
+        setTimeout(() => liveMap.invalidateSize(), 60);
+      }
+
+      // ------------------------------------------------------- one delivery
+      let current = null;
+      async function openDelivery(id, { replace = false } = {}) {
+        let d;
+        try { d = (await adminApi(`/api/admin/transport/bookings/${id}`)).data; } catch (error) { return showNotification(error.message, "error"); }
+        if (!(replace && current)) current = { view: openAdminView({ title: d.reference, params: { id: d.id }, onClose: () => { current = null; } }) };
+        current.id = d.id;
+        paint(current.view, d);
+      }
+
+      function paint(view, d) {
+        const c = d.can;
+        const dispute = d.disputes.find((x) => x.status === "open") || d.disputes[d.disputes.length - 1];
+        const actions = [
+          c.send ? `<button type="button" class="acc-btn" data-act="offer">${d.on_hold ? "Release hold and send to providers" : "Send to eligible providers"}</button>` : "",
+          c.assign ? `<button type="button" class="acc-mini-btn" data-act="assign">Assign a provider</button>` : "",
+          c.seller_ready ? `<button type="button" class="acc-mini-btn" data-act="seller-ready">Goods ready (Frontier stock)</button>` : "",
+          c.seller_record ? `<button type="button" class="acc-mini-btn" data-act="seller-record">Record handover (Frontier stock)</button>` : "",
+          c.confirm_collection ? `<button type="button" class="acc-btn" data-act="confirm-collection">Confirm collection${d.seller_id ? " for the seller" : ""}</button>` : "",
+          c.resolve ? `<button type="button" class="acc-btn" data-act="resolve">Resolve the dispute</button>` : "",
+          c.refunded ? `<button type="button" class="acc-btn" data-act="refunded">Mark refunded</button>` : "",
+          c.pay_provider ? `<button type="button" class="acc-btn" data-act="provider-paid">Mark provider paid · ${kwacha(d.money.provider_earning)}</button>` : "",
+          c.release ? `<button type="button" class="acc-mini-btn" data-act="release">Reassign (take back from provider)</button>` : "",
+          c.cancel ? `<button type="button" class="acc-mini-btn text-red-700" data-act="cancel">${d.status === "pending_payment" ? "Cancel" : "Cancel and refund the fee"}</button>` : "",
+        ].filter(Boolean).join("");
+        view.body.innerHTML = `
+          <div class="sv-head"><h1 class="admin-view-title !mb-0">${escapeHtml(d.reference)} · ${escapeHtml(d.pickup.district || d.pickup.label)} → ${escapeHtml(d.destination.district)}</h1>${trPill(d, true)}</div>
+          ${trProgressHtml(d.status)}
+          ${d.on_hold ? `<p class="tr-warn-box mb-4">Held back from providers by Frontier.</p>` : ""}
+          ${d.alerts.delay_alert_at && ["in_transit", "arrived"].includes(d.status) ? `<p class="tr-warn-box mb-4">Delay alert sent ${escapeHtml(when(d.alerts.delay_alert_at))}: no recent GPS, or the trip is taking much longer than the route.</p>` : ""}
+          ${dispute ? `<div class="${dispute.status === "open" ? "tr-warn-box" : "tr-note-box"} mb-4"><b>${dispute.status === "open" ? "Open dispute" : `Dispute resolved: ${escapeHtml(dispute.resolution)}`} · ${escapeHtml((d.dispute_reasons || {})[dispute.reason] || dispute.reason)}</b><p class="mt-1">${escapeHtml(dispute.description)}</p>${dispute.resolution_note ? `<p class="mt-1">Outcome: ${escapeHtml(dispute.resolution_note)} (${escapeHtml(dispute.resolved_by || "")}, ${escapeHtml(when(dispute.resolved_at))})</p>` : ""}</div>` : ""}
+          <div class="tr-two">
+            <div class="space-y-4 min-w-0">
+              ${actions ? `<div class="acc-card"><h2 class="txd-card-title">Actions</h2><div class="tr-actions">${actions}</div></div>` : ""}
+              <div class="acc-card"><h2 class="txd-card-title">Map</h2><div data-track></div></div>
+              <div class="acc-card"><h2 class="txd-card-title">Collection and delivery records</h2>${trEvidenceHtml(d)}</div>
+              <div class="acc-card"><h2 class="txd-card-title">History</h2>${trTimelineHtml(d.events, { admin: true })}</div>
+            </div>
+            <div class="space-y-4 min-w-0">
+              <div class="acc-card"><h2 class="txd-card-title">Delivery</h2>${trFactsHtml(d, { role: "admin" })}
+                <ul class="tr-qty mt-3">${d.orders.map((o) => `<li><a class="acc-link" href="/admin/orders.html?id=${o.id}">${escapeHtml(o.reference)}</a><span>${escapeHtml(o.title)}${o.cancelled ? " (cancelled)" : ""}</span><b>${escapeHtml(o.units)} · ${kwacha(o.total)}</b></li>`).join("")}</ul>
+                <p class="text-sm mt-3">Checkout <a class="acc-link" href="/admin/transactions.html?id=${d.checkout_id}">${escapeHtml(d.checkout_reference)}</a></p>
+              </div>
+              <div class="acc-card"><h2 class="txd-card-title">Provider</h2>${d.provider ? `${trProviderHtml(d)}<p class="text-sm mt-2"><a class="acc-link" href="/admin/transport-providers.html?id=${d.provider.id}">Open provider</a></p>` : `<p class="text-sm text-gray-600">Not assigned.</p>`}
+                ${d.rating ? `<p class="mt-3"><b>Buyer's rating:</b> ${trStarsHtml(d.rating.stars)}${d.rating.hidden ? " (hidden)" : ""}</p>${d.rating.feedback ? `<p class="text-sm text-gray-700">"${escapeHtml(d.rating.feedback)}"</p>` : ""}` : ""}
+              </div>
+              <div class="acc-card"><h2 class="txd-card-title">Buyer</h2>${d.customer ? `<dl class="sv-facts"><div><dt>Name</dt><dd>${escapeHtml(d.customer.name)}</dd></div><div><dt>Phone</dt><dd><a href="tel:${escapeHtml(String(d.customer.phone).replace(/[^\d+]/g, ""))}">${escapeHtml(d.customer.phone)}</a></dd></div><div><dt>Email</dt><dd><a href="mailto:${escapeHtml(d.customer.email)}">${escapeHtml(d.customer.email)}</a></dd></div></dl>` : "-"}</div>
+              <div class="acc-card"><h2 class="txd-card-title">Money</h2><dl class="sv-facts">
+                <div><dt>Fee charged</dt><dd>${kwacha(d.money.fee)}</dd></div>
+                <div><dt>Price band</dt><dd>${escapeHtml(d.band)}: ${kwacha(d.money.base_fee)}${d.money.per_km ? ` + ${kwacha(d.money.per_km)}/km` : ""}</dd></div>
+                <div><dt>Commission (${d.money.commission_pct}%)</dt><dd>${kwacha(d.money.platform_commission)}</dd></div>
+                <div><dt>Provider earning</dt><dd>${kwacha(d.money.provider_earning)}</dd></div>
+                ${d.money.provider_paid_at ? `<div><dt>Provider paid</dt><dd>${escapeHtml(when(d.money.provider_paid_at))} · ${escapeHtml(d.money.provider_paid_ref || "")}</dd></div>` : ""}
+                ${d.money.refund_ref ? `<div><dt>Refund</dt><dd>${escapeHtml(d.money.refund_ref)}</dd></div>` : ""}
+                ${d.money.cancel_reason ? `<div><dt>Cancelled</dt><dd>${escapeHtml(d.money.cancel_reason)}</dd></div>` : ""}
+              </dl><p class="text-xs text-gray-500 mt-2">Distance by road from ${escapeHtml(d.tracking.routing_provider || "")}: fixed when the buyer checked out.</p></div>
+              <div class="acc-card"><h2 class="txd-card-title">Requests sent</h2>
+                ${d.offers.length ? `<ul class="tr-qty">${d.offers.map((o) => `<li><span>${escapeHtml(o.name)}${o.pickup_km !== null ? ` <small class="text-gray-500 inline">(${trKm(o.pickup_km)} to pickup)</small>` : ""}</span><b>${escapeHtml(o.status)}</b>${o.reason ? `<small>${escapeHtml(o.reason)}</small>` : ""}</li>`).join("")}</ul>` : `<p class="text-sm text-gray-600">Not sent to any provider yet.</p>`}
+                <button type="button" class="acc-mini-btn mt-3" data-eligibility>Check every provider</button>
+                <div data-elig class="mt-3"></div>
+              </div>
+            </div>
+          </div>`;
+        const track = view.body.querySelector("[data-track]");
+        trFollow(track, d, `/api/admin/transport/bookings/${d.id}/track`, adminApi).then((f) => { if (current) current.follow = f; });
+        view.body.querySelector("[data-eligibility]").addEventListener("click", (e) => showEligibility(d, view.body.querySelector("[data-elig]"), e.currentTarget));
+        view.body.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", () => act(d, b.dataset.act, b)));
+      }
+
+      async function showEligibility(d, box, btn, { pick = false } = {}) {
+        let list;
+        try { list = (await withBusy(btn, "Checking…", () => adminApi(`/api/admin/transport/bookings/${d.id}/eligibility`))).data; } catch (error) { return showNotification(error.message, "error"); }
+        box.innerHTML = list.length ? `<ul class="tr-qty">${list.map((x) => `<li><span><b>${escapeHtml(x.provider.name)}</b> <small class="inline text-gray-500">${escapeHtml(x.provider.district || "")}, ${x.provider.coverage_km ? `${x.provider.coverage_km} km` : "no coverage"}</small></span>
+          <b class="${x.eligible ? "text-green-700" : "text-gray-500"}">${x.eligible ? "Eligible" : "Not eligible"}</b>
+          ${x.reasons.length ? `<small>${escapeHtml(x.reasons.join("; "))}</small>` : x.pickup_km !== null ? `<small>${trKm(x.pickup_km)} to pickup, ${trKm(x.dest_km)} to destination</small>` : ""}</li>`).join("")}</ul>`
+          : `<p class="text-sm text-gray-600">No transport providers are registered.</p>`;
+        return list;
+      }
+
+      async function act(d, name, btn) {
+        const post = async (path, body, busy = "Saving…") => {
+          const res = await withBusy(btn, busy, () => adminApi(`/api/admin/transport/bookings/${d.id}/${path}`, { method: "POST", body }));
+          showNotification(res.message, "success");
+          await openDelivery(d.id, { replace: true });
+          loadOverview();
+          load();
+        };
+        try {
+          if (name === "offer") return await post("offer", {}, "Sending…");
+          if (name === "seller-ready") return await post("seller-ready", {});
+          if (name === "confirm-collection") {
+            if (!(await confirmAction({ title: "Confirm the collection?", message: "Both the seller's and the provider's records are in. The provider can then start the delivery.", confirmText: "Confirm" }))) return;
+            return await post("confirm-collection", {});
+          }
+          if (name === "release") {
+            const reason = await trPrompt({ title: "Take the delivery back?", label: "Reason (the provider is told)", required: true, confirmText: "Reassign", danger: true });
+            if (reason) await post("release", { reason });
+            return;
+          }
+          if (name === "cancel") {
+            const reason = await trPrompt({ title: d.status === "pending_payment" ? "Cancel this delivery?" : "Cancel and refund the transport fee?", label: "Reason (the buyer, seller and provider are told)", required: true, confirmText: "Cancel delivery", danger: true });
+            if (reason) await post("cancel", { reason });
+            return;
+          }
+          if (name === "refunded") {
+            const reference = await trPrompt({ title: `Refund ${kwacha(d.money.fee)} done?`, label: "Refund reference", required: true, multiline: false, confirmText: "Mark refunded" });
+            if (reference) await post("refunded", { reference });
+            return;
+          }
+          if (name === "provider-paid") {
+            const reference = await trPrompt({ title: `Pay ${d.provider.name} ${kwacha(d.money.provider_earning)}?`, label: "Payment reference", required: true, multiline: false, confirmText: "Mark paid" });
+            if (reference) await post("provider-paid", { reference });
+            return;
+          }
+          if (name === "resolve") return openResolve(d);
+          if (name === "assign") return openAssign(d);
+          if (name === "seller-record") return openSellerRecord(d);
+        } catch (error) {
+          showNotification(error.message, "error");
+        }
+      }
+
+      function openResolve(d) {
+        openFormModal({
+          title: `Resolve the dispute on ${d.reference}`,
+          body: `<p class="text-sm text-gray-600">Review the seller's, provider's and buyer's records first. The buyer, seller and provider are told the outcome.</p>
+            <div class="tp-choice"><label><input type="radio" name="resolution" value="completed"><span><b>Delivered</b>: complete the delivery (the seller can then be paid)</span></label>
+            <label><input type="radio" name="resolution" value="refund"><span><b>Refund</b>: the delivery goes to refund (cancel the order in Orders if needed)</span></label></div>
+            <p class="field-error hidden" data-error-for="resolution"></p>
+            <div><label class="field-label" for="rs-note">Outcome</label><textarea id="rs-note" name="note" rows="3" maxlength="1000" class="field-input"></textarea><p class="field-error hidden" data-error-for="note"></p></div>`,
+          submitText: "Resolve",
+          onSubmit: async (form) => {
+            const v = form.querySelector('input[name="resolution"]:checked');
+            const res = await adminApi(`/api/admin/transport/bookings/${d.id}/resolve`, { method: "POST", body: { resolution: v ? v.value : "", note: form.note.value.trim() } });
+            showNotification(res.message, "success");
+            setTimeout(() => { openDelivery(d.id, { replace: true }); loadOverview(); load(); }, 50);
+          },
+        });
+      }
+
+      async function openAssign(d) {
+        const { form } = openFormModal({
+          title: `Assign a provider to ${d.reference}`,
+          wide: true,
+          body: `<p class="text-sm text-gray-600">Choose a provider and one of their free vehicles. Eligible providers cover both the pickup and the destination by road and have a suitable vehicle.</p><div data-list><span class="btn-spinner chat-spinner"></span></div>
+            <label class="co-terms-box"><input type="checkbox" name="force" value="1"><span>Assign even though they're outside their coverage or the vehicle's listed capacity</span></label>`,
+          submitText: "Assign",
+          onSubmit: async (f) => {
+            const v = f.querySelector('input[name="pick"]:checked');
+            if (!v) { const e = new Error("Choose a provider and vehicle."); throw e; }
+            const [providerId, vehicleId] = v.value.split(":");
+            const res = await adminApi(`/api/admin/transport/bookings/${d.id}/assign`, { method: "POST", body: { provider_id: Number(providerId), vehicle_id: Number(vehicleId), force: f.force.checked } });
+            showNotification(res.message, "success");
+            setTimeout(() => { openDelivery(d.id, { replace: true }); loadOverview(); load(); }, 50);
+          },
+        });
+        let list;
+        try { list = (await adminApi(`/api/admin/transport/bookings/${d.id}/eligibility`)).data; } catch (error) { form.querySelector("[data-list]").innerHTML = `<p class="text-sm text-red-600">${escapeHtml(error.message)}</p>`; return; }
+        const usable = list.filter((x) => x.provider.status === "approved" && x.provider.is_active && x.vehicles.some((v) => !v.busy));
+        form.querySelector("[data-list]").innerHTML = usable.length ? `<div class="tp-choice">${usable.sort((a, b) => Number(b.eligible) - Number(a.eligible)).map((x) => x.vehicles.filter((v) => !v.busy).map((v) => `
+          <label><input type="radio" name="pick" value="${x.provider.id}:${v.id}"><span><b>${escapeHtml(x.provider.name)}</b> · ${escapeHtml(v.registration)} (${escapeHtml(v.vehicle_type)})
+            <small class="block ${x.eligible && v.fits ? "text-green-700" : "text-amber-700"}">${x.eligible && v.fits ? "Eligible" : escapeHtml([...x.reasons, ...(v.fits ? [] : ["vehicle's listed capacity doesn't cover the load"])].join("; "))}</small></span></label>`).join("")).join("")}</div>`
+          : `<p class="text-sm text-gray-600">No approved, active provider has a free vehicle.</p>`;
+      }
+
+      function openSellerRecord(d) {
+        const view = openAdminView({ title: "Record handover", params: { id: d.id, record: 1 } });
+        view.body.innerHTML = `<form class="acc-card max-w-2xl" novalidate>
+            <h1 class="admin-view-title">Record the handover (Frontier's stock)</h1>
+            <div>${trQtyFields(d.orders, { label: "Released" })}</div>
+            <label class="field-label mt-4" for="ar-note">Notes</label><textarea id="ar-note" name="note" rows="2" maxlength="1000" class="field-input"></textarea><p class="field-error hidden" data-error-for="note"></p>
+            <p class="field-label mt-4">Photos <span class="text-gray-400 font-normal">(1 to 6)</span></p><div class="acc-ph-grid" data-photos></div><p class="field-error hidden" data-error-for="images"></p>
+            <div class="acc-actionbar"><button type="submit" class="acc-btn">Save handover record</button></div></form>`;
+        const form = view.body.querySelector("form");
+        const picker = bindPhotoPicker(form.querySelector("[data-photos]"), 6);
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const fd = new FormData(form);
+          picker.files().forEach((f) => fd.append("images", f));
+          try {
+            const res = await withBusy(form.querySelector("button[type=submit]"), "Saving…", () => adminApi(`/api/admin/transport/bookings/${d.id}/seller-collection`, { method: "POST", body: fd }));
+            showNotification(res.message, "success");
+            await view.close(true);
+            openDelivery(d.id, { replace: true });
+          } catch (error) { showFieldErrors(form, error); showNotification(error.message, "error"); }
+        });
+      }
+
+      function exportExcel() {
+        const header = ["Delivery", "Booked", "Status", "From", "To", "Km", "Load", "Seller", "Buyer", "Provider", "Vehicle", "Fee (ZMW)", "Provider earning (ZMW)", "Completed"];
+        const lines = state.rows.map((b) => [b.reference, when(b.created_at), b.status_label, b.from, b.to, b.distance_km, b.cargo_summary || "", b.seller_label || "", b.customer_name || "", b.provider_name || "", b.vehicle_registration || "", Number(b.fee).toFixed(2), Number(b.provider_earning).toFixed(2), when(b.completed_at)]);
+        downloadXlsx(`frontier-transport-${new Date().toISOString().slice(0, 10)}.xlsx`, "Deliveries", header, lines, { numberCols: [5, 11, 12] });
+      }
+
+      (async () => {
+        await initAdminPage("transport");
+        let timer;
+        document.getElementById("search").addEventListener("input", (e) => { clearTimeout(timer); timer = setTimeout(() => { state.q = e.target.value.trim(); load(); }, 300); });
+        [["f-provider", "provider"], ["f-seller", "seller"], ["f-from", "from"], ["f-to", "to"]].forEach(([id, k]) => document.getElementById(id).addEventListener("change", (e) => { state[k] = e.target.value; load(); }));
+        document.getElementById("export").addEventListener("click", exportExcel);
+        await Promise.all([loadOverview(), loadFilters().catch(() => {})]);
+        const q = getQueryParams();
+        if (q.alert) state.alert = q.alert;
+        await load();
+        if (q.id) openDelivery(q.id);
+        let refresh = null;
+        window.addEventListener("admin:change", (e) => {
+          if (!["transport", "order", "payment", "rating"].includes(e.detail.kind)) return;
+          clearTimeout(refresh);
+          refresh = setTimeout(() => {
+            loadOverview();
+            load();
+            if (current && (!e.detail.booking_id || e.detail.booking_id === current.id) && !document.querySelector(".admin-form-page") && !trEditing(document.querySelector(".admin-view"))) openDelivery(current.id, { replace: true });
+          }, 500);
+        });
+        if (adminEvents) adminEvents.addEventListener("transport-location", (e) => {
+          let t = {};
+          try { t = JSON.parse(e.data); } catch { return; }
+          if (current && current.follow && t.booking_id === current.id) current.follow.push();
+          if (state.tab === "live") loadLive();
+        });
+      })();
+    </script>
+  </body>
+</html>

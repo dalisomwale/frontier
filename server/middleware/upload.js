@@ -136,7 +136,97 @@ function deleteImageFiles(...publicPaths) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Transport.
+//   Collection and delivery photos: images only, up to 6 per step (field
+//   "images"), saved like order photos.
+//   Provider and vehicle papers (licences, permits, registration): PDF or
+//   photo, kept outside the public folder (storage/transport) and served only
+//   to the provider and Frontier's admins.
+// ---------------------------------------------------------------------------
+const TRANSPORT_PHOTOS = 6;
+const uploadTransportPhotos = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BYTES, files: TRANSPORT_PHOTOS },
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_MIMES.includes(file.mimetype)) return cb(null, true);
+    return cb(badRequest("Photos must be JPEG, PNG or WebP images."));
+  },
+}).array("images", TRANSPORT_PHOTOS);
+
+const PRIVATE_DIR = path.join(__dirname, "..", "..", "storage", "transport");
+fs.mkdirSync(PRIVATE_DIR, { recursive: true });
+const DOC_MIMES = [...ALLOWED_MIMES, "application/pdf"];
+const MAX_DOCS = 6;
+const docFilter = (req, file, cb) => {
+  if (file.fieldname === "photos") {
+    if (ALLOWED_MIMES.includes(file.mimetype)) return cb(null, true);
+    return cb(badRequest("Vehicle photos must be JPEG, PNG or WebP images."));
+  }
+  if (DOC_MIMES.includes(file.mimetype)) return cb(null, true);
+  return cb(badRequest("Documents must be a PDF or a photo (JPEG, PNG or WebP)."));
+};
+// Registration and "add documents": field "documents".
+const uploadDocuments = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BYTES, files: MAX_DOCS },
+  fileFilter: docFilter,
+}).array("documents", MAX_DOCS);
+// A vehicle: "photos" (public) and "documents" (private).
+const uploadVehicleFiles = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BYTES, files: 4 + MAX_DOCS },
+  fileFilter: docFilter,
+}).fields([{ name: "photos", maxCount: 4 }, { name: "documents", maxCount: MAX_DOCS }]);
+
+// Checks the file really is what it claims (a PDF or a decodable image) and
+// stores it privately. Images are re-encoded, which also drops any hidden
+// content. Returns { file_name, mime, size_bytes }.
+async function savePrivateDocument(file) {
+  const id = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}`;
+  if (file.mimetype === "application/pdf") {
+    const buffer = file.buffer;
+    if (!buffer || buffer.length < 8 || buffer.subarray(0, 5).toString("latin1") !== "%PDF-") {
+      throw badRequest(`${file.originalname || "A file"} is not a valid PDF.`);
+    }
+    const name = `doc-${id}.pdf`;
+    await fs.promises.writeFile(path.join(PRIVATE_DIR, name), buffer);
+    return { file_name: name, mime: "application/pdf", size_bytes: buffer.length };
+  }
+  let image;
+  try {
+    image = sharp(file.buffer, { failOn: "error" }).rotate();
+    await image.metadata();
+  } catch {
+    throw badRequest(`${file.originalname || "A file"} is not a valid image.`);
+  }
+  const name = `doc-${id}.webp`;
+  const info = await image.resize({ width: 2200, height: 2200, fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toFile(path.join(PRIVATE_DIR, name));
+  return { file_name: name, mime: "image/webp", size_bytes: info.size };
+}
+
+// Absolute path of a private document, or null when the name isn't one of ours.
+function privateDocumentPath(fileName) {
+  const name = path.basename(String(fileName || ""));
+  if (!/^doc-[\w-]+\.(pdf|webp)$/.test(name)) return null;
+  return path.join(PRIVATE_DIR, name);
+}
+
+function deletePrivateDocuments(...names) {
+  for (const n of names) {
+    const p = privateDocumentPath(n);
+    if (p) fs.unlink(p, () => {});
+  }
+}
+
 module.exports = {
+  uploadTransportPhotos,
+  TRANSPORT_PHOTOS,
+  uploadDocuments,
+  uploadVehicleFiles,
+  savePrivateDocument,
+  privateDocumentPath,
+  deletePrivateDocuments,
   uploadImages,
   uploadProof,
   savePdf,

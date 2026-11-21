@@ -152,7 +152,7 @@ async function closeAdminViewsTo(keep) {
 // openAdminView({ title, params, html, onClose, canLeave }) -> { el, close, setTitle }
 //   params    optional address for this view (e.g. { id: 3 }), so it can be shared
 //   canLeave  optional async check before closing (unsaved changes)
-const VIEW_PARAMS = ["edit", "new", "id", "confirm"];
+const VIEW_PARAMS = ["edit", "new", "id", "confirm", "booking", "delivery", "dispute", "record"];
 function adminListUrl() {
   const q = new URLSearchParams(location.search);
   VIEW_PARAMS.forEach((k) => q.delete(k));

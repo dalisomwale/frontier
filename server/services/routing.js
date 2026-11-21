@@ -47,7 +47,17 @@ function validPoint(p) {
 }
 const key = (p) => `${Number(p.lat).toFixed(5)},${Number(p.lng).toFixed(5)}`;
 
+// One retry for network failures (timeouts, resets): never for answers.
 async function request(url, options = {}) {
+  try {
+    return await requestOnce(url, options);
+  } catch (error) {
+    if (error.network) return requestOnce(url, options);
+    throw error;
+  }
+}
+
+async function requestOnce(url, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -66,7 +76,9 @@ async function request(url, options = {}) {
     return body;
   } catch (error) {
     if (error instanceof RoutingError) throw error;
-    throw new RoutingError(error.name === "AbortError" ? "The road-distance service did not answer in time." : `Road-distance service unreachable: ${error.message}`);
+    const e = new RoutingError(error.name === "AbortError" ? "The road-distance service did not answer in time." : `Road-distance service unreachable: ${error.message}${error.cause && error.cause.code ? ` (${error.cause.code})` : ""}`);
+    e.network = true;
+    throw e;
   } finally {
     clearTimeout(timer);
   }
@@ -253,4 +265,37 @@ async function matrix(sources, dests) {
   return value;
 }
 
-module.exports = { provider, enabled, problem, route, matrix, RoutingError, decodePolyline, validPoint };
+// Place search for the delivery map, limited to Zambia. Uses the routing
+// service's own geocoder (ORS or Google), or a Nominatim server when
+// NOMINATIM_URL is set. Returns [{ label, lat, lng }] (empty when none is set up).
+function geocoderName() {
+  if (process.env.NOMINATIM_URL) return "nominatim";
+  const name = provider();
+  return name === "ors" || name === "google" ? name : null;
+}
+
+async function geocode(query) {
+  const q = String(query || "").trim().slice(0, 120);
+  const name = geocoderName();
+  if (!q || !name) return [];
+  const k = `geo:${name}:${q.toLowerCase()}`;
+  const hit = cached(k);
+  if (hit) return hit;
+  let out = [];
+  if (name === "ors") {
+    const body = await request(`https://api.openrouteservice.org/geocode/search?${new URLSearchParams({ api_key: process.env.ORS_API_KEY, text: q, "boundary.country": "ZM", size: "6" })}`);
+    out = ((body && body.features) || []).map((f) => ({ label: f.properties && f.properties.label, lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
+  } else if (name === "google") {
+    const body = await request(`https://maps.googleapis.com/maps/api/geocode/json?${new URLSearchParams({ address: q, components: "country:ZM", key: process.env.GOOGLE_MAPS_API_KEY })}`);
+    out = ((body && body.results) || []).slice(0, 6).map((r) => ({ label: r.formatted_address, lat: r.geometry.location.lat, lng: r.geometry.location.lng }));
+  } else {
+    const base = String(process.env.NOMINATIM_URL).replace(/\/+$/, "");
+    const body = await request(`${base}/search?${new URLSearchParams({ q, format: "jsonv2", countrycodes: "zm", limit: "6" })}`, { headers: { "User-Agent": "FrontierMarketplace/2.0", Accept: "application/json" } });
+    out = (Array.isArray(body) ? body : []).map((r) => ({ label: r.display_name, lat: Number(r.lat), lng: Number(r.lon) }));
+  }
+  out = out.filter((r) => r.label && validPoint(r));
+  remember(k, out);
+  return out;
+}
+
+module.exports = { provider, enabled, problem, route, matrix, RoutingError, decodePolyline, validPoint, geocode, geocoderName };

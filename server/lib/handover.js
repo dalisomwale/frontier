@@ -54,20 +54,23 @@ async function photosOf(orderIds) {
 
 const isPaid = (order) => order.payment_status === "paid" || ["paid", "confirmed"].includes(order.status);
 const isOpen = (order) => !["completed", "cancelled"].includes(order.status);
+// Orders carried by a transport provider are delivered, confirmed and handed
+// over through the transport steps instead (lib/transport/bookings.js).
+const byTransport = (order) => Boolean(order && order.transport_booking_id);
 
 // Step 1: the seller says it was delivered or collected.
 function canSend(order) {
-  return Boolean(order && isOpen(order) && isPaid(order) && !order.sent_at);
+  return Boolean(order && !byTransport(order) && isOpen(order) && isPaid(order) && !order.sent_at);
 }
 
 // Step 2: the buyer confirms, after the seller.
 function canConfirm(order) {
-  return Boolean(order && isOpen(order) && isPaid(order) && order.sent_at && !order.received_at);
+  return Boolean(order && !byTransport(order) && isOpen(order) && isPaid(order) && order.sent_at && !order.received_at);
 }
 
 // Step 3: the seller marks it handed over, after the buyer.
 function canHandOver(order) {
-  return Boolean(order && isOpen(order) && isPaid(order) && order.received_at && !order.handed_over_at);
+  return Boolean(order && !byTransport(order) && isOpen(order) && isPaid(order) && order.received_at && !order.handed_over_at);
 }
 
 // Step 4: Frontier pays the seller, after the handover.
@@ -77,6 +80,7 @@ function canPaySeller(order) {
 
 function handoverProblem(order) {
   if (!order) return "Order not found.";
+  if (byTransport(order) && !order.handed_over_at) return "This order is being delivered by a transport provider: it's handed over when the buyer confirms the delivery.";
   if (order.status === "cancelled") return "This order was cancelled.";
   if (order.status === "completed" || order.handed_over_at) return "This order has already been marked as handed over.";
   if (!isPaid(order)) return "This order can be handed over once it has been paid.";
@@ -369,6 +373,7 @@ async function confirmReceipt(orderId, buyer, method, files, note, ip = null) {
   if (order.received_at) throw new HttpError(409, "You've already confirmed this order.");
   if (order.status === "cancelled") throw new HttpError(409, "This order was cancelled.");
   if (order.status === "completed") throw new HttpError(409, "This order is already complete.");
+  if (byTransport(order)) throw new HttpError(409, "This order is coming by transport: confirm the delivery from the delivery details instead.");
   if (!canConfirm(order)) throw new HttpError(409, "You can confirm once the seller has marked your order as delivered or collected.");
   const saved = await savePhotos(method, files, "buyer");
   const clean = note ? String(note).trim().slice(0, 500) : null;
@@ -438,4 +443,4 @@ async function confirmReceipt(orderId, buyer, method, files, note, ip = null) {
   return loadOrder(order.id);
 }
 
-module.exports = { METHODS, MIN_PHOTOS, MAX_PHOTOS, loadOrder, photosOf, canSend, canConfirm, canHandOver, canPaySeller, markSent, handOver, paySeller, payOrders, confirmReceipt, methodText };
+module.exports = { METHODS, MIN_PHOTOS, MAX_PHOTOS, byTransport, loadOrder, photosOf, canSend, canConfirm, canHandOver, canPaySeller, markSent, handOver, paySeller, payOrders, confirmReceipt, methodText };

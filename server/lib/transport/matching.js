@@ -121,24 +121,28 @@ async function offer(bookingId, { actor = "system", actorName = null } = {}) {
   let routeError = null;
   const OPEN = ["payment_confirmed", "awaiting_provider", "awaiting_reassignment"];
   const [[b0]] = await pool.query("SELECT * FROM transport_bookings WHERE id = ?", [bookingId]);
-  if (!b0 || !OPEN.includes(b0.status)) return { sent: [] };
+  if (!b0 || !OPEN.includes(b0.status) || b0.on_hold) return { sent: [] };
   // Road distances are looked up before the booking is locked, so a slow
   // routing service never holds up a provider accepting.
   const { job } = await jobOf(pool, b0);
   const all = await assess(pool, job, { excludeBooking: b0.id });
   await core.withBooking(bookingId, async (conn, b) => {
     booking = b;
-    if (!OPEN.includes(b.status)) return;
+    if (!OPEN.includes(b.status) || b.on_hold) return;
     if (all.some((x) => x.reasons.some((r) => r.startsWith("Road distance unavailable")))) {
       routeError = all.find((x) => x.reasons.some((r) => r.startsWith("Road distance unavailable"))).reasons.find((r) => r.startsWith("Road distance"));
     }
     const eligible = all.filter((x) => x.eligible);
     const [had] = await conn.query("SELECT provider_id, status FROM transport_offers WHERE booking_id = ?", [b.id]);
     const before = new Map(had.map((o) => [o.provider_id, o.status]));
-    const fresh = eligible.filter((x) => !before.has(x.provider.id));
+    // Providers who haven't had it, or whose offer was only withdrawn because
+    // someone else accepted (the delivery is open again). Never those who
+    // declined or were taken off it.
+    const fresh = eligible.filter((x) => !before.has(x.provider.id) || before.get(x.provider.id) === "withdrawn");
     for (const x of fresh) {
       await conn.query(
-        "INSERT INTO transport_offers (booking_id, provider_id, pickup_km, dest_km) VALUES (?, ?, ?, ?)",
+        `INSERT INTO transport_offers (booking_id, provider_id, pickup_km, dest_km) VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE status = 'offered', reason = NULL, responded_at = NULL, offered_at = NOW(), pickup_km = VALUES(pickup_km), dest_km = VALUES(dest_km)`,
         [b.id, x.provider.id, x.pickup_km, x.dest_km],
       );
     }

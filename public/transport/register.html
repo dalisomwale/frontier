@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Register as a Transport Provider - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/password-rules.js"></script>
+    <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+    <script src="/js/transport-ui.js"></script>
+    <script src="/js/transport.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div id="page-header"></div>
+
+    <main class="max-w-2xl mx-auto px-4 py-8 sm:py-12">
+      <div class="bg-white rounded-2xl border border-gray-100 p-5 sm:p-8">
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transport for Frontier Marketplace</h1>
+        <p class="text-sm text-gray-600 mt-2">Register to carry livestock and feed for Frontier's buyers. Frontier reviews your details and papers, approves your account and sets the area you cover. You receive paid delivery requests in that area, and the price of each delivery is set by Frontier.</p>
+
+        <form id="register-form" class="space-y-5 mt-6" novalidate>
+          <div id="form-alert" class="hidden alert alert-error text-sm mb-0" role="alert"></div>
+
+          <div>
+            <p class="field-label">You are registering as</p>
+            <div class="tp-choice sm:grid-cols-2" style="display:grid">
+              <label><input type="radio" name="kind" value="individual" checked><span>An individual (owner-driver)</span></label>
+              <label><input type="radio" name="kind" value="company"><span>A company</span></label>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="name" class="field-label" data-name-label>Full name</label>
+              <input id="name" name="name" class="field-input" maxlength="150" autocomplete="name" required />
+              <p class="field-error hidden" data-error-for="name"></p>
+            </div>
+            <div data-company-only hidden>
+              <label for="contact_person" class="field-label">Contact person</label>
+              <input id="contact_person" name="contact_person" class="field-input" maxlength="120" />
+              <p class="field-error hidden" data-error-for="contact_person"></p>
+            </div>
+            <div>
+              <label for="phone" class="field-label">Phone / WhatsApp</label>
+              <input id="phone" name="phone" type="tel" class="field-input" maxlength="30" autocomplete="tel" placeholder="0977 123 456" required />
+              <p class="field-error hidden" data-error-for="phone"></p>
+            </div>
+            <div>
+              <label for="email" class="field-label">Email</label>
+              <input id="email" name="email" type="email" class="field-input" maxlength="255" autocomplete="email" required />
+              <p class="field-error hidden" data-error-for="email"></p>
+            </div>
+            <div>
+              <label for="province" class="field-label">Province</label>
+              <select id="province" name="province" class="field-input" required></select>
+              <p class="field-error hidden" data-error-for="province"></p>
+            </div>
+            <div>
+              <label for="district" class="field-label">District</label>
+              <input id="district" name="district" class="field-input" maxlength="80" required />
+              <p class="field-error hidden" data-error-for="district"></p>
+            </div>
+            <div class="sm:col-span-2">
+              <label for="address" class="field-label">Physical address</label>
+              <input id="address" name="address" class="field-input" maxlength="255" required />
+              <p class="field-error hidden" data-error-for="address"></p>
+            </div>
+          </div>
+
+          <div>
+            <p class="field-label">Operating location</p>
+            <p class="text-sm text-gray-600 mb-2">Where you usually start from (your yard or depot). Frontier measures your coverage by road from this point.</p>
+            <div data-base-map></div>
+            <p class="field-error hidden" data-error-for="base_point"></p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="licence_number" class="field-label">Driving / transport licence or permit number</label>
+              <input id="licence_number" name="licence_number" class="field-input" maxlength="80" required />
+              <p class="field-error hidden" data-error-for="licence_number"></p>
+            </div>
+            <div>
+              <label for="registration_number" class="field-label">Business registration number <span class="text-gray-400 font-normal" data-reg-optional>(if any)</span></label>
+              <input id="registration_number" name="registration_number" class="field-input" maxlength="80" />
+              <p class="field-error hidden" data-error-for="registration_number"></p>
+            </div>
+          </div>
+
+          <div>
+            <p class="field-label">Supporting documents <span class="text-gray-400 font-normal">(licence, permits, registration, insurance: PDF or photo, up to 6)</span></p>
+            <ul class="tr-docs" data-docs></ul>
+            <button type="button" class="acc-mini-btn mt-2" data-add-doc>Add a document</button>
+            <input type="file" data-doc-input accept="application/pdf,image/jpeg,image/png,image/webp" hidden />
+            <p class="field-error hidden" data-error-for="documents"></p>
+          </div>
+
+          <div>
+            <label for="password" class="field-label">Password</label>
+            <div class="relative">
+              <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
+              <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400" aria-label="Show password"></button>
+            </div>
+            <p class="field-error hidden" data-error-for="password"></p>
+          </div>
+
+          <label class="co-terms-box"><input type="checkbox" name="accept_terms" value="1"><span>I accept the <a href="/terms.html" target="_blank" rel="noopener">terms</a>, and confirm the details and documents are true.</span></label>
+          <p class="field-error hidden" data-error-for="accept_terms"></p>
+
+          <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Register</button>
+        </form>
+        <p class="text-sm text-gray-600 text-center mt-6">Already registered? <a href="/transport/login.html" class="text-blue-700 font-medium hover:underline">Sign in</a></p>
+      </div>
+    </main>
+
+    <script>
+      document.getElementById("page-header").innerHTML = transportPageHeader();
+      bindPasswordToggles();
+      const form = document.getElementById("register-form");
+      const alertBox = document.getElementById("form-alert");
+      form.province.innerHTML = `<option value="">Choose…</option>${ZAMBIA_PROVINCES.map((p) => `<option>${p}</option>`).join("")}`;
+      bindPasswordMeter(form.password, () => ({ email: form.email.value, phone: form.phone.value }));
+
+      const DOC_TYPES = { licence: "Driving / transport licence", permit: "Transport permit", registration: "Business registration", insurance: "Insurance", id: "National ID / passport", other: "Other" };
+      const docs = [];
+      const docList = form.querySelector("[data-docs]");
+      const docInput = form.querySelector("[data-doc-input]");
+      const paintDocs = () => {
+        docList.innerHTML = docs.map((d, i) => `<li class="tr-doc"><span class="truncate">${escapeHtml(d.file.name)}</span>
+          <select class="field-input !py-1.5 !text-sm" data-doc-type="${i}">${Object.entries(DOC_TYPES).map(([k, v]) => `<option value="${k}" ${k === d.type ? "selected" : ""}>${v}</option>`).join("")}</select>
+          <button type="button" class="tbl-icon" data-doc-rm="${i}" aria-label="Remove">${uiIcon("close")}</button></li>`).join("");
+        docList.querySelectorAll("[data-doc-type]").forEach((s) => s.addEventListener("change", () => { docs[Number(s.dataset.docType)].type = s.value; }));
+        docList.querySelectorAll("[data-doc-rm]").forEach((b) => b.addEventListener("click", () => { docs.splice(Number(b.dataset.docRm), 1); paintDocs(); }));
+        form.querySelector("[data-add-doc]").hidden = docs.length >= 6;
+      };
+      form.querySelector("[data-add-doc]").addEventListener("click", () => docInput.click());
+      docInput.addEventListener("change", () => {
+        const f = docInput.files[0];
+        docInput.value = "";
+        if (!f) return;
+        if (!/^(application\/pdf|image\/(jpeg|png|webp))$/.test(f.type)) return showNotification("Documents must be a PDF or a photo.", "error");
+        if (f.size > 12 * 1024 * 1024) return showNotification("Each document must be under 12 MB.", "error");
+        docs.push({ file: f, type: docs.length ? "other" : "licence" });
+        form.querySelector('[data-error-for="documents"]').classList.add("hidden");
+        paintDocs();
+      });
+
+      const kind = () => form.querySelector('input[name="kind"]:checked').value;
+      const paintKind = () => {
+        const company = kind() === "company";
+        form.querySelector("[data-company-only]").hidden = !company;
+        form.querySelector("[data-name-label]").textContent = company ? "Company name" : "Full name";
+        form.querySelector("[data-reg-optional]").textContent = company ? "" : "(if any)";
+      };
+      form.querySelectorAll('input[name="kind"]').forEach((r) => r.addEventListener("change", paintKind));
+
+      let picker = null;
+      trPointPicker(form.querySelector("[data-base-map]"), { kind: "base", label: "Operating location", hint: "Tap the map at your yard or depot, then drag the pin to the exact spot." }).then((p) => { picker = p; });
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        alertBox.classList.add("hidden");
+        const fd = new FormData();
+        ["name", "contact_person", "phone", "email", "province", "district", "address", "licence_number", "registration_number", "password"].forEach((k) => fd.append(k, form[k].value.trim()));
+        fd.append("kind", kind());
+        const p = picker && picker.get();
+        if (p) { fd.append("base_lat", p.lat); fd.append("base_lng", p.lng); }
+        if (form.accept_terms.checked) fd.append("accept_terms", "1");
+        docs.forEach((d) => { fd.append("documents", d.file); fd.append("doc_types", d.type); });
+        try {
+          await withBusy(document.getElementById("submit-btn"), "Registering…", () => transportApi("/api/transport/auth/register", { method: "POST", body: fd }));
+          window.location.href = "/transport/?welcome=1";
+        } catch (error) {
+          showFieldErrors(form, error);
+          alertBox.textContent = error.message;
+          alertBox.classList.remove("hidden");
+          alertBox.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -271,6 +271,12 @@ function initSellerNotifications({ onNotification } = {}) {
       showNotification(notification.title, "info");
       if (n.onNotification) n.onNotification(notification);
     });
+    // Transport deliveries: status changes and the provider's positions.
+    stream.addEventListener("transport", (e) => {
+      let detail = {};
+      try { detail = JSON.parse(e.data); } catch { return; }
+      window.dispatchEvent(new CustomEvent("seller:transport", { detail }));
+    });
     stream.addEventListener("signed-out", () => {
       stream.close();
       setSellerHint(false);

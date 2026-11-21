@@ -16,6 +16,10 @@ const { subscribeBuyer, buyerUnreadCount, broadcastAdmin } = require("../service
 const { orderRef, headCount } = require("../lib/orders");
 const handover = require("../lib/handover");
 const checkout = require("../lib/checkout");
+const { uploadTransportPhotos } = require("../middleware/upload");
+const transportCore = require("../lib/transport/core");
+const transport = require("../lib/transport/bookings");
+const transportViews = require("../lib/transport/views");
 const passwordRules = require("../../public/js/password-rules");
 
 const router = express.Router();
@@ -312,10 +316,13 @@ function stageOf(o) {
 const ORDER_SQL = `
   SELECT o.*, a.name AS animal_name, a.kind AS animal_kind, l.location,
          c.public_token AS checkout_token, c.payment_status AS checkout_payment, c.payment_method AS checkout_method,
-         c.mobile_operator AS checkout_operator,
+         c.mobile_operator AS checkout_operator, c.delivery_option AS checkout_delivery,
+         tb.status AS transport_status, tb.fee AS transport_fee,
+         (SELECT pr.stars FROM platform_ratings pr WHERE pr.checkout_id = o.checkout_id) AS platform_stars,
          (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = o.livestock_id ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path
   FROM orders o
   LEFT JOIN checkouts c ON c.id = o.checkout_id
+  LEFT JOIN transport_bookings tb ON tb.id = o.transport_booking_id
   LEFT JOIN livestock l ON l.id = o.livestock_id
   LEFT JOIN categories cat ON cat.id = l.category_id
   LEFT JOIN animals a ON a.id = cat.animal_id`;
@@ -329,6 +336,7 @@ function orderView(o, photos = []) {
     id: o.id,
     reference: orderRef(o.id),
     checkout_reference: o.checkout_id ? checkout.checkoutRef(o.checkout_id) : null,
+    checkout_id: o.checkout_id,
     title: o.livestock_title,
     livestock_id: o.livestock_id,
     thumb_path: o.thumb_path,
@@ -351,6 +359,18 @@ function orderView(o, photos = []) {
     received_note: o.received_note,
     pay_url: payable ? `/pay.html?checkout=${o.checkout_id}&token=${o.checkout_token}` : null,
     photos,
+    delivery_option: o.checkout_delivery || "collect",
+    // Include transport: the delivery this order travels in.
+    transport: o.transport_booking_id ? {
+      id: o.transport_booking_id,
+      reference: transportCore.bookingRef(o.transport_booking_id),
+      status: o.transport_status,
+      status_label: transportCore.STATUS_LABELS[o.transport_status] || o.transport_status,
+      group: transportViews.groupOf(o.transport_status),
+      fee: Number(o.transport_fee),
+    } : null,
+    // Rating Frontier: once per purchase, after delivery or confirmed collection.
+    platform_rating: o.checkout_id ? { rated: o.platform_stars !== null && o.platform_stars !== undefined, stars: o.platform_stars === null ? null : Number(o.platform_stars) } : null,
   };
 }
 
@@ -386,6 +406,92 @@ router.post("/orders/:id/confirm", requireBuyer, uploadImages, async (req, res, 
     const [[o]] = await pool.query(`${ORDER_SQL} WHERE o.id = ?`, [id]);
     const photos = await handover.photosOf([id]);
     res.json({ success: true, message: "Thank you! Your order is complete.", data: orderView(o, photos.get(id) || []) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Transport deliveries: follow, confirm with photos or report a problem, rate
+// ---------------------------------------------------------------------------
+async function buyerBooking(req) {
+  const id = positiveInt(req.params.id);
+  const b = id ? await transport.loadBooking(id) : null;
+  if (!b || Number(b.buyer_id) !== Number(req.buyer.id)) throw notFound("Delivery not found.");
+  return b;
+}
+
+router.get("/deliveries/:id", requireBuyer, async (req, res, next) => {
+  try {
+    const b = await buyerBooking(req);
+    const data = await transportViews.detail(b, "customer");
+    data.can = {
+      confirm: b.status === "awaiting_confirmation",
+      dispute: b.status === "awaiting_confirmation",
+      rate_provider: b.status === "completed" && Boolean(b.provider_id) && !data.rating,
+    };
+    data.platform = await transport.platformRatingState(req.buyer.id, b.checkout_id);
+    data.dispute_reasons = transport.DISPUTE_REASONS;
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/deliveries/:id/track", requireBuyer, async (req, res, next) => {
+  try {
+    const b = await buyerBooking(req);
+    res.json({ success: true, data: await transportViews.track(b.id, req.query.after) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/deliveries/:id/confirm", requireBuyer, uploadTransportPhotos, async (req, res, next) => {
+  try {
+    const b = await buyerBooking(req);
+    await transport.confirmDelivery(req.buyer, b.id, req.files, req.body);
+    res.json({ success: true, message: "Thank you! Your delivery is complete." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/deliveries/:id/dispute", requireBuyer, uploadTransportPhotos, async (req, res, next) => {
+  try {
+    const b = await buyerBooking(req);
+    await transport.dispute(req.buyer, b.id, req.files, req.body);
+    res.json({ success: true, message: "Thank you. We've received your report and will contact you." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/deliveries/:id/rating", requireBuyer, async (req, res, next) => {
+  try {
+    const b = await buyerBooking(req);
+    await transport.rateProvider(req.buyer, b.id, req.body);
+    res.json({ success: true, message: "Thank you for rating the transport provider." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Rating Frontier Marketplace for a purchase (self-collection or transport).
+router.get("/checkouts/:id/rating", requireBuyer, async (req, res, next) => {
+  try {
+    const state = await transport.platformRatingState(req.buyer.id, positiveInt(req.params.id) || 0);
+    if (!state) throw notFound("Order not found.");
+    res.json({ success: true, data: state });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/checkouts/:id/rating", requireBuyer, async (req, res, next) => {
+  try {
+    await transport.ratePlatform(req.buyer, positiveInt(req.params.id) || 0, req.body);
+    res.json({ success: true, message: "Thank you for rating Frontier Marketplace." });
   } catch (error) {
     next(error);
   }

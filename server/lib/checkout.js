@@ -65,7 +65,7 @@ async function loadListings(ids, conn = pool, lock = false) {
   if (!ids.length) return new Map();
   const [rows] = await conn.query(
     `SELECT l.id, l.title, l.quantity, l.price, l.price_unit, l.location, l.status, l.seller_id,
-       a.name AS animal_name, a.kind AS animal_kind, c.status AS category_status, a.status AS animal_status,
+       a.id AS animal_id, a.name AS animal_name, a.kind AS animal_kind, c.status AS category_status, a.status AS animal_status,
        s.name AS seller_name, s.business_name AS seller_business_name,
        (SELECT li.thumb_path FROM livestock_images li WHERE li.livestock_id = l.id ORDER BY li.sort_order, li.id LIMIT 1) AS thumb_path
      FROM livestock l
@@ -143,23 +143,71 @@ async function quote(items) {
       adjusted: !lot && qty > max,
       line_total: lot ? Number(l.price) : Math.round(Number(l.price) * quantity * 100) / 100,
       seller_key: l.seller_id ? `s${l.seller_id}` : "frontier",
+      seller_id: l.seller_id || null,
+      seller_label: l.seller_id ? (l.seller_business_name || l.seller_name) : "Frontier Farms",
+      animal_id: l.animal_id,
     };
   });
   const ok = out.filter((i) => i.available);
+  const transportOff = await transportPricing().unavailableReason();
   return {
     payment: { provider: provider(), operators: operators(), methods: methods() },
+    // Whether "Include transport" can be offered at all (the fee itself is
+    // worked out once the buyer gives the delivery point).
+    transport: { offered: !transportOff.reason, reason: transportOff.reason, search: Boolean(require("../services/routing").geocoderName()) },
     items: out,
     total: Math.round(ok.reduce((s, i) => s + i.line_total, 0) * 100) / 100,
     sellers: new Set(ok.map((i) => i.seller_key)).size,
   };
 }
 
+// Lazy, as the transport modules load this one's neighbours.
+const transportPricing = () => require("./transport/pricing");
+const transportBookings = () => require("./transport/bookings");
+
+// Prices transport for the cart to the buyer's delivery point (checkout
+// page). Returns { errors } for missing or invalid delivery details.
+async function transportQuote(items, body) {
+  const { errors, dest } = transportPricing().cleanDestination(body);
+  if (Object.keys(errors).length) return { errors };
+  const q = await quote(items);
+  if (!q.items.length || q.items.some((i) => !i.available)) {
+    const e = new Error("Your cart has changed. Please review it.");
+    e.status = 409;
+    e.code = "CART_CHANGED";
+    e.expose = true;
+    throw e;
+  }
+  const plan = await transportPricing().plan(q.items, dest);
+  const view = transportPricing().publicPlan(plan);
+  return { ...view, product_total: q.total, grand_total: Math.round((q.total + (plan.available ? plan.transport_total : 0)) * 100) / 100 };
+}
+
 // Creates the checkout and one order per cart line in one transaction,
 // taking the animals or feed off the listings so nobody else can buy them.
-async function create(lines, buyer, ip, pay = null) {
+async function create(lines, buyer, ip, pay = null, delivery = null) {
   const method = pay && methods().includes(pay.method) ? pay.method : "mobile_money";
   const clean = cleanLines(lines);
   if (!clean.length) throw badRequest("Your cart is empty.");
+  // Include transport: the road distances and fees are worked out again here
+  // (never taken from the browser), before anything is reserved.
+  let plan = null;
+  if (delivery && delivery.option === "transport") {
+    const q = await quote(clean.map((l) => ({ id: l.id, qty: l.qty })));
+    if (q.items.some((i) => !i.available)) {
+      const e = new Error("Some items are no longer available. Please review your cart.");
+      e.status = 409;
+      e.code = "CART_CHANGED";
+      throw e;
+    }
+    plan = await transportPricing().plan(q.items, delivery.dest);
+    if (!plan.available) {
+      const e = new Error(plan.reason || "Transport isn't available for this order.");
+      e.status = 409;
+      e.code = "TRANSPORT_UNAVAILABLE";
+      throw e;
+    }
+  }
   const token = newToken();
   const conn = await pool.getConnection();
   const created = [];
@@ -196,6 +244,16 @@ async function create(lines, buyer, ip, pay = null) {
       throw e;
     }
     total = Math.round(total * 100) / 100;
+    // Every pickup point in the cart must still be the one that was priced.
+    if (plan) {
+      const priced0 = new Set(plan.groups.map((g) => Number(g.seller_id || 0)));
+      if (priced.some((x) => !priced0.has(Number(x.l.seller_id || 0)))) {
+        const e = new Error("Your cart has changed. Please review it.");
+        e.status = 409;
+        e.code = "CART_CHANGED";
+        throw e;
+      }
+    }
     const [c] = await conn.query(
       `INSERT INTO checkouts (public_token, buyer_id, full_name, phone, email, item_count, total, payment_method, ip_address)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -222,6 +280,15 @@ async function create(lines, buyer, ip, pay = null) {
       }
       created.push({ id: o.insertId, l, quantity, total: lineTotal, soldOut, sellerName });
     }
+    // Transport: one booking per pickup point. The amount to pay is the
+    // products plus transport; each order's total stays the product's price.
+    if (plan) {
+      await transportBookings().insertBookings(conn, { checkoutId, buyerId: buyer.id, dest: delivery.dest, plan, created });
+      await conn.query(
+        "UPDATE checkouts SET delivery_option = 'transport', transport_total = ?, total = ? WHERE id = ?",
+        [plan.transport_total, Math.round((total + plan.transport_total) * 100) / 100, checkoutId],
+      );
+    }
     await conn.commit();
   } catch (error) {
     await conn.rollback().catch(() => {});
@@ -238,7 +305,7 @@ async function create(lines, buyer, ip, pay = null) {
   txlog.record({
     checkoutId, event: "order_placed", actor: "buyer", amount: checkout.total, ip,
     status: holdsStock(method) ? "held" : "reserved",
-    detail: `${buyer.full_name} placed the order: ${created.map((o) => `${o.l.title} (${orderRef(o.id)}, ${kwacha(o.total)})`).join("; ")}. Paying by ${METHOD_LABELS[method] || method}. ${holdsStock(method) ? `Items held for ${HOLD_MINUTES} minutes while the buyer pays.` : "Items reserved."}`,
+    detail: `${buyer.full_name} placed the order: ${created.map((o) => `${o.l.title} (${orderRef(o.id)}, ${kwacha(o.total)})`).join("; ")}.${plan ? ` Include transport: ${kwacha(plan.transport_total)} for ${plan.groups.length} journey${plan.groups.length === 1 ? "" : "s"} (${plan.groups.map((g) => `${g.distance_km} km`).join(", ")}).` : " Self-collection."} Paying by ${METHOD_LABELS[method] || method}. ${holdsStock(method) ? `Items held for ${HOLD_MINUTES} minutes while the buyer pays.` : "Items reserved."}`,
   });
   // Mobile money: the PIN prompt goes to the buyer's phone right away.
   // Card: the payment opens on Lipila's card page. Bank transfer: the buyer
@@ -277,6 +344,7 @@ async function notifyCreated(checkout, created) {
       ],
       rows: [
         ...itemRows,
+        ...(Number(checkout.transport_total) ? [["Transport", kwacha(checkout.transport_total)]] : []),
         ["Total", kwacha(checkout.total)],
         ["Payment", METHOD_LABELS[method]],
         ["Buyer", checkout.full_name],
@@ -297,16 +365,20 @@ async function notifyCreated(checkout, created) {
       ],
       rows: [
         ...itemRows,
+        ...(Number(checkout.transport_total) ? [["Transport", kwacha(checkout.transport_total)]] : []),
         ["Total", kwacha(checkout.total)],
-        ["Collection", "Collect from the farm. We'll arrange it with you."],
+        checkout.delivery_option === "transport"
+          ? ["Delivery", "By a transport provider approved by Frontier, once paid."]
+          : ["Collection", "Collect from the farm. We'll arrange it with you."],
       ],
       stepsTitle: "What happens next",
       steps: [
         ...(online
             ? ["You'll get an email as soon as your payment is confirmed."]
             : ["We'll contact you on WhatsApp to arrange payment."]),
-        "We'll contact you to arrange collection.",
-        `At collection, check the animals or feed before you accept them, and have your order number ${ref} ready.`,
+        ...(checkout.delivery_option === "transport"
+          ? ["Once paid, a transport provider collects your order and delivers it. You can follow the delivery in your account.", "When it arrives, check the animals or feed, then confirm in your account with a few photos."]
+          : ["We'll contact you to arrange collection.", `At collection, check the animals or feed before you accept them, and have your order number ${ref} ready.`]),
       ],
       button: online ? { label: "View your order", url: appUrl(ourPayPage(checkout)) } : undefined,
     }),
@@ -321,9 +393,24 @@ async function notifyCreated(checkout, created) {
   }
 }
 
+// The checkout, with transport_due: the transport fees still to pay (bookings
+// waiting for payment that still carry an order).
 async function load(id) {
   const [[c]] = await pool.query("SELECT * FROM checkouts WHERE id = ?", [id]);
-  return c || null;
+  if (!c) return null;
+  c.transport_due = 0;
+  c.transport = [];
+  if (c.delivery_option === "transport") {
+    const [rows] = await pool.query(
+      `SELECT b.id, b.status, b.fee, b.distance_km, b.pickup_district, b.pickup_province, b.dest_district, b.dest_province,
+         EXISTS (SELECT 1 FROM transport_booking_orders bo JOIN orders o ON o.id = bo.order_id WHERE bo.booking_id = b.id AND o.status <> 'cancelled') AS carries
+       FROM transport_bookings b WHERE b.checkout_id = ? ORDER BY b.id`,
+      [id],
+    );
+    c.transport = rows;
+    c.transport_due = Math.round(rows.filter((r) => r.status === "pending_payment" && r.carries).reduce((s, r) => s + Number(r.fee), 0) * 100) / 100;
+  }
+  return c;
 }
 
 async function ordersOf(id) {
@@ -341,7 +428,12 @@ async function ordersOf(id) {
 }
 
 const isOpen = (o) => o.status !== "cancelled" && o.status !== "completed";
-const due = (orders) => Math.round(orders.filter((o) => isOpen(o) && o.payment_status !== "paid").reduce((s, o) => s + Number(o.total), 0) * 100) / 100;
+// What is still to pay: unpaid open orders, plus transport fees not yet paid.
+const due = (orders, checkout = null) => {
+  const products = orders.filter((o) => isOpen(o) && o.payment_status !== "paid").reduce((s, o) => s + Number(o.total), 0);
+  const transport = checkout && products > 0 ? Number(checkout.transport_due || 0) : 0;
+  return Math.round((products + transport) * 100) / 100;
+};
 
 function maskPhone(phone) {
   const local = lenco.localPhone(phone);
@@ -354,7 +446,10 @@ function publicView(checkout, orders) {
   // open order paid (bank transfer).
   const open = orders.filter((o) => o.status !== "cancelled");
   const settled = checkout.payment_status === "paid" || (open.length > 0 && open.every((o) => o.payment_status === "paid"));
-  const amount = settled ? (checkout.payment_status === "paid" ? Number(checkout.total) : open.reduce((s, o) => s + Number(o.total), 0)) : due(orders);
+  const transportTotal = Number(checkout.transport_total || 0);
+  const amount = settled
+    ? (checkout.payment_status === "paid" ? Number(checkout.total) : open.reduce((s, o) => s + Number(o.total), 0) + transportTotal)
+    : due(orders, checkout);
   const current = provider();
   return {
     provider: current,
@@ -386,6 +481,16 @@ function publicView(checkout, orders) {
       thumb_path: o.thumb_path,
       cancelled: o.status === "cancelled",
     })),
+    // Include transport: one line per journey (pickup area to destination).
+    delivery_option: checkout.delivery_option || "collect",
+    transport: (checkout.transport || []).filter((t) => t.status !== "cancelled").map((t) => ({
+      reference: `TR-${1000 + Number(t.id)}`,
+      from: [t.pickup_district, t.pickup_province].filter(Boolean).join(", "),
+      to: [t.dest_district, t.dest_province].filter(Boolean).join(", "),
+      distance_km: Number(t.distance_km),
+      fee: Number(t.fee),
+    })),
+    transport_total: transportTotal,
   };
 }
 
@@ -492,6 +597,18 @@ async function markPaid(checkout, data) {
     txlog.record({ checkoutId: checkout.id, event: "stock_taken", detail: `Stock taken off the listings: ${taken.map((o) => `${o.livestock_title} (${orderRef(o.id)}, ${o.quantity})`).join("; ")}${stock.soldOut.length ? `. Sold out: ${stock.soldOut.map((l) => l.title).join(", ")}` : ""}.` });
   }
 
+  // Include transport: the paid deliveries go to eligible transport
+  // providers now (and only now, once the payment is confirmed).
+  const transport = checkout.delivery_option === "transport";
+  if (transport) {
+    try {
+      await transportBookings().onPaid(checkout.id, { shortOrderIds: stock.short.map((x) => x.order.id) });
+    } catch (error) {
+      console.error(`Checkout ${checkoutRef(checkout.id)}: transport not released after payment (${error.message})`);
+      txlog.record({ checkoutId: checkout.id, event: "transport_error", status: "action_needed", detail: `Paid, but the transport booking could not be sent to providers: ${error.message}. Open Admin > Transport.` });
+    }
+  }
+
   const ref = checkoutRef(checkout.id);
   const amount = kwacha(data.amount || checkout.total);
   const how = checkout.payment_method === "card"
@@ -501,7 +618,7 @@ async function markPaid(checkout, data) {
       : `${OPERATOR_LABELS[checkout.mobile_operator] || "Mobile money"} (${lenco.localPhone(checkout.payment_phone)})`;
   const units = (o) => (o.price_unit === "lot" ? `The whole lot (${headCount(o.quantity, o.animal_name, o.animal_kind)})` : headCount(o.quantity, o.animal_name, o.animal_kind));
   const itemRows = orders.map((o) => [`${orderRef(o.id)} · ${o.livestock_title}`, `${units(o)} · ${kwacha(o.total)}`]);
-  const rows = [["Order", ref], ...itemRows, ["Amount paid", amount], ["Paid with", how]];
+  const rows = [["Order", ref], ...itemRows, ...(transport && Number(checkout.transport_total) ? [["Transport", kwacha(checkout.transport_total)]] : []), ["Amount paid", amount], ["Paid with", how]];
   if (providerRef) rows.push(["Payment reference", providerRef]);
   const shortIds = new Set(stock.short.map((x) => x.order.id));
   txlog.recordEmail(sendEmail({
@@ -510,7 +627,9 @@ async function markPaid(checkout, data) {
     log: true,
     heading: "Payment received",
     paragraphs: [
-      `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]}, we've received your payment of ${amount} for the ${listingNames(orders)} with the reference number ${ref}. Your order has been confirmed, kindly advise your mode of collection of the ${orders.length === 1 ? "listing" : "listings"}. Thank you!`,
+      transport
+        ? `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]}, we've received your payment of ${amount} for the ${listingNames(orders)} and its transport, with the reference number ${ref}. Your order has been confirmed and we're now finding a transport provider. We'll tell you who is delivering it, and you can follow the delivery in your account. Thank you!`
+        : `Hi ${String(checkout.full_name).trim().split(/\s+/)[0]}, we've received your payment of ${amount} for the ${listingNames(orders)} with the reference number ${ref}. Your order has been confirmed, kindly advise your mode of collection of the ${orders.length === 1 ? "listing" : "listings"}. Thank you!`,
       ...(shortIds.size ? ["One of your items sold out just before your payment came through. We'll contact you today to offer a replacement or a refund."] : []),
     ],
     rows,
@@ -522,7 +641,7 @@ async function markPaid(checkout, data) {
     log: true,
     heading: `New paid order ${ref}`,
     paragraphs: [
-      `${checkout.full_name} paid ${amount} by ${how}. ${orders.length === 1 ? "The order is" : `All ${orders.length} orders are`} now marked Paid, the stock has been taken off the listings, and each seller has been told.`,
+      `${checkout.full_name} paid ${amount} by ${how}. ${orders.length === 1 ? "The order is" : `All ${orders.length} orders are`} now marked Paid, the stock has been taken off the listings, and each seller has been told.${transport ? ` The buyer chose transport (${kwacha(checkout.transport_total)}): the delivery has been sent to eligible transport providers (Admin > Transport).` : ""}`,
       ...stock.short.map(({ order, left }) => `Action needed: ${orderRef(order.id)} (${order.livestock_title}) was paid, but only ${left} ${left === 1 ? "is" : "are"} left on the listing. Contact the buyer to offer a replacement or a refund.`),
     ],
     rows: [
@@ -638,7 +757,7 @@ async function holdItems(checkout) {
 async function startCollection(checkout, { operator, phone, fresh }) {
   if (!fresh) await holdItems(checkout);
   const orders = await ordersOf(checkout.id);
-  const amount = due(orders);
+  const amount = due(orders, checkout);
   const attempt = Number(checkout.payment_attempts || 0) + 1;
   const reference = paymentReference(checkout.id, attempt);
   await pool.query(
@@ -663,7 +782,7 @@ async function startCollection(checkout, { operator, phone, fresh }) {
 // reference for each attempt).
 async function startLipila(checkout, { operator, phone, fresh }) {
   const orders = await ordersOf(checkout.id);
-  const amount = due(orders);
+  const amount = due(orders, checkout);
   if (!amount) return checkout;
   if (!fresh) await holdItems(checkout);
   const attempt = Number(checkout.payment_attempts || 0) + 1;
@@ -717,7 +836,7 @@ async function startLipila(checkout, { operator, phone, fresh }) {
 // returns the checkout with payment_url set to that page.
 async function startCard(checkout, details = {}) {
   const orders = await ordersOf(checkout.id);
-  const amount = due(orders);
+  const amount = due(orders, checkout);
   if (!amount) return checkout;
   if (!details.fresh) await holdItems(checkout);
   const attempt = Number(checkout.payment_attempts || 0) + 1;
@@ -836,7 +955,7 @@ async function alertIfUnconfirmed(checkout) {
   txlog.record({ checkoutId: checkout.id, reference: checkout.payment_reference, event: "unconfirmed_alert", status: "pending", detail: `No confirmation from Lipila after ${ALERT_AFTER_MIN} minutes. Team emailed to check the Lipila dashboard.` });
   const orders = await ordersOf(checkout.id);
   const ref = checkoutRef(checkout.id);
-  const amount = kwacha(due(orders));
+  const amount = kwacha(due(orders, checkout));
   const how = checkout.payment_method === "card" ? "Visa / Mastercard" : `${OPERATOR_LABELS[checkout.mobile_operator] || "Mobile money"} (${lenco.localPhone(checkout.payment_phone)})`;
   const items = orders.filter(isOpen).map((o) => [`${orderRef(o.id)} · ${o.livestock_title}`, kwacha(o.total)]);
   sendEmail({
@@ -879,7 +998,7 @@ async function refresh(checkout) {
 
 function reminderEmails(checkout, orders) {
   const ref = checkoutRef(checkout.id);
-  const amount = kwacha(due(orders));
+  const amount = kwacha(due(orders, checkout));
   const items = orders.filter(isOpen).map((o) => [`${orderRef(o.id)} · ${o.livestock_title}`, kwacha(o.total)]);
   const tried = checkout.payment_status === "failed";
   return Promise.all([
@@ -925,8 +1044,9 @@ async function sendReminders(afterMinutes) {
   for (let checkout of rows) {
     if (checkout.payment_status === "pending") checkout = await refresh({ ...checkout, payment_checked_at: null });
     if (!checkout || checkout.payment_status === "paid") continue;
+    checkout = await load(checkout.id);
     const orders = await ordersOf(checkout.id);
-    if (!due(orders)) continue;
+    if (!due(orders, checkout)) continue;
     const [claim] = await pool.query(
       "UPDATE checkouts SET payment_reminder_at = NOW() WHERE id = ? AND payment_reminder_at IS NULL",
       [checkout.id],
@@ -950,6 +1070,7 @@ module.exports = {
   checkoutIdFromReference,
   payUrl,
   quote,
+  transportQuote,
   create,
   load,
   ordersOf,

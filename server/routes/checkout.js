@@ -1,6 +1,8 @@
 // Shopping cart and checkout (mobile money only). See lib/checkout.js.
 //
 //   POST /api/checkout/quote          price the cart in the browser
+//   POST /api/checkout/transport-quote  road distance and transport fee to a delivery point
+//   GET  /api/checkout/geocode?q=     find a place for the delivery map
 //   POST /api/checkout                place the order: reserves the items
 //   GET  /api/checkout/:id?token=     the payment page asks for the status
 //   POST /api/checkout/:id/payment    send the mobile money PIN prompt
@@ -30,6 +32,34 @@ const router = express.Router();
 router.post("/quote", async (req, res, next) => {
   try {
     res.json({ success: true, data: await checkout.quote(req.body && req.body.items) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Include transport: the delivery point (and contact) from the checkout form.
+router.post("/transport-quote", async (req, res, next) => {
+  try {
+    const buyer = await currentBuyer(req);
+    if (!buyer) return res.status(401).json({ success: false, code: "LOGIN_REQUIRED", message: "Please log in to check out." });
+    const result = await checkout.transportQuote(req.body && req.body.items, req.body || {});
+    if (result.errors) return res.status(422).json({ success: false, message: "Please complete the delivery details.", errors: result.errors });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    if (error.code === "CART_CHANGED") return res.status(409).json({ success: false, code: "CART_CHANGED", message: error.message });
+    next(error);
+  }
+});
+
+// Place search for the delivery map (through the routing service's
+// geocoder, so the browser never talks to it directly).
+router.get("/geocode", async (req, res, next) => {
+  try {
+    const buyer = await currentBuyer(req);
+    if (!buyer) return res.status(401).json({ success: false, message: "Please log in." });
+    const q = text(req.query.q, 120);
+    if (!q || q.length < 3) return res.json({ success: true, data: [] });
+    res.json({ success: true, data: await require("../services/routing").geocode(q) });
   } catch (error) {
     next(error);
   }
@@ -72,15 +102,25 @@ router.post("/", async (req, res, next) => {
       if (!city || city.length < 2) errors.city = "Please enter your town or city.";
       pay = { method, address, city };
     }
+    // Delivery: self-collection (as before) or Include transport, with the
+    // delivery point and the person receiving it.
+    const option = req.body.delivery_option === "transport" ? "transport" : req.body.delivery_option === "collect" || !req.body.delivery_option ? "collect" : null;
+    let delivery = null;
+    if (!option) errors.delivery_option = "Please choose transport or self-collection.";
+    if (option === "transport") {
+      const d = require("../lib/transport/pricing").cleanDestination(req.body);
+      Object.assign(errors, d.errors);
+      delivery = { option, dest: d.dest };
+    }
     if (Object.keys(errors).length) {
       return res.status(422).json({ success: false, message: "Please correct the highlighted fields.", errors });
     }
     let created;
     try {
-      created = await checkout.create(req.body.items, { id: buyer.id, full_name: fullName, phone, email: email.toLowerCase(), acceptedTerms }, req.ip, pay);
+      created = await checkout.create(req.body.items, { id: buyer.id, full_name: fullName, phone, email: email.toLowerCase(), acceptedTerms }, req.ip, pay, delivery);
     } catch (error) {
-      if (error.code === "CART_CHANGED") {
-        return res.status(409).json({ success: false, code: "CART_CHANGED", message: error.message });
+      if (error.code === "CART_CHANGED" || error.code === "TRANSPORT_UNAVAILABLE") {
+        return res.status(409).json({ success: false, code: error.code, message: error.message });
       }
       throw error;
     }

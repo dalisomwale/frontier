@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Transport Pricing - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/livestock.js"></script>
+    <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+    <script src="/js/transport-ui.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted tx-page-wide mx-auto px-3 sm:px-4 py-6">
+      <div class="mb-6">
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transport pricing &amp; settings</h1>
+        <p class="text-sm text-gray-500 mt-1">What buyers pay for transport, by road distance. Providers never set prices. A delivery keeps the price it was booked at, even if the bands change later.</p>
+      </div>
+      <div id="routing" class="mb-4"></div>
+      <div class="tr-two">
+        <div class="space-y-4 min-w-0">
+          <section class="acc-card">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3"><h2 class="txd-card-title !mb-0">Distance price bands</h2><button type="button" class="acc-mini-btn" id="add-band">Add a band</button></div>
+            <p class="text-sm text-gray-600">A journey of <i>d</i> km uses the active band where <i>from</i> ≤ <i>d</i> &lt; <i>to</i> (no <i>to</i> means no upper limit). Fee = base fee + price per km × <i>d</i>.</p>
+            <div id="gaps" class="mt-3"></div>
+            <div id="bands" class="overflow-x-auto mt-3"></div>
+          </section>
+          <section class="acc-card">
+            <h2 class="txd-card-title">Check a price</h2>
+            <form id="price-check" class="flex flex-wrap items-end gap-3" novalidate>
+              <div><label class="field-label" for="pc-km">Road distance (km)</label><input id="pc-km" name="km" type="number" min="0" step="0.1" class="field-input" style="max-width:160px"></div>
+              <button type="submit" class="acc-mini-btn">Check</button>
+              <p id="pc-out" class="text-sm text-gray-700"></p>
+            </form>
+          </section>
+          <section class="acc-card" id="sellers">
+            <h2 class="txd-card-title">Sellers' pickup points</h2>
+            <p class="text-sm text-gray-600">Buyers can only choose transport for a seller's listings once the seller has a pickup point. Sellers set it in their profile; you can set or correct it here.</p>
+            <div id="seller-list" class="overflow-x-auto mt-3"></div>
+          </section>
+        </div>
+        <div class="space-y-4 min-w-0">
+          <form class="acc-card" id="settings" novalidate>
+            <h2 class="txd-card-title">Settings</h2>
+            <label class="tp-switch"><input type="checkbox" name="enabled"><span>Offer transport at checkout</span></label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+              <div><label class="field-label" for="st-win">Acceptance window (minutes)</label><input id="st-win" name="accept_window_minutes" type="number" min="5" class="field-input"><p class="field-error hidden" data-error-for="accept_window_minutes"></p></div>
+              <div><label class="field-label" for="st-gps">GPS quiet alert (minutes)</label><input id="st-gps" name="gps_stale_minutes" type="number" min="2" class="field-input"><p class="field-error hidden" data-error-for="gps_stale_minutes"></p></div>
+              <div><label class="field-label" for="st-com">Frontier commission (%)</label><input id="st-com" name="commission_pct" type="number" min="0" max="100" step="0.5" class="field-input"><p class="field-error hidden" data-error-for="commission_pct"></p></div>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Not accepted within the window: the team is emailed (nothing is cancelled). No GPS for the quiet time during a delivery: the team is emailed. Commission comes off the fee; the rest is the provider's earning.</p>
+            <h3 class="field-label mt-5" id="pickup">Frontier's own pickup point (for Frontier's stock)</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div><label class="field-label" for="st-label">Name</label><input id="st-label" name="frontier_pickup_label" class="field-input" maxlength="150"></div>
+              <div><label class="field-label" for="st-phone">Phone at the pickup point</label><input id="st-phone" name="frontier_pickup_phone" class="field-input" maxlength="30"></div>
+              <div><label class="field-label" for="st-prov">Province</label><select id="st-prov" name="frontier_pickup_province" class="field-input"></select></div>
+              <div><label class="field-label" for="st-dist">District</label><input id="st-dist" name="frontier_pickup_district" class="field-input" maxlength="80"></div>
+              <div class="sm:col-span-2"><label class="field-label" for="st-addr">Address</label><input id="st-addr" name="frontier_pickup_address" class="field-input" maxlength="255"></div>
+            </div>
+            <div class="mt-3" data-map></div>
+            <p class="field-error hidden" data-error-for="frontier_pickup_point"></p>
+            <button type="submit" class="acc-btn mt-4">Save settings</button>
+          </form>
+        </div>
+      </div>
+    </main>
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      let bands = [];
+      let picker = null;
+      async function loadBands() {
+        const res = await adminApi("/api/admin/transport/bands");
+        bands = res.data;
+        document.getElementById("gaps").innerHTML = res.gaps.length && bands.some((b) => b.is_active)
+          ? `<p class="tr-warn-box">No active band covers: ${res.gaps.map(escapeHtml).join(", ")}. Buyers can't choose transport for journeys of those distances.</p>`
+          : !bands.some((b) => b.is_active) ? `<p class="tr-warn-box">No active bands: transport isn't offered at checkout.</p>` : "";
+        document.getElementById("bands").innerHTML = bands.length ? `<table class="admin-table ad-band-table"><thead><tr><th>Distance</th><th>Base fee</th><th>Per km</th><th>Example</th><th>Status</th><th></th></tr></thead>
+          <tbody>${bands.map((b) => {
+            const mid = b.max_km === null ? b.min_km + 20 : (b.min_km + b.max_km) / 2;
+            return `<tr><td class="font-semibold">${escapeHtml(b.label)}</td><td>${kwacha(b.base_fee)}</td><td>${b.per_km ? kwacha(b.per_km) : "-"}</td>
+              <td class="text-gray-600 text-sm">${mid} km: ${kwacha(Math.round((b.base_fee + b.per_km * mid) * 100) / 100)}</td>
+              <td><span class="so-pill ${b.is_active ? "so-done" : "so-off"}">${b.is_active ? "Active" : "Off"}</span>${b.used ? `<small class="block text-gray-500">Used ${b.used}×</small>` : ""}</td>
+              <td class="whitespace-nowrap"><button type="button" class="tbl-icon" data-edit="${b.id}" title="Edit" aria-label="Edit">${uiIcon("edit")}</button>
+                <button type="button" class="tbl-icon" data-toggle="${b.id}" title="${b.is_active ? "Switch off" : "Switch on"}" aria-label="Switch">${uiIcon("power")}</button>
+                ${b.used ? "" : `<button type="button" class="tbl-icon" data-del="${b.id}" title="Delete" aria-label="Delete">${uiIcon("trash")}</button>`}</td></tr>`;
+          }).join("")}</tbody></table>` : `<p class="text-sm text-gray-600">No bands yet.</p>`;
+        document.querySelectorAll("#bands [data-edit]").forEach((b) => b.addEventListener("click", () => editBand(bands.find((x) => String(x.id) === b.dataset.edit))));
+        document.querySelectorAll("#bands [data-toggle]").forEach((b) => b.addEventListener("click", async () => {
+          const band = bands.find((x) => String(x.id) === b.dataset.toggle);
+          try { const res = await adminApi(`/api/admin/transport/bands/${band.id}`, { method: "PATCH", body: { is_active: !band.is_active } }); showNotification(res.message, "success"); loadBands(); } catch (error) { showNotification(error.message, "error"); }
+        }));
+        document.querySelectorAll("#bands [data-del]").forEach((b) => b.addEventListener("click", async () => {
+          if (!(await confirmAction({ title: "Delete this band?", confirmText: "Delete", variant: "danger" }))) return;
+          try { const res = await adminApi(`/api/admin/transport/bands/${b.dataset.del}`, { method: "DELETE" }); showNotification(res.message, "success"); loadBands(); } catch (error) { showNotification(error.message, "error"); }
+        }));
+      }
+
+      function editBand(b) {
+        openFormModal({
+          title: b ? `Edit band ${b.label}` : "Add a price band",
+          body: `<div class="grid grid-cols-2 gap-4">
+              <div><label class="field-label" for="bd-min">From (km)</label><input id="bd-min" name="min_km" type="number" min="0" step="0.1" class="field-input" value="${b ? b.min_km : ""}"><p class="field-error hidden" data-error-for="min_km"></p></div>
+              <div><label class="field-label" for="bd-max">To (km) <span class="text-gray-400 font-normal">(empty: no limit)</span></label><input id="bd-max" name="max_km" type="number" min="0" step="0.1" class="field-input" value="${b && b.max_km !== null ? b.max_km : ""}"><p class="field-error hidden" data-error-for="max_km"></p></div>
+              <div><label class="field-label" for="bd-base">Base fee (K)</label><input id="bd-base" name="base_fee" type="number" min="0" step="0.01" class="field-input" value="${b ? b.base_fee : ""}"><p class="field-error hidden" data-error-for="base_fee"></p></div>
+              <div><label class="field-label" for="bd-km">Price per km (K)</label><input id="bd-km" name="per_km" type="number" min="0" step="0.01" class="field-input" value="${b ? b.per_km : "0"}"><p class="field-error hidden" data-error-for="per_km"></p></div>
+            </div>
+            <label class="tp-switch"><input type="checkbox" name="is_active" ${!b || b.is_active ? "checked" : ""}><span>Active</span></label>`,
+          submitText: b ? "Save band" : "Add band",
+          onSubmit: async (form) => {
+            const body = { min_km: form.min_km.value, max_km: form.max_km.value, base_fee: form.base_fee.value, per_km: form.per_km.value, is_active: form.is_active.checked ? "1" : "0" };
+            const res = await adminApi(b ? `/api/admin/transport/bands/${b.id}` : "/api/admin/transport/bands", { method: b ? "PUT" : "POST", body });
+            showNotification(res.message, "success");
+            setTimeout(loadBands, 50);
+          },
+        });
+      }
+      document.getElementById("add-band").addEventListener("click", () => editBand(null));
+      document.getElementById("price-check").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const out = document.getElementById("pc-out");
+        try {
+          const r = (await adminApi(`/api/admin/transport/bands/price?km=${encodeURIComponent(e.target.km.value)}`)).data;
+          out.innerHTML = r ? `<b>${kwacha(r.fee)}</b> (${escapeHtml(r.band)} band) · commission ${kwacha(r.commission)} · provider ${kwacha(r.earning)}` : "No active band covers this distance.";
+        } catch (error) { out.textContent = error.message; }
+      });
+
+      async function loadSettings() {
+        const res = await adminApi("/api/admin/transport/settings");
+        const s = res.data;
+        const r = res.routing;
+        document.getElementById("routing").innerHTML = r.enabled
+          ? `<p class="tr-note-box">Road distances come from <b>${escapeHtml(r.provider.toUpperCase())}</b>${res.geocoder ? `; place search from ${escapeHtml(res.geocoder.toUpperCase())}` : "; place search is off (buyers place the pin on the map)"}.</p>`
+          : `<p class="tr-warn-box"><b>No road-distance service:</b> ${escapeHtml(r.problem || "")} Transport isn't offered until one is set in .env (ROUTING_PROVIDER = ors, google or osrm, with its key or address).</p>`;
+        const f = document.getElementById("settings");
+        f.enabled.checked = s.enabled;
+        f.accept_window_minutes.value = s.accept_window_minutes;
+        f.gps_stale_minutes.value = s.gps_stale_minutes;
+        f.commission_pct.value = s.commission_pct;
+        f.frontier_pickup_province.innerHTML = `<option value="">Choose…</option>${ZAMBIA_PROVINCES.map((p) => `<option ${p === s.frontier_pickup.province ? "selected" : ""}>${p}</option>`).join("")}`;
+        f.frontier_pickup_label.value = s.frontier_pickup.label;
+        f.frontier_pickup_phone.value = s.frontier_pickup.phone;
+        f.frontier_pickup_district.value = s.frontier_pickup.district;
+        f.frontier_pickup_address.value = s.frontier_pickup.address;
+        picker = await trPointPicker(f.querySelector("[data-map]"), { kind: "pickup", label: "Frontier pickup", lat: s.frontier_pickup.lat, lng: s.frontier_pickup.lng });
+      }
+      document.getElementById("settings").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const f = e.target;
+        const p = picker && picker.get();
+        const body = Object.fromEntries(new FormData(f));
+        body.enabled = f.enabled.checked ? "1" : "0";
+        body.frontier_pickup_lat = p ? p.lat : "";
+        body.frontier_pickup_lng = p ? p.lng : "";
+        try {
+          const res = await withBusy(f.querySelector("button[type=submit]"), "Saving…", () => adminApi("/api/admin/transport/settings", { method: "PUT", body }));
+          showNotification(res.message, "success");
+        } catch (error) { showFieldErrors(f, error); showNotification(error.message, "error"); }
+      });
+
+      async function loadSellers() {
+        const rows = (await adminApi("/api/admin/transport/sellers")).data;
+        const box = document.getElementById("seller-list");
+        box.innerHTML = rows.length ? `<table class="admin-table"><thead><tr><th>Seller</th><th>Pickup point</th><th></th></tr></thead><tbody>${rows.map((s) => `
+          <tr><td><b>${escapeHtml(s.business_name || s.name)}</b><small class="block text-gray-500">${escapeHtml(s.province || "")}${s.account_status !== "approved" ? ` · ${escapeHtml(s.account_status)}` : ""}</small></td>
+          <td>${s.has_pickup ? `${escapeHtml(s.pickup_district || "")} · ${escapeHtml(s.pickup_address || "")}` : `<span class="so-pill so-open">Not set</span>`}</td>
+          <td><button type="button" class="acc-mini-btn" data-seller="${s.id}">${s.has_pickup ? "Change" : "Set"}</button></td></tr>`).join("")}</tbody></table>` : `<p class="text-sm text-gray-600">No sellers.</p>`;
+        box.querySelectorAll("[data-seller]").forEach((b) => b.addEventListener("click", () => editSellerPickup(rows.find((x) => String(x.id) === b.dataset.seller))));
+      }
+
+      function editSellerPickup(s) {
+        let pp = null;
+        openFormModal({
+          title: `Pickup point of ${s.business_name || s.name}`,
+          wide: true,
+          body: `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div><label class="field-label" for="sp-d">District</label><input id="sp-d" name="pickup_district" class="field-input" value="${escapeHtml(s.pickup_district || "")}"><p class="field-error hidden" data-error-for="pickup_district"></p></div>
+            <div><label class="field-label" for="sp-a">Address or directions</label><input id="sp-a" name="pickup_address" class="field-input" value="${escapeHtml(s.pickup_address || s.address || "")}"><p class="field-error hidden" data-error-for="pickup_address"></p></div></div>
+            <div data-map></div><p class="field-error hidden" data-error-for="pickup_point"></p>`,
+          submitText: "Save pickup point",
+          onOpen: async (form) => { pp = await trPointPicker(form.querySelector("[data-map]"), { kind: "pickup", lat: s.pickup_lat, lng: s.pickup_lng, label: "Pickup point" }); },
+          onSubmit: async (form) => {
+            const pt = pp && pp.get();
+            const res = await adminApi(`/api/admin/transport/sellers/${s.id}/pickup`, { method: "PUT", body: { pickup_district: form.pickup_district.value.trim(), pickup_address: form.pickup_address.value.trim(), pickup_lat: pt ? pt.lat : "", pickup_lng: pt ? pt.lng : "" } });
+            showNotification(res.message, "success");
+            setTimeout(loadSellers, 50);
+          },
+        });
+      }
+
+      (async () => {
+        await initAdminPage("transport-pricing");
+        await Promise.all([loadBands(), loadSettings(), loadSellers()]);
+        if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Feedback - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/xlsx-lite.js"></script>
+    <script src="/js/livestock.js"></script>
+    <script src="/js/transport-ui.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted tx-page-wide mx-auto px-3 sm:px-4 py-6">
+      <div class="mb-6">
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Feedback</h1>
+        <p class="text-sm text-gray-500 mt-1">Buyers' ratings of Frontier Marketplace (after self-collection or delivery) and of transport providers. Hidden ratings stay on record but don't count in the averages.</p>
+      </div>
+      <div class="tx-totals" id="totals"></div>
+      <div class="bg-white rounded-xl border border-gray-100">
+        <div class="tx-filters">
+          <div class="seg" id="tabs"></div>
+          <button type="button" id="export" class="tx-export">Export Excel</button>
+        </div>
+        <div id="list" class="overflow-x-auto"></div>
+      </div>
+    </main>
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      const state = { type: "platform", rows: [], summary: {} };
+      function renderTabs() {
+        document.getElementById("tabs").innerHTML = [["platform", "Frontier Marketplace"], ["provider", "Transport providers"]].map(([v, l]) => `<button type="button" data-tab="${v}" class="${state.type === v ? "active" : ""}">${l}</button>`).join("");
+        document.querySelectorAll("#tabs [data-tab]").forEach((b) => b.addEventListener("click", () => { state.type = b.dataset.tab; renderTabs(); load(); }));
+      }
+      async function load() {
+        const res = await adminApi(`/api/admin/transport/ratings?type=${state.type}`);
+        state.rows = res.data;
+        state.summary = res.summary;
+        const s = res.summary;
+        document.getElementById("totals").innerHTML = `
+          <div class="tx-total"><span>Average</span><b>${s.average !== null ? `${s.average.toFixed(2)} / 5` : "-"}</b></div>
+          <div class="tx-total"><span>Ratings</span><b>${s.count}</b></div>
+          ${state.type === "platform" ? `<div class="tx-total"><span>After self-collection</span><b>${s.collect}</b></div><div class="tx-total"><span>After transport</span><b>${s.transport}</b></div>` : ""}`;
+        const list = document.getElementById("list");
+        if (!state.rows.length) return renderEmptyState(list, { title: "No ratings yet", message: "Buyers rate once their order is collected or delivered.", icon: "inbox" });
+        list.innerHTML = `<table class="admin-table"><thead><tr><th>Date</th><th>Rating</th><th>Feedback</th><th class="hidden md:table-cell">${state.type === "platform" ? "Order" : "Provider"}</th><th class="hidden md:table-cell">Buyer</th><th></th></tr></thead>
+          <tbody>${state.rows.map((r) => `<tr class="${r.hidden ? "opacity-60" : ""}">
+            <td class="whitespace-nowrap text-gray-600">${escapeHtml(formatDateShort(r.created_at))}</td>
+            <td class="whitespace-nowrap">${trStarsHtml(r.stars)}</td>
+            <td class="text-gray-800">${r.feedback ? escapeHtml(r.feedback) : `<span class="text-gray-400">No comment</span>`}</td>
+            <td class="hidden md:table-cell">${state.type === "platform"
+              ? `<a class="acc-link" href="/admin/transactions.html?id=${r.checkout_id}">${escapeHtml(r.reference)}</a><small class="block text-gray-500">${r.delivery_option === "transport" ? "Transport" : "Self-collection"}</small>`
+              : `<a class="acc-link" href="/admin/transport-providers.html?id=${r.provider_id}">${escapeHtml(r.provider)}</a><small class="block"><a class="acc-link" href="/admin/transport.html?id=${r.booking_id}">${escapeHtml(r.reference)}</a></small>`}</td>
+            <td class="hidden md:table-cell text-gray-700">${escapeHtml(r.buyer || "")}</td>
+            <td><button type="button" class="acc-mini-btn" data-id="${r.id}" data-hide="${r.hidden ? 0 : 1}">${r.hidden ? "Show" : "Hide"}</button></td></tr>`).join("")}</tbody></table>`;
+        list.querySelectorAll("[data-id]").forEach((b) => b.addEventListener("click", async () => {
+          try {
+            const res = await adminApi(`/api/admin/transport/ratings/${state.type}/${b.dataset.id}`, { method: "PATCH", body: { hidden: b.dataset.hide === "1" } });
+            showNotification(res.message, "success");
+            load();
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+      }
+      document.getElementById("export").addEventListener("click", () => {
+        const header = ["Date", "Stars", "Feedback", state.type === "platform" ? "Order" : "Provider", state.type === "platform" ? "Delivery" : "Delivery ref", "Buyer", "Hidden"];
+        const lines = state.rows.map((r) => [formatDateShort(r.created_at), r.stars, r.feedback || "", state.type === "platform" ? r.reference : r.provider, state.type === "platform" ? r.delivery_option : r.reference, r.buyer || "", r.hidden ? "Yes" : "No"]);
+        downloadXlsx(`frontier-feedback-${state.type}-${new Date().toISOString().slice(0, 10)}.xlsx`, "Feedback", header, lines, { numberCols: [1] });
+      });
+      (async () => {
+        await initAdminPage("feedback");
+        renderTabs();
+        await load();
+        window.addEventListener("admin:change", (e) => { if (e.detail.kind === "rating") load(); });
+      })();
+    </script>
+  </body>
+</html>

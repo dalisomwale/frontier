@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Transport Providers - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/xlsx-lite.js"></script>
+    <script src="/js/livestock.js"></script>
+    <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+    <script src="/js/transport-ui.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted tx-page-wide mx-auto px-3 sm:px-4 py-6">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transport providers</h1>
+          <p class="text-sm text-gray-500 mt-1">Approve providers and set how far each one covers. Only approved, active providers with coverage switched on receive requests.</p>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-100">
+        <div class="tx-filters">
+          <div class="seg" id="tabs"></div>
+          <div class="search-export tx-search">
+            <div class="relative search-export-in">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+              <input id="search" type="search" placeholder="Name, phone, district, vehicle" class="field-input !py-2 !pl-9 !text-sm" />
+            </div>
+            <button type="button" id="export" class="tx-export tx-export-bar">Export Excel</button>
+          </div>
+        </div>
+        <div id="list" class="overflow-x-auto"></div>
+      </div>
+    </main>
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      const state = { status: "", q: "", rows: [], counts: {} };
+      const TABS = [{ value: "", label: "All", key: "all" }, { value: "pending", label: "Waiting for approval", key: "pending" }, { value: "approved", label: "Approved", key: "approved" }, { value: "suspended", label: "Suspended", key: "suspended" }, { value: "rejected", label: "Rejected", key: "rejected" }];
+      const STATUS = { pending: ["Waiting for approval", "so-open"], approved: ["Approved", "so-done"], suspended: ["Suspended", "tr-pill-alert"], rejected: ["Rejected", "so-off"] };
+      const pill = (p) => `<span class="so-pill ${STATUS[p.status][1]}">${STATUS[p.status][0]}</span>${p.is_active ? "" : ` <span class="so-pill so-off">Deactivated</span>`}`;
+      let cargoTypes = [];
+
+      function renderTabs() {
+        document.getElementById("tabs").innerHTML = TABS.map((t) => `<button type="button" data-tab="${t.value}" class="${state.status === t.value ? "active" : ""}">${t.label}${state.counts[t.key] ? `<span class="count">${state.counts[t.key]}</span>` : ""}</button>`).join("");
+        document.querySelectorAll("#tabs [data-tab]").forEach((b) => b.addEventListener("click", () => { state.status = b.dataset.tab; renderTabs(); load(); }));
+      }
+
+      async function load() {
+        const params = new URLSearchParams();
+        if (state.status) params.set("status", state.status);
+        if (state.q) params.set("q", state.q);
+        const list = document.getElementById("list");
+        try {
+          const res = await adminApi(`/api/admin/transport/providers?${params}`);
+          state.rows = res.data;
+          state.counts = res.counts;
+        } catch (error) {
+          return renderEmptyState(list, { title: "Could not load providers", message: error.message, icon: "alert" });
+        }
+        renderTabs();
+        if (!state.rows.length) return renderEmptyState(list, { title: "No transport providers", message: "Providers register at /transport/register.html.", icon: "users" });
+        list.innerHTML = `<table class="admin-table"><thead><tr><th>Provider</th><th class="hidden md:table-cell">Area</th><th>Status</th><th>Coverage</th><th class="hidden sm:table-cell">Vehicles</th><th class="hidden lg:table-cell">Deliveries</th><th class="hidden lg:table-cell">Rating</th></tr></thead>
+          <tbody>${state.rows.map((p) => `<tr class="cursor-pointer" data-open="${p.id}">
+            <td><b class="text-gray-900">${escapeHtml(p.name)}</b><small class="block text-gray-500">${escapeHtml(p.phone)}${p.kind === "company" ? " · company" : ""}</small></td>
+            <td class="hidden md:table-cell text-gray-700">${escapeHtml(`${p.district}, ${p.province}`)}</td>
+            <td>${pill(p)}${p.is_available ? "" : ` <small class="block text-gray-500">Not taking requests</small>`}</td>
+            <td>${p.coverage_km ? `${p.coverage_km} km${p.coverage_active ? "" : " (off)"}` : `<span class="text-gray-400">Not set</span>`}</td>
+            <td class="hidden sm:table-cell">${p.vehicles}</td>
+            <td class="hidden lg:table-cell">${p.completed} done${p.active ? ` · ${p.active} active` : ""}</td>
+            <td class="hidden lg:table-cell">${trStarsHtml(p.rating, p.ratings)}</td></tr>`).join("")}</tbody></table>`;
+        list.querySelectorAll("[data-open]").forEach((tr) => tr.addEventListener("click", () => openProvider(tr.dataset.open)));
+      }
+
+      let view = null;
+      async function openProvider(id, { replace = false } = {}) {
+        let p;
+        try {
+          const res = await adminApi(`/api/admin/transport/providers/${id}`);
+          p = res.data;
+          cargoTypes = res.cargo_types;
+        } catch (error) { return showNotification(error.message, "error"); }
+        if (!(replace && view)) view = openAdminView({ title: p.name, params: { id: p.id }, onClose: () => { view = null; } });
+        paint(p);
+      }
+
+      function paint(p) {
+        const perf = p.performance;
+        const cargoLabel = (k) => (cargoTypes.find((c) => c.key === k) || { label: k }).label;
+        const actions = [
+          p.status === "pending" ? `<button type="button" class="acc-btn" data-status="approve">Approve</button><button type="button" class="acc-mini-btn text-red-700" data-status="reject">Reject</button>` : "",
+          p.status === "rejected" ? `<button type="button" class="acc-btn" data-status="approve">Approve after all</button>` : "",
+          p.status === "approved" ? `<button type="button" class="acc-mini-btn text-red-700" data-status="suspend">Suspend</button>` : "",
+          p.status === "suspended" ? `<button type="button" class="acc-btn" data-status="reinstate">Reinstate</button>` : "",
+          `<button type="button" class="acc-mini-btn" data-active>${p.is_active ? "Deactivate" : "Activate"}</button>`,
+        ].join("");
+        view.body.innerHTML = `
+          <div class="sv-head"><h1 class="admin-view-title !mb-0">${escapeHtml(p.name)}</h1><span>${pill(p)}</span></div>
+          ${p.admin_note ? `<p class="tr-note-box mb-4">Note to provider: ${escapeHtml(p.admin_note)}</p>` : ""}
+          <div class="tr-two">
+            <div class="space-y-4 min-w-0">
+              <div class="acc-card"><h2 class="txd-card-title">Approval</h2><div class="tr-actions">${actions}</div>
+                <p class="text-sm text-gray-500 mt-3">Registered ${escapeHtml(formatDateShort(p.created_at))}${p.approved_at ? ` · approved ${escapeHtml(formatDateShort(p.approved_at))}` : ""}${p.last_login_at ? ` · last signed in ${escapeHtml(timeAgo(p.last_login_at))}` : ""}. ${p.is_available ? "Taking new requests." : "Has switched off new requests."}</p></div>
+              <form class="acc-card" data-coverage novalidate><h2 class="txd-card-title">Coverage (set by Frontier only)</h2>
+                <p class="text-sm text-gray-600">The provider receives requests where both the pickup point and the destination are within this road distance of their operating location.</p>
+                <div class="flex flex-wrap items-end gap-4 mt-3">
+                  <div><label class="field-label" for="cv-km">Maximum distance (km by road)</label><input id="cv-km" name="coverage_km" type="number" min="1" max="3000" step="1" class="field-input" style="max-width:160px" value="${p.coverage_km ?? ""}"><p class="field-error hidden" data-error-for="coverage_km"></p></div>
+                  <label class="tp-switch"><input type="checkbox" name="coverage_active" ${p.coverage_active ? "checked" : ""}><span>Coverage on</span></label>
+                  <button type="submit" class="acc-btn" style="width:auto">Save coverage</button>
+                </div>
+                <div class="mt-4" data-map></div>
+                <p class="text-xs text-gray-500 mt-2">The circle shows the coverage distance in a straight line, as a guide. Eligibility is always checked by road.</p>
+              </form>
+              <div class="acc-card"><h2 class="txd-card-title">Vehicles</h2>${p.vehicle_list.length ? `<div class="tp-vehicles">${p.vehicle_list.map((v) => `
+                <div class="tp-vehicle">${v.photos[0] ? `<a href="${escapeHtml(v.photos[0].image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(v.photos[0].thumb_path)}" alt=""></a>` : ""}
+                  <div class="tp-vehicle-body"><div class="flex justify-between gap-2"><b>${escapeHtml(v.registration)}</b><span class="so-pill ${v.status === "active" ? "so-done" : "so-off"}">${v.status === "active" ? (v.busy_booking ? `On ${escapeHtml(v.busy_booking.reference)}` : "Active") : "Inactive"}</span></div>
+                  <p class="text-sm text-gray-600">${escapeHtml(v.vehicle_type)}${v.capacity_note ? ` · ${escapeHtml(v.capacity_note)}` : ""}</p>
+                  <p class="text-sm text-gray-700 mt-1">${v.cargo.map((c) => `${escapeHtml(cargoLabel(c.key))}: ${c.max}`).join(" · ")}</p>
+                  ${v.photos.length > 1 ? `<div class="acc-photos mt-2">${v.photos.slice(1).map((ph) => `<a href="${escapeHtml(ph.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(ph.thumb_path)}" alt=""></a>`).join("")}</div>` : ""}
+                  ${v.documents.length ? `<p class="text-sm mt-2">${v.documents.map((f) => `<a class="acc-link" href="/api/admin/transport/vehicle-files/${f.id}" target="_blank" rel="noopener">${escapeHtml(f.original_name || "Document")}</a>`).join(" · ")}</p>` : ""}
+                  <button type="button" class="acc-mini-btn mt-2" data-vehicle="${v.id}" data-to="${v.status === "active" ? "inactive" : "active"}">${v.status === "active" ? "Deactivate" : "Activate"}</button></div></div>`).join("")}</div>` : `<p class="text-sm text-gray-600">No vehicles registered.</p>`}</div>
+              <div class="acc-card"><h2 class="txd-card-title">Delivery history</h2>${p.history.length ? `<table class="admin-table"><tbody>${p.history.map((b) => `<tr class="cursor-pointer" data-booking="${b.id}"><td class="font-semibold">${escapeHtml(b.reference)}</td><td>${escapeHtml(b.from)} → ${escapeHtml(b.to)}</td><td>${trPill(b)}</td><td class="whitespace-nowrap">${kwacha(b.provider_earning)}</td></tr>`).join("")}</tbody></table>` : `<p class="text-sm text-gray-600">No deliveries yet.</p>`}</div>
+            </div>
+            <div class="space-y-4 min-w-0">
+              <div class="acc-card"><h2 class="txd-card-title">Details</h2><dl class="sv-facts">
+                <div><dt>Type</dt><dd>${p.kind === "company" ? "Company" : "Individual"}</dd></div>
+                ${p.contact_person ? `<div><dt>Contact person</dt><dd>${escapeHtml(p.contact_person)}</dd></div>` : ""}
+                <div><dt>Phone</dt><dd><a href="tel:${escapeHtml(p.phone.replace(/[^\d+]/g, ""))}">${escapeHtml(p.phone)}</a></dd></div>
+                <div><dt>Email</dt><dd><a href="mailto:${escapeHtml(p.email)}">${escapeHtml(p.email)}</a></dd></div>
+                <div><dt>Area</dt><dd>${escapeHtml(`${p.district}, ${p.province}`)}</dd></div>
+                <div><dt>Address</dt><dd>${escapeHtml(p.address)}</dd></div>
+                <div><dt>Licence / permit</dt><dd>${escapeHtml(p.licence_number || "-")}</dd></div>
+                <div><dt>Business registration</dt><dd>${escapeHtml(p.registration_number || "-")}</dd></div>
+              </dl><button type="button" class="acc-mini-btn mt-3" data-edit-base>Change operating location</button></div>
+              <div class="acc-card"><h2 class="txd-card-title">Documents</h2>${p.documents.length ? `<ul class="tr-qty">${p.documents.map((d) => `<li><a class="acc-link" href="/api/admin/transport/documents/${d.id}" target="_blank" rel="noopener">${escapeHtml(d.original_name || d.type_label)}</a><span class="text-gray-500">${escapeHtml(d.type_label)} · ${escapeHtml(formatDateShort(d.created_at))}</span></li>`).join("")}</ul>` : `<p class="text-sm text-gray-600">No documents uploaded.</p>`}</div>
+              <div class="acc-card"><h2 class="txd-card-title">Performance</h2><dl class="sv-facts">
+                <div><dt>Rating</dt><dd>${trStarsHtml(p.rating, p.ratings)}</dd></div>
+                <div><dt>Requests received</dt><dd>${perf.offered}</dd></div>
+                <div><dt>Accepted / declined</dt><dd>${perf.accepted} / ${perf.declined}</dd></div>
+                <div><dt>Completed</dt><dd>${p.completed}</dd></div>
+                <div><dt>Disputed deliveries</dt><dd>${perf.disputed_ever}${perf.disputed_now ? ` (${perf.disputed_now} open)` : ""}</dd></div>
+                <div><dt>Average trip</dt><dd>${perf.avg_trip_min !== null ? `${trDuration(perf.avg_trip_min)} (route estimate ${trDuration(perf.avg_route_min)})` : "-"}</dd></div>
+                <div><dt>Owed / paid</dt><dd>${kwacha(perf.owed)} / ${kwacha(perf.paid)}</dd></div>
+              </dl></div>
+              <div class="acc-card"><h2 class="txd-card-title">Ratings from buyers</h2>${p.rating_list.length ? p.rating_list.map((r) => `<div class="tr-ev"><header><span>${trStarsHtml(r.stars)}</span><span>${escapeHtml(r.reference)} · ${escapeHtml(formatDateShort(r.created_at))}</span></header>${r.feedback ? `<p class="tr-ev-note">"${escapeHtml(r.feedback)}"</p>` : ""}<button type="button" class="acc-mini-btn mt-2" data-rating="${r.id}" data-hide="${r.hidden ? 0 : 1}">${r.hidden ? "Show again" : "Hide"}</button>${r.hidden ? ` <small class="text-gray-500">Hidden: not counted</small>` : ""}</div>`).join("") : `<p class="text-sm text-gray-600">No ratings yet.</p>`}</div>
+            </div>
+          </div>`;
+        const refresh = () => { openProvider(p.id, { replace: true }); load(); };
+        // Coverage map: operating location and a straight-line guide circle.
+        (async () => {
+          const holder = view.body.querySelector("[data-map]");
+          holder.innerHTML = `<div class="tr-map"></div>`;
+          const map = await trBaseMap(holder.firstChild, { center: p.base_lat ? [p.base_lat, p.base_lng] : ZAMBIA_CENTER, zoom: 8 });
+          if (!map || !p.base_lat) return;
+          L.marker([p.base_lat, p.base_lng], { icon: trPin("base", "Operating location") }).addTo(map).bindTooltip("Operating location");
+          if (p.coverage_km) {
+            const circle = L.circle([p.base_lat, p.base_lng], { radius: p.coverage_km * 1000, color: p.coverage_active ? "#166534" : "#9ca3af", weight: 2, fillOpacity: 0.06 }).addTo(map);
+            map.fitBounds(circle.getBounds(), { padding: [10, 10] });
+          }
+        })();
+        view.body.querySelector("[data-coverage]").addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const f = e.target;
+          try {
+            const res = await withBusy(f.querySelector("button[type=submit]"), "Saving…", () => adminApi(`/api/admin/transport/providers/${p.id}/coverage`, { method: "PATCH", body: { coverage_km: f.coverage_km.value, coverage_active: f.coverage_active.checked ? "1" : "0" } }));
+            showNotification(res.message, "success");
+            refresh();
+          } catch (error) { showFieldErrors(f, error); showNotification(error.message, "error"); }
+        });
+        view.body.querySelectorAll("[data-status]").forEach((b) => b.addEventListener("click", async () => {
+          const action = b.dataset.status;
+          let note = null;
+          if (["reject", "suspend"].includes(action)) {
+            note = await trPrompt({ title: action === "reject" ? `Reject ${p.name}?` : `Suspend ${p.name}?`, label: "Reason (the provider is told)", required: true, confirmText: action === "reject" ? "Reject" : "Suspend", danger: true });
+            if (!note) return;
+          } else if (!(await confirmAction({ title: `${action === "approve" ? "Approve" : "Reinstate"} ${p.name}?`, message: action === "approve" ? "They can then receive requests once their coverage is set and switched on." : "They'll receive requests again.", confirmText: action === "approve" ? "Approve" : "Reinstate" }))) return;
+          const send = (extra = {}) => adminApi(`/api/admin/transport/providers/${p.id}/status`, { method: "PATCH", body: { action, note, ...extra } });
+          try {
+            const res = await send();
+            showNotification(res.message, "success");
+            refresh();
+          } catch (error) {
+            if (error.status === 409 && action === "suspend" && (await confirmAction({ title: "Suspend anyway?", message: error.message, confirmText: "Suspend", variant: "danger" }))) {
+              try { await send({ confirm_busy: true }); refresh(); } catch (e2) { showNotification(e2.message, "error"); }
+            } else showNotification(error.message, "error");
+          }
+        }));
+        view.body.querySelector("[data-active]").addEventListener("click", async () => {
+          try {
+            const res = await adminApi(`/api/admin/transport/providers/${p.id}/active`, { method: "PATCH", body: { is_active: !p.is_active } });
+            showNotification(res.message, "success");
+            refresh();
+          } catch (error) { showNotification(error.message, "error"); }
+        });
+        view.body.querySelectorAll("[data-vehicle]").forEach((b) => b.addEventListener("click", async () => {
+          try {
+            const res = await adminApi(`/api/admin/transport/vehicles/${b.dataset.vehicle}/status`, { method: "PATCH", body: { status: b.dataset.to } });
+            showNotification(res.message, "success");
+            refresh();
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+        view.body.querySelectorAll("[data-rating]").forEach((b) => b.addEventListener("click", async () => {
+          try {
+            const res = await adminApi(`/api/admin/transport/ratings/provider/${b.dataset.rating}`, { method: "PATCH", body: { hidden: b.dataset.hide === "1" } });
+            showNotification(res.message, "success");
+            refresh();
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+        view.body.querySelectorAll("[data-booking]").forEach((tr) => tr.addEventListener("click", () => { location.href = `/admin/transport.html?id=${tr.dataset.booking}`; }));
+        view.body.querySelector("[data-edit-base]").addEventListener("click", () => editBase(p));
+      }
+
+      function editBase(p) {
+        let picker = null;
+        openFormModal({
+          title: `Operating location of ${p.name}`,
+          wide: true,
+          body: `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div><label class="field-label" for="eb-prov">Province</label><select id="eb-prov" name="province" class="field-input">${ZAMBIA_PROVINCES.map((x) => `<option ${x === p.province ? "selected" : ""}>${x}</option>`).join("")}</select></div>
+              <div><label class="field-label" for="eb-dist">District</label><input id="eb-dist" name="district" class="field-input" value="${escapeHtml(p.district)}"><p class="field-error hidden" data-error-for="district"></p></div>
+              <div class="sm:col-span-2"><label class="field-label" for="eb-addr">Address</label><input id="eb-addr" name="address" class="field-input" value="${escapeHtml(p.address)}"><p class="field-error hidden" data-error-for="address"></p></div>
+            </div><div data-map class="mt-2"></div><p class="field-error hidden" data-error-for="base_point"></p>`,
+          submitText: "Save location",
+          onOpen: async (form) => { picker = await trPointPicker(form.querySelector("[data-map]"), { kind: "base", lat: p.base_lat, lng: p.base_lng, label: "Operating location" }); },
+          onSubmit: async (form) => {
+            const pt = picker && picker.get();
+            const res = await adminApi(`/api/admin/transport/providers/${p.id}`, { method: "PUT", body: { province: form.province.value, district: form.district.value.trim(), address: form.address.value.trim(), base_lat: pt ? pt.lat : "", base_lng: pt ? pt.lng : "" } });
+            showNotification(res.message, "success");
+            setTimeout(() => openProvider(p.id, { replace: true }), 50);
+          },
+        });
+      }
+
+      function exportExcel() {
+        const header = ["Provider", "Type", "Phone", "Email", "District", "Province", "Status", "Active", "Coverage km", "Coverage on", "Vehicles", "Completed", "Rating"];
+        const lines = state.rows.map((p) => [p.name, p.kind, p.phone, p.email, p.district, p.province, p.status, p.is_active ? "Yes" : "No", p.coverage_km ?? "", p.coverage_active ? "Yes" : "No", p.vehicles, p.completed, p.rating ?? ""]);
+        downloadXlsx(`frontier-transport-providers-${new Date().toISOString().slice(0, 10)}.xlsx`, "Providers", header, lines, { numberCols: [8, 10, 11, 12] });
+      }
+
+      (async () => {
+        await initAdminPage("transport-providers");
+        const q = getQueryParams();
+        if (q.status) state.status = q.status;
+        let timer;
+        document.getElementById("search").addEventListener("input", (e) => { clearTimeout(timer); timer = setTimeout(() => { state.q = e.target.value.trim(); load(); }, 300); });
+        document.getElementById("export").addEventListener("click", exportExcel);
+        await load();
+        if (q.id) openProvider(q.id);
+        window.addEventListener("admin:change", (e) => { if (e.detail.kind === "transport" && e.detail.change === "provider_registered") load(); });
+      })();
+    </script>
+  </body>
+</html>

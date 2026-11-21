@@ -17,6 +17,9 @@
     <script src="/js/cart.js"></script>
     <script src="/js/livestock.js"></script>
     <script src="/js/buyer.js"></script>
+    <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css" />
+    <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+    <script src="/js/transport-ui.js"></script>
   </head>
   <body class="bg-gray-50 min-h-screen account-page">
     <div id="account-header"></div>
@@ -138,10 +141,11 @@
         completed: { label: "Completed", cls: "so-done" },
         cancelled: { label: "Cancelled", cls: "so-off" },
       };
+      const toConfirm = (o) => o.stage === "sent" || Boolean(o.transport && o.transport.status === "awaiting_confirmation");
       const ORDER_TABS = [
         { key: "all", label: "All", test: () => true },
-        { key: "confirm", label: "To confirm", test: (o) => o.stage === "sent" },
-        { key: "progress", label: "In progress", test: (o) => o.stage === "paid" },
+        { key: "confirm", label: "To confirm", test: toConfirm },
+        { key: "progress", label: "In progress", test: (o) => o.stage === "paid" && !toConfirm(o) },
         { key: "done", label: "Completed", test: (o) => ["received", "completed"].includes(o.stage) },
         { key: "unpaid", label: "Not paid", test: (o) => ["unpaid", "cancelled"].includes(o.stage) },
       ];
@@ -159,7 +163,7 @@
         document.getElementById("shop-btn").hidden = name !== "orders";
         const url = new URL(location.href);
         url.searchParams.set("tab", name);
-        ["id", "confirm", "welcome"].forEach((k) => url.searchParams.delete(k));
+        ["id", "confirm", "welcome", "delivery"].forEach((k) => url.searchParams.delete(k));
         history.replaceState(null, "", url.pathname + url.search);
         if (name === "notifications") loadNotifications();
         if (name === "profile") fillProfile();
@@ -172,8 +176,12 @@
       }
 
       // -------------------------------------------------------------- orders
+      // Orders coming by transport show the delivery's status until it's done.
+      const stageOf = (o) => (o.transport && !["received", "completed", "cancelled", "unpaid"].includes(o.stage)
+        ? { label: o.transport.status === "awaiting_confirmation" ? "Confirm delivery" : o.transport.status_label, cls: o.transport.status === "awaiting_confirmation" ? "so-act" : TR_PILL[o.transport.group] || "so-open" }
+        : STAGES[o.stage]);
       function orderRow(o) {
-        const st = STAGES[o.stage];
+        const st = stageOf(o);
         return `
           <li>
             <button type="button" class="so-row" data-order="${o.id}">
@@ -206,7 +214,7 @@
           ? `<ul class="so-list">${rows.map(orderRow).join("")}</ul>`
           : `<div class="empty-state"><p class="font-semibold text-gray-800">Nothing here</p><p class="text-sm mt-1">Try another filter or search.</p></div>`;
         list.querySelectorAll("[data-order]").forEach((b) => b.addEventListener("click", () => openOrder(b.dataset.order)));
-        setBadge("orders", orders.filter((o) => o.stage === "sent").length);
+        setBadge("orders", orders.filter(toConfirm).length);
       }
       document.getElementById("order-search").addEventListener("input", (e) => { filter.q = e.target.value.trim().toLowerCase(); renderOrders(); });
 
@@ -225,6 +233,7 @@
         ${photoRow(byParty(o, "buyer"), "Your photo")}`;
 
       function nextStepHtml(o) {
+        if (o.transport && o.stage !== "unpaid") return `<div data-delivery><div class="acc-card"><span class="btn-spinner chat-spinner"></span></div></div>`;
         switch (o.stage) {
           case "unpaid":
             return `<div class="acc-card"><b>Not paid yet.</b> <span class="text-sm text-gray-600">${o.pay_url ? "You can pay now." : "We'll contact you."}</span></div>`;
@@ -266,7 +275,7 @@
 
       function paintOrder(view, o) {
         view.orderId = o.id;
-        const st = STAGES[o.stage];
+        const st = stageOf(o);
         const action = actionHtml(o);
         view.body.innerHTML = `
           <div class="sv-head">
@@ -300,6 +309,150 @@
           </div>
           ${action ? `<div class="acc-actionbar">${action}</div>` : ""}`;
         view.body.querySelector("[data-confirm]")?.addEventListener("click", () => openConfirm(o));
+        const deliveryBox = view.body.querySelector("[data-delivery]");
+        if (deliveryBox) loadDelivery(view, deliveryBox, o);
+        // Self-collection: rate Frontier once the order has been received.
+        else if (o.platform_rating && !o.platform_rating.rated && ["received", "completed"].includes(o.stage) && o.delivery_option !== "transport") {
+          const box = document.createElement("div");
+          box.className = "acc-card mt-4";
+          view.body.querySelector(".acc-order > div").appendChild(box);
+          ratePlatformForm(box, o.checkout_id, o);
+        }
+      }
+
+      // ---------------------------------------------- transport deliveries
+      let follow = null;
+      async function loadDelivery(view, box, o) {
+        let d;
+        try {
+          d = (await buyerApi(`/api/buyer/deliveries/${o.transport.id}`)).data;
+        } catch (error) {
+          box.innerHTML = `<div class="acc-card"><p class="text-sm text-red-600">${escapeHtml(error.message)}</p></div>`;
+          return;
+        }
+        view.deliveryId = d.id;
+        const tracking = ["collection_confirmed", "in_transit", "arrived", "delivery_submitted", "awaiting_confirmation"].includes(d.status) || (d.tracking.last && d.status !== "completed");
+        const dispute = d.disputes && d.disputes[0];
+        box.innerHTML = `
+          <div class="acc-card">
+            <div class="flex items-center justify-between gap-3 mb-3"><h2 class="txd-card-title !mb-0">Delivery ${escapeHtml(d.reference)}</h2>${trPill(d)}</div>
+            ${trProgressHtml(d.status)}
+            ${trProviderHtml(d)}
+            ${d.status === "awaiting_confirmation" ? `<div class="acc-card-warn acc-card mt-4"><b>The provider has delivered.</b><p class="text-sm text-gray-700 mt-1">Check the animals or feed, then confirm with your own photos, or report a problem. Your order is only completed once you confirm.</p>
+              <div class="tr-actions mt-3"><button type="button" class="acc-btn" data-d-confirm>${uiIcon("camera")}<span>Confirm successful delivery</span></button><button type="button" class="acc-mini-btn" data-d-dispute>Report a delivery problem</button></div></div>` : ""}
+            ${dispute ? `<div class="${dispute.status === "open" ? "tr-warn-box" : "tr-note-box"} mt-4"><b>${dispute.status === "open" ? "You reported a problem" : `Your report was resolved: ${dispute.resolution === "refund" ? "refund" : "delivered"}`}</b><p class="mt-1">${escapeHtml(dispute.description)}</p>${dispute.resolution_note ? `<p class="mt-1">Frontier: ${escapeHtml(dispute.resolution_note)}</p>` : ""}</div>` : ""}
+          </div>
+          ${tracking || d.tracking.route ? `<div class="acc-card mt-4"><h2 class="txd-card-title">Follow your delivery</h2><div data-track></div></div>` : ""}
+          <div class="acc-card mt-4"><h2 class="txd-card-title">Delivery details</h2>${trFactsHtml(d, { role: "customer" })}</div>
+          <div class="acc-card mt-4"><h2 class="txd-card-title">Collection and delivery records</h2>${trEvidenceHtml(d)}</div>
+          <div data-ratings></div>
+          <details class="acc-card mt-4 acc-more"><summary>History</summary>${trTimelineHtml(d.events)}</details>`;
+        box.querySelector("[data-d-confirm]")?.addEventListener("click", () => openDeliveryForm(o, d, "confirm"));
+        box.querySelector("[data-d-dispute]")?.addEventListener("click", () => openDeliveryForm(o, d, "dispute"));
+        const track = box.querySelector("[data-track]");
+        follow = track ? await trFollow(track, d, `/api/buyer/deliveries/${d.id}/track`, buyerApi) : null;
+        paintRatings(box.querySelector("[data-ratings]"), d, o);
+      }
+
+      function paintRatings(holder, d, o) {
+        const parts = [];
+        if (d.rating) parts.push(`<div class="acc-card mt-4"><b>You rated ${escapeHtml(d.provider ? d.provider.name : "the provider")}</b><p class="mt-1">${trStarsHtml(d.rating.stars)}</p>${d.rating.feedback ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(d.rating.feedback)}"</p>` : ""}</div>`);
+        else if (d.can.rate_provider) parts.push(`<div class="acc-card mt-4" data-rate-provider></div>`);
+        if (d.platform && d.platform.rated) parts.push(`<div class="acc-card mt-4"><b>You rated Frontier Marketplace</b><p class="mt-1">${trStarsHtml(d.platform.rated.stars)}</p></div>`);
+        else if (d.platform && d.platform.eligible) parts.push(`<div class="acc-card mt-4" data-rate-platform></div>`);
+        holder.innerHTML = parts.join("");
+        const rp = holder.querySelector("[data-rate-provider]");
+        if (rp) trRatingForm(rp, {
+          title: `Rate the transport provider${d.provider ? `: ${d.provider.name}` : ""}`,
+          hint: "How were their reliability, communication, timeliness and handling of your animals or feed?",
+          name: "provider_stars",
+          onSubmit: async (v) => {
+            const res = await buyerApi(`/api/buyer/deliveries/${d.id}/rating`, { method: "POST", body: v });
+            showNotification(res.message, "success");
+            openOrder(o.id, { replace: true });
+          },
+        });
+        const pp = holder.querySelector("[data-rate-platform]");
+        if (pp) ratePlatformForm(pp, d.checkout_id, o);
+      }
+
+      function ratePlatformForm(holder, checkoutId, o) {
+        const id = checkoutId || o.checkout_id;
+        if (!id) return;
+        trRatingForm(holder, {
+          title: "Rate Frontier Marketplace",
+          hint: "How was buying on Frontier Marketplace, from finding your order to receiving it?",
+          name: "platform_stars",
+          onSubmit: async (v) => {
+            const res = await buyerApi(`/api/buyer/checkouts/${id}/rating`, { method: "POST", body: v });
+            showNotification(res.message, "success");
+            await loadOrders();
+            openOrder(o.id, { replace: true });
+          },
+        });
+      }
+
+      // Confirm the delivery (with photos), or report a problem (with photos).
+      function openDeliveryForm(o, d, kind) {
+        const confirm = kind === "confirm";
+        const view = openAdminView({ title: confirm ? "Confirm delivery" : "Report a problem", params: { id: o.id, [kind]: 1 } });
+        view.el.classList.add("confirm-view");
+        const live = d.orders.filter((x) => !x.cancelled);
+        const delivered = (x) => { const q = d.quantities.find((r) => r.stage === "provider_delivered" && Number(r.order_id) === Number(x.id)); return q ? q.quantity : x.quantity; };
+        view.body.innerHTML = `
+          <form class="acc-confirm" novalidate>
+            <h1 class="admin-view-title">${confirm ? "Confirm successful delivery" : "Report a delivery problem"}</h1>
+            <div class="acc-card">
+              <p class="text-sm text-gray-700">The provider recorded delivering:</p>
+              <ul class="tr-qty">${live.map((x) => `<li><span>${escapeHtml(x.title)}</span><b>${delivered(x)} of ${x.quantity}</b></li>`).join("")}</ul>
+            </div>
+            ${confirm ? "" : `<div class="acc-card">
+              <p class="field-label">What's wrong?</p>
+              <div class="tp-choice">${Object.entries(d.dispute_reasons).map(([k, v]) => `<label><input type="radio" name="reason" value="${k}"><span>${escapeHtml(v)}</span></label>`).join("")}</div>
+              <p class="field-error hidden" data-error-for="reason"></p>
+              <label class="field-label mt-4" for="dd-desc">Describe the problem</label>
+              <textarea id="dd-desc" name="description" rows="3" maxlength="2000" class="field-input" placeholder="e.g. Only 4 goats arrived; one is missing."></textarea>
+              <p class="field-error hidden" data-error-for="description"></p>
+            </div>`}
+            <div class="acc-card">
+              <p class="field-label">${confirm ? "Your photos of what you received" : "Photos showing the problem"} <span class="text-gray-400 font-normal">(1 to 6)</span></p>
+              <div class="acc-ph-grid" data-photos></div>
+              <p class="field-error hidden" data-error-for="images"></p>
+            </div>
+            ${confirm ? `<div class="acc-card">
+              <label for="dc-note" class="field-label">Anything to add? <span class="text-gray-400 font-normal">(optional)</span></label>
+              <textarea id="dc-note" name="note" rows="2" maxlength="500" class="field-input" placeholder="e.g. All arrived healthy."></textarea>
+              <label class="co-terms-box mt-3"><input type="checkbox" name="agree"><span>I've checked the goods and received everything listed above</span></label>
+              <p class="field-error hidden" data-error-for="agree"></p>
+            </div>` : ""}
+            <div class="acc-actionbar"><button type="submit" class="acc-btn" data-submit>${confirm ? "Confirm successful delivery" : "Send the report"}</button></div>
+          </form>`;
+        const form = view.body.querySelector("form");
+        const picker = bindPhotoPicker(form.querySelector("[data-photos]"), 6, (n) => { if (n) form.querySelector('[data-error-for="images"]').classList.add("hidden"); });
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const errors = {};
+          if (!picker.files().length) errors.images = "Please add at least one photo.";
+          if (confirm && !form.agree.checked) errors.agree = "Please tick the box to confirm.";
+          if (!confirm && !form.querySelector('input[name="reason"]:checked')) errors.reason = "Please choose one.";
+          if (!confirm && form.description.value.trim().length < 10) errors.description = "Please describe the problem.";
+          if (Object.keys(errors).length) return showFieldErrors(form, { errors });
+          const fd = new FormData();
+          picker.files().forEach((f) => fd.append("images", f));
+          if (confirm) { fd.append("agree", "1"); fd.append("note", form.note.value.trim()); }
+          else { fd.append("reason", form.querySelector('input[name="reason"]:checked').value); fd.append("description", form.description.value.trim()); }
+          try {
+            const res = await withBusy(form.querySelector("[data-submit]"), "Sending…", () =>
+              buyerApi(`/api/buyer/deliveries/${d.id}/${confirm ? "confirm" : "dispute"}`, { method: "POST", body: fd }));
+            showNotification(res.message, "success");
+            await view.close(true);
+            await loadOrders();
+            if (orderView) openOrder(o.id, { replace: true });
+          } catch (error) {
+            showFieldErrors(form, error);
+            showNotification(error.message, "error");
+          }
+        });
       }
 
       // ------------------------------------------- confirm with photos
@@ -487,6 +640,11 @@
       // ---------------------------------------------------- go to / live
       async function goTo(q) {
         setTab(q.tab || "orders");
+        // A delivery link (from a notification or email): open its order.
+        if (q.delivery && !q.id) {
+          const o = orders.find((x) => x.transport && String(x.transport.id) === String(q.delivery));
+          if (o) q = { ...q, id: o.id };
+        }
         if ((q.tab || "orders") === "orders" && q.id) {
           await openOrder(q.id);
           const o = orders.find((x) => String(x.id) === String(q.id));
@@ -503,6 +661,16 @@
           setBadge("notifications", unread);
           showNotification(notification.title, "info");
           if (!document.getElementById("tab-notifications").hidden) loadNotifications();
+        });
+        es.addEventListener("transport", async (e) => {
+          let data = {};
+          try { data = JSON.parse(e.data); } catch { return; }
+          if (data.change === "location") {
+            if (follow && orderView && orderView.deliveryId === data.booking_id) follow.push();
+            return;
+          }
+          await loadOrders();
+          if (orderView && orderView.deliveryId === data.booking_id && !document.querySelector(".confirm-view") && !trEditing(orderView.el)) openOrder(orderView.orderId, { replace: true });
         });
         es.addEventListener("order", async () => {
           await loadOrders();

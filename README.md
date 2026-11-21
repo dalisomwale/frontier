@@ -257,6 +257,60 @@ The same events also appear in the seller dashboard straight away: a bell with a
     where the payment is checked with Lipila before anything is marked paid.
     A declined card can be tried again, or the buyer switches to mobile money.
 
+## Transport (Include transport at checkout)
+
+At checkout the buyer chooses **Self-collection** (the existing flow, unchanged) or
+**Include transport**. With transport they give the province, district, address,
+who receives it and the exact point on a map. The server then, for each seller in
+the cart (one journey per pickup point, never combined):
+
+1. takes the seller's pickup point (sellers set it in their profile; Frontier's own
+   stock uses Frontier's pickup point, Admin > Transport pricing);
+2. gets the **road** distance from the routing service (`ROUTING_PROVIDER` in .env);
+3. prices it with the active band for that distance (base fee + price per km);
+4. checks that at least one approved provider could take it right now.
+
+The buyer sees products, transport and the total before paying. Everything is
+worked out again on the server when the order is placed; nothing the browser
+sends about fees is used. Each order's total stays the product price; the
+checkout's amount to pay adds the transport fees (`checkouts.transport_total`,
+`transport_bookings.fee`).
+
+**After payment.** Bookings go to providers only once the payment is confirmed
+by Lipila / Lenco's status check, or when the team marks every order of the cart
+Paid. Eligible providers are approved and active, available, have coverage
+switched on (set by Frontier only) that includes both the pickup and the
+destination by road from their operating location, and have a free active
+vehicle that can carry the load. Requests not accepted within the acceptance
+window are emailed to the team; nothing is cancelled automatically.
+
+**The delivery.** One provider accepts with one of their vehicles (row locks stop
+two providers or two deliveries taking the same booking or vehicle). The seller
+and the provider each record the collection on their own (photos, quantities,
+livestock IDs, discrepancies; never overwritten), the seller confirms, the
+provider starts and their phone shares its GPS position, arrives, and records the
+delivery with photos. The buyer checks the goods and confirms with their own
+photos, or reports a problem (the team resolves it: delivered or refund). On
+confirmation the orders are marked delivered, received and handed over, so the
+seller's payout continues in Admin > Payouts. The buyer then rates the provider
+and Frontier; self-collection buyers rate Frontier once they've confirmed receipt.
+
+Status changes only happen through `server/lib/transport/core.js` (`transition()`),
+which refuses skipped steps, and every change is in `transport_events`.
+
+| Who | Where |
+|---|---|
+| Buyer | Checkout; My orders > order > Delivery (tracking, confirm, report, rate) |
+| Seller | Profile > Pickup point; Orders > order > Transport (ready, handover, confirm) |
+| Transport provider | `/transport/` (register, vehicles, requests, deliveries, GPS, ratings) |
+| Frontier | Admin > Transport: Deliveries (incl. live map), Transport providers, Pricing & settings; Admin > Feedback |
+
+Code: `server/lib/transport/` (core, pricing, matching, bookings, views, notify,
+jobs), `server/routes/transport.js` (providers), `server/routes/admin/transport.js`,
+`public/js/transport-ui.js`, `public/js/transport.js`, `public/transport/`.
+Provider and vehicle papers are stored privately in `storage/transport/`
+(not under `public/`): back that folder up with the uploads.
+
 ## Livestock and feed
 
 - **Browse Categories** in the header has two groups. **Livestock**: Cattle,
