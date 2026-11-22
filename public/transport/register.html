@@ -73,6 +73,12 @@
                 <p class="field-error hidden" data-error-for="address"></p>
               </div>
             </div>
+            <div class="sm:col-span-2">
+              <label for="preferred_coverage_km" class="field-label">Preferred coverage radius</label>
+              <div class="tr-km-row"><input id="preferred_coverage_km" name="preferred_coverage_km" type="number" min="5" max="1000" step="1" inputmode="numeric" class="field-input" placeholder="e.g. 100" required /><span>km by road from your address</span></div>
+              <p class="text-xs text-gray-500 mt-1">How far you're willing to travel to collect and deliver. Frontier confirms it when approving your account.</p>
+              <p class="field-error hidden" data-error-for="preferred_coverage_km"></p>
+            </div>
           </div>
 
           <div>
@@ -179,7 +185,7 @@
           showFieldErrors(form, { errors: { confirm_password: "The passwords don't match." } });
           return form.confirm_password.focus();
         }
-        ["name", "contact_person", "phone", "email", "province", "district", "address", "password", "confirm_password"].forEach((k) => fd.append(k, form[k].value.trim()));
+        ["name", "contact_person", "phone", "email", "province", "district", "address", "preferred_coverage_km", "password", "confirm_password"].forEach((k) => fd.append(k, form[k].value.trim()));
         fd.append("kind", kind());
         if (basePoint) { fd.append("base_lat", basePoint.lat); fd.append("base_lng", basePoint.lng); }
         if (form.accept_terms.checked) fd.append("accept_terms", "1");

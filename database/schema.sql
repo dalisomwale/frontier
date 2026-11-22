@@ -505,6 +505,8 @@ CREATE TABLE IF NOT EXISTS transport_providers (
   is_available        TINYINT(1) NOT NULL DEFAULT 1,
   coverage_km         DECIMAL(7,1) NULL,
   coverage_active     TINYINT(1) NOT NULL DEFAULT 0,
+  preferred_coverage_km DECIMAL(7,1) NULL,
+  preferred_coverage_at DATETIME NULL,
   admin_note          VARCHAR(500) NULL,
   approved_at         DATETIME NULL,
   last_login_at       DATETIME NULL,

@@ -54,6 +54,7 @@ router.get("/overview", async (req, res, next) => {
     );
     const [[late]] = await pool.query("SELECT COUNT(*) AS n FROM transport_bookings WHERE status IN ('in_transit', 'arrived') AND delay_alert_at IS NOT NULL");
     const [[slow]] = await pool.query("SELECT COUNT(*) AS n FROM transport_bookings WHERE status IN (?) AND unaccepted_alert_at IS NOT NULL", [bookings.ACCEPTABLE]);
+    const [[asks]] = await pool.query("SELECT COUNT(*) AS n FROM transport_providers WHERE status = 'approved' AND preferred_coverage_km IS NOT NULL AND (coverage_km IS NULL OR preferred_coverage_km <> coverage_km)");
     const [[nopickup]] = await pool.query("SELECT COUNT(*) AS n FROM sellers WHERE account_status = 'approved' AND status = 'active' AND (pickup_lat IS NULL OR pickup_lng IS NULL)");
     const settings = await core.getSettings();
     const bands = await core.activeBands();
@@ -64,7 +65,7 @@ router.get("/overview", async (req, res, next) => {
         providers: { pending: n(p.pending) || 0, approved: n(p.approved) || 0, suspended: n(p.suspended) || 0, covering: n(p.covering) || 0 },
         vehicles: Number(v.n),
         money: { fees: Number(money.fees), owed_providers: Number(money.owed_providers), refunds_due: Number(money.refunds_due) },
-        alerts: { delayed: Number(late.n), unaccepted: Number(slow.n), sellers_without_pickup: Number(nopickup.n) },
+        alerts: { delayed: Number(late.n), unaccepted: Number(slow.n), sellers_without_pickup: Number(nopickup.n), coverage_requests: Number(asks.n) },
         routing: views.routingStatus(),
         geocoder: routing.geocoderName(),
         enabled: settings.enabled,
@@ -259,6 +260,9 @@ function providerRow(p) {
     base_lat: n(p.base_lat), base_lng: n(p.base_lng), registration_number: p.registration_number, licence_number: p.licence_number,
     status: p.status, is_active: Boolean(p.is_active), is_available: Boolean(p.is_available),
     coverage_km: n(p.coverage_km), coverage_active: Boolean(p.coverage_active), admin_note: p.admin_note,
+    preferred_coverage_km: n(p.preferred_coverage_km), preferred_coverage_at: p.preferred_coverage_at,
+    // The provider asks for a coverage different from the one Frontier set.
+    coverage_request: p.preferred_coverage_km !== null && (p.coverage_km === null || Number(p.preferred_coverage_km) !== Number(p.coverage_km)),
     approved_at: p.approved_at, created_at: p.created_at, last_login_at: p.last_login_at,
     vehicles: n(p.vehicles), completed: n(p.completed), active: n(p.active), documents: n(p.documents),
     rating: p.rating === null || p.rating === undefined ? null : Number(p.rating), ratings: n(p.ratings) || 0,
@@ -346,6 +350,10 @@ router.patch("/providers/:id/status", async (req, res, next) => {
       `UPDATE transport_providers SET status = ?, admin_note = ?, approved_at = IF(? = 'approved', COALESCE(approved_at, NOW()), approved_at) WHERE id = ?`,
       [next0, note, next0, id],
     );
+    // Approved without a coverage yet: their preferred distance becomes it.
+    if (action === "approve" && p.coverage_km === null && p.preferred_coverage_km !== null) {
+      await pool.query("UPDATE transport_providers SET coverage_km = preferred_coverage_km, coverage_active = 1 WHERE id = ? AND coverage_km IS NULL", [id]);
+    }
     if (action === "suspend" || action === "reject") {
       await pool.query("UPDATE transport_offers o JOIN transport_bookings b ON b.id = o.booking_id SET o.status = 'withdrawn', o.responded_at = NOW() WHERE o.provider_id = ? AND o.status = 'offered'", [id]);
     }

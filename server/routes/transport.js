@@ -33,8 +33,19 @@ const RESET_HOURS = 1;
 // passport (if any). The rest can be added later from the dashboard.
 const DOC_TYPES = { nrc: "NRC", drivers_licence: "Driver's licence", passport: "Passport", permit: "Transport permit", registration: "Business registration", insurance: "Insurance", licence: "Driving / transport licence", id: "National ID / passport", other: "Other" };
 const REQUIRED_DOCS = { nrc: "NRC", drivers_licence: "driver's licence" };
+// How far a provider would like to travel (km by road from their address).
+// Frontier confirms it as their coverage.
+const MIN_KM = 5;
+const MAX_KM = 1000;
+function preferredKm(value) {
+  const km = Number(value);
+  if (value === undefined || value === null || value === "" || !Number.isFinite(km)) return { error: "Please enter how far you're willing to travel, in km." };
+  if (km < MIN_KM || km > MAX_KM) return { error: `Please enter a distance from ${MIN_KM} to ${MAX_KM} km.` };
+  return { km: Math.round(km) };
+}
 const PROVIDER_FIELDS = `id, kind, name, contact_person, phone, email, province, district, address, base_label, base_lat, base_lng,
-  registration_number, licence_number, status, is_active, is_available, coverage_km, coverage_active, admin_note, approved_at, created_at`;
+  registration_number, licence_number, status, is_active, is_available, coverage_km, coverage_active,
+  preferred_coverage_km, preferred_coverage_at, admin_note, approved_at, created_at`;
 
 // A custom header a cross-site form cannot send.
 router.use((req, res, next) => {
@@ -58,6 +69,7 @@ async function loadProvider(id) {
     is_available: Boolean(p.is_available),
     coverage_active: Boolean(p.coverage_active),
     coverage_km: p.coverage_km === null ? null : Number(p.coverage_km),
+    preferred_coverage_km: p.preferred_coverage_km === null ? null : Number(p.preferred_coverage_km),
     base_lat: p.base_lat === null ? null : Number(p.base_lat),
     base_lng: p.base_lng === null ? null : Number(p.base_lng),
   };
@@ -131,9 +143,11 @@ function registrationPayload(body) {
   else if (province && PROVINCES.includes(province) && !zambiaDistricts.match(province, district)) errors.district = `Please choose one of ${province} Province's districts.`;
   if (!address || address.length < 3) errors.address = "Please enter your physical address.";
   if (base && !require("../lib/transport/pricing").inZambia(base)) errors.address = "This address must be in Zambia.";
+  const pref = preferredKm(body.preferred_coverage_km);
+  if (pref.error) errors.preferred_coverage_km = pref.error;
   return {
     errors,
-    data: { kind, name, contact_person: contactPerson || null, phone, email: email && email.toLowerCase(), province, district: (province && zambiaDistricts.match(province, district)) || district, address, base_label: base ? address : null, base_lat: base && base.lat, base_lng: base && base.lng, registration_number: null, licence_number: null },
+    data: { kind, name, contact_person: contactPerson || null, phone, email: email && email.toLowerCase(), province, district: (province && zambiaDistricts.match(province, district)) || district, address, base_label: base ? address : null, base_lat: base && base.lat, base_lng: base && base.lng, registration_number: null, licence_number: null, preferred_coverage_km: pref.km || null },
   };
 }
 
@@ -197,10 +211,10 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
     await conn.beginTransaction();
     const [r] = await conn.query(
       `INSERT INTO transport_providers (kind, name, contact_person, phone, email, province, district, address, base_label, base_lat, base_lng,
-         registration_number, licence_number, password_hash, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+         registration_number, licence_number, preferred_coverage_km, preferred_coverage_at, password_hash, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, 'pending')`,
       [data.kind, data.name, data.contact_person, data.phone, data.email, data.province, data.district, data.address, data.base_label, data.base_lat, data.base_lng,
-        data.registration_number, data.licence_number, await bcrypt.hash(password, 12)],
+        data.registration_number, data.licence_number, data.preferred_coverage_km, await bcrypt.hash(password, 12)],
     );
     saved = await storeDocuments(conn, r.insertId, req.files, docTypesOf(req.body));
     await conn.commit();
@@ -217,7 +231,7 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
       subject: `New transport provider registration: ${data.name}`,
       heading: "A transport provider is waiting for approval",
       paragraphs: ["Please review their details and documents, then approve or reject them and set their coverage."],
-      rows: [["Name", data.name], ["Type", data.kind === "company" ? "Company" : "Individual"], ["Phone", data.phone], ["Email", data.email], ["Area", `${data.district}, ${data.province}`], ["Address", data.address], ["Documents", req.files.map((f, i) => DOC_TYPES[docTypesOf(req.body)[i]] || "Other").join(", ")],
+      rows: [["Name", data.name], ["Type", data.kind === "company" ? "Company" : "Individual"], ["Phone", data.phone], ["Email", data.email], ["Area", `${data.district}, ${data.province}`], ["Address", data.address], ["Preferred coverage", `${data.preferred_coverage_km} km`], ["Documents", req.files.map((f, i) => DOC_TYPES[docTypesOf(req.body)[i]] || "Other").join(", ")],
         ["Operating location", data.base_lat === null || data.base_lat === undefined ? "Not found on the map: set it before approving" : data.base_label && data.base_label.startsWith("Approximate") ? "Approximate (the address wasn't found exactly): check it before approving" : "From the address"]],
       button: { label: "Review the provider", url: appUrl(`/admin/transport-providers?id=${r.insertId}`) },
     });
@@ -347,6 +361,30 @@ router.patch("/me/availability", requireProvider, async (req, res, next) => {
     const on = req.body.available === true || req.body.available === "1" || req.body.available === "true";
     await pool.query("UPDATE transport_providers SET is_available = ? WHERE id = ?", [on ? 1 : 0, req.provider.id]);
     res.json({ success: true, message: on ? "You're available for new requests." : "You won't get new requests until you switch this back on.", data: await loadProvider(req.provider.id) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// The provider changes how far they'd like to travel. Frontier is told and
+// decides whether to change their coverage (Admin > Transport providers).
+router.patch("/me/coverage", requireProvider, async (req, res, next) => {
+  try {
+    const pref = preferredKm(req.body.preferred_coverage_km);
+    if (pref.error) throw validationError({ preferred_coverage_km: pref.error });
+    const p = req.provider;
+    if (pref.km === p.preferred_coverage_km) return res.json({ success: true, message: "No change.", data: p });
+    await pool.query("UPDATE transport_providers SET preferred_coverage_km = ?, preferred_coverage_at = NOW() WHERE id = ?", [pref.km, p.id]);
+    sendEmail({
+      to: recipients(),
+      subject: `${p.name} asks for ${pref.km} km coverage`,
+      heading: "A transport provider changed their preferred coverage",
+      paragraphs: [`${p.name} would like to cover ${pref.km} km by road from their address${p.coverage_km ? ` (their coverage is ${p.coverage_km} km${p.coverage_active ? "" : ", switched off"})` : " (no coverage set yet)"}. Open their page to accept it or keep the current coverage.`],
+      rows: [["Provider", p.name], ["Phone", p.phone], ["Area", `${p.district}, ${p.province}`], ["Preferred", `${pref.km} km`], ["Current", p.coverage_km ? `${p.coverage_km} km` : "Not set"]],
+      button: { label: "Review coverage", url: appUrl(`/admin/transport-providers?id=${p.id}`) },
+    });
+    notifications.broadcastAdmin("transport", { change: "coverage_request", provider_id: p.id });
+    res.json({ success: true, message: `Sent to Frontier: ${pref.km} km. Your coverage changes once Frontier confirms it.`, data: await loadProvider(p.id) });
   } catch (error) {
     next(error);
   }

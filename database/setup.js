@@ -349,6 +349,11 @@ async function main() {
     ["vehicle_type", "VARCHAR(60) NULL AFTER vehicle_registration"],
     ["on_hold", "TINYINT(1) NOT NULL DEFAULT 0 AFTER vehicle_type"],
   ], "transport bookings record the vehicle used");
+  // Providers state how far they'd like to travel; Frontier sets the coverage.
+  await addColumns("transport_providers", [
+    ["preferred_coverage_km", "DECIMAL(7,1) NULL AFTER coverage_active"],
+    ["preferred_coverage_at", "DATETIME NULL AFTER preferred_coverage_km"],
+  ], "transport providers can state a preferred coverage");
   const [[partyColumn]] = await conn.query(
     "SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = ? AND table_name = 'order_receipt_photos' AND column_name = 'party'",
     [DB_NAME],

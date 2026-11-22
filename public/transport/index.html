@@ -486,12 +486,20 @@
                 <div><dt>Name</dt><dd>${escapeHtml(me.name)}${me.kind === "company" ? " (company)" : ""}</dd></div>
                 <div><dt>Status</dt><dd>${escapeHtml(statusText)}${me.is_active ? "" : " · deactivated"}</dd></div>
                 <div><dt>Area</dt><dd>${escapeHtml(`${me.district}, ${me.province}`)}</dd></div>
-                <div><dt>Coverage (set by Frontier)</dt><dd>${me.coverage_active && me.coverage_km ? `${me.coverage_km} km by road from your operating location` : "Not set yet"}</dd></div>
+                <div><dt>Coverage (confirmed by Frontier)</dt><dd>${me.coverage_active && me.coverage_km ? `${me.coverage_km} km by road from your address` : me.coverage_km ? `${me.coverage_km} km (switched off by Frontier)` : "Not set yet"}</dd></div>
                 ${me.licence_number ? `<div><dt>Licence / permit</dt><dd>${escapeHtml(me.licence_number)}</dd></div>` : ""}
                 ${me.registration_number ? `<div><dt>Business registration</dt><dd>${escapeHtml(me.registration_number)}</dd></div>` : ""}
               </dl>
               <p class="text-sm text-gray-500 mt-3">Your coverage is measured from your physical address. To change your address or area, please contact Frontier.</p>
             </div>
+            <form class="acc-card" data-coverage novalidate><h2 class="txd-card-title">Coverage radius</h2>
+              <p class="text-sm text-gray-600">How far you're willing to travel, by road from your address. Frontier confirms a change before it applies to new requests.</p>
+              <label class="field-label mt-3" for="p-km">Preferred coverage</label>
+              <div class="tr-km-row"><input id="p-km" name="preferred_coverage_km" type="number" min="5" max="1000" step="1" inputmode="numeric" class="field-input" value="${me.preferred_coverage_km ?? me.coverage_km ?? ""}"><span>km</span></div>
+              <p class="field-error hidden" data-error-for="preferred_coverage_km"></p>
+              ${me.preferred_coverage_km !== null && me.preferred_coverage_km !== me.coverage_km ? `<p class="tr-note-box mt-3">You asked for <b>${me.preferred_coverage_km} km</b>. Waiting for Frontier to confirm${me.coverage_km ? `; until then your coverage stays ${me.coverage_km} km` : ""}.</p>` : ""}
+              <button type="submit" class="acc-btn mt-4">Send to Frontier</button>
+            </form>
             <form class="acc-card" data-contact novalidate><h2 class="txd-card-title">Contact details</h2>
               <div class="space-y-4">
                 ${me.kind === "company" ? `<div><label class="field-label" for="p-cp">Contact person</label><input id="p-cp" name="contact_person" class="field-input" maxlength="120" value="${escapeHtml(me.contact_person || "")}"></div>` : ""}
@@ -532,6 +540,16 @@
             me = { ...me, ...res.data };
             showNotification(res.message, "success");
           } catch (error) { showFieldErrors(contact, error); showNotification(error.message, "error"); }
+        });
+        const cov = box.querySelector("[data-coverage]");
+        cov.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          try {
+            const res = await withBusy(cov.querySelector("button[type=submit]"), "Sending…", () => transportApi("/api/transport/me/coverage", { method: "PATCH", body: { preferred_coverage_km: cov.preferred_coverage_km.value } }));
+            me = { ...me, ...res.data };
+            showNotification(res.message, "success");
+            renderProfile();
+          } catch (error) { showFieldErrors(cov, error); showNotification(error.message, "error"); }
         });
         const docForm = box.querySelector("[data-docs]");
         docForm.addEventListener("submit", async (e) => {
