@@ -80,17 +80,17 @@
             <div class="tr-doc-slots">
               <div class="tr-doc-slot" data-slot="nrc">
                 <span><b>NRC</b> <span class="text-red-500">*</span><small data-file>No file chosen</small></span>
-                <button type="button" class="acc-mini-btn" data-pick>Upload</button>
+                <button type="button" class="tr-doc-btn" data-pick><span data-icon="upload"></span></button>
                 <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" hidden />
               </div>
               <div class="tr-doc-slot" data-slot="drivers_licence">
                 <span><b>Driver's licence</b> <span class="text-red-500">*</span><small data-file>No file chosen</small></span>
-                <button type="button" class="acc-mini-btn" data-pick>Upload</button>
+                <button type="button" class="tr-doc-btn" data-pick><span data-icon="upload"></span></button>
                 <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" hidden />
               </div>
               <div class="tr-doc-slot" data-slot="passport">
                 <span><b>Passport</b> <span class="text-gray-400 font-normal">(if any)</span><small data-file>No file chosen</small></span>
-                <button type="button" class="acc-mini-btn" data-pick>Upload</button>
+                <button type="button" class="tr-doc-btn" data-pick><span data-icon="upload"></span></button>
                 <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" hidden />
               </div>
             </div>
@@ -105,6 +105,14 @@
             </div>
             <p class="field-error hidden" data-error-for="password"></p>
           </div>
+          <div>
+            <label for="confirm_password" class="field-label">Confirm password</label>
+            <div class="relative">
+              <input id="confirm_password" name="confirm_password" type="password" class="field-input pr-12" autocomplete="new-password" required />
+              <button type="button" data-toggle-password="confirm_password" class="absolute inset-y-0 right-0 px-3 text-gray-400" aria-label="Show password"></button>
+            </div>
+            <p class="field-error hidden" data-error-for="confirm_password"></p>
+          </div>
 
           <label class="co-terms-box"><input type="checkbox" name="accept_terms" value="1"><span>I accept the <a href="/terms" target="_blank" rel="noopener">terms</a>, and confirm the details and documents are true.</span></label>
           <p class="field-error hidden" data-error-for="accept_terms"></p>
@@ -117,6 +125,7 @@
 
     <script>
       document.getElementById("page-header").innerHTML = transportPageHeader();
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
       bindPasswordToggles();
       const form = document.getElementById("register-form");
       const alertBox = document.getElementById("form-alert");
@@ -128,6 +137,9 @@
       form.querySelectorAll("[data-slot]").forEach((slot) => {
         const input = slot.querySelector("input[type=file]");
         const btn = slot.querySelector("[data-pick]");
+        const what = slot.querySelector("b").textContent;
+        btn.setAttribute("aria-label", `Upload ${what}`);
+        btn.title = `Upload ${what}`;
         btn.addEventListener("click", () => input.click());
         input.addEventListener("change", () => {
           const f = input.files[0];
@@ -138,7 +150,8 @@
           docs[slot.dataset.slot] = f;
           slot.querySelector("[data-file]").textContent = f.name;
           slot.classList.add("has-file");
-          btn.textContent = "Change";
+          btn.setAttribute("aria-label", `Change ${what} file`);
+          btn.title = `Change ${what} file`;
           form.querySelector('[data-error-for="documents"]').classList.add("hidden");
         });
       });
@@ -162,7 +175,11 @@
         e.preventDefault();
         alertBox.classList.add("hidden");
         const fd = new FormData();
-        ["name", "contact_person", "phone", "email", "province", "district", "address", "password"].forEach((k) => fd.append(k, form[k].value.trim()));
+        if (form.password.value !== form.confirm_password.value) {
+          showFieldErrors(form, { errors: { confirm_password: "The passwords don't match." } });
+          return form.confirm_password.focus();
+        }
+        ["name", "contact_person", "phone", "email", "province", "district", "address", "password", "confirm_password"].forEach((k) => fd.append(k, form[k].value.trim()));
         fd.append("kind", kind());
         if (basePoint) { fd.append("base_lat", basePoint.lat); fd.append("base_lng", basePoint.lng); }
         if (form.accept_terms.checked) fd.append("accept_terms", "1");

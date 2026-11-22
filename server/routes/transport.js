@@ -166,6 +166,7 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
     const password = typeof req.body.password === "string" ? req.body.password : "";
     const problem = passwordRules.problem(password, { email: data.email, phone: data.phone });
     if (problem) errors.password = problem;
+    if (req.body.confirm_password !== undefined && req.body.confirm_password !== password) errors.confirm_password = "The passwords don't match.";
     if (!["1", "true", "on"].includes(String(req.body.accept_terms))) errors.accept_terms = "Please tick the box to accept the terms.";
     const types = docTypesOf(req.body);
     const missing = Object.keys(REQUIRED_DOCS).filter((t) => !types.slice(0, (req.files || []).length).includes(t));
