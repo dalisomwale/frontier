@@ -1,5 +1,5 @@
 // Top bar menus on the public pages: Livestock ▾ and Feed ▾ (big panels on
-// desktop) and Sell with us; on phones a ☰ button opens a full-screen menu
+// desktop); on phones a ☰ button opens a full-screen menu
 // with Livestock / Feed tabs. Any header with [data-site-nav] gets it.
 //
 // Both panels list every animal / feed type with its purposes / stages
@@ -147,7 +147,6 @@
       <div class="snav-seg"><button type="button" data-sheet-tab="livestock" class="is-on">Livestock</button><button type="button" data-sheet-tab="feed">Feed</button></div>
       <div class="snav-sheet-body" data-sheet-body></div>
       <div class="snav-sheet-foot">
-        <a href="/seller/register" class="snav-sell">Sell with us</a>
         <span data-sheet-auth></span>
       </div>`;
     document.body.appendChild(sheet);
@@ -194,8 +193,7 @@
     header.classList.add("has-site-nav");
     slot.innerHTML = `
       <button type="button" class="snav-tab" data-nav-tab="livestock" aria-haspopup="true" aria-expanded="false">Livestock <span class="snav-caret" aria-hidden="true">▾</span></button>
-      <button type="button" class="snav-tab" data-nav-tab="feed" aria-haspopup="true" aria-expanded="false">Feed <span class="snav-caret" aria-hidden="true">▾</span></button>
-      <a class="snav-tab" href="/seller/register">Sell with us</a>`;
+      <button type="button" class="snav-tab" data-nav-tab="feed" aria-haspopup="true" aria-expanded="false">Feed <span class="snav-caret" aria-hidden="true">▾</span></button>`;
     panel = document.createElement("div");
     panel.className = "snav-panel";
     panel.hidden = true;
