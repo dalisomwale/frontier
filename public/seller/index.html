@@ -1161,67 +1161,35 @@
         const theirs = d.submissions.find((x) => x.stage === "provider_collection");
         const differs = (d.quantities || []).some((q) => q.stage === "provider_collected" && d.orders.some((x) => Number(x.id) === Number(q.order_id) && Number(x.quantity) !== Number(q.quantity)));
         const onRoad = ["in_transit", "arrived", "delivery_submitted", "awaiting_confirmation"].includes(d.status);
+        // The seller is kept informed at each stage; nothing to fill in.
+        const STAGE_NOTE = {
+          payment_confirmed: "Paid. We're finding a transport provider.",
+          awaiting_provider: "Paid. Waiting for a transport provider to accept.",
+          awaiting_reassignment: "We're finding a transport provider.",
+          provider_accepted: "A provider has accepted and is on the way to collect.",
+          vehicle_selected: "A provider has accepted and is on the way to collect.",
+          awaiting_collection: "The provider is on the way to collect. Please have the goods ready.",
+          collection_submitted: "The provider is collecting the goods.",
+          collection_confirmed: "Collected. On the way to the buyer.",
+          in_transit: "Collected. On the way to the buyer.",
+          arrived: "Arrived at the buyer's address.",
+          delivery_submitted: "Delivered to the buyer.",
+          awaiting_confirmation: "Delivered. It completes automatically unless the buyer reports a problem; Frontier then pays you.",
+          completed: "Completed. Frontier will pay you.",
+          disputed: "The buyer reported a problem. Frontier is reviewing it.",
+        };
+        const live = TR_MOVING.includes(d.status) || ["delivery_submitted", "awaiting_confirmation"].includes(d.status);
         box.innerHTML = `
           <div class="txd-card">
             <div class="flex items-center justify-between gap-3 mb-3"><b>Transport ${escapeHtml(d.reference)}</b>${trPill(d)}</div>
             ${trProgressHtml(d.status)}
             ${trProviderHtml(d)}
-            <p class="text-sm text-gray-600 mt-3">To ${escapeHtml(d.destination.district)}, ${escapeHtml(d.destination.province)} · ${trKm(d.distance_km)} by road · ${escapeHtml(d.cargo_summary || "")}</p>
-            ${d.can.ready ? `<button type="button" class="acc-btn mt-4" data-t-ready>Goods are ready for collection</button>` : d.times.seller_ready_at && ["awaiting_collection", "collection_submitted"].includes(d.status) ? `<p class="tr-note-box mt-4">You marked the goods ready · ${escapeHtml(trWhen(d.times.seller_ready_at))}</p>` : ""}
+            <p class="text-sm text-gray-600 mt-3">To ${escapeHtml(d.destination.place)} · ${trKm(d.distance_km)} by road · ${escapeHtml(d.cargo_summary || "")}</p>
+            ${STAGE_NOTE[d.status] ? `<p class="tr-note-box mt-3">${escapeHtml(STAGE_NOTE[d.status])}</p>` : ""}
           </div>
-          ${d.can.record ? `<form class="txd-card mt-4" data-t-record novalidate>
-            <b>Record the handover</b>
-            <p class="text-sm text-gray-600 mt-1">When the provider arrives, check the goods together. Add your own photos and the quantity you release for each order. The provider records theirs separately.</p>
-            <div class="mt-4">${trQtyFields(d.orders, { label: "Released" })}</div>
-            <label class="field-label mt-4" for="t-note">Notes <span class="text-gray-400 font-normal">(required if anything differs from the order)</span></label>
-            <textarea id="t-note" name="note" rows="2" maxlength="1000" class="field-input" placeholder="e.g. 3 heifers, ear tags 101 to 103"></textarea>
-            <p class="field-error hidden" data-error-for="note"></p>
-            <p class="field-label mt-4">Photos of the goods being handed over <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 6)</span></p>
-            <div class="acc-ph-grid" data-photos></div>
-            <p class="field-error hidden" data-error-for="images"></p>
-            <button type="submit" class="acc-btn mt-4">Save handover record</button>
-          </form>` : ""}
-          ${d.can.confirm ? `<div class="txd-card acc-card-warn mt-4"><b>Both records are in</b>
-            <p class="text-sm text-gray-700 mt-1">${differs ? "The provider recorded a different quantity from the order. Check the records below before you confirm, or contact Frontier." : "Check the provider's record below, then confirm the collection so the delivery can start."}</p>
-            <button type="button" class="acc-btn mt-3" data-t-confirm>Confirm collection</button></div>` : ""}
-          ${mine && !theirs && ["awaiting_collection", "collection_submitted"].includes(d.status) ? `<p class="tr-note-box mt-4">Your handover record is saved. Waiting for the provider to record the collection.</p>` : ""}
-          ${onRoad || d.status === "collection_confirmed" ? `<div class="txd-card mt-4"><b>Follow the delivery</b><div class="mt-3" data-t-track></div></div>` : ""}
+          ${live ? `<div class="txd-card mt-4"><b>Follow the delivery</b><div class="mt-3" data-t-track></div></div>` : ""}
           <div class="txd-card mt-4"><b>Collection and delivery records</b><div class="mt-3">${trEvidenceHtml(d)}</div></div>
           <details class="txd-card mt-4 acc-more"><summary>History</summary>${trTimelineHtml(d.events)}</details>`;
-        box.querySelector("[data-t-ready]")?.addEventListener("click", async (e) => {
-          try {
-            const res = await withBusy(e.currentTarget, "Saving…", () => sellerApi(`/api/seller/transport/${d.id}/ready`, { method: "POST", body: {} }));
-            showNotification(res.message, "success");
-            await refresh();
-          } catch (error) { showNotification(error.message, "error"); }
-        });
-        box.querySelector("[data-t-confirm]")?.addEventListener("click", async (e) => {
-          const btn = e.currentTarget;
-          if (!(await confirmAction({ title: "Confirm the collection?", message: "The provider can then start the delivery. Both records stay on the order as they are.", confirmText: "Confirm collection" }))) return;
-          try {
-            const res = await withBusy(btn, "Saving…", () => sellerApi(`/api/seller/transport/${d.id}/confirm`, { method: "POST", body: {} }));
-            showNotification(res.message, "success");
-            await refresh();
-          } catch (error) { showNotification(error.message, "error"); }
-        });
-        const rec = box.querySelector("[data-t-record]");
-        if (rec) {
-          const picker = bindPhotoPicker(rec.querySelector("[data-photos]"), 6, (n) => { if (n) rec.querySelector('[data-error-for="images"]').classList.add("hidden"); });
-          rec.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            if (!picker.files().length) return showFieldErrors(rec, { errors: { images: "Please add at least one photo." } });
-            const fd = new FormData(rec);
-            picker.files().forEach((f) => fd.append("images", f));
-            try {
-              const res = await withBusy(rec.querySelector("button[type=submit]"), "Saving…", () => sellerApi(`/api/seller/transport/${d.id}/collection`, { method: "POST", body: fd }));
-              showNotification(res.message, "success");
-              await refresh();
-            } catch (error) {
-              showFieldErrors(rec, error);
-              showNotification(error.message, "error");
-            }
-          });
-        }
         const track = box.querySelector("[data-t-track]");
         sellerFollow = track ? await trFollow(track, d, `/api/seller/transport/${d.id}/track`, sellerApi) : null;
       }

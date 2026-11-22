@@ -908,11 +908,9 @@ router.get("/transport/:id", requireSeller, async (req, res, next) => {
     const b = await sellerBooking(req);
     const data = await transportViews.detail(b, "seller");
     const subs = await transport.submissionsOf(pool, b.id);
-    data.can = {
-      ready: transport.COLLECTING.includes(b.status) && !b.seller_ready_at,
-      record: transport.COLLECTING.includes(b.status) && !subs.has("seller_collection"),
-      confirm: b.status === "collection_submitted" && subs.has("seller_collection") && subs.has("provider_collection"),
-    };
+    // The seller is kept informed; the provider's records move it along.
+    data.can = { ready: false, record: false, confirm: false };
+    void subs;
     res.json({ success: true, data });
   } catch (error) {
     next(error);

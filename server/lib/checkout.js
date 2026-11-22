@@ -402,7 +402,7 @@ async function load(id) {
   c.transport = [];
   if (c.delivery_option === "transport") {
     const [rows] = await pool.query(
-      `SELECT b.id, b.status, b.fee, b.distance_km, b.pickup_district, b.pickup_province, b.dest_district, b.dest_province,
+      `SELECT b.id, b.status, b.fee, b.distance_km, b.pickup_address, b.pickup_district, b.pickup_province, b.pickup_label, b.dest_address, b.dest_district, b.dest_province,
          EXISTS (SELECT 1 FROM transport_booking_orders bo JOIN orders o ON o.id = bo.order_id WHERE bo.booking_id = b.id AND o.status <> 'cancelled') AS carries
        FROM transport_bookings b WHERE b.checkout_id = ? ORDER BY b.id`,
       [id],
@@ -485,8 +485,8 @@ function publicView(checkout, orders) {
     delivery_option: checkout.delivery_option || "collect",
     transport: (checkout.transport || []).filter((t) => t.status !== "cancelled").map((t) => ({
       reference: `TR-${1000 + Number(t.id)}`,
-      from: [t.pickup_district, t.pickup_province].filter(Boolean).join(", "),
-      to: [t.dest_district, t.dest_province].filter(Boolean).join(", "),
+      from: require("./transport/core").pickupPlace(t),
+      to: require("./transport/core").destPlace(t),
       distance_km: Number(t.distance_km),
       fee: Number(t.fee),
     })),

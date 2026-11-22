@@ -114,7 +114,7 @@ const gps = {
       (pos) => this.fix(pos),
       (err) => {
         this.status = "error";
-        this.error = err.code === 1 ? "Location is blocked. Allow location for this site in your browser settings." : "Can't get your location right now. Keep the phone's location on.";
+        this.error = err.code === 1 ? "Location is blocked. Allow location for this site in your browser settings so the seller and buyer can follow you." : "Can't get your location right now. Keep the phone's location on.";
         this.onChange(this);
       },
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 },
@@ -123,8 +123,10 @@ const gps = {
     this.timer = setInterval(() => { if (this.lastFix && Date.now() - this.last > 20000) this.send(this.lastFix); }, 20000);
   },
 
+  onFix: null,
   async fix(pos) {
     this.lastFix = pos;
+    if (this.onFix) this.onFix(pos);
     this.status = "on";
     this.error = null;
     if (Date.now() - this.last >= 15000) await this.send(pos);

@@ -171,13 +171,13 @@ async function offer(bookingId, { actor = "system", actorName = null } = {}) {
     for (const id of sent) {
       notify.provider(id, b, {
         title: `New delivery request ${core.bookingRef(b.id)}`,
-        body: `${b.pickup_district || b.pickup_province} → ${b.dest_district}, ${b.dest_province} · ${Number(b.distance_km)} km · ${b.cargo_summary || ""}`.trim(),
+        body: `${core.pickupPlace(b)} → ${core.destPlace(b)} · ${Number(b.distance_km)} km · ${b.cargo_summary || ""}`.trim(),
         subject: `New delivery request ${core.bookingRef(b.id)}: ${Number(b.distance_km)} km`,
         heading: "A new delivery request for you",
         paragraphs: ["A paid delivery is waiting for a transport provider. The first provider to accept it gets it. Open your dashboard to see the details and choose the vehicle."],
         rows: [
-          ["Pickup", [b.pickup_district, b.pickup_province].filter(Boolean).join(", ")],
-          ["Destination", `${b.dest_district}, ${b.dest_province}`],
+          ["Pickup", core.pickupPlace(b)],
+          ["Destination", core.destPlace(b)],
           ["Road distance", `${Number(b.distance_km)} km`],
           ["Load", b.cargo_summary || "-"],
           ["Your earning", kwacha(b.provider_earning)],
@@ -192,7 +192,7 @@ async function offer(bookingId, { actor = "system", actorName = null } = {}) {
       subject: `No transport provider for ${core.bookingRef(b.id)}`,
       heading: "A paid delivery has no eligible provider",
       paragraphs: ["No approved, available provider covers this pickup and destination with a suitable free vehicle. Please assign a provider from the delivery page, or contact the buyer. The request has not been cancelled."],
-      rows: [["Pickup", b.pickup_label], ["Destination", `${b.dest_district}, ${b.dest_province}`], ["Distance", `${Number(b.distance_km)} km`], ["Load", b.cargo_summary || "-"]],
+      rows: [["Pickup", `${b.pickup_label}, ${core.pickupPlace(b)}`], ["Destination", core.destPlace(b)], ["Distance", `${Number(b.distance_km)} km`], ["Load", b.cargo_summary || "-"]],
     });
     notify.live(b, "no_provider");
   }

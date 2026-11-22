@@ -57,11 +57,46 @@ const EVENT_LABELS = {
   unaccepted_alert: "Frontier alerted: not accepted yet",
   delay_alert: "Frontier alerted: delivery may be delayed",
   confirm_reminder: "Buyer reminded to confirm",
+  heading_to_pickup: "Provider on the way to the pickup",
+  near_pickup: "Provider close to the pickup",
+  near_destination: "Close to the destination",
+  auto_completed: "Delivery completed",
   rating_reminder: "Buyer reminded to rate",
 };
 // Shown to the buyer, seller and provider (the rest is for Frontier).
 const SHARED_EVENTS = new Set(["created", "payment_confirmed", "accepted", "assigned", "vehicle_selected", "seller_ready", "seller_collection", "provider_collection",
+  "heading_to_pickup", "near_pickup", "near_destination", "auto_completed",
   "collection_confirmed", "in_transit", "arrived", "delivery_submitted", "completed", "disputed", "dispute_resolved", "released", "cancelled", "refund_pending", "refunded"]);
+
+// Directions from where the provider is now (or their address) to the pickup,
+// while they're on their way to collect. Worked out again only when they've
+// moved more than about half a kilometre.
+const APPROACH = ["provider_accepted", "vehicle_selected", "awaiting_collection", "collection_submitted"];
+const approachCache = new Map(); // bookingId -> { from, value }
+async function approachRoute(b) {
+  if (!APPROACH.includes(b.status) || !b.provider_id) return null;
+  let from = null;
+  let live = false;
+  if (b.last_lat !== null && b.last_location_at && Date.now() - new Date(b.last_location_at).getTime() < 30 * 60000) {
+    from = { lat: Number(b.last_lat), lng: Number(b.last_lng) };
+    live = true;
+  } else {
+    const [[p]] = await pool.query("SELECT base_lat, base_lng FROM transport_providers WHERE id = ?", [b.provider_id]);
+    if (p && p.base_lat !== null) from = { lat: Number(p.base_lat), lng: Number(p.base_lng) };
+  }
+  if (!from) return null;
+  const hit = approachCache.get(b.id);
+  const moved = hit ? Math.hypot((hit.from.lat - from.lat) * 111000, (hit.from.lng - from.lng) * 107000) : Infinity;
+  if (hit && moved < 500) return { ...hit.value, live };
+  try {
+    const r = await routing.route(from, { lat: Number(b.pickup_lat), lng: Number(b.pickup_lng) });
+    const value = { geometry: r.geometry, km: r.km, minutes: r.minutes };
+    approachCache.set(b.id, { from, value });
+    return { ...value, live };
+  } catch {
+    return null;
+  }
+}
 
 function parseRoute(text) {
   if (!text) return null;
@@ -118,17 +153,23 @@ async function detail(b, role, { offer = null, conn = pool } = {}) {
     band: b.band_max_km === null ? `Above ${Number(b.band_min_km)} km` : `${Number(b.band_min_km)} – ${Number(b.band_max_km)} km`,
     fee: role === "provider" ? undefined : num(b.fee),
     provider_earning: role === "provider" || isAdmin ? num(b.provider_earning) : undefined,
+    // Both physical addresses are shown to everyone involved; phone numbers,
+    // the receiver and exact map points only to those who need them.
     pickup: {
       label: role === "customer" ? b.pickup_label.replace(/\s*\(.*\)$/, "") : b.pickup_label,
+      address: b.pickup_address,
       district: b.pickup_district,
       province: b.pickup_province,
-      ...(full || role === "seller" ? { address: b.pickup_address, lat: num(b.pickup_lat), lng: num(b.pickup_lng) } : {}),
+      place: core.pickupPlace(b),
+      ...(full || role === "seller" ? { lat: num(b.pickup_lat), lng: num(b.pickup_lng) } : {}),
       ...(full ? { phone: b.pickup_phone } : {}),
     },
     destination: {
+      address: b.dest_address,
       district: b.dest_district,
       province: b.dest_province,
-      ...(full || role === "customer" ? { address: b.dest_address, notes: b.dest_notes, lat: num(b.dest_lat), lng: num(b.dest_lng), contact_name: b.contact_name, contact_phone: b.contact_phone } : {}),
+      place: core.destPlace(b),
+      ...(full || role === "customer" ? { notes: b.dest_notes, lat: num(b.dest_lat), lng: num(b.dest_lng), contact_name: b.contact_name, contact_phone: b.contact_phone } : {}),
     },
     times: {
       created_at: b.created_at, paid_at: b.paid_at, accepted_at: b.accepted_at, seller_ready_at: b.seller_ready_at,
@@ -154,8 +195,8 @@ async function detail(b, role, { offer = null, conn = pool } = {}) {
     return {
       ...base,
       offer: { status: offer.status, offered_at: offer.offered_at, pickup_km: num(offer.pickup_km), dest_km: num(offer.dest_km) },
-      pickup: { district: b.pickup_district, province: b.pickup_province },
-      destination: { district: b.dest_district, province: b.dest_province },
+      pickup: { address: b.pickup_address, district: b.pickup_district, province: b.pickup_province, place: core.pickupPlace(b) },
+      destination: { address: b.dest_address, district: b.dest_district, province: b.dest_province, place: core.destPlace(b) },
     };
   }
   const [subs, photos, qty] = await Promise.all([
@@ -180,9 +221,14 @@ async function detail(b, role, { offer = null, conn = pool } = {}) {
     quantities: qty.map((q) => ({ order_id: q.order_id, stage: q.stage, quantity: q.quantity, id_details: q.id_details, created_at: q.created_at })),
     tracking: {
       last: b.last_lat !== null ? { lat: num(b.last_lat), lng: num(b.last_lng), at: b.last_location_at } : null,
-      route: role === "seller" ? null : parseRoute(b.route_geometry),
+      route: parseRoute(b.route_geometry),
+      approach: await approachRoute(b),
       routing_provider: b.routing_provider,
     },
+    // Delivered: when it completes by itself unless the buyer reports a problem.
+    auto_complete_at: b.status === "awaiting_confirmation" && b.delivery_submitted_at
+      ? new Date(new Date(b.delivery_submitted_at).getTime() + (await core.getSettings(conn)).auto_complete_hours * 3600000)
+      : null,
     events: events.filter((e) => isAdmin || SHARED_EVENTS.has(e.event)).map((e) => ({
       at: e.created_at, event: e.event, label: EVENT_LABELS[e.event] || e.event, actor: e.actor,
       to_status: e.to_status,
@@ -234,9 +280,9 @@ function row(b, role) {
     created_at: b.created_at,
     updated_at: b.updated_at,
     paid_at: b.paid_at,
-    from: [b.pickup_district, b.pickup_province].filter(Boolean).join(", ") || (role === "customer" ? "" : b.pickup_label),
+    from: core.pickupPlace(b),
     pickup_label: role === "customer" ? undefined : b.pickup_label,
-    to: `${b.dest_district}, ${b.dest_province}`,
+    to: core.destPlace(b),
     distance_km: num(b.distance_km),
     cargo_summary: b.cargo_summary,
     fee: role === "provider" ? undefined : num(b.fee),

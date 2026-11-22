@@ -15,6 +15,7 @@ const core = require("./core");
 const matching = require("./matching");
 const { PROVINCES, text, isPhone } = require("../validate");
 const zambia = require("../../../public/js/zambia-districts");
+const where = (pk) => core.placeText(pk.address, pk.district, pk.province) || "the pickup point";
 
 // Roughly Zambia, with a margin: a pin far outside is a mistake.
 const ZAMBIA = { minLat: -18.3, maxLat: -8.0, minLng: 21.8, maxLng: 33.9 };
@@ -120,7 +121,7 @@ async function plan(items, dest, { checkProviders = true } = {}) {
       r = await routing.route(out.pickup, destPoint);
     } catch (error) {
       out.problem = error.noRoute
-        ? `There's no road route from ${out.pickup.district || out.pickup.province || "the pickup point"} to the delivery point.`
+        ? `There's no road route from ${where(out.pickup)} to the delivery point.`
         : "We couldn't work out the road distance just now. Please try again in a moment.";
       out.routing_error = error.message;
       continue;
@@ -149,7 +150,7 @@ async function plan(items, dest, { checkProviders = true } = {}) {
       if (found.some((x) => x.reasons.some((rr) => rr.startsWith("Road distance unavailable")))) {
         g.problem = "We couldn't check which transport providers are free just now. Please try again in a moment.";
       } else if (!g.providers) {
-        g.problem = `No transport provider covers the journey from ${g.pickup.district || g.pickup.province || "the pickup point"} to your delivery point with a suitable vehicle right now. Please choose self-collection or contact us.`;
+        g.problem = `No transport provider covers the journey from ${where(g.pickup)} to your delivery point with a suitable vehicle right now. Please choose self-collection or contact us.`;
       }
     }
   }
@@ -170,7 +171,7 @@ function publicPlan(p) {
     transport_total: p.transport_total,
     journeys: p.groups.map((g) => ({
       seller: g.seller_label,
-      from: g.pickup ? [g.pickup.district, g.pickup.province].filter(Boolean).join(", ") || "Seller's farm" : null,
+      from: g.pickup ? where(g.pickup) : null,
       items: g.items.map((i) => i.title),
       distance_km: g.distance_km,
       duration_min: g.duration_min,

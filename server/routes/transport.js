@@ -641,7 +641,7 @@ router.get("/requests", requireProvider, requireApproved, async (req, res, next)
        ORDER BY o.offered_at DESC LIMIT 100`,
       [req.provider.id, bookings.ACCEPTABLE],
     );
-    res.json({ success: true, data: rows.map((b) => ({ ...views.row(b, "provider"), from: [b.pickup_district, b.pickup_province].filter(Boolean).join(", "), offered_at: b.offered_at, pickup_km: b.pickup_km === null ? null : Number(b.pickup_km) })) });
+    res.json({ success: true, data: rows.map((b) => ({ ...views.row(b, "provider"), offered_at: b.offered_at, pickup_km: b.pickup_km === null ? null : Number(b.pickup_km) })) });
   } catch (error) {
     next(error);
   }
@@ -674,6 +674,7 @@ router.get("/bookings/:id", requireProvider, async (req, res, next) => {
     data.can = offer
       ? { accept: offer.status === "offered" && bookings.ACCEPTABLE.includes(b.status) && req.provider.status === "approved" && req.provider.is_active, decline: offer.status === "offered" && bookings.ACCEPTABLE.includes(b.status) }
       : await providerActions(b);
+    data.comments = { collection: bookings.COLLECTION_NOTES, delivery: bookings.DELIVERY_NOTES };
     // Which of their vehicles could take it.
     if (data.can.accept) data.vehicles = await vehicleChoices(req.provider.id, b);
     res.json({ success: true, data });
@@ -687,9 +688,9 @@ async function providerActions(b) {
   return {
     collect: bookings.COLLECTING.includes(b.status) && !subs.has("provider_collection"),
     start: b.status === "collection_confirmed",
-    share_location: bookings.TRACKING.includes(b.status),
-    arrive: b.status === "in_transit",
-    deliver: b.status === "arrived",
+    share_location: bookings.MOVING.includes(b.status),
+    arrive: false,
+    deliver: bookings.TRACKING.includes(b.status),
   };
 }
 
@@ -725,8 +726,8 @@ router.post("/bookings/:id/decline", requireProvider, async (req, res, next) => 
 
 router.post("/bookings/:id/collection", requireProvider, requireApproved, uploadTransportPhotos, async (req, res, next) => {
   try {
-    await bookings.submitCollection(req.who, positiveInt(req.params.id), req.files, req.body);
-    res.json({ success: true, message: "Collection recorded." });
+    await bookings.providerCollected(req.who, positiveInt(req.params.id), req.files, req.body);
+    res.json({ success: true, message: "Collected. The delivery has started; the seller and buyer have been told." });
   } catch (error) {
     next(error);
   }
@@ -761,8 +762,8 @@ router.post("/bookings/:id/arrive", requireProvider, requireApproved, async (req
 
 router.post("/bookings/:id/delivery", requireProvider, requireApproved, uploadTransportPhotos, async (req, res, next) => {
   try {
-    await bookings.submitDelivery(req.who, positiveInt(req.params.id), req.files, req.body);
-    res.json({ success: true, message: "Delivery recorded. The buyer has been asked to confirm." });
+    await bookings.providerDelivered(req.who, positiveInt(req.params.id), req.files, req.body);
+    res.json({ success: true, message: "Delivered. The buyer has been told." });
   } catch (error) {
     next(error);
   }

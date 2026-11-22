@@ -32,6 +32,52 @@ const { STATUS_LABELS, bookingRef, conflict } = core;
 const ACCEPTABLE = ["payment_confirmed", "awaiting_provider", "awaiting_reassignment"];
 const COLLECTING = ["awaiting_collection", "collection_submitted"];
 const TRACKING = ["in_transit", "arrived"];
+// From acceptance to delivery the provider's phone shares its position, so
+// everyone sees them heading to the pickup and then to the destination.
+const MOVING = ["provider_accepted", "vehicle_selected", "awaiting_collection", "collection_submitted", "collection_confirmed", "in_transit", "arrived"];
+// What the provider says at collection and at delivery (a choice, with
+// details when something isn't right). They don't change quantities.
+const COLLECTION_NOTES = {
+  ok: "All goods collected as ordered, in good condition",
+  unwell: "Collected, but some animals or goods look unwell or damaged",
+  short: "Fewer goods than ordered were handed over",
+  other: "Other",
+};
+const DELIVERY_NOTES = {
+  ok: "All goods delivered in good condition",
+  unwell: "Delivered, but some animals or goods are unwell or damaged",
+  short: "Not all goods could be delivered",
+  other: "Other",
+};
+const ARRIVED_METRES = 300; // within this of the destination counts as arrived
+const NEAR_METRES = 2500; // "arriving soon" notices
+
+function metresBetween(a, b) {
+  const R = 6371000;
+  const rad = (d) => (Number(d) * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+// The provider's comment: one of the choices, with details unless all is well.
+function readComment(body, choices) {
+  const key = Object.keys(choices).includes(body.comment) ? body.comment : null;
+  const details = cleanNote(body.details, 1000);
+  const errors = {};
+  if (!key) errors.comment = "Please choose a comment.";
+  else if (key !== "ok" && !details) errors.details = "Please add a few words about what isn't right.";
+  return { errors, key, problem: Boolean(key && key !== "ok"), note: key ? `${choices[key]}${details ? `: ${details}` : "."}` : null };
+}
+
+// An event recorded once per booking (e.g. "near the pickup"): true the first time.
+async function once(bookingId, event, detail, actorName = null) {
+  const [[had]] = await pool.query("SELECT id FROM transport_events WHERE booking_id = ? AND event = ? LIMIT 1", [bookingId, event]);
+  if (had) return false;
+  await core.logEvent(pool, bookingId, { event, actor: "system", actorName, detail });
+  return true;
+}
 const MIN_PHOTOS = 1;
 const checkoutRef = (id) => `FMC-${1000 + Number(id)}`;
 
@@ -154,7 +200,7 @@ async function insertBookings(conn, { checkoutId, buyerId, dest, plan, created }
     }
     await core.logEvent(conn, bookingId, {
       to: "pending_payment", event: "created", actor: "customer",
-      detail: `Transport booked at checkout ${checkoutRef(checkoutId)}: ${g.pickup.district || g.pickup.province || g.pickup.label} → ${dest.district}, ${dest.province}. ${g.distance_km} km by road (${g.routing_provider}), ${g.band.label} band, fee ${kwacha(g.fee)}.`,
+      detail: `Transport booked at checkout ${checkoutRef(checkoutId)}: ${core.placeText(g.pickup.address, g.pickup.district, g.pickup.province) || g.pickup.label} → ${core.placeText(dest.address, dest.district, dest.province)}. ${g.distance_km} km by road (${g.routing_provider}), ${g.band.label} band, fee ${kwacha(g.fee)}.`,
     });
   }
   return ids;
@@ -192,7 +238,7 @@ async function onPaid(checkoutId, { shortOrderIds = [], actor = "system", actorN
     released.push(b);
     notify.customer(b, {
       title: `Payment received: finding a transport provider (${bookingRef(b.id)})`,
-      body: `Your delivery from ${b.pickup_district || b.pickup_province || "the seller"} to ${b.dest_district} is paid. We'll tell you as soon as a transport provider accepts it.`,
+      body: `Your delivery from ${core.pickupPlace(b)} to ${core.destPlace(b)} is paid. We'll tell you as soon as a transport provider accepts it.`,
     });
     notify.seller(b, {
       title: `Paid order for transport collection (${bookingRef(b.id)})`,
@@ -203,7 +249,7 @@ async function onPaid(checkoutId, { shortOrderIds = [], actor = "system", actorN
         "The buyer chose delivery. A transport provider approved by Frontier will collect the goods from your pickup point.",
         "We'll tell you who is coming and with which vehicle as soon as a provider accepts. Please have the goods ready, and record the handover with photos in your seller account when they arrive.",
       ],
-      rows: [["Load", b.cargo_summary || "-"], ["Destination", `${b.dest_district}, ${b.dest_province}`]],
+      rows: [["Load", b.cargo_summary || "-"], ["Destination", core.destPlace(b)]],
     });
     if (outcome === "held") {
       notify.team(b, {
@@ -341,7 +387,7 @@ async function accept(providerId, bookingId, vehicleId, { admin = null, force = 
     subject: `Your delivery ${bookingRef(b.id)}: transport provider assigned`,
     heading: "A transport provider has been assigned",
     paragraphs: [`${p.name} has accepted your delivery and will collect it from the seller. You can follow the delivery in your account once it's on the way.`],
-    rows: [["Provider", p.name], ["Phone", p.phone], ["Vehicle", vehicleText], ["Destination", `${b.dest_district}, ${b.dest_province}`]],
+    rows: [["Provider", p.name], ["Phone", p.phone], ["Vehicle", vehicleText], ["Destination", core.destPlace(b)]],
   });
   notify.seller(b, {
     title: `${p.name} will collect ${bookingRef(b.id)}`,
@@ -356,11 +402,11 @@ async function accept(providerId, bookingId, vehicleId, { admin = null, force = 
   });
   notify.provider(p.id, b, {
     title: admin ? `Frontier assigned you ${bookingRef(b.id)}` : `You accepted ${bookingRef(b.id)}`,
-    body: `Collect from ${b.pickup_label}, ${b.pickup_district || b.pickup_province || ""}. Vehicle ${vehicleText}.`,
+    body: `Collect from ${b.pickup_label}, ${core.pickupPlace(b)}. Vehicle ${vehicleText}.`,
     subject: `${admin ? "Assigned to you" : "Accepted"}: delivery ${bookingRef(b.id)}`,
     heading: admin ? "Frontier assigned you a delivery" : "You accepted a delivery",
     paragraphs: ["The pickup and delivery details are in your dashboard. At the pickup point, check the goods and record the collection with photos and the quantities you collect before you start the delivery."],
-    rows: [["Pickup", [b.pickup_label, b.pickup_address, b.pickup_district, b.pickup_province].filter(Boolean).join(", ")], ["Seller phone", b.pickup_phone || "-"], ["Destination", `${b.dest_address}, ${b.dest_district}, ${b.dest_province}`], ["Receiver", `${b.contact_name} (${b.contact_phone})`], ["Vehicle", vehicleText], ["Your earning", kwacha(b.provider_earning)]],
+    rows: [["Pickup", `${b.pickup_label}, ${core.pickupPlace(b)}`], ["Seller phone", b.pickup_phone || "-"], ["Destination", core.destPlace(b)], ["Receiver", `${b.contact_name} (${b.contact_phone})`], ["Vehicle", vehicleText], ["Your earning", kwacha(b.provider_earning)]],
   });
   for (const id of withdrawn) {
     notify.provider(id, b, { title: `Request ${bookingRef(b.id)} has been taken`, body: "Another provider accepted this delivery." });
@@ -398,7 +444,7 @@ async function decline(providerId, bookingId, reason) {
       subject: `Every provider declined delivery ${bookingRef(b.id)}`,
       heading: "A paid delivery needs a transport provider",
       paragraphs: ["Every provider the request was sent to has declined it. Please assign a provider from the delivery page. The request has not been cancelled, and it will be sent automatically to any provider who becomes eligible."],
-      rows: [["Pickup", b.pickup_label], ["Destination", `${b.dest_district}, ${b.dest_province}`], ["Distance", `${Number(b.distance_km)} km`]],
+      rows: [["Pickup", `${b.pickup_label}, ${core.pickupPlace(b)}`], ["Destination", core.destPlace(b)], ["Distance", `${Number(b.distance_km)} km`]],
     });
   }
   notify.live(b, "declined");
@@ -465,7 +511,7 @@ async function sellerReady(who, bookingId) {
     await core.logEvent(conn, b.id, { event: "seller_ready", actor: who.party === "admin" ? "admin" : "seller", actorName: who.name, detail: `${who.party === "admin" ? `Frontier (${who.name})` : who.name} marked the goods as ready for collection.` });
   });
   const b = await loadBooking(bookingId);
-  if (b.provider_id) notify.provider(b.provider_id, b, { title: `Goods ready for collection: ${bookingRef(b.id)}`, body: `${b.pickup_label} says the goods are ready.`, subject: `Ready for collection: ${bookingRef(b.id)}`, paragraphs: [`${b.pickup_label} has marked the goods as ready for collection.`], rows: [["Pickup", [b.pickup_address, b.pickup_district, b.pickup_province].filter(Boolean).join(", ")], ["Seller phone", b.pickup_phone || "-"]] });
+  if (b.provider_id) notify.provider(b.provider_id, b, { title: `Goods ready for collection: ${bookingRef(b.id)}`, body: `${b.pickup_label} says the goods are ready.`, subject: `Ready for collection: ${bookingRef(b.id)}`, paragraphs: [`${b.pickup_label} has marked the goods as ready for collection.`], rows: [["Pickup", core.pickupPlace(b)], ["Seller phone", b.pickup_phone || "-"]] });
   notify.live(b, "ready");
   return b;
 }
@@ -541,6 +587,137 @@ async function submitCollection(who, bookingId, files, body = {}) {
   return b;
 }
 
+// The provider collects the goods: a comment, photos, "Collected". The
+// collection is then confirmed and the delivery starts by itself; the seller,
+// the buyer and Frontier are told, with the provider's photos to see.
+async function providerCollected(who, bookingId, files, body = {}) {
+  const b0 = await loadBooking(bookingId);
+  if (!b0) throw notFound("Delivery not found.");
+  mustOwn(b0, who);
+  if (!COLLECTING.includes(b0.status)) throw conflict(`The collection can be recorded once you've accepted the delivery and before it starts (now: "${STATUS_LABELS[b0.status]}").`);
+  const c = readComment(body, COLLECTION_NOTES);
+  if (!(files || []).length) c.errors.images = "Please add at least one photo of the goods.";
+  if (Object.keys(c.errors).length) throw invalid(c.errors);
+  const point = readPoint(body);
+  const saved = await savePhotos(files, { label: "photo of the goods" });
+  try {
+    await core.withBooking(bookingId, async (conn, b) => {
+      mustOwn(b, who);
+      if (!COLLECTING.includes(b.status)) throw conflict("The collection has already been recorded.");
+      await insertSubmission(conn, b.id, { stage: "provider_collection", party: "provider", actorName: who.name, note: c.note, discrepancy: c.problem, point });
+      await storePhotos(conn, b.id, "provider_collection", "provider", saved, point);
+      const detail = `${who.name} collected the goods with ${saved.length} photo${saved.length === 1 ? "" : "s"}: ${c.note}`;
+      if (b.status === "awaiting_collection") await core.transition(conn, b, "collection_submitted", { event: "provider_collection", actor: "provider", actorName: who.name, detail });
+      else await core.logEvent(conn, b.id, { event: "provider_collection", actor: "provider", actorName: who.name, detail });
+      await core.transition(conn, b, "collection_confirmed", { event: "collection_confirmed", actor: "system", detail: "Collection recorded by the provider.", set: { collection_confirmed_at: { raw: "NOW()" } } });
+      await core.transition(conn, b, "in_transit", { event: "in_transit", actor: "system", detail: "The delivery started.", set: { started_at: { raw: "NOW()" }, delay_alert_at: null } });
+      if (point) await recordPoint(conn, b, who.id, { ...point, recorded_at: body.recorded_at });
+    });
+  } catch (error) {
+    dropPhotos(saved);
+    throw error;
+  }
+  const b = await loadBooking(bookingId);
+  notify.seller(b, {
+    title: `Your goods were collected (${bookingRef(b.id)})`,
+    body: `${who.name} collected them${b.vehicle_registration ? ` with ${b.vehicle_registration}` : ""} and is on the way to ${core.destPlace(b)}. ${c.note}`,
+    subject: `Collected: ${bookingRef(b.id)}`,
+    heading: "Your goods have been collected",
+    paragraphs: [`${who.name} collected the goods and the delivery is on its way to the buyer. You can see their photos and follow the delivery in your seller account.`, `Provider's comment: ${c.note}`],
+  });
+  notify.customer(b, {
+    title: `Your order is on its way (${bookingRef(b.id)})`,
+    body: `${who.name} collected it and is heading to you. Follow it live in your order.`,
+    subject: `On its way: delivery ${bookingRef(b.id)}`,
+    heading: "Your order is on its way",
+    paragraphs: ["The transport provider has collected your order and is now driving to you. You can follow the vehicle live in your account; the position comes from the provider's phone."],
+    rows: [["Vehicle", `${b.vehicle_registration || "-"} (${b.vehicle_type || ""})`], ["Destination", core.destPlace(b)]],
+  });
+  notify.team(b, {
+    subject: `${c.problem ? "Collected with a problem" : "Collected"}: ${bookingRef(b.id)}`,
+    heading: c.problem ? "A provider reported a problem at collection" : "Goods collected, delivery on its way",
+    paragraphs: [`${who.name}: ${c.note}`],
+  });
+  notify.live(b, "in_transit");
+  return b;
+}
+
+// The provider hands the goods over: a comment, photos, "Delivered". The
+// buyer is told; the delivery completes by itself after the settings' time
+// unless the buyer reports a problem (or straight away with 0 hours).
+async function providerDelivered(who, bookingId, files, body = {}) {
+  const b0 = await loadBooking(bookingId);
+  if (!b0) throw notFound("Delivery not found.");
+  mustOwn(b0, who);
+  if (!TRACKING.includes(b0.status)) throw conflict(`The delivery can be recorded once it's on the way (now: "${STATUS_LABELS[b0.status]}").`);
+  const c = readComment(body, DELIVERY_NOTES);
+  if (!(files || []).length) c.errors.images = "Please add at least one photo of the delivered goods.";
+  if (Object.keys(c.errors).length) throw invalid(c.errors);
+  const point = readPoint(body);
+  const settings = await core.getSettings();
+  const saved = await savePhotos(files, { label: "photo of the delivered goods" });
+  let orders = null;
+  try {
+    await core.withBooking(bookingId, async (conn, b) => {
+      mustOwn(b, who);
+      if (!TRACKING.includes(b.status)) throw conflict("The delivery has already been recorded.");
+      if (b.status === "in_transit") await core.transition(conn, b, "arrived", { event: "arrived", actor: "provider", actorName: who.name, detail: `${who.name} arrived at the destination.`, set: { arrived_at: { raw: "NOW()" } } });
+      await insertSubmission(conn, b.id, { stage: "provider_delivery", party: "provider", actorName: who.name, note: c.note, discrepancy: c.problem, point });
+      await storePhotos(conn, b.id, "provider_delivery", "provider", saved, point);
+      await core.transition(conn, b, "delivery_submitted", { event: "delivery_submitted", actor: "provider", actorName: who.name, detail: `${who.name} delivered the goods with ${saved.length} photo${saved.length === 1 ? "" : "s"}: ${c.note}`, set: { delivery_submitted_at: { raw: "NOW()" } } });
+      await core.transition(conn, b, "awaiting_confirmation", { event: "awaiting_confirmation", actor: "system", detail: settings.auto_complete_hours ? `Completes automatically in ${settings.auto_complete_hours} hour${settings.auto_complete_hours === 1 ? "" : "s"} unless the buyer reports a problem.` : "Completing now." });
+      if (!settings.auto_complete_hours && !c.problem) {
+        await core.transition(conn, b, "completed", { event: "auto_completed", actor: "system", detail: "Completed on delivery.", set: { completed_at: { raw: "NOW()" } } });
+        orders = await completeOrders(conn, b, null);
+      }
+      if (point) await recordPoint(conn, b, who.id, { ...point, recorded_at: body.recorded_at });
+    });
+  } catch (error) {
+    dropPhotos(saved);
+    throw error;
+  }
+  const b = await loadBooking(bookingId);
+  if (orders) {
+    afterCompleted(b, orders, { auto: true });
+    return b;
+  }
+  const until = new Date(Date.now() + settings.auto_complete_hours * 3600000).toLocaleString("en-GB", { timeZone: process.env.APP_TIMEZONE || "Africa/Lusaka", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  notify.customer(b, {
+    title: `Delivered: ${bookingRef(b.id)}`,
+    body: `Please check your goods. Your order completes automatically on ${until} unless you report a problem.`,
+    subject: `Delivered: ${bookingRef(b.id)}`,
+    heading: "Your order has been delivered",
+    paragraphs: [
+      `${who.name} has delivered your order. Their photos are in your account.`,
+      `Please check the animals or feed. If anything isn't right, report it from your order before ${until}; otherwise the order completes automatically then. You don't need to do anything if all is well.`,
+    ],
+    rows: [["Provider's comment", c.note]],
+  });
+  notify.seller(b, { title: `Delivered: ${bookingRef(b.id)}`, body: `${who.name} delivered the goods to the buyer. ${c.note}`, subject: `Delivered: ${bookingRef(b.id)}`, heading: "Your goods have been delivered", paragraphs: [`${who.name} delivered the goods to the buyer. The order completes on ${until} unless the buyer reports a problem; Frontier then pays you.`, `Provider's comment: ${c.note}`] });
+  notify.team(b, {
+    subject: `${c.problem ? "Delivered with a problem" : "Delivered"}: ${bookingRef(b.id)}`,
+    heading: c.problem ? "A provider reported a problem at delivery" : "Goods delivered",
+    paragraphs: [`${who.name}: ${c.note}`, `Completes automatically on ${until} unless the buyer reports a problem.`],
+  });
+  notify.live(b, "awaiting_confirmation");
+  return b;
+}
+
+// Completes a delivered booking the buyer didn't report a problem with
+// (scheduler), once the waiting time has passed.
+async function autoComplete(bookingId) {
+  let orders = null;
+  await core.withBooking(bookingId, async (conn, b) => {
+    if (b.status !== "awaiting_confirmation") return;
+    await core.transition(conn, b, "completed", { event: "auto_completed", actor: "system", detail: "No problem reported: completed automatically.", set: { completed_at: { raw: "NOW()" } } });
+    orders = await completeOrders(conn, b, null);
+  });
+  if (!orders) return null;
+  const b = await loadBooking(bookingId);
+  afterCompleted(b, orders, { auto: true });
+  return b;
+}
+
 // The seller confirms the collection once both records are in.
 async function confirmCollection(who, bookingId) {
   await core.withBooking(bookingId, async (conn, b) => {
@@ -611,15 +788,15 @@ async function recordLocation(who, bookingId, body = {}) {
   const b = await loadBooking(bookingId);
   if (!b) throw notFound("Delivery not found.");
   mustOwn(b, who);
-  if (!TRACKING.includes(b.status)) throw conflict("Your location is only shared while the delivery is on its way.");
+  if (!MOVING.includes(b.status)) throw conflict("Your location is only shared from accepting a delivery until it's delivered.");
   const last = lastSaved.get(b.id) || 0;
   if (Date.now() - last < 5000) return { saved: false };
   lastSaved.set(b.id, Date.now());
   const [r] = await pool.query(
     "UPDATE transport_bookings SET last_lat = ?, last_lng = ?, last_location_at = ?, delay_alert_at = IF(delay_alert_at IS NOT NULL AND ? > delay_alert_at, NULL, delay_alert_at) WHERE id = ? AND provider_id = ? AND status IN (?)",
-    [fix.lat, fix.lng, fix.recorded_at, fix.recorded_at, b.id, who.id, TRACKING],
+    [fix.lat, fix.lng, fix.recorded_at, fix.recorded_at, b.id, who.id, MOVING],
   );
-  if (!r.affectedRows) throw conflict("Your location is only shared while the delivery is on its way.");
+  if (!r.affectedRows) throw conflict("Your location is only shared from accepting a delivery until it's delivered.");
   await pool.query(
     "INSERT INTO transport_locations (booking_id, provider_id, lat, lng, accuracy_m, speed_mps, heading, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     [b.id, who.id, fix.lat, fix.lng, fix.accuracy, fix.speed, fix.heading, fix.recorded_at],
@@ -629,20 +806,54 @@ async function recordLocation(who, bookingId, body = {}) {
   if (b.buyer_id) notifications.pingBuyer(b.buyer_id, "transport", data);
   if (b.seller_id) notifications.pingSeller(b.seller_id, "transport", data);
   notifications.pingAdmins("transport-location", data);
+  progressFromLocation(who, b, fix).catch((error) => console.error(`Transport ${bookingRef(b.id)}: location notices failed (${error.message})`));
   return { saved: true };
 }
 
-async function arrive(who, bookingId, body = {}) {
+// What a new position means, told to the people concerned once each:
+// heading to the pickup, close to the pickup, close to the destination, and
+// arrival (which also moves the delivery on).
+async function progressFromLocation(who, b, fix) {
+  const pickup = { lat: Number(b.pickup_lat), lng: Number(b.pickup_lng) };
+  const dest = { lat: Number(b.dest_lat), lng: Number(b.dest_lng) };
+  if (COLLECTING.includes(b.status) || ["provider_accepted", "vehicle_selected"].includes(b.status)) {
+    if (await once(b.id, "heading_to_pickup", `${who.name} is on the way to the pickup.`, who.name)) {
+      notify.seller(b, { title: `${who.name} is on the way to collect ${bookingRef(b.id)}`, body: "Follow them live in your orders.", subject: `On the way to collect: ${bookingRef(b.id)}`, heading: "The transport provider is on the way", paragraphs: [`${who.name} is driving to your pickup point (${core.pickupPlace(b)}) to collect the goods. You can follow them live in your seller account.`], rows: [["Vehicle", `${b.vehicle_registration || "-"} (${b.vehicle_type || ""})`]] });
+      notify.customer(b, { title: `${who.name} is on the way to collect your order`, body: "Follow it live in your order." });
+      notify.live(b, "heading_to_pickup");
+    }
+    if (metresBetween(fix, pickup) <= NEAR_METRES && (await once(b.id, "near_pickup", `${who.name} is close to the pickup.`, who.name))) {
+      notify.seller(b, { title: `${who.name} is arriving to collect ${bookingRef(b.id)}`, body: "They're a few minutes away. Please have the goods ready." });
+      notify.live(b, "near_pickup");
+    }
+    return;
+  }
+  if (b.status !== "in_transit") return;
+  const away = metresBetween(fix, dest);
+  if (away <= NEAR_METRES && (await once(b.id, "near_destination", `${who.name} is close to the destination.`, who.name))) {
+    notify.customer(b, { title: `Your delivery is arriving soon (${bookingRef(b.id)})`, body: "The vehicle is a few minutes away. Please be ready to receive it.", subject: `Arriving soon: ${bookingRef(b.id)}`, heading: "Your delivery is arriving soon", paragraphs: ["The transport provider is a few minutes away. Please be ready to receive and check the goods."] });
+    notify.live(b, "near_destination");
+  }
+  if (away <= ARRIVED_METRES) {
+    try {
+      await arrive(who, b.id, {}, { auto: true });
+    } catch (error) {
+      if (error.status !== 409) throw error;
+    }
+  }
+}
+
+async function arrive(who, bookingId, body = {}, { auto = false } = {}) {
   await core.withBooking(bookingId, async (conn, b) => {
     mustOwn(b, who);
     if (b.status !== "in_transit") throw conflict(`You can mark arrival while the delivery is in transit (now: "${STATUS_LABELS[b.status]}").`);
-    await core.transition(conn, b, "arrived", { event: "arrived", actor: "provider", actorName: who.name, detail: `${who.name} arrived at the destination.`, set: { arrived_at: { raw: "NOW()" } } });
+    await core.transition(conn, b, "arrived", { event: "arrived", actor: auto ? "system" : "provider", actorName: who.name, detail: auto ? `${who.name} arrived at the destination (from the phone's position).` : `${who.name} arrived at the destination.`, set: { arrived_at: { raw: "NOW()" } } });
     const fix = cleanFix(body);
     if (fix) await recordPoint(conn, b, who.id, fix);
   });
   const b = await loadBooking(bookingId);
-  notify.customer(b, { title: `The transport provider has arrived (${bookingRef(b.id)})`, body: "Please check the goods with them. You'll be asked to confirm once they've recorded the delivery." });
-  notify.seller(b, { title: `Delivery ${bookingRef(b.id)} has arrived at the destination`, body: b.dest_district });
+  notify.customer(b, { title: `The transport provider has arrived (${bookingRef(b.id)})`, body: "Please receive the goods and check them with the provider." });
+  notify.seller(b, { title: `Delivery ${bookingRef(b.id)} has arrived at the destination`, body: core.destPlace(b) });
   notify.live(b, "arrived");
   return b;
 }
@@ -714,28 +925,29 @@ async function completeOrders(conn, b, note) {
   return orders;
 }
 
-function afterCompleted(b, orders, { viaDispute = false } = {}) {
+function afterCompleted(b, orders, { viaDispute = false, auto = false } = {}) {
   const notifications = require("../../services/notifications");
+  const how = viaDispute ? "completed by Frontier after reviewing the buyer's report" : auto ? "completed (no problem was reported)" : "confirmed by the buyer";
   notify.customer(b, {
     title: `Delivery ${bookingRef(b.id)} is complete`,
     body: "Thank you. Please rate the transport provider and your experience with Frontier Marketplace.",
     subject: `Delivery complete: ${bookingRef(b.id)}`,
     heading: "Thank you, your delivery is complete",
-    paragraphs: ["Thank you for confirming your delivery. It would help us a lot if you rated the transport provider and your experience with Frontier Marketplace: it takes a minute."],
+    paragraphs: [`Your delivery is ${how}. It would help us a lot if you rated the transport provider and your experience with Frontier Marketplace: it takes a minute.`],
   });
   notify.seller(b, {
-    title: `Delivery ${bookingRef(b.id)} confirmed by the buyer`,
+    title: `Delivery ${bookingRef(b.id)} is complete`,
     body: "The order is handed over. Frontier will now pay you.",
-    subject: `Delivered and confirmed: ${bookingRef(b.id)}`,
-    heading: "The buyer confirmed the delivery",
-    paragraphs: ["The buyer has confirmed they received the goods. The order is marked as handed over and Frontier will now process your payment."],
+    subject: `Delivery complete: ${bookingRef(b.id)}`,
+    heading: "The delivery is complete",
+    paragraphs: [`The delivery is ${how}. The order is marked as handed over and Frontier will now process your payment.`],
   });
   if (b.provider_id) {
     notify.provider(b.provider_id, b, {
       title: `Delivery ${bookingRef(b.id)} confirmed`,
-      body: `${viaDispute ? "Frontier completed the delivery after reviewing the buyer's report." : "The buyer confirmed the delivery."} Your earning: ${kwacha(b.provider_earning)}.`,
-      subject: `Delivery confirmed: ${bookingRef(b.id)}`,
-      paragraphs: [`The delivery has been ${viaDispute ? "completed by Frontier after reviewing the buyer's report" : "confirmed by the buyer"}. Thank you.`],
+      body: `The delivery is ${how}. Your earning: ${kwacha(b.provider_earning)}.`,
+      subject: `Delivery complete: ${bookingRef(b.id)}`,
+      paragraphs: [`The delivery is ${how}. Thank you.`],
       rows: [["Your earning", kwacha(b.provider_earning)]],
     });
   }
@@ -743,12 +955,12 @@ function afterCompleted(b, orders, { viaDispute = false } = {}) {
     subject: `Delivery complete: ${bookingRef(b.id)}`,
     heading: "A delivery is complete",
     paragraphs: [
-      `${viaDispute ? "The dispute was resolved as delivered." : "The buyer confirmed the delivery."} The orders are handed over: ${b.seller_id ? "the seller can now be paid (Admin > Payouts)." : "Frontier's own stock, nothing to pay."} The provider is owed ${kwacha(b.provider_earning)}.`,
+      `The delivery is ${how}. The orders are handed over: ${b.seller_id ? "the seller can now be paid (Admin > Payouts)." : "Frontier's own stock, nothing to pay."} The provider is owed ${kwacha(b.provider_earning)}.`,
     ],
     rows: orders.map((o) => [orderRef(o.id), `${o.livestock_title} · ${kwacha(o.total)}`]),
   });
   orders.forEach((o) => {
-    txlog.record({ checkoutId: b.checkout_id, orderId: o.id, reference: orderRef(o.id), event: "transport_delivered", actor: "buyer", detail: `${orderRef(o.id)} (${o.livestock_title}) delivered by transport ${bookingRef(b.id)} and confirmed${viaDispute ? " by Frontier after a dispute" : " by the buyer"}. ${b.seller_id ? "The seller can now be paid." : "Order Completed."}` });
+    txlog.record({ checkoutId: b.checkout_id, orderId: o.id, reference: orderRef(o.id), event: "transport_delivered", actor: "buyer", detail: `${orderRef(o.id)} (${o.livestock_title}) delivered by transport ${bookingRef(b.id)} and ${how}. ${b.seller_id ? "The seller can now be paid." : "Order Completed."}` });
     notifications.broadcastAdmin("order", { id: o.id, checkout_id: b.checkout_id, change: "handed_over" });
   });
   if (b.buyer_id) notifications.pingBuyer(b.buyer_id, "order", { checkout_id: b.checkout_id });
@@ -761,12 +973,9 @@ async function confirmDelivery(buyer, bookingId, files, body = {}) {
   if (!b0) throw notFound("Delivery not found.");
   mustOwn(b0, { party: "customer", id: buyer.id });
   if (b0.status !== "awaiting_confirmation") throw conflict(b0.status === "completed" ? "You've already confirmed this delivery." : "You can confirm once the provider has recorded the delivery.");
-  const errors = {};
-  if (!["1", "true", "on"].includes(String(body.agree))) errors.agree = "Please tick the box to confirm you've received the goods.";
-  if (!(files || []).length) errors.images = "Please add at least one photo of what you received.";
-  if (Object.keys(errors).length) throw invalid(errors);
+  // Optional: completes it now instead of waiting (photos and a note if they like).
   const note = cleanNote(body.note, 500);
-  const saved = await savePhotos(files, { label: "photo of what you received" });
+  const saved = (files || []).length ? await savePhotos(files, { label: "photo of what you received" }) : [];
   let orders = [];
   try {
     await core.withBooking(bookingId, async (conn, b) => {
@@ -774,7 +983,7 @@ async function confirmDelivery(buyer, bookingId, files, body = {}) {
       if (b.status !== "awaiting_confirmation") throw conflict("This delivery has already been confirmed or reported.");
       await insertSubmission(conn, b.id, { stage: "customer_delivery", party: "customer", actorName: buyer.full_name, note, discrepancy: false });
       await storePhotos(conn, b.id, "customer_delivery", "customer", saved, null);
-      await core.transition(conn, b, "completed", { event: "completed", actor: "customer", actorName: buyer.full_name, detail: `${buyer.full_name} confirmed the delivery with ${saved.length} photo${saved.length === 1 ? "" : "s"}${note ? `: "${note}"` : "."}`, set: { completed_at: { raw: "NOW()" } } });
+      await core.transition(conn, b, "completed", { event: "completed", actor: "customer", actorName: buyer.full_name, detail: `${buyer.full_name} confirmed the delivery${saved.length ? ` with ${saved.length} photo${saved.length === 1 ? "" : "s"}` : ""}${note ? `: "${note}"` : "."}`, set: { completed_at: { raw: "NOW()" } } });
       orders = await completeOrders(conn, b, note);
     });
   } catch (error) {
@@ -968,7 +1177,8 @@ async function ratePlatform(buyer, checkoutId, body = {}) {
 }
 
 module.exports = {
-  ACCEPTABLE, COLLECTING, TRACKING, DISPUTE_REASONS,
+  ACCEPTABLE, COLLECTING, TRACKING, MOVING, DISPUTE_REASONS, COLLECTION_NOTES, DELIVERY_NOTES,
+  providerCollected, providerDelivered, autoComplete,
   loadBooking, insertBookings, onPaid, orderCancelled,
   accept, decline, release, sendToProviders,
   sellerReady, submitCollection, confirmCollection,

@@ -125,7 +125,7 @@ router.get("/bookings", async (req, res, next) => {
 // Deliveries on the road, for the live map.
 router.get("/active", async (req, res, next) => {
   try {
-    const [rows] = await pool.query(`${LIST_SQL} WHERE b.status IN ('collection_confirmed', 'in_transit', 'arrived', 'delivery_submitted', 'awaiting_confirmation') ORDER BY b.started_at DESC LIMIT 200`);
+    const [rows] = await pool.query(`${LIST_SQL} WHERE b.status IN ('provider_accepted', 'vehicle_selected', 'awaiting_collection', 'collection_submitted', 'collection_confirmed', 'in_transit', 'arrived', 'delivery_submitted', 'awaiting_confirmation') ORDER BY COALESCE(b.started_at, b.accepted_at) DESC LIMIT 200`);
     const settings = await core.getSettings();
     res.json({
       success: true,
@@ -134,7 +134,7 @@ router.get("/active", async (req, res, next) => {
         last: b.last_lat !== null ? { lat: Number(b.last_lat), lng: Number(b.last_lng), at: b.last_location_at } : null,
         pickup: { lat: Number(b.pickup_lat), lng: Number(b.pickup_lng) },
         dest: { lat: Number(b.dest_lat), lng: Number(b.dest_lng) },
-        stale: b.status === "in_transit" && (!b.last_location_at || new Date(b.last_location_at).getTime() < Date.now() - settings.gps_stale_minutes * 60000),
+        stale: ["in_transit", "awaiting_collection"].includes(b.status) && (!b.last_location_at || new Date(b.last_location_at).getTime() < Date.now() - settings.gps_stale_minutes * 60000),
         delayed: Boolean(b.delay_alert_at),
       })),
     });
@@ -161,9 +161,10 @@ async function adminActions(b) {
     pay_provider: b.status === "completed" && !b.provider_paid_at && Boolean(b.provider_id),
     // Frontier's own stock: the team does the seller's steps. For a seller's
     // goods the team can confirm on their behalf once both records are in.
-    seller_ready: !b.seller_id && bookings.COLLECTING.includes(b.status) && !b.seller_ready_at,
-    seller_record: !b.seller_id && bookings.COLLECTING.includes(b.status) && !subs.has("seller_collection"),
-    confirm_collection: b.status === "collection_submitted" && subs.has("seller_collection") && subs.has("provider_collection"),
+    seller_ready: false,
+    seller_record: false,
+    // An older delivery stuck waiting for the seller's confirmation.
+    confirm_collection: b.status === "collection_submitted" && subs.has("provider_collection"),
   };
 }
 
@@ -580,9 +581,11 @@ router.put("/settings", async (req, res, next) => {
     const window = Number(b.accept_window_minutes);
     const stale = Number(b.gps_stale_minutes);
     const pct = Number(b.commission_pct);
+    const autoHours = b.auto_complete_hours === undefined || b.auto_complete_hours === "" ? 24 : Number(b.auto_complete_hours);
     if (!Number.isFinite(window) || window < 5 || window > 10080) errors.accept_window_minutes = "From 5 minutes to 7 days.";
     if (!Number.isFinite(stale) || stale < 2 || stale > 720) errors.gps_stale_minutes = "From 2 to 720 minutes.";
     if (!Number.isFinite(pct) || pct < 0 || pct > 100) errors.commission_pct = "From 0 to 100.";
+    if (!Number.isFinite(autoHours) || autoHours < 0 || autoHours > 168) errors.auto_complete_hours = "From 0 (straight away) to 168 hours.";
     const point = core.point(b.frontier_pickup_lat, b.frontier_pickup_lng);
     if ((b.frontier_pickup_lat || b.frontier_pickup_lng) && !point) errors.frontier_pickup_point = "Mark the pickup point on the map.";
     if (b.frontier_pickup_district && b.frontier_pickup_province && !zambia.match(b.frontier_pickup_province, b.frontier_pickup_district)) errors.frontier_pickup_district = `Choose one of ${b.frontier_pickup_province} Province's districts.`;
@@ -593,6 +596,7 @@ router.put("/settings", async (req, res, next) => {
       accept_window_minutes: String(Math.round(window)),
       gps_stale_minutes: String(Math.round(stale)),
       commission_pct: String(Math.round(pct * 100) / 100),
+      auto_complete_hours: String(Math.round(autoHours)),
       frontier_pickup_label: clip(b.frontier_pickup_label, 150) || "Frontier Farms & Consult",
       frontier_pickup_address: clip(b.frontier_pickup_address, 255),
       frontier_pickup_district: zambia.match(b.frontier_pickup_province, b.frontier_pickup_district) || clip(b.frontier_pickup_district, 80),

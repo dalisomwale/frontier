@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS = {
   accept_window_minutes: "60",
   gps_stale_minutes: "15",
   commission_pct: "0",
+  auto_complete_hours: "24",
   frontier_pickup_label: "Frontier Farms & Consult",
   frontier_pickup_address: "",
   frontier_pickup_district: "",
@@ -34,6 +35,7 @@ async function getSettings(conn = pool) {
     accept_window_minutes: Math.max(5, num(out.accept_window_minutes, 60)),
     gps_stale_minutes: Math.max(2, num(out.gps_stale_minutes, 15)),
     commission_pct: Math.min(100, Math.max(0, num(out.commission_pct, 0))),
+    auto_complete_hours: Math.min(168, Math.max(0, Math.round(num(out.auto_complete_hours, 24)))),
     frontier_pickup: {
       label: out.frontier_pickup_label || "Frontier Farms & Consult",
       address: out.frontier_pickup_address || "",
@@ -295,6 +297,21 @@ async function bookingOrders(conn, bookingId) {
 }
 
 const bookingRef = (id) => `TR-${1000 + Number(id)}`;
+// "Plot 1, Great East Rd, Chongwe, Lusaka": the physical address with its
+// district and province, without repeating a part already written.
+function placeText(...parts) {
+  const out = [];
+  for (const raw of parts) {
+    const part = String(raw || "").trim();
+    if (!part) continue;
+    const seen = out.join(", ").toLowerCase();
+    if (seen.split(/,\s*/).includes(part.toLowerCase())) continue;
+    out.push(part);
+  }
+  return out.join(", ");
+}
+const pickupPlace = (b) => placeText(b.pickup_address, b.pickup_district, b.pickup_province) || b.pickup_label;
+const destPlace = (b) => placeText(b.dest_address, b.dest_district, b.dest_province);
 const isNum = (v) => v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v));
 function point(lat, lng) {
   return isNum(lat) && isNum(lng) && Math.abs(Number(lat)) <= 90 && Math.abs(Number(lng)) <= 180 && !(Number(lat) === 0 && Number(lng) === 0)
@@ -308,5 +325,5 @@ module.exports = {
   STATUS_LABELS, TRANSITIONS, GROUPS, VEHICLE_BUSY, BEFORE_COLLECTION,
   logEvent, transition, withBooking, conflict,
   cargoKeyOf, loadOf, vehicleFits, cargoLabels, loadText, bookingOrders,
-  bookingRef, point,
+  bookingRef, point, placeText, pickupPlace, destPlace,
 };

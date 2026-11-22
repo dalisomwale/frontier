@@ -7,9 +7,9 @@
 //   3. A delivery on the road with no GPS position for a while, or taking
 //      much longer than the route should: the team is emailed once (again
 //      after the provider's phone is heard from and goes quiet again).
-//   4. A delivery waiting for the buyer's confirmation for a day: the buyer
-//      is reminded once. A completed delivery not rated after a day: the
-//      buyer is reminded once.
+//   4. A delivered booking with no problem reported once the waiting time
+//      (settings: auto_complete_hours) has passed is completed automatically.
+//      A completed delivery not rated after a day: the buyer is reminded once.
 const pool = require("../../db");
 const core = require("./core");
 const notify = require("./notify");
@@ -59,7 +59,7 @@ async function unaccepted(settings) {
         `No provider has accepted this delivery ${settings.accept_window_minutes} minutes after it was paid. The request was sent to ${Number(offers.sent) || 0} provider${Number(offers.sent) === 1 ? "" : "s"}${Number(offers.declined) ? `, and ${Number(offers.declined)} declined` : ""}.`,
         "Please assign a provider from the delivery page, or contact the buyer. Nothing has been cancelled.",
       ],
-      rows: [["Pickup", b.pickup_label], ["Destination", `${b.dest_district}, ${b.dest_province}`], ["Distance", `${Number(b.distance_km)} km`], ["Load", b.cargo_summary || "-"]],
+      rows: [["Pickup", `${b.pickup_label}, ${core.pickupPlace(b)}`], ["Destination", core.destPlace(b)], ["Distance", `${Number(b.distance_km)} km`], ["Load", b.cargo_summary || "-"]],
     });
     notify.live(b, "unaccepted");
   }
@@ -93,20 +93,19 @@ async function delayed(settings) {
   }
 }
 
-async function reminders() {
-  const [waiting] = await pool.query(
-    "SELECT * FROM transport_bookings WHERE status = 'awaiting_confirmation' AND delivery_submitted_at < NOW() - INTERVAL 24 HOUR ORDER BY id LIMIT 20",
+async function reminders(settings) {
+  // Delivered, and no problem reported in the waiting time: complete it.
+  const [due] = await pool.query(
+    "SELECT id FROM transport_bookings WHERE status = 'awaiting_confirmation' AND delivery_submitted_at <= NOW() - INTERVAL ? HOUR ORDER BY id LIMIT 30",
+    [settings.auto_complete_hours],
   );
-  for (const b of waiting) {
-    if (!(await once(b.id, "confirm_reminder", "Buyer reminded to confirm the delivery."))) continue;
-    notify.customer(b, {
-      title: `Please confirm your delivery (${bookingRef(b.id)})`,
-      body: "The provider recorded the delivery yesterday. Please confirm it, or report a problem.",
-      subject: `Reminder: please confirm your delivery ${bookingRef(b.id)}`,
-      heading: "Please confirm your delivery",
-      paragraphs: ["The transport provider recorded your delivery more than a day ago. Please check it in your account and confirm, or report a problem if something isn't right. The order is only completed once you confirm."],
-    });
-    notify.team(b, { subject: `Buyer hasn't confirmed delivery ${bookingRef(b.id)}`, heading: "A delivery is waiting for the buyer's confirmation", paragraphs: ["The buyer hasn't confirmed or reported a problem a day after delivery. They've been reminded. You may want to call them."] });
+  const { autoComplete } = require("./bookings");
+  for (const { id } of due) {
+    try {
+      await autoComplete(id);
+    } catch (error) {
+      console.error(`Transport ${bookingRef(id)}: automatic completion failed (${error.message})`);
+    }
   }
   const [unrated] = await pool.query(
     `SELECT b.* FROM transport_bookings b
@@ -122,7 +121,7 @@ async function reminders() {
 
 async function tick() {
   const settings = await core.getSettings();
-  for (const [name, job] of [["re-offer", reoffer], ["unaccepted", () => unaccepted(settings)], ["delays", () => delayed(settings)], ["reminders", reminders]]) {
+  for (const [name, job] of [["re-offer", reoffer], ["unaccepted", () => unaccepted(settings)], ["delays", () => delayed(settings)], ["reminders", () => reminders(settings)]]) {
     try {
       await job();
     } catch (error) {

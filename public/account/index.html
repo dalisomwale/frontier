@@ -331,15 +331,15 @@
           return;
         }
         view.deliveryId = d.id;
-        const tracking = ["collection_confirmed", "in_transit", "arrived", "delivery_submitted", "awaiting_confirmation"].includes(d.status) || (d.tracking.last && d.status !== "completed");
+        const tracking = TR_MOVING.includes(d.status) || ["delivery_submitted", "awaiting_confirmation"].includes(d.status);
         const dispute = d.disputes && d.disputes[0];
         box.innerHTML = `
           <div class="acc-card">
             <div class="flex items-center justify-between gap-3 mb-3"><h2 class="txd-card-title !mb-0">Delivery ${escapeHtml(d.reference)}</h2>${trPill(d)}</div>
             ${trProgressHtml(d.status)}
             ${trProviderHtml(d)}
-            ${d.status === "awaiting_confirmation" ? `<div class="acc-card-warn acc-card mt-4"><b>The provider has delivered.</b><p class="text-sm text-gray-700 mt-1">Check the animals or feed, then confirm with your own photos, or report a problem. Your order is only completed once you confirm.</p>
-              <div class="tr-actions mt-3"><button type="button" class="acc-btn" data-d-confirm>${uiIcon("camera")}<span>Confirm successful delivery</span></button><button type="button" class="acc-mini-btn" data-d-dispute>Report a delivery problem</button></div></div>` : ""}
+            ${d.status === "awaiting_confirmation" ? `<div class="acc-card-ok acc-card mt-4"><b>Delivered.</b><p class="text-sm text-gray-700 mt-1">Please check the animals or feed. ${d.auto_complete_at ? `Your order completes automatically on <b>${escapeHtml(trWhen(d.auto_complete_at))}</b>` : "Your order completes automatically"} unless you report a problem. You don't need to do anything if all is well.</p>
+              <div class="tr-actions mt-3"><button type="button" class="acc-btn" data-d-confirm>Everything is fine</button><button type="button" class="acc-mini-btn" data-d-dispute>Report a delivery problem</button></div></div>` : ""}
             ${dispute ? `<div class="${dispute.status === "open" ? "tr-warn-box" : "tr-note-box"} mt-4"><b>${dispute.status === "open" ? "You reported a problem" : `Your report was resolved: ${dispute.resolution === "refund" ? "refund" : "delivered"}`}</b><p class="mt-1">${escapeHtml(dispute.description)}</p>${dispute.resolution_note ? `<p class="mt-1">Frontier: ${escapeHtml(dispute.resolution_note)}</p>` : ""}</div>` : ""}
           </div>
           ${tracking || d.tracking.route ? `<div class="acc-card mt-4"><h2 class="txd-card-title">Follow your delivery</h2><div data-track></div></div>` : ""}
@@ -395,16 +395,16 @@
       // Confirm the delivery (with photos), or report a problem (with photos).
       function openDeliveryForm(o, d, kind) {
         const confirm = kind === "confirm";
-        const view = openAdminView({ title: confirm ? "Confirm delivery" : "Report a problem", params: { id: o.id, [kind]: 1 } });
+        const view = openAdminView({ title: confirm ? "Complete order" : "Report a problem", params: { id: o.id, [kind]: 1 } });
         view.el.classList.add("confirm-view");
         const live = d.orders.filter((x) => !x.cancelled);
-        const delivered = (x) => { const q = d.quantities.find((r) => r.stage === "provider_delivered" && Number(r.order_id) === Number(x.id)); return q ? q.quantity : x.quantity; };
+        const delivered = (x) => { const q = d.quantities.find((r) => r.stage === "provider_delivered" && Number(r.order_id) === Number(x.id)); return q ? `${q.quantity} of ${x.quantity}` : x.units; };
         view.body.innerHTML = `
           <form class="acc-confirm" novalidate>
-            <h1 class="admin-view-title">${confirm ? "Confirm successful delivery" : "Report a delivery problem"}</h1>
+            <h1 class="admin-view-title">${confirm ? "Everything is fine" : "Report a delivery problem"}</h1>
             <div class="acc-card">
-              <p class="text-sm text-gray-700">The provider recorded delivering:</p>
-              <ul class="tr-qty">${live.map((x) => `<li><span>${escapeHtml(x.title)}</span><b>${delivered(x)} of ${x.quantity}</b></li>`).join("")}</ul>
+              <p class="text-sm text-gray-700">Your order:</p>
+              <ul class="tr-qty">${live.map((x) => `<li><span>${escapeHtml(x.title)}</span><b>${escapeHtml(delivered(x))}</b></li>`).join("")}</ul>
             </div>
             ${confirm ? "" : `<div class="acc-card">
               <p class="field-label">What's wrong?</p>
@@ -415,31 +415,28 @@
               <p class="field-error hidden" data-error-for="description"></p>
             </div>`}
             <div class="acc-card">
-              <p class="field-label">${confirm ? "Your photos of what you received" : "Photos showing the problem"} <span class="text-gray-400 font-normal">(1 to 6)</span></p>
+              <p class="field-label">${confirm ? "Your photos of what you received" : "Photos showing the problem"} <span class="text-gray-400 font-normal">(${confirm ? "optional, up to 6" : "1 to 6"})</span></p>
               <div class="acc-ph-grid" data-photos></div>
               <p class="field-error hidden" data-error-for="images"></p>
             </div>
             ${confirm ? `<div class="acc-card">
               <label for="dc-note" class="field-label">Anything to add? <span class="text-gray-400 font-normal">(optional)</span></label>
               <textarea id="dc-note" name="note" rows="2" maxlength="500" class="field-input" placeholder="e.g. All arrived healthy."></textarea>
-              <label class="co-terms-box mt-3"><input type="checkbox" name="agree"><span>I've checked the goods and received everything listed above</span></label>
-              <p class="field-error hidden" data-error-for="agree"></p>
             </div>` : ""}
-            <div class="acc-actionbar"><button type="submit" class="acc-btn" data-submit>${confirm ? "Confirm successful delivery" : "Send the report"}</button></div>
+            <div class="acc-actionbar"><button type="submit" class="acc-btn" data-submit>${confirm ? "Complete my order" : "Send the report"}</button></div>
           </form>`;
         const form = view.body.querySelector("form");
         const picker = bindPhotoPicker(form.querySelector("[data-photos]"), 6, (n) => { if (n) form.querySelector('[data-error-for="images"]').classList.add("hidden"); });
         form.addEventListener("submit", async (e) => {
           e.preventDefault();
           const errors = {};
-          if (!picker.files().length) errors.images = "Please add at least one photo.";
-          if (confirm && !form.agree.checked) errors.agree = "Please tick the box to confirm.";
+          if (!confirm && !picker.files().length) errors.images = "Please add at least one photo.";
           if (!confirm && !form.querySelector('input[name="reason"]:checked')) errors.reason = "Please choose one.";
           if (!confirm && form.description.value.trim().length < 10) errors.description = "Please describe the problem.";
           if (Object.keys(errors).length) return showFieldErrors(form, { errors });
           const fd = new FormData();
           picker.files().forEach((f) => fd.append("images", f));
-          if (confirm) { fd.append("agree", "1"); fd.append("note", form.note.value.trim()); }
+          if (confirm) fd.append("note", form.note.value.trim());
           else { fd.append("reason", form.querySelector('input[name="reason"]:checked').value); fd.append("description", form.description.value.trim()); }
           try {
             const res = await withBusy(form.querySelector("[data-submit]"), "Sending…", () =>

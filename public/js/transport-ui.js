@@ -5,6 +5,8 @@
 // Needs main.js (escapeHtml, apiRequest), icons.js (uiIcon) and, for maps,
 // /vendor/leaflet-1.9.4/leaflet.js + leaflet.css.
 
+// From acceptance to delivery the provider's phone shares its position.
+const TR_MOVING = ["provider_accepted", "vehicle_selected", "awaiting_collection", "collection_submitted", "collection_confirmed", "in_transit", "arrived"];
 const TR_PILL = { unpaid: "so-off", pending: "so-open", accepted: "so-act", active: "so-act", completed: "so-done", disputed: "tr-pill-alert", closed: "so-off" };
 function trPill(d, large = false) {
   return `<span class="so-pill ${TR_PILL[d.group] || "so-off"}${large ? " so-pill-lg" : ""}">${escapeHtml(d.status_label || d.status)}</span>`;
@@ -21,7 +23,7 @@ function trDuration(min) {
 
 // ------------------------------------------------------------- progress
 // Paid → Provider assigned → Collected → On the way → Delivered → Confirmed
-const TR_STEPS = ["Paid", "Provider assigned", "Collected", "On the way", "Delivered", "Confirmed"];
+const TR_STEPS = ["Paid", "Provider assigned", "Collected", "On the way", "Delivered", "Completed"];
 const TR_STAGE_OF = {
   pending_payment: [-1, 0], payment_confirmed: [0, 1], awaiting_provider: [0, 1], awaiting_reassignment: [0, 1],
   provider_accepted: [1, 2], vehicle_selected: [1, 2], awaiting_collection: [1, 2], collection_submitted: [1, 2],
@@ -224,8 +226,16 @@ async function trTrackingMap(holder, d, { trail = [] } = {}) {
   const q = d.destination && d.destination.lat ? [d.destination.lat, d.destination.lng] : null;
   if (p) { L.marker(p, { icon: trPin("pickup", "Pickup") }).addTo(map).bindTooltip("Pickup"); bounds.push(p); }
   if (q) { L.marker(q, { icon: trPin("dest", "Delivery point") }).addTo(map).bindTooltip("Delivery point"); bounds.push(q); }
+  // On the way to collect: directions from the provider to the pickup (green),
+  // and the onward route to the destination (grey). After collection: the
+  // route from the pickup to the destination is the directions.
+  const collecting = Boolean(d.tracking && d.tracking.approach && d.tracking.approach.geometry && d.tracking.approach.geometry.length > 1);
+  if (collecting) {
+    L.polyline(d.tracking.approach.geometry, { color: "#16a34a", weight: 5, opacity: 0.85 }).addTo(map);
+    d.tracking.approach.geometry.forEach((pt) => bounds.push(pt));
+  }
   if (d.tracking && d.tracking.route && d.tracking.route.length > 1) {
-    L.polyline(d.tracking.route, { color: "#64748b", weight: 4, opacity: 0.55, dashArray: "6 8" }).addTo(map);
+    L.polyline(d.tracking.route, collecting ? { color: "#64748b", weight: 4, opacity: 0.5, dashArray: "6 8" } : { color: "#475569", weight: 5, opacity: 0.6 }).addTo(map);
     d.tracking.route.forEach((pt) => bounds.push(pt));
   }
   const line = L.polyline([], { color: "#1d4ed8", weight: 4, opacity: 0.9 }).addTo(map);
@@ -233,11 +243,12 @@ async function trTrackingMap(holder, d, { trail = [] } = {}) {
   let lastAt = d.tracking && d.tracking.last ? d.tracking.last.at : null;
   const paintNote = () => {
     if (!lastAt) {
-      note.textContent = ["in_transit", "arrived"].includes(d.status) ? "Waiting for the first position from the provider's phone." : "";
+      note.textContent = TR_MOVING.includes(d.status) ? "Waiting for the first position from the provider's phone." : "";
       return;
     }
     const mins = Math.round((Date.now() - new Date(lastAt).getTime()) / 60000);
-    note.innerHTML = `Last position from the provider's phone: <b>${escapeHtml(trWhen(lastAt))}</b>${mins >= 2 ? ` (${mins < 120 ? `${mins} min` : `${Math.round(mins / 60)} h`} ago)` : ""}.${mins >= 15 && ["in_transit", "arrived"].includes(d.status) ? " No newer position has been received." : ""}`;
+    const leg = collecting ? ` On the way to the pickup${d.tracking.approach.km ? `: ${trKm(d.tracking.approach.km)}${d.tracking.approach.minutes ? `, about ${trDuration(d.tracking.approach.minutes)}` : ""} away` : ""}.` : "";
+    note.innerHTML = `Last position from the provider's phone: <b>${escapeHtml(trWhen(lastAt))}</b>${mins >= 2 ? ` (${mins < 120 ? `${mins} min` : `${Math.round(mins / 60)} h`} ago)` : ""}.${leg}${mins >= 15 && TR_MOVING.includes(d.status) ? " No newer position has been received." : ""}`;
   };
   const moveLive = (pt) => {
     if (!live) live = L.marker([pt.lat, pt.lng], { icon: trPin("live", "Provider"), zIndexOffset: 1000 }).addTo(map).bindTooltip("Provider (last position)");
@@ -291,7 +302,7 @@ async function trFollow(holder, d, trackUrl, api) {
     } catch {
     }
   };
-  const timer = ["in_transit", "arrived", "collection_confirmed"].includes(d.status) ? setInterval(() => { if (!holder.isConnected) clearInterval(timer); else poll(); }, 30000) : null;
+  const timer = TR_MOVING.includes(d.status) ? setInterval(() => { if (!holder.isConnected) clearInterval(timer); else poll(); }, 30000) : null;
   return { push: () => poll(), view };
 }
 
@@ -383,10 +394,9 @@ function trRatingForm(holder, { title, hint, name, onSubmit }) {
 function trFactsHtml(d, { role } = {}) {
   const rows = [
     ["Delivery", d.reference],
-    ["From", [d.pickup.label, d.pickup.district, d.pickup.province].filter(Boolean).join(", ")],
-    ...(d.pickup.address && role !== "customer" ? [["Pickup address", d.pickup.address]] : []),
+    ["From", [d.pickup.label, d.pickup.place].filter(Boolean).join(", ")],
     ...(d.pickup.phone ? [["Seller phone", `<a href="tel:${escapeHtml(d.pickup.phone.replace(/[^\d+]/g, ""))}">${escapeHtml(d.pickup.phone)}</a>`, true]] : []),
-    ["To", [d.destination.address, d.destination.district, d.destination.province].filter(Boolean).join(", ")],
+    ["To", d.destination.place || [d.destination.address, d.destination.district, d.destination.province].filter(Boolean).join(", ")],
     ...(d.destination.notes ? [["Directions", d.destination.notes]] : []),
     ...(d.destination.contact_name ? [["Receiver", `${escapeHtml(d.destination.contact_name)} · <a href="tel:${escapeHtml(d.destination.contact_phone.replace(/[^\d+]/g, ""))}">${escapeHtml(d.destination.contact_phone)}</a>`, true]] : []),
     ["Road distance", `${trKm(d.distance_km)}${d.duration_min ? ` · about ${trDuration(d.duration_min)}` : ""}`],

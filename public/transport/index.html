@@ -179,15 +179,15 @@
             <div class="space-y-4 min-w-0">
               <div class="acc-card"><h2 class="txd-card-title">Request</h2>
                 <dl class="sv-facts">
-                  <div><dt>Pickup area</dt><dd>${escapeHtml([d.pickup.district, d.pickup.province].filter(Boolean).join(", "))}</dd></div>
-                  <div><dt>Destination area</dt><dd>${escapeHtml(`${d.destination.district}, ${d.destination.province}`)}</dd></div>
+                  <div><dt>Pickup address</dt><dd>${escapeHtml(d.pickup.place)}</dd></div>
+                  <div><dt>Delivery address</dt><dd>${escapeHtml(d.destination.place)}</dd></div>
                   <div><dt>Road distance</dt><dd>${trKm(d.distance_km)}${d.duration_min ? ` · about ${trDuration(d.duration_min)}` : ""}</dd></div>
-                  ${d.offer.pickup_km !== null ? `<div><dt>From your base to pickup</dt><dd>${trKm(d.offer.pickup_km)}</dd></div>` : ""}
+                  ${d.offer.pickup_km !== null ? `<div><dt>From your address to pickup</dt><dd>${trKm(d.offer.pickup_km)}</dd></div>` : ""}
                   <div><dt>Load</dt><dd>${escapeHtml(d.cargo_summary || "-")}</dd></div>
                   <div><dt>Your earning</dt><dd><b>${kwacha(d.provider_earning)}</b></dd></div>
                 </dl>
                 <ul class="tr-qty mt-3">${d.orders.filter((o) => !o.cancelled).map((o) => `<li><span>${escapeHtml(o.title)}</span><b>${escapeHtml(o.units)}</b></li>`).join("")}</ul>
-                <p class="text-sm text-gray-500 mt-3">The exact pickup and delivery addresses and contacts are shown once you accept.</p>
+                <p class="text-sm text-gray-500 mt-3">The seller's and receiver's phone numbers are shown once you accept.</p>
               </div>
             </div>
             <div class="space-y-4 min-w-0">
@@ -235,53 +235,53 @@
         const can = d.can || {};
         const subs = (stage) => d.submissions.find((s) => s.stage === stage);
         const collected = (o) => { const q = d.quantities.find((x) => x.stage === "provider_collected" && Number(x.order_id) === Number(o.id)); return q ? q.quantity : o.quantity; };
+        // Collected / Delivered: a comment (with details if something isn't
+        // right) and photos. Quantities aren't changed by the provider.
+        const commentForm = (attr, title, intro, notes, button) => `<form class="acc-card" ${attr} novalidate>
+            <h2 class="txd-card-title">${title}</h2>
+            <p class="text-sm text-gray-600">${intro}</p>
+            <label class="field-label mt-4" for="${attr}-c">Comment</label>
+            <select id="${attr}-c" name="comment" class="field-input">
+              <option value="">Choose…</option>
+              ${Object.entries(notes).map(([k, v]) => `<option value="${k}">${escapeHtml(v)}</option>`).join("")}
+            </select>
+            <p class="field-error hidden" data-error-for="comment"></p>
+            <div data-details hidden>
+              <label class="field-label mt-3" for="${attr}-d">What isn't right?</label>
+              <textarea id="${attr}-d" name="details" rows="2" maxlength="1000" class="field-input"></textarea>
+              <p class="field-error hidden" data-error-for="details"></p>
+            </div>
+            <p class="field-label mt-4">Photos of the goods <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 6)</span></p>
+            <div class="acc-ph-grid" data-photos></div>
+            <p class="field-error hidden" data-error-for="images"></p>
+            <button type="submit" class="acc-btn mt-4">${button}</button>
+          </form>`;
+        const onWay = ["provider_accepted", "vehicle_selected", "awaiting_collection", "collection_submitted"].includes(d.status);
         let action = "";
         if (can.collect) {
-          action = `<form class="acc-card" data-collect novalidate>
-            <h2 class="txd-card-title">Record the collection</h2>
-            <p class="text-sm text-gray-600">At the pickup point, check the goods with the seller. Record what you actually collect, any identification (ear tags, brands), and your own photos. The seller records theirs separately.</p>
-            ${d.times.seller_ready_at ? `<p class="tr-note-box mt-3">The seller marked the goods ready · ${escapeHtml(trWhen(d.times.seller_ready_at))}</p>` : ""}
-            <div class="mt-4">${trQtyFields(d.orders, { label: "Collected", ids: true })}</div>
-            <label class="field-label mt-4" for="c-note">Notes <span class="text-gray-400 font-normal">(required if anything differs from the order)</span></label>
-            <textarea id="c-note" name="note" rows="2" maxlength="1000" class="field-input"></textarea>
-            <p class="field-error hidden" data-error-for="note"></p>
-            <p class="field-label mt-4">Your photos of the goods <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 6)</span></p>
-            <div class="acc-ph-grid" data-photos></div>
-            <p class="field-error hidden" data-error-for="images"></p>
-            <button type="submit" class="acc-btn mt-4">Save collection record</button>
-          </form>`;
-        } else if (["awaiting_collection", "collection_submitted"].includes(d.status) && subs("provider_collection")) {
-          action = `<div class="acc-card"><b>Collection recorded</b><p class="text-sm text-gray-600 mt-1">${subs("seller_collection") ? "Waiting for the seller to confirm the collection." : "Waiting for the seller to record the handover and confirm."}</p></div>`;
+          action = commentForm("data-collect", "At the pickup",
+            `Drive to ${escapeHtml(d.pickup.place)}. Check the goods with the seller, then choose a comment, add photos and tap Collected. The delivery then starts and the buyer and seller are told.`,
+            d.comments.collection, "Collected");
         } else if (can.start) {
-          action = `<div class="acc-card acc-card-ok"><b>Collection confirmed</b><p class="text-sm text-gray-700 mt-1">Start the delivery when you leave. Keep this page open on your phone during the trip so the buyer, seller and Frontier can follow it.</p><button type="button" class="acc-btn mt-3" data-start>${uiIcon("truck")}<span>Start delivery</span></button></div>`;
-        } else if (can.arrive) {
-          action = `<div class="acc-card"><b>On the way</b><p class="text-sm text-gray-600 mt-1">When you reach ${escapeHtml(d.destination.address || d.destination.district)}, mark your arrival.</p><button type="button" class="acc-btn mt-3" data-arrive>I've arrived at the destination</button></div>`;
+          action = `<div class="acc-card acc-card-ok"><b>Collection confirmed</b><p class="text-sm text-gray-700 mt-1">Start the delivery when you leave.</p><button type="button" class="acc-btn mt-3" data-start>${uiIcon("truck")}<span>Start delivery</span></button></div>`;
         } else if (can.deliver) {
-          action = `<form class="acc-card" data-deliver novalidate>
-            <h2 class="txd-card-title">Mark as delivered</h2>
-            <p class="text-sm text-gray-600">Check the goods with the receiver. Record what you hand over and add photos. The buyer then confirms with their own photos.</p>
-            <div class="mt-4">${trQtyFields(d.orders, { label: "Delivered", start: collected })}</div>
-            <label class="field-label mt-4" for="d-note">Notes <span class="text-gray-400 font-normal">(required if anything differs from what you collected)</span></label>
-            <textarea id="d-note" name="note" rows="2" maxlength="1000" class="field-input"></textarea>
-            <p class="field-error hidden" data-error-for="note"></p>
-            <p class="field-label mt-4">Photos of the delivered goods <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 6)</span></p>
-            <div class="acc-ph-grid" data-photos></div>
-            <p class="field-error hidden" data-error-for="images"></p>
-            <button type="submit" class="acc-btn mt-4">Submit for the buyer's confirmation</button>
-          </form>`;
-        } else if (d.status === "awaiting_confirmation") action = `<div class="acc-card"><b>Waiting for the buyer</b><p class="text-sm text-gray-600 mt-1">The buyer has been asked to check the goods and confirm.</p></div>`;
+          action = commentForm("data-deliver", "At the destination",
+            `Drive to ${escapeHtml(d.destination.place)}. ${d.status === "arrived" ? "You've arrived. " : "Your arrival is noted automatically from your location. "}Hand the goods over, then choose a comment, add photos and tap Delivered.`,
+            d.comments.delivery, "Delivered");
+        } else if (d.status === "awaiting_confirmation") action = `<div class="acc-card acc-card-ok"><b>Delivered</b><p class="text-sm text-gray-600 mt-1">The buyer has been told. The delivery completes automatically unless they report a problem.</p></div>`;
         else if (d.status === "disputed") action = `<div class="tr-warn-box"><b>The buyer reported a problem.</b> Frontier is reviewing the records and may contact you.</div>`;
         else if (d.status === "completed") action = `<div class="acc-card acc-card-ok"><b>Completed · ${escapeHtml(trWhen(d.times.completed_at))}</b><p class="text-sm text-gray-700 mt-1">Your earning: <b>${kwacha(d.provider_earning)}</b>.</p>${d.rating ? `<p class="mt-2">${trStarsHtml(d.rating.stars)}</p>${d.rating.feedback ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(d.rating.feedback)}"</p>` : ""}` : ""}</div>`;
-        const showMap = ["collection_confirmed", "in_transit", "arrived", "delivery_submitted", "awaiting_confirmation", "awaiting_collection", "collection_submitted"].includes(d.status);
+        const showMap = TR_MOVING.includes(d.status) || ["delivery_submitted", "awaiting_confirmation"].includes(d.status);
+        const goTo = onWay ? d.pickup : d.destination;
         view.body.innerHTML = `
-          <div class="sv-head"><h1 class="admin-view-title !mb-0">${escapeHtml(d.pickup.label)} → ${escapeHtml(d.destination.district)}</h1>${trPill(d, true)}</div>
+          <div class="sv-head"><h1 class="admin-view-title !mb-0">${escapeHtml(d.pickup.district || d.pickup.label)} → ${escapeHtml(d.destination.district)}</h1>${trPill(d, true)}</div>
           ${trProgressHtml(d.status)}
           <div class="tr-two">
             <div class="space-y-4 min-w-0">
               ${can.share_location ? `<div data-gps></div>` : ""}
+              ${showMap ? `<div class="acc-card"><h2 class="txd-card-title">${onWay ? "To the pickup" : TR_MOVING.includes(d.status) ? "To the buyer" : "Route"}</h2><div data-track></div>
+                ${TR_MOVING.includes(d.status) && goTo.lat ? `<p class="text-sm mt-2"><a class="acc-link" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${goTo.lat},${goTo.lng}">Turn-by-turn directions in your maps app</a></p>` : ""}</div>` : ""}
               ${action}
-              ${showMap ? `<div class="acc-card"><h2 class="txd-card-title">Route</h2><div data-track></div>
-                <p class="text-sm mt-2"><a class="acc-link" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${["in_transit", "arrived"].includes(d.status) ? `${d.destination.lat},${d.destination.lng}` : `${d.pickup.lat},${d.pickup.lng}`}">Open directions in your maps app</a></p></div>` : ""}
               <div class="acc-card"><h2 class="txd-card-title">Collection and delivery records</h2>${trEvidenceHtml(d)}</div>
             </div>
             <div class="space-y-4 min-w-0">
@@ -292,6 +292,9 @@
               <details class="acc-card acc-more"><summary>History</summary>${trTimelineHtml(d.events)}</details>
             </div>
           </div>`;
+        view.body.querySelectorAll("select[name=comment]").forEach((sel) => sel.addEventListener("change", () => {
+          sel.form.querySelector("[data-details]").hidden = !sel.value || sel.value === "ok";
+        }));
         const reopen = () => openBooking(d.id, { replace: true });
         const bindForm = (sel, url, label) => {
           const form = view.body.querySelector(sel);
@@ -299,7 +302,11 @@
           const picker = bindPhotoPicker(form.querySelector("[data-photos]"), 6, (n) => { if (n) form.querySelector('[data-error-for="images"]').classList.add("hidden"); });
           form.addEventListener("submit", async (e) => {
             e.preventDefault();
-            if (!picker.files().length) return showFieldErrors(form, { errors: { images: "Please add at least one photo." } });
+            const errs = {};
+            if (form.comment && !form.comment.value) errs.comment = "Please choose a comment.";
+            if (form.comment && form.comment.value && form.comment.value !== "ok" && !form.details.value.trim()) errs.details = "Please add a few words about what isn't right.";
+            if (!picker.files().length) errs.images = "Please add at least one photo.";
+            if (Object.keys(errs).length) return showFieldErrors(form, { errors: errs });
             const fd = new FormData(form);
             picker.files().forEach((f) => fd.append("images", f));
             const btn = form.querySelector("button[type=submit]");
@@ -356,6 +363,10 @@
         }
         const track = view.body.querySelector("[data-track]");
         if (track) trFollow(track, d, `/api/transport/bookings/${d.id}/track`, transportApi).then((f) => { follow = f; });
+        // The map moves with this phone's own position straight away.
+        gps.onFix = (pos) => {
+          if (follow && bookingView && bookingView.bookingId === d.id) follow.view.addPoint({ lat: pos.coords.latitude, lng: pos.coords.longitude, at: new Date(pos.timestamp).toISOString() });
+        };
       }
 
       // ------------------------------------------------------------ vehicles
