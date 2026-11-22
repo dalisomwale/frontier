@@ -284,7 +284,7 @@
           </div>
           <div class="acc-order">
             <div class="space-y-4 min-w-0">
-              ${orderTrackerHtml({ buyer: true, paid: o.paid || !["unpaid", "cancelled"].includes(o.stage), sent: Boolean(o.sent_at), received: Boolean(o.received_at), completed: ["received", "completed"].includes(o.stage), cancelled: o.stage === "cancelled" })}
+              ${o.transport && o.stage !== "unpaid" ? "" : orderTrackerHtml({ buyer: true, paid: o.paid || !["unpaid", "cancelled"].includes(o.stage), sent: Boolean(o.sent_at), received: Boolean(o.received_at), completed: ["received", "completed"].includes(o.stage), cancelled: o.stage === "cancelled" })}
               ${nextStepHtml(o)}
             </div>
             <div class="space-y-4">

@@ -23,7 +23,7 @@ function trDuration(min) {
 
 // ------------------------------------------------------------- progress
 // Paid → Provider assigned → Collected → On the way → Delivered → Confirmed
-const TR_STEPS = ["Paid", "Provider assigned", "Collected", "On the way", "Delivered", "Completed"];
+const TR_STEPS = ["Paid", "Provider assigned", "Collected", "On the way", "Delivered", "Confirmed"];
 const TR_STAGE_OF = {
   pending_payment: [-1, 0], payment_confirmed: [0, 1], awaiting_provider: [0, 1], awaiting_reassignment: [0, 1],
   provider_accepted: [1, 2], vehicle_selected: [1, 2], awaiting_collection: [1, 2], collection_submitted: [1, 2],
