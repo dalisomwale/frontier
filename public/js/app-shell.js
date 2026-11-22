@@ -38,6 +38,7 @@ function renderBottomNav(variant = "public") {
           { href: "/admin/payouts", icon: "wallet", label: "Payouts", match: ["/admin/payouts"] },
           { href: "/admin/transport", icon: "truck", label: "Transport", match: ["/admin/transport", "/admin/transport-providers", "/admin/transport-pricing"] },
           { href: "/admin/sellers", icon: "users", label: "Sellers", match: ["/admin/sellers"] },
+          { href: "/admin/newsletter", icon: "mail", label: "Newsletter", match: ["/admin/newsletter"] },
           { href: "/admin/breeds", icon: "tag", label: "Breeds", match: ["/admin/breeds"] },
           { href: "/admin/categories", icon: "layers", label: "Categories", match: ["/admin/categories"] },
         ]
@@ -94,6 +95,7 @@ function renderSidebar(active) {
     { key: "transport-pricing", href: "/admin/transport-pricing", icon: "route", label: "Pricing & settings" },
     { section: "People" },
     { key: "sellers", href: "/admin/sellers", icon: "users", label: "Sellers" },
+    { key: "newsletter", href: "/admin/newsletter", icon: "mail", label: "Newsletter" },
     { section: "Setup" },
     { key: "breeds", href: "/admin/breeds", icon: "tag", label: "Breeds" },
     {

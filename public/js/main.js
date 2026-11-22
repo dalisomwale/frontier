@@ -234,6 +234,22 @@ function renderSiteFooter() {
   const link = (href, text) => `<a href="${href}">${text}</a>`;
   el.innerHTML = `
     <div class="site-footer-inner">
+      <div class="site-footer-news">
+        <div class="site-footer-news-text">
+          <h2>Stay in the loop</h2>
+          <p>Get our newsletter, promotions and the latest livestock and feed straight to your inbox.</p>
+        </div>
+        <form class="site-footer-news-form" data-news-form novalidate>
+          <div class="site-footer-news-row">
+            <label class="sr-only" for="news-email">Email address</label>
+            <input id="news-email" type="email" name="email" placeholder="Your email address" autocomplete="email" maxlength="255" required>
+            <input type="text" name="website" class="site-footer-news-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <button type="submit">Subscribe</button>
+          </div>
+          <p class="site-footer-news-msg" data-news-msg role="status" hidden></p>
+          <small>No spam. Unsubscribe anytime.</small>
+        </form>
+      </div>
       <div class="site-footer-grid">
         <div class="site-footer-brand">
           <a href="/" class="site-footer-logo" aria-label="Frontier Marketplace home">
@@ -277,6 +293,34 @@ function renderSiteFooter() {
     </div>`;
 }
 document.addEventListener("DOMContentLoaded", renderSiteFooter);
+
+// Newsletter sign-up in the footer.
+document.addEventListener("submit", async (event) => {
+  const form = event.target.closest && event.target.closest("[data-news-form]");
+  if (!form) return;
+  event.preventDefault();
+  const msg = form.querySelector("[data-news-msg]");
+  const button = form.querySelector("button[type=submit]");
+  const show = (text, ok) => { msg.textContent = text; msg.hidden = false; msg.classList.toggle("is-error", !ok); };
+  const email = form.email.value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    show("Please enter a valid email address.", false);
+    return form.email.focus();
+  }
+  button.disabled = true;
+  const label = button.textContent;
+  button.textContent = "Subscribing…";
+  try {
+    const res = await apiRequest("/api/newsletter/subscribe", { method: "POST", body: { email, website: form.website.value } });
+    show(res.message, true);
+    form.email.value = "";
+  } catch (error) {
+    show((error.errors && error.errors.email) || error.message, false);
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+});
 
 const SELLER_HINT_KEY = "frontier.seller";
 

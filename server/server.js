@@ -110,6 +110,8 @@ app.use("/api/buyer/auth/register", limiter(5, 60));
 app.use("/api/buyer/auth/forgot", limiter(5, 60));
 app.use("/api/buyer/auth/reset", limiter(10, 60));
 app.use("/api/buyer/auth/resend", limiter(3, 60));
+app.use("/api/newsletter/subscribe", limiter(10, 60));
+app.use("/api/newsletter/resubscribe", limiter(10, 60));
 app.post("/api/inquiries", limiter(8, 60));
 app.post("/api/orders", limiter(8, 60));
 
@@ -341,6 +343,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/seller", sellerRoutes);
 app.use("/api/buyer", require("./routes/buyer"));
 app.use("/api/transport", require("./routes/transport"));
+app.use("/api/newsletter", require("./routes/newsletter"));
 
 // ---------------------------------------------------------------------------
 // 404 + errors
@@ -394,7 +397,8 @@ const LATE_TABLES = ["seller_password_resets", "seller_sessions", "seller_notifi
   "transport_providers", "transport_provider_documents", "transport_provider_sessions", "transport_provider_resets", "transport_provider_notifications",
   "transport_vehicles", "transport_vehicle_cargo", "transport_vehicle_files", "transport_price_bands", "transport_settings", "transport_bookings",
   "transport_booking_orders", "transport_offers", "transport_quantities", "transport_submissions", "transport_photos", "transport_disputes",
-  "transport_events", "transport_locations", "transport_ratings", "platform_ratings"];
+  "transport_events", "transport_locations", "transport_ratings", "platform_ratings",
+  "newsletter_subscribers", "newsletter_campaigns", "newsletter_sends"];
 // Columns added by later updates, added at startup when missing.
 const LATE_COLUMNS = [
   ["livestock", "price", "DECIMAL(12,2) NULL AFTER quantity"],

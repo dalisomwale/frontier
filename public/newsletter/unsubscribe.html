@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Newsletter - Frontier Marketplace</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/site-nav.js"></script>
+    <script src="/js/cart.js"></script>
+    <script src="/js/buyer.js"></script>
+  </head>
+  <body class="bg-gray-50">
+    <nav id="page-topnav" class="site-topnav sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+          <a href="/" class="flex items-center gap-3" aria-label="Frontier Marketplace home">
+            <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult" /></div>
+            <span class="hidden sm:block font-bold site-topnav-name">Frontier Marketplace</span>
+          </a>
+          <div class="site-nav ml-4 mr-auto" data-site-nav aria-label="Categories"></div>
+          <div class="header-auth">
+            <a id="login-link" href="/account/login" class="header-login-link">Log in</a>
+            <a id="seller-link" href="/account/register" class="header-seller-link">Register</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+    <main class="flex items-center justify-center px-4 py-16 sm:py-20">
+      <div class="acc-card max-w-md w-full text-center" id="box">
+        <span class="btn-spinner chat-spinner"></span>
+      </div>
+    </main>
+    <footer id="site-footer"></footer>
+    <script>
+      const box = document.getElementById("box");
+      const token = new URLSearchParams(location.search).get("token") || "";
+      const paint = (html) => { box.innerHTML = html; };
+      const home = `<a href="/" class="acc-mini-btn mt-4 inline-block">Back to the marketplace</a>`;
+
+      function askToLeave(email) {
+        paint(`<h1 class="text-xl font-bold text-gray-900">Unsubscribe from our newsletter?</h1>
+          <p class="text-gray-600 mt-2"><b>${escapeHtml(email)}</b> will stop getting Frontier Marketplace news and promotions. Emails about your orders and account still arrive as usual.</p>
+          <div class="flex flex-wrap justify-center gap-3 mt-5"><button type="button" class="acc-btn" data-go>Unsubscribe</button><a href="/" class="acc-mini-btn">Keep me subscribed</a></div>`);
+        box.querySelector("[data-go]").addEventListener("click", (e) => act(e.currentTarget, "unsubscribe"));
+      }
+      function left(email) {
+        paint(`<h1 class="text-xl font-bold text-gray-900">You're unsubscribed</h1>
+          <p class="text-gray-600 mt-2">We won't send newsletters to <b>${escapeHtml(email)}</b> any more. Sorry to see you go.</p>
+          <p class="text-sm text-gray-500 mt-4">Changed your mind?</p>
+          <div class="flex flex-wrap justify-center gap-3 mt-2"><button type="button" class="acc-btn" data-go>Subscribe again</button>${home}</div>`);
+        box.querySelector("[data-go]").addEventListener("click", (e) => act(e.currentTarget, "resubscribe"));
+      }
+      function back(email) {
+        paint(`<h1 class="text-xl font-bold text-gray-900">Welcome back</h1>
+          <p class="text-gray-600 mt-2"><b>${escapeHtml(email)}</b> is subscribed to Frontier Marketplace news again.</p>${home}`);
+      }
+      function failed(message) {
+        paint(`<h1 class="text-xl font-bold text-gray-900">Link not recognised</h1><p class="text-gray-600 mt-2">${escapeHtml(message)}</p>${home}`);
+      }
+      async function act(button, what) {
+        button.disabled = true;
+        button.textContent = "Please wait…";
+        try {
+          const res = await apiRequest(`/api/newsletter/${what}`, { method: "POST", body: { token } });
+          (what === "unsubscribe" ? left : back)(res.data.email);
+        } catch (error) {
+          failed(error.message);
+        }
+      }
+      (async () => {
+        try {
+          const res = await apiRequest(`/api/newsletter/status?token=${encodeURIComponent(token)}`);
+          if (res.data.subscribed) askToLeave(res.data.email);
+          else left(res.data.email);
+        } catch (error) {
+          failed(error.message);
+        }
+      })();
+    </script>
+  </body>
+</html>

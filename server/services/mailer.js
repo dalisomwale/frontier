@@ -226,7 +226,9 @@ const C = { deep: "#10231a", leaf: "#166534", lime: "#bef264", sun: "#fde047", i
  *   audience     "public" (customers, sellers: sign-off and contact footer)
  *                or "team" (Frontier's own notifications)
  */
-function renderEmail({ heading, paragraphs = [], quote = null, rows = [], stepsTitle = null, steps = [], button = null, after = [], audience = "public" }) {
+// unsubscribeUrl: newsletter emails end with a line saying why the reader got
+// it and a link to stop.
+function renderEmail({ heading, paragraphs = [], quote = null, rows = [], stepsTitle = null, steps = [], button = null, after = [], audience = "public", unsubscribeUrl = null }) {
   const team = audience === "team";
   const { phone } = contactSettings();
   const signOff = team ? [] : ["Kind regards,", "The Frontier Marketplace team"];
@@ -247,6 +249,7 @@ function renderEmail({ heading, paragraphs = [], quote = null, rows = [], stepsT
     "",
     "--",
     footerText,
+    ...(unsubscribeUrl ? ["", `You're getting this because you subscribed to Frontier Marketplace news. Unsubscribe: ${unsubscribeUrl}`] : []),
   ].join("\n");
 
   const p = (t) => `<p style="margin:0 0 12px;white-space:pre-wrap;">${escapeHtml(t)}</p>`;
@@ -271,7 +274,7 @@ function renderEmail({ heading, paragraphs = [], quote = null, rows = [], stepsT
         ${after.map(p).join("")}
         ${signOff.length ? `<p style="margin:4px 0 12px;">${signOff.map(escapeHtml).join("<br>")}</p>` : ""}
       </div>
-      <div style="padding:14px 22px 18px;border-top:1px solid ${C.line};font-size:12px;color:${C.muted};line-height:1.55;white-space:pre-line;">${escapeHtml(footerText)}</div>
+      <div style="padding:14px 22px 18px;border-top:1px solid ${C.line};font-size:12px;color:${C.muted};line-height:1.55;white-space:pre-line;">${escapeHtml(footerText)}${unsubscribeUrl ? `<br><br>You're getting this because you subscribed to Frontier Marketplace news. <a href="${escapeHtml(unsubscribeUrl)}" style="color:${C.muted};">Unsubscribe</a>` : ""}</div>
     </div>
   </div>
 </body></html>`;
@@ -288,7 +291,8 @@ function buildSimpleEmail(content) {
 // Team emails (sent to the notification list) get the team layout unless
 // the caller says otherwise. Customer and seller emails carry REPLY_TO_EMAIL.
 // log: true also writes a line to the app log when the email goes out.
-async function sendEmail({ to, subject, replyTo, log, ...content }) {
+// headers: extra mail headers (List-Unsubscribe on newsletters).
+async function sendEmail({ to, subject, replyTo, log, headers, ...content }) {
   const list = (Array.isArray(to) ? to : [to]).filter(Boolean);
   if (!list.length) return { sent: false, error: "No recipient" };
   if (!emailConfig().configured) {
@@ -300,7 +304,7 @@ async function sendEmail({ to, subject, replyTo, log, ...content }) {
   const reply = replyTo || (audience === "public" ? contactSettings().replyTo : "") || undefined;
   try {
     const { text, html } = renderEmail({ ...content, audience });
-    await getTransporter().sendMail({ from: emailConfig().from, to: list.join(", "), replyTo: reply, subject, text, html });
+    await getTransporter().sendMail({ from: emailConfig().from, to: list.join(", "), replyTo: reply, subject, text, html, headers });
     if (log) console.log(`Email "${subject}" sent to ${list.join(", ")}`);
     return { sent: true };
   } catch (error) {

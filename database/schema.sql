@@ -873,3 +873,50 @@ CREATE TABLE IF NOT EXISTS platform_ratings (
   UNIQUE KEY uq_pr_checkout (checkout_id),
   INDEX idx_pr_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Newsletter: people who signed up at the bottom of the site. Each has a
+-- private token for the unsubscribe link in every email.
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  email            VARCHAR(255) NOT NULL,
+  status           ENUM('subscribed', 'unsubscribed') NOT NULL DEFAULT 'subscribed',
+  source           VARCHAR(30) NOT NULL DEFAULT 'footer',
+  token            CHAR(32) NOT NULL,
+  subscribed_at    DATETIME NOT NULL,
+  unsubscribed_at  DATETIME NULL,
+  created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_ns_email (email),
+  UNIQUE KEY uq_ns_token (token),
+  INDEX idx_ns_status (status, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- A newsletter sent from Admin > Newsletter, and who it went to. Sending runs
+-- in the background and resumes after a restart.
+CREATE TABLE IF NOT EXISTS newsletter_campaigns (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  subject       VARCHAR(200) NOT NULL,
+  heading       VARCHAR(200) NOT NULL,
+  body          TEXT NOT NULL,
+  button_label  VARCHAR(60) NULL,
+  button_url    VARCHAR(500) NULL,
+  status        ENUM('sending', 'sent') NOT NULL DEFAULT 'sending',
+  recipients    INT UNSIGNED NOT NULL DEFAULT 0,
+  sent_by       VARCHAR(150) NULL,
+  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  finished_at   DATETIME NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS newsletter_sends (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  campaign_id    INT UNSIGNED NOT NULL,
+  subscriber_id  INT UNSIGNED NOT NULL,
+  status         ENUM('pending', 'sent', 'failed', 'skipped') NOT NULL DEFAULT 'pending',
+  error          VARCHAR(255) NULL,
+  sent_at        DATETIME NULL,
+  UNIQUE KEY uq_nsend (campaign_id, subscriber_id),
+  INDEX idx_nsend_pending (campaign_id, status),
+  CONSTRAINT fk_nsend_campaign FOREIGN KEY (campaign_id)
+    REFERENCES newsletter_campaigns(id) ON DELETE CASCADE,
+  CONSTRAINT fk_nsend_subscriber FOREIGN KEY (subscriber_id)
+    REFERENCES newsletter_subscribers(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

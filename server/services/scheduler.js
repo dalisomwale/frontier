@@ -132,6 +132,10 @@ function start() {
   setInterval(checkPayments, 60 * 1000).unref();
   setTimeout(transportTick, 45 * 1000).unref();
   setInterval(transportTick, 2 * 60 * 1000).unref();
+  // Newsletters still being sent (e.g. after a restart) carry on.
+  const newsletterRun = () => require("../lib/newsletter").run();
+  setTimeout(newsletterRun, 60 * 1000).unref();
+  setInterval(newsletterRun, 5 * 60 * 1000).unref();
 }
 
 module.exports = { start, tick, paymentReminders, dailySummary, summaryStats, transportTick };

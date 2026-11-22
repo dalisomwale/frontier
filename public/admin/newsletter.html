@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Newsletter - Frontier Marketplace Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/seller.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/xlsx-lite.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted tx-page-wide mx-auto px-3 sm:px-4 py-6">
+      <div class="mb-6">
+        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Newsletter</h1>
+        <p class="text-sm text-gray-500 mt-1">People who subscribed at the bottom of the site. Send them news, promotions and new stock. Every email has their own unsubscribe link.</p>
+      </div>
+      <div class="tx-totals" id="totals"></div>
+      <div class="seg mb-4" id="tabs"></div>
+
+      <section data-pane="subscribers" class="bg-white rounded-xl border border-gray-100">
+        <div class="tx-filters">
+          <input type="search" id="q" class="field-input nl-search" placeholder="Search email" aria-label="Search email">
+          <div class="seg" id="status-tabs"></div>
+          <button type="button" id="export" class="tx-export">Export Excel</button>
+        </div>
+        <div id="list" class="overflow-x-auto"></div>
+      </section>
+
+      <section data-pane="compose" hidden>
+        <form id="compose" class="admin-form-card nl-compose" novalidate>
+          <div>
+            <label class="field-label" for="nl-subject">Subject line</label>
+            <input id="nl-subject" name="subject" maxlength="200" class="field-input" placeholder="e.g. New Boran heifers this week + 10% off feed">
+            <p class="field-error hidden" data-error-for="subject"></p>
+          </div>
+          <div>
+            <label class="field-label" for="nl-heading">Heading in the email <span class="text-gray-400 font-normal">(optional: the subject is used if empty)</span></label>
+            <input id="nl-heading" name="heading" maxlength="200" class="field-input" placeholder="e.g. Fresh stock and a feed promotion">
+          </div>
+          <div>
+            <label class="field-label" for="nl-body">Message</label>
+            <textarea id="nl-body" name="body" rows="10" maxlength="20000" class="field-input" placeholder="Write your message. Leave an empty line between paragraphs."></textarea>
+            <p class="field-error hidden" data-error-for="body"></p>
+          </div>
+          <div class="nl-two">
+            <div>
+              <label class="field-label" for="nl-blabel">Button text <span class="text-gray-400 font-normal">(optional)</span></label>
+              <input id="nl-blabel" name="button_label" maxlength="60" class="field-input" placeholder="e.g. See the new stock">
+              <p class="field-error hidden" data-error-for="button_label"></p>
+            </div>
+            <div>
+              <label class="field-label" for="nl-burl">Button link</label>
+              <input id="nl-burl" name="button_url" maxlength="500" class="field-input" placeholder="/#listings or https://...">
+              <p class="field-error hidden" data-error-for="button_url"></p>
+            </div>
+          </div>
+          <p class="text-sm text-gray-500">Each subscriber gets their own copy, sent one by one in the background. You can leave this page while it sends.</p>
+          <div class="flex flex-wrap gap-3">
+            <button type="button" class="acc-mini-btn" data-test>Send me a test</button>
+            <button type="submit" class="acc-btn" data-send>Send to subscribers</button>
+          </div>
+        </form>
+      </section>
+
+      <section data-pane="sent" hidden class="bg-white rounded-xl border border-gray-100">
+        <div id="sent" class="overflow-x-auto"></div>
+      </section>
+    </main>
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      const state = { tab: "subscribers", status: "subscribed", q: "", rows: [], summary: {}, campaigns: [] };
+      const TABS = [["subscribers", "Subscribers"], ["compose", "Send a newsletter"], ["sent", "Sent"]];
+      const when = (v) => (v ? new Date(v).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
+
+      function renderTabs() {
+        document.getElementById("tabs").innerHTML = TABS.map(([v, l]) => `<button type="button" data-tab="${v}" class="${state.tab === v ? "active" : ""}">${l}</button>`).join("");
+        document.querySelectorAll("#tabs [data-tab]").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
+        document.getElementById("status-tabs").innerHTML = [["subscribed", "Subscribed"], ["unsubscribed", "Unsubscribed"], ["all", "All"]]
+          .map(([v, l]) => `<button type="button" data-status="${v}" class="${state.status === v ? "active" : ""}">${l}</button>`).join("");
+        document.querySelectorAll("#status-tabs [data-status]").forEach((b) => b.addEventListener("click", () => { state.status = b.dataset.status; renderTabs(); renderList(); }));
+      }
+      function setTab(tab) {
+        state.tab = TABS.some(([v]) => v === tab) ? tab : "subscribers";
+        document.querySelectorAll("[data-pane]").forEach((p) => (p.hidden = p.dataset.pane !== state.tab));
+        const url = new URL(location.href);
+        url.searchParams.set("tab", state.tab);
+        history.replaceState(null, "", url.pathname + url.search);
+        renderTabs();
+        if (state.tab === "sent") loadSent();
+      }
+
+      async function loadSubscribers() {
+        const res = await adminApi("/api/admin/newsletter/subscribers");
+        state.rows = res.data;
+        state.summary = res.summary;
+        const s = res.summary;
+        document.getElementById("totals").innerHTML = `
+          <div class="tx-total"><span>Subscribed</span><b>${s.subscribed}</b></div>
+          <div class="tx-total"><span>New in the last 30 days</span><b>${s.recent}</b></div>
+          <div class="tx-total"><span>Unsubscribed</span><b>${s.unsubscribed}</b></div>`;
+        document.querySelector("[data-send]").textContent = `Send to ${s.subscribed} subscriber${s.subscribed === 1 ? "" : "s"}`;
+        renderList();
+      }
+      const visible = () => state.rows.filter((r) => (state.status === "all" || r.status === state.status) && (!state.q || r.email.includes(state.q)));
+      function renderList() {
+        const list = document.getElementById("list");
+        const rows = visible();
+        if (!rows.length) return renderEmptyState(list, state.rows.length
+          ? { title: "No matches", message: "Try another search or filter.", icon: "search" }
+          : { title: "No subscribers yet", message: "People who subscribe at the bottom of the site appear here.", icon: "mail" });
+        list.innerHTML = `<table class="admin-table"><thead><tr><th>Email</th><th>Status</th><th class="hidden md:table-cell">Subscribed</th><th class="hidden md:table-cell">Unsubscribed</th><th></th></tr></thead>
+          <tbody>${rows.map((r) => `<tr>
+            <td class="text-gray-900 break-all">${escapeHtml(r.email)}</td>
+            <td><span class="so-pill ${r.status === "subscribed" ? "so-done" : "so-off"}">${r.status === "subscribed" ? "Subscribed" : "Unsubscribed"}</span></td>
+            <td class="hidden md:table-cell whitespace-nowrap text-gray-600">${escapeHtml(when(r.subscribed_at))}</td>
+            <td class="hidden md:table-cell whitespace-nowrap text-gray-600">${escapeHtml(when(r.unsubscribed_at))}</td>
+            <td class="text-right"><button type="button" class="acc-mini-btn" data-remove="${r.id}" data-email="${escapeHtml(r.email)}">Remove</button></td></tr>`).join("")}</tbody></table>`;
+        list.querySelectorAll("[data-remove]").forEach((b) => b.addEventListener("click", async () => {
+          if (!(await confirmAction({ title: "Remove from the list?", message: `${b.dataset.email} will be deleted from the newsletter list. They can subscribe again later.`, confirmText: "Remove", variant: "danger" }))) return;
+          try {
+            const res = await adminApi(`/api/admin/newsletter/subscribers/${b.dataset.remove}`, { method: "DELETE" });
+            showNotification(res.message, "success");
+            loadSubscribers();
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+      }
+
+      let poll = null;
+      async function loadSent() {
+        const res = await adminApi("/api/admin/newsletter/campaigns");
+        state.campaigns = res.data;
+        const box = document.getElementById("sent");
+        clearTimeout(poll);
+        if (state.campaigns.some((c) => c.status === "sending") && state.tab === "sent") poll = setTimeout(loadSent, 5000);
+        if (!state.campaigns.length) return renderEmptyState(box, { title: "Nothing sent yet", message: "Newsletters you send appear here with how many went out.", icon: "send" });
+        box.innerHTML = `<table class="admin-table"><thead><tr><th>Sent</th><th>Subject</th><th>Progress</th><th class="hidden md:table-cell">By</th></tr></thead>
+          <tbody>${state.campaigns.map((c) => `<tr>
+            <td class="whitespace-nowrap text-gray-600">${escapeHtml(when(c.created_at))}</td>
+            <td class="text-gray-900">${escapeHtml(c.subject)}</td>
+            <td class="whitespace-nowrap">${c.status === "sending"
+              ? `<span class="so-pill so-open">Sending ${c.sent + c.failed} of ${c.recipients}</span>`
+              : `<span class="so-pill so-done">Sent to ${c.sent}</span>`}${c.failed ? ` <small class="text-red-600">${c.failed} failed</small>` : ""}</td>
+            <td class="hidden md:table-cell text-gray-600">${escapeHtml(c.sent_by || "")}</td></tr>`).join("")}</tbody></table>`;
+      }
+
+      const form = document.getElementById("compose");
+      const values = () => Object.fromEntries(["subject", "heading", "body", "button_label", "button_url"].map((k) => [k, form[k].value]));
+      form.querySelector("[data-test]").addEventListener("click", async (e) => {
+        const button = e.currentTarget;
+        try {
+          const res = await withBusy(button, "Sending…", () => adminApi("/api/admin/newsletter/campaigns", { method: "POST", body: { ...values(), test: true } }));
+          showNotification(res.message, "success");
+        } catch (error) {
+          showFieldErrors(form, error);
+          showNotification(error.message, "error");
+        }
+      });
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const n = state.summary.subscribed || 0;
+        if (!form.subject.value.trim() || form.body.value.trim().length < 10) {
+          return showFieldErrors(form, { errors: { ...(form.subject.value.trim() ? {} : { subject: "Enter a subject line." }), ...(form.body.value.trim().length < 10 ? { body: "Write the message." } : {}) } });
+        }
+        if (!(await confirmAction({ title: `Send to ${n} subscriber${n === 1 ? "" : "s"}?`, message: `"${form.subject.value.trim()}" goes out to everyone subscribed. This can't be undone.`, confirmText: "Send now" }))) return;
+        try {
+          const res = await withBusy(form.querySelector("[data-send]"), "Starting…", () => adminApi("/api/admin/newsletter/campaigns", { method: "POST", body: values() }));
+          showNotification(res.message, "success");
+          form.reset();
+          setTab("sent");
+        } catch (error) {
+          showFieldErrors(form, error);
+          showNotification(error.message, "error");
+        }
+      });
+
+      document.getElementById("q").addEventListener("input", (e) => { state.q = e.target.value.trim().toLowerCase(); renderList(); });
+      document.getElementById("export").addEventListener("click", () => {
+        const rows = visible();
+        downloadXlsx(`frontier-newsletter-${new Date().toISOString().slice(0, 10)}.xlsx`, "Subscribers", ["Email", "Status", "Subscribed", "Unsubscribed"],
+          rows.map((r) => [r.email, r.status, when(r.subscribed_at), when(r.unsubscribed_at)]));
+      });
+
+      (async () => {
+        await initAdminPage("newsletter");
+        setTab(new URLSearchParams(location.search).get("tab") || "subscribers");
+        await loadSubscribers();
+      })();
+    </script>
+  </body>
+</html>
