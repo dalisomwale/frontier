@@ -18,6 +18,7 @@
     <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
     <script src="/js/transport-ui.js"></script>
     <script src="/js/transport.js"></script>
+    <script src="/js/xlsx-lite.js"></script>
   </head>
   <body class="bg-gray-50">
     <div id="app-sidebar"></div>
@@ -37,8 +38,17 @@
       <section id="tab-requests"><div id="requests-list" class="tp-card-list"></div></section>
       <section id="tab-deliveries" hidden>
         <div class="sl-card">
-          <div class="sl-toolbar"><div class="seg" id="delivery-tabs"></div></div>
+          <div class="sl-toolbar"><h2 class="txd-card-title !mb-0">Active</h2></div>
           <div id="deliveries-list" class="p-3 tp-card-list"></div>
+        </div>
+        <div class="sl-card mt-6" id="history-card" hidden>
+          <div class="sl-toolbar tp-hist-bar">
+            <h2 class="txd-card-title !mb-0">Previous deliveries</h2>
+            <input type="search" id="history-q" class="field-input" placeholder="Search delivery, place or load" aria-label="Search previous deliveries">
+            <button type="button" id="history-export" class="tx-export">Export Excel</button>
+          </div>
+          <div id="history-totals" class="tp-hist-totals"></div>
+          <div id="history-list" class="overflow-x-auto"></div>
         </div>
       </section>
       <section id="tab-vehicles" hidden>
@@ -144,18 +154,50 @@
       }
 
       // ---------------------------------------------------------- deliveries
-      const DTABS = [{ key: "active", label: "Active", test: (b) => ACTIVE.includes(b.status) }, { key: "done", label: "Completed", test: (b) => b.status === "completed" }, { key: "all", label: "All", test: () => true }];
+      // Active deliveries as cards; everything finished below as a record.
+      let historyQ = "";
+      const finishedAt = (b) => b.completed_at || b.updated_at;
+      const pastRows = () => deliveries.filter((b) => !ACTIVE.includes(b.status))
+        .filter((b) => !historyQ || `${b.reference} ${b.from} ${b.to} ${b.cargo_summary || ""} ${b.status_label}`.toLowerCase().includes(historyQ));
       async function loadDeliveries() {
         try { deliveries = (await transportApi("/api/transport/bookings")).data; } catch (error) { return showNotification(error.message, "error"); }
-        document.getElementById("delivery-tabs").innerHTML = DTABS.map((t) => `<button type="button" data-dtab="${t.key}" class="${t.key === state.dtab ? "active" : ""}">${t.label}<span class="count">${deliveries.filter(t.test).length}</span></button>`).join("");
-        document.querySelectorAll("[data-dtab]").forEach((b) => b.addEventListener("click", () => { state.dtab = b.dataset.dtab; loadDeliveries(); }));
-        const rows = deliveries.filter(DTABS.find((t) => t.key === state.dtab).test);
+        const rows = deliveries.filter((b) => ACTIVE.includes(b.status));
         const list = document.getElementById("deliveries-list");
         list.innerHTML = rows.length ? rows.map((b) => jobCard(b, "data-booking")).join("")
-          : `<div class="empty-state"><p class="font-semibold text-gray-800">Nothing here</p><p class="text-sm mt-1">Deliveries you accept appear here.</p></div>`;
+          : `<div class="empty-state"><p class="font-semibold text-gray-800">No active deliveries</p><p class="text-sm mt-1">Deliveries you accept appear here until they're completed.</p></div>`;
         list.querySelectorAll("[data-booking]").forEach((b) => b.addEventListener("click", () => openBooking(b.dataset.booking)));
+        renderHistory();
         loadStats();
       }
+      function renderHistory() {
+        const past = deliveries.filter((b) => !ACTIVE.includes(b.status));
+        document.getElementById("history-card").hidden = !past.length;
+        if (!past.length) return;
+        const done = past.filter((b) => b.status === "completed");
+        const earned = done.reduce((t, b) => t + (Number(b.provider_earning) || 0), 0);
+        document.getElementById("history-totals").innerHTML = `<span><b>${done.length}</b> completed</span><span>Earned <b>${kwacha(earned)}</b></span>${past.length > done.length ? `<span><b>${past.length - done.length}</b> cancelled or refunded</span>` : ""}`;
+        const rows = pastRows();
+        const box = document.getElementById("history-list");
+        if (!rows.length) { box.innerHTML = `<p class="text-sm text-gray-500 p-4">No matches.</p>`; return; }
+        box.innerHTML = `<table class="admin-table tp-hist"><thead><tr><th>Date</th><th>Delivery</th><th class="hidden md:table-cell">Route</th><th class="hidden lg:table-cell">Load</th><th class="text-right">Earning</th></tr></thead>
+          <tbody>${rows.map((b) => `<tr data-past="${b.id}" tabindex="0">
+            <td class="whitespace-nowrap text-gray-600">${escapeHtml(formatDateShort(finishedAt(b)))}</td>
+            <td><b class="text-gray-900">${escapeHtml(b.reference)}</b>${b.status === "completed" ? "" : `<small class="block text-gray-500">${escapeHtml(b.status_label)}</small>`}<small class="block text-gray-500 md:hidden">${escapeHtml(b.from)} → ${escapeHtml(b.to)}</small></td>
+            <td class="hidden md:table-cell text-gray-700">${escapeHtml(b.from)} → ${escapeHtml(b.to)}</td>
+            <td class="hidden lg:table-cell text-gray-700">${escapeHtml(b.cargo_summary || "-")}</td>
+            <td class="text-right whitespace-nowrap">${b.status === "completed" ? `<b>${kwacha(b.provider_earning)}</b>` : `<span class="text-gray-400">-</span>`}</td></tr>`).join("")}</tbody></table>`;
+        box.querySelectorAll("[data-past]").forEach((tr) => {
+          tr.addEventListener("click", () => openBooking(tr.dataset.past));
+          tr.addEventListener("keydown", (e) => { if (e.key === "Enter") openBooking(tr.dataset.past); });
+        });
+      }
+      document.getElementById("history-q").addEventListener("input", (e) => { historyQ = e.target.value.trim().toLowerCase(); renderHistory(); });
+      document.getElementById("history-export").addEventListener("click", () => {
+        downloadXlsx(`frontier-deliveries-${new Date().toISOString().slice(0, 10)}.xlsx`, "Deliveries",
+          ["Date", "Delivery", "Status", "From", "To", "Distance (km)", "Load", "Vehicle", "Earning (K)"],
+          pastRows().map((b) => [formatDateShort(finishedAt(b)), b.reference, b.status_label, b.from, b.to, b.distance_km ?? "", b.cargo_summary || "", b.vehicle_registration || "", b.status === "completed" ? Number(b.provider_earning) || 0 : ""]),
+          { numberCols: [5, 8] });
+      });
 
       // One request or delivery on its own page.
       let bookingView = null;
