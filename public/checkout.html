@@ -179,10 +179,6 @@
                       <input id="co-cphone" name="contact_phone" type="tel" class="field-input" maxlength="25" inputmode="tel" placeholder="0977 123 456">
                       <p class="field-error hidden" data-error-for="contact_phone"></p>
                     </div>
-                    <div class="sm:col-span-2">
-                      <label for="co-dnotes" class="field-label">Notes for the driver <span class="text-gray-400 font-normal">(optional)</span></label>
-                      <input id="co-dnotes" name="dest_notes" class="field-input" maxlength="255" placeholder="e.g. Green gate, call on arrival">
-                    </div>
                   </div>
                   <div>
                     <p class="field-label">Delivery point on the map</p>
@@ -338,6 +334,18 @@
           requote();
         };
         tstate.requote = requote;
+        // Enter (a phone keyboard's Go key) in a field moves to the next one:
+        // only the Pay button places the order and sends the payment prompt.
+        form.addEventListener("keydown", (e) => {
+          if (e.key !== "Enter" || e.defaultPrevented) return;
+          const el = e.target;
+          if (el.tagName !== "INPUT" || ["checkbox", "radio", "submit", "button"].includes(el.type)) return;
+          e.preventDefault();
+          const fields = [...form.querySelectorAll("input, select, textarea")].filter((f) => !f.disabled && f.type !== "hidden" && f.offsetParent !== null && !f.closest(".honeypot"));
+          const next = fields[fields.indexOf(el) + 1];
+          if (next) next.focus();
+          else el.blur();
+        });
         form.querySelectorAll('input[name="delivery_option"]').forEach((r) => r.addEventListener("change", showDelivery));
         ["dest_province", "dest_district", "dest_address"].forEach((n) => form.elements[n].addEventListener(n === "dest_province" ? "change" : "input", requote));
         // Show the fields for the chosen way to pay.
@@ -396,7 +404,6 @@
           dest_province: form.elements.dest_province.value,
           dest_district: form.elements.dest_district.value.trim(),
           dest_address: form.elements.dest_address.value.trim(),
-          dest_notes: form.elements.dest_notes.value.trim(),
           contact_name: form.elements.contact_name.value.trim(),
           contact_phone: form.elements.contact_phone.value.trim(),
           dest_lat: p ? p.lat : "",

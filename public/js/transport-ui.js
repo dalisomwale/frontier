@@ -192,7 +192,13 @@ async function trPointPicker(holder, opts = {}) {
     });
     search.addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
   }
-  return { get: () => point, set: (lat, lng) => set(lat, lng), map };
+  return {
+    get: () => point,
+    set: (lat, lng) => set(lat, lng),
+    map,
+    // A note under the map (e.g. where the pin came from); warn: highlighted.
+    note(text, warn = false) { hint.textContent = text; hint.classList.toggle("tr-hint-warn", warn); },
+  };
 }
 
 // Following a delivery: pickup, destination, the planned road route, the
@@ -604,13 +610,53 @@ function trAddressSuggest(input, { onPick, near } = {}) {
 // Wires a province select, district field, address field and map picker
 // together. Picking an address sets the province, district and pin when the
 // place search knows them. Returns { refresh() } for when the province changes.
-function trPlaceFields({ province, district, address, picker, provinceValue }) {
+function trPlaceFields({ province, district, address, picker, provinceValue, autoPin = true }) {
   const getProvince = () => (province ? province.value : provinceValue ? provinceValue() : "");
   const d = trDistrictField(district, getProvince);
-  if (province) province.addEventListener("change", () => d && d.refresh());
+  const pin = () => (picker ? picker() : null);
+  // The map pin follows the address: a picked suggestion places it exactly;
+  // a typed address is looked up once the person stops typing.
+  let fromSuggestion = false;
+  let lastKey = "";
+  let timer = null;
+  const where = () => [address.value.trim(), district && district.value, getProvince()].filter(Boolean);
+  const inZambia = (r) => r && r.lat >= -18.3 && r.lat <= -8 && r.lng >= 21.8 && r.lng <= 33.9;
+  async function placeFromAddress() {
+    clearTimeout(timer);
+    const p = pin();
+    if (!autoPin || !p || fromSuggestion || address.value.trim().length < 3) return;
+    const parts = where();
+    const key = parts.join("|").toLowerCase();
+    if (key === lastKey) return;
+    lastKey = key;
+    const find = async (q) => {
+      try { return ((await apiRequest(`/api/geocode?${new URLSearchParams({ q })}`)).data || []).find(inZambia) || null; } catch { return null; }
+    };
+    let hit = await find(parts.join(", "));
+    let rough = false;
+    if (!hit && district && district.value) { hit = await find(`${district.value}, ${getProvince()}`); rough = Boolean(hit); }
+    if (key !== lastKey || fromSuggestion) return; // changed meanwhile
+    if (!hit) {
+      if (p.note) p.note("We couldn't find this address on the map. Tap the map where the delivery point is.", true);
+      return;
+    }
+    p.set(hit.lat, hit.lng);
+    if (p.note) p.note(rough ? "We couldn't find this exact address, so the pin is in the district. Drag it to the exact spot." : "Pin placed from the address. Drag it to the exact spot if needed.", rough);
+  }
+  if (province) province.addEventListener("change", () => { if (d) d.refresh(); });
+  address.addEventListener("input", (e) => {
+    if (!e.isTrusted) return;
+    fromSuggestion = false;
+    clearTimeout(timer);
+    timer = setTimeout(placeFromAddress, 1200);
+  });
+  address.addEventListener("blur", () => setTimeout(placeFromAddress, 200));
+  if (district) district.addEventListener("change", () => { if (!fromSuggestion && address.value.trim()) { clearTimeout(timer); timer = setTimeout(placeFromAddress, 300); } });
   trAddressSuggest(address, {
-    near: () => (picker && picker() ? picker().get() : null),
+    near: () => (pin() ? pin().get() : null),
     onPick: (r) => {
+      fromSuggestion = true;
+      clearTimeout(timer);
       if (province && r.province && province.value !== r.province) {
         province.value = r.province;
         province.dispatchEvent(new Event("change", { bubbles: true }));
@@ -622,7 +668,12 @@ function trPlaceFields({ province, district, address, picker, provinceValue }) {
         district.dispatchEvent(new Event("change", { bubbles: true }));
       }
       if (d) d.refresh();
-      if (picker && picker()) picker().set(r.lat, r.lng);
+      lastKey = where().join("|").toLowerCase();
+      const p = pin();
+      if (p) {
+        p.set(r.lat, r.lng);
+        if (p.note) p.note(`Pin placed at ${r.name}. Drag it to the exact spot if needed.`);
+      }
     },
   });
   return { refresh: () => d && d.refresh() };

@@ -391,11 +391,14 @@
         document.addEventListener("DOMContentLoaded", async () => {
           try {
             show((await apiRequest(capi)).data);
-          } catch {
+          } catch (error) {
             root.innerHTML = "";
+            const missing = error.status === 404 || !q.token;
             renderEmptyState(root, {
-              title: "We couldn't find this payment",
-              message: "The link may be incomplete. Reply to the email we sent you and we'll help.",
+              title: missing ? "We couldn't find this payment" : error.status === 0 ? "No connection" : "We couldn't load your payment",
+              message: missing
+                ? "The link may be incomplete. Reply to the email we sent you and we'll help."
+                : error.status === 0 ? "Please check your internet connection and refresh this page." : `${error.message} Please refresh this page in a moment; your order has been saved.`,
               icon: "alert",
               action: `<a href="/#listings" class="inline-block mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 font-medium">Back to listings</a>`,
             });
