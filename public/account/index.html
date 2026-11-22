@@ -351,7 +351,7 @@
               <div class="tr-actions mt-3"><button type="button" class="acc-btn" data-d-confirm>Everything is fine</button><button type="button" class="acc-mini-btn" data-d-dispute>Report a delivery problem</button></div></div>` : ""}
             ${dispute ? `<div class="${dispute.status === "open" ? "tr-warn-box" : "tr-note-box"} mt-4"><b>${dispute.status === "open" ? "You reported a problem" : `Your report was resolved: ${dispute.resolution === "refund" ? "refund" : "delivered"}`}</b><p class="mt-1">${escapeHtml(dispute.description)}</p>${dispute.resolution_note ? `<p class="mt-1">Frontier: ${escapeHtml(dispute.resolution_note)}</p>` : ""}</div>` : ""}
           </div>
-          ${tracking || d.tracking.route ? `<div class="acc-card mt-4"><h2 class="txd-card-title">Follow your delivery</h2><div data-track></div></div>` : ""}
+          ${tracking || d.tracking.route ? `<div class="acc-card mt-4 acc-track-card"><h2 class="txd-card-title">Follow your delivery</h2><div data-track></div></div>` : ""}
           <div class="acc-card mt-4" data-d-details><h2 class="txd-card-title">Delivery details</h2>${trFactsHtml(d, { role: "customer", brief: true })}</div>
           <div data-ratings></div>
           <details class="acc-card mt-4 acc-more"><summary>History</summary>${trTimelineHtml(d.events)}</details>`;

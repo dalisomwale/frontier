@@ -7254,3 +7254,6 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .rate-modal { max-height: calc(100vh - 32px); overflow-y: auto; }
 .rate-modal-part { margin-top: 18px; padding-top: 16px; border-top: 1px solid #eef0ec; }
 .rate-modal-part .tr-stars { margin: 8px 0 6px; }
+
+/* Buyer's "Follow your delivery": the map runs edge to edge across the card */
+.acc-track-card .tr-map { width: calc(100% + 40px); margin: 0 -20px; border-radius: 0; border-left: 0; border-right: 0; }
