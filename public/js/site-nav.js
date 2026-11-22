@@ -275,14 +275,10 @@
       </button>
       <div class="snav-acct-menu" hidden>
         ${[
-          ["Buyers", "/account/login", "/account/register"],
-          ["Sellers", "/seller/login", "/seller/register"],
-          ["Transport providers", "/transport/login", "/transport/register"],
-        ].map(([who, login, register]) => `
-        <div class="snav-acct-group" role="group" aria-label="${who}">
-          <p>${who}</p>
-          <div class="snav-acct-row"><a href="${login}">Log in</a><a href="${register}" class="snav-acct-reg">Register</a></div>
-        </div>`).join("")}
+          ["Buyer", "/account/login", "/account/register"],
+          ["Seller", "/seller/login", "/seller/register"],
+          ["Transport provider", "/transport/login", "/transport/register"],
+        ].map(([who, login, register]) => `<p class="snav-acct-line">${who} <a href="${login}">log in</a>/<a href="${register}">register</a></p>`).join("")}
       </div>`;
     authBox.appendChild(wrap);
     const btn = wrap.querySelector("button"), menu = wrap.querySelector(".snav-acct-menu");
