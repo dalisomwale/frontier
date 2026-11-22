@@ -468,7 +468,7 @@ function trDistrictField(input, province, { onPick } = {}) {
   const districts = () => (window.ZambiaDistricts ? ZambiaDistricts.list(province()) : []);
   const paintPlaceholder = () => {
     const p = province();
-    input.placeholder = p ? `Search ${p} districts` : "Choose the province first";
+    input.placeholder = p ? "Search districts" : "Choose province first";
     input.disabled = !p && !input.value;
   };
   const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); active = -1; };

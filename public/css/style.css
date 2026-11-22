@@ -7224,3 +7224,6 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .tr-combo-list li small { display: block; font-size: 12px; color: #6b7280; }
 .tr-combo-none { padding: 8px 10px; font-size: 12.5px; color: #6b7280; }
 .field-input:disabled { background: #f9fafb; cursor: not-allowed; }
+/* Provider registration: Province | District | Physical address on one row */
+.tp-place-row { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 640px) { .tp-place-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr); } }
