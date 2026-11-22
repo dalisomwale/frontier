@@ -7201,3 +7201,17 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .tr-inline-icon svg, .tr-ev svg { width: 16px; height: 16px; display: inline; vertical-align: -3px; }
 .acc-card p > svg, .txd-card p > svg { width: 16px; height: 16px; display: inline; vertical-align: -3px; }
 .acc-layout > #site-footer { grid-column: 1 / -1; }
+
+/* Profile icon menu: log in / register for buyers, sellers and transport providers */
+.snav-acct-menu { min-width: 250px; padding: 8px; }
+.snav-acct-group + .snav-acct-group { border-top: 1px solid #eef1ee; margin-top: 6px; padding-top: 6px; }
+.snav-acct-group p { margin: 0; padding: 6px 10px 4px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6b7280; }
+.snav-acct-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.snav-acct-menu .snav-acct-row a { text-align: center; padding: 9px 10px; font-size: 14px; border: 1.5px solid transparent; line-height: 1.3; }
+.snav-acct-menu .snav-acct-row a:first-child { border: 1.5px solid #e5e7eb; }
+.snav-acct-menu .snav-acct-row .snav-acct-reg { margin-top: 0; }
+
+/* Sign-in and register pages: back to the home page */
+.auth-back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px; padding: 6px 12px 6px 8px; border-radius: 9999px; font-size: 14px; font-weight: 600; color: #166534; background: #fff; border: 1px solid #e5e7eb; text-decoration: none; }
+.auth-back:hover { background: #f0f7ef; }
+.auth-back svg { width: 18px; height: 18px; }

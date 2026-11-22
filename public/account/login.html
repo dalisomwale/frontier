@@ -26,6 +26,7 @@
     </header>
 
     <main class="max-w-md mx-auto px-4 py-8 sm:py-10">
+      <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
       <div class="acc-card">
         <form id="login-form" class="space-y-4" novalidate>
           <div id="checkout-note" class="alert alert-info text-sm mb-0" hidden>You need an account to check out. Your cart is kept.</div>
@@ -48,8 +49,8 @@
           </div>
           <button id="submit-btn" type="submit" class="acc-btn">Log in</button>
         </form>
+        <p class="text-sm text-gray-600 text-center mt-5 pt-4 border-t border-gray-100">Don't have an account? <a id="register-link" href="/account/register" class="acc-link font-semibold">Register</a></p>
       </div>
-      <p class="text-sm text-gray-600 text-center mt-5">New here? <a id="register-link" href="/account/register" class="acc-link font-semibold">Create account</a> · <a href="/seller/login" class="acc-link font-semibold">Seller log in</a></p>
     </main>
     <footer id="site-footer"></footer>
 

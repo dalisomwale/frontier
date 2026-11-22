@@ -247,10 +247,12 @@ function renderSiteFooter() {
           ${link("/#listings", "Livestock")}
           ${link("/#feed", "Animal Feed")}
         </nav>
-        <nav class="site-footer-col" aria-label="Sell with us">
-          <h2>Sell with us</h2>
+        <nav class="site-footer-col" aria-label="Work with us">
+          <h2>Work with us</h2>
           ${link("/seller/register", "Register as a seller")}
           ${link("/seller/login", "Seller sign in")}
+          ${link("/transport/register", "Register as a transport provider")}
+          ${link("/transport/login", "Transport provider sign in")}
         </nav>
         <nav class="site-footer-col" aria-label="Policies">
           <h2>Policies</h2>

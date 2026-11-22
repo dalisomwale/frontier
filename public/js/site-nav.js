@@ -270,13 +270,19 @@
     const wrap = document.createElement("div");
     wrap.className = "snav-acct";
     wrap.innerHTML = `
-      <button type="button" class="snav-acct-btn" aria-label="Log in or register" aria-haspopup="true" aria-expanded="false">
+      <button type="button" class="snav-acct-btn" aria-label="Log in or register: buyers, sellers, transport providers" aria-haspopup="true" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
       </button>
       <div class="snav-acct-menu" hidden>
-        <a href="/account/login">Log in</a>
-        <a href="/account/register" class="snav-acct-reg">Register</a>
-        <a href="/seller/login" class="snav-acct-sub">Seller log in</a>
+        ${[
+          ["Buyers", "/account/login", "/account/register"],
+          ["Sellers", "/seller/login", "/seller/register"],
+          ["Transport providers", "/transport/login", "/transport/register"],
+        ].map(([who, login, register]) => `
+        <div class="snav-acct-group" role="group" aria-label="${who}">
+          <p>${who}</p>
+          <div class="snav-acct-row"><a href="${login}">Log in</a><a href="${register}" class="snav-acct-reg">Register</a></div>
+        </div>`).join("")}
       </div>`;
     authBox.appendChild(wrap);
     const btn = wrap.querySelector("button"), menu = wrap.querySelector(".snav-acct-menu");
