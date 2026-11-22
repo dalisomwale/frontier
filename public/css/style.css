@@ -7233,7 +7233,7 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .tr-doc-slot small { display: block; margin-top: 2px; font-size: 12.5px; color: #6b7280; overflow-wrap: anywhere; }
 .tr-doc-slot.has-file { border-color: #bbd7c2; background: #f6faf4; }
 .tr-doc-slot.has-file small { color: #166534; }
-.tr-doc-btn { flex-shrink: 0; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 9999px; border: 1px solid #d6e6d9; background: #fff; color: #166534; cursor: pointer; }
-.tr-doc-btn:hover { background: #f0f7ef; }
-.tr-doc-btn svg { width: 19px; height: 19px; }
-.tr-doc-slot.has-file .tr-doc-btn { border-color: #bbd7c2; }
+.tr-doc-btn { flex-shrink: 0; padding: 6px; display: grid; place-items: center; border: 0; background: none; color: #166534; cursor: pointer; }
+.tr-doc-btn:hover { color: #14532d; }
+.tr-doc-btn svg { width: 22px; height: 22px; }
+.pw-toggle svg { width: 20px; height: 20px; display: block; }

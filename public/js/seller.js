@@ -58,15 +58,21 @@ function sellerPageHeader(seller) {
 }
 
 function bindPasswordToggles(root = document) {
+  // An eye icon: open to show the password, crossed out to hide it again.
+  const paint = (btn, shown) => {
+    if (typeof uiIcon === "function") btn.innerHTML = uiIcon(shown ? "eyeOff" : "eye");
+    else btn.textContent = shown ? "Hide" : "Show";
+    btn.setAttribute("aria-label", shown ? "Hide password" : "Show password");
+    btn.title = shown ? "Hide password" : "Show password";
+  };
   root.querySelectorAll("[data-toggle-password]").forEach((btn) => {
-    btn.textContent = "Show";
+    paint(btn, false);
     btn.classList.add("pw-toggle");
     btn.addEventListener("click", () => {
       const input = document.getElementById(btn.dataset.togglePassword);
       const show = input.type === "password";
       input.type = show ? "text" : "password";
-      btn.textContent = show ? "Hide" : "Show";
-      btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+      paint(btn, show);
     });
   });
 }
