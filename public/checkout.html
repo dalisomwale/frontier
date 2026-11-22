@@ -181,7 +181,6 @@
                     </div>
                   </div>
                   <div>
-                    <p class="field-label">Delivery point on the map</p>
                     <div data-dest-map></div>
                     <p class="field-error hidden" data-error-for="dest_point"></p>
                   </div>
@@ -327,6 +326,7 @@
             paintJourneys();
             tstate.picker = await trPointPicker(form.querySelector("[data-dest-map]"), {
               kind: "dest", label: "Delivery point",
+              hint: "The pin is placed from the address above. Drag it to the exact spot, or tap the location button on the map to use where you are now.",
               onChange: () => { form.querySelector('[data-error-for="dest_point"]').classList.add("hidden"); requote(); },
             });
           }

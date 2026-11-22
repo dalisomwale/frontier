@@ -74,13 +74,11 @@ function trPin(kind, title = "") {
 // opts: { lat, lng, label, search: true|false, onChange(point) }
 // Returns { get() -> {lat, lng} | null, set(lat, lng) }.
 async function trPointPicker(holder, opts = {}) {
-  if (opts.search === undefined) opts.search = Boolean((await trMapConfig()).search);
+  // The address fields give place suggestions, so the map has no search box
+  // of its own unless a page asks for one (opts.search).
   holder.innerHTML = `
     <div class="tr-picker">
-      <div class="tr-picker-tools">
-        ${opts.search ? `<div class="tr-search"><input type="search" class="field-input !py-2 !text-sm" placeholder="Search a place, e.g. Kabulonga, Lusaka" data-search aria-label="Search a place"><ul class="tr-search-list" data-results hidden></ul></div>` : ""}
-        <button type="button" class="acc-mini-btn" data-locate>${uiIcon("pin")}<span>Use my location</span></button>
-      </div>
+      ${opts.search ? `<div class="tr-picker-tools"><div class="tr-search"><input type="search" class="field-input !py-2 !text-sm" placeholder="Search a place, e.g. Kabulonga, Lusaka" data-search aria-label="Search a place"><ul class="tr-search-list" data-results hidden></ul></div></div>` : ""}
       <div class="tr-map" data-map></div>
       <p class="tr-picker-hint" data-hint>${escapeHtml(opts.hint || "Tap the map to place the pin, then drag it to the exact spot.")}</p>
     </div>`;
@@ -102,6 +100,16 @@ async function trPointPicker(holder, opts = {}) {
   if (map) {
     if (point) set(point.lat, point.lng, { pan: false });
     map.on("click", (e) => set(e.latlng.lat, e.latlng.lng, { pan: false }));
+    const Locate = L.Control.extend({
+      options: { position: "topleft" },
+      onAdd() {
+        const bar = L.DomUtil.create("div", "leaflet-bar tr-locate");
+        bar.innerHTML = `<button type="button" data-locate title="Go to my current location" aria-label="Go to my current location">${uiIcon("location")}</button>`;
+        L.DomEvent.disableClickPropagation(bar);
+        return bar;
+      },
+    });
+    map.addControl(new Locate());
   }
   // "Use my location": listens for a few seconds and keeps the device's most
   // accurate fix (phones improve as GPS locks on), shows how accurate it is,
@@ -121,16 +129,17 @@ async function trPointPicker(holder, opts = {}) {
     const rough = acc > 300;
     hint.classList.toggle("tr-hint-warn", rough);
     hint.textContent = rough
-      ? `Your device only knows roughly where you are (within ${describe(acc)}): computers without GPS estimate it from the internet connection. Drag the pin to the exact spot${opts.search ? ", or search the place above" : ""}.`
+      ? `Your device only knows roughly where you are (within ${describe(acc)}): computers without GPS estimate it from the internet connection. Drag the pin to the exact spot.`
       : `Pin placed at your location (accurate to ${describe(acc)})${final ? "" : ", improving…"}. Drag it if needed.`;
   };
-  holder.querySelector("[data-locate]").addEventListener("click", (e) => {
+  holder.querySelector("[data-locate]")?.addEventListener("click", (e) => {
     const btn = e.currentTarget;
     if (!window.isSecureContext) return showNotification("Your location can only be used on the secure (https) address of the site. Place the pin on the map instead.", "error");
     if (!navigator.geolocation) return showNotification("This browser can't share your location. Place the pin on the map instead.", "error");
     const label = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = `<span class="btn-spinner"></span><span>Finding you…</span>`;
+    btn.innerHTML = `<span class="btn-spinner"></span>`;
+    btn.setAttribute("aria-label", "Finding your location…");
     let best = null;
     let done = false;
     let watch = null;
@@ -140,6 +149,7 @@ async function trPointPicker(holder, opts = {}) {
       if (watch !== null) navigator.geolocation.clearWatch(watch);
       btn.disabled = false;
       btn.innerHTML = label;
+      btn.setAttribute("aria-label", "Go to my current location");
       if (best) showFix(best, true);
     };
     watch = navigator.geolocation.watchPosition(
@@ -559,7 +569,7 @@ function trAddressSuggest(input, { onPick, near } = {}) {
   let seq = 0;
   let found = [];
   let active = -1;
-  const close = () => { list.hidden = true; active = -1; };
+  const close = () => { list.hidden = true; active = -1; seq++; };
   const paint = () => {
     list.innerHTML = found.length
       ? found.map((r, i) => `<li data-i="${i}" class="${i === active ? "is-active" : ""}">${uiIcon("location")}<span>${escapeHtml(r.name)}<small>${escapeHtml(r.label)}</small></span></li>`).join("")
@@ -598,13 +608,15 @@ function trAddressSuggest(input, { onPick, near } = {}) {
     else if (e.key === "Enter" && active >= 0) { e.preventDefault(); pick(found[active]); }
     else if (e.key === "Escape") close();
   });
+  // Escape before the list has opened: a reply still on its way stays closed.
+  input.addEventListener("keydown", (e) => { if (e.key === "Escape") { clearTimeout(timer); close(); } });
   list.addEventListener("mousedown", (e) => {
     const li = e.target.closest("[data-i]");
     if (!li) return;
     e.preventDefault();
     pick(found[Number(li.dataset.i)]);
   });
-  input.addEventListener("blur", () => setTimeout(close, 150));
+  input.addEventListener("blur", () => { clearTimeout(timer); setTimeout(close, 150); });
 }
 
 // Wires a province select, district field, address field and map picker

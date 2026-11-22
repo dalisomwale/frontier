@@ -7240,3 +7240,9 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .tr-km-row { display: flex; align-items: center; gap: 10px; }
 .tr-km-row input { max-width: 140px; }
 .tr-km-row span { font-size: 13.5px; color: #6b7280; }
+/* Map: "go to my location" inside the map, under the zoom buttons */
+.tr-locate button { width: 30px; height: 30px; display: grid; place-items: center; background: #fff; border: 0; border-radius: 4px; color: #166534; cursor: pointer; }
+.tr-locate button:hover { background: #f4f4f4; }
+.tr-locate button:disabled { cursor: wait; }
+.tr-locate svg { width: 18px; height: 18px; }
+.tr-locate .btn-spinner { width: 14px; height: 14px; border-color: #166534; border-right-color: transparent; }
