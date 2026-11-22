@@ -239,7 +239,6 @@ function renderSiteFooter() {
     band.setAttribute("aria-labelledby", "news-title");
     band.innerHTML = `
       <div class="news-band-inner">
-        <p class="news-band-eyebrow">Newsletter</p>
         <h2 id="news-title">Subscribe to our newsletter</h2>
         <p class="news-band-sub">News, promotions and fresh livestock and feed, straight to your inbox.</p>
         <form class="news-band-form" data-news-form novalidate>
