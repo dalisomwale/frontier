@@ -342,7 +342,6 @@
           </div>
           ${tracking || d.tracking.route ? `<div class="acc-card mt-4"><h2 class="txd-card-title">Follow your delivery</h2><div data-track></div></div>` : ""}
           <div class="acc-card mt-4"><h2 class="txd-card-title">Delivery details</h2>${trFactsHtml(d, { role: "customer", brief: true })}</div>
-          <div class="acc-card mt-4"><h2 class="txd-card-title">Collection and delivery records</h2>${trEvidenceHtml(d)}</div>
           <div data-ratings></div>
           <details class="acc-card mt-4 acc-more"><summary>History</summary>${trTimelineHtml(d.events)}</details>`;
         box.querySelector("[data-d-confirm]")?.addEventListener("click", (e) => completeDelivery(e.currentTarget, o, d));
