@@ -29,7 +29,10 @@ const router = express.Router();
 const DUMMY_HASH = bcrypt.hashSync("frontier-transport-timing-guard", 12);
 const REMEMBER_MS = 30 * 24 * 60 * 60 * 1000;
 const RESET_HOURS = 1;
-const DOC_TYPES = { licence: "Driving / transport licence", permit: "Transport permit", registration: "Business registration", insurance: "Insurance", id: "National ID / passport", other: "Other" };
+// Registration asks for the NRC and driver's licence (required) and a
+// passport (if any). The rest can be added later from the dashboard.
+const DOC_TYPES = { nrc: "NRC", drivers_licence: "Driver's licence", passport: "Passport", permit: "Transport permit", registration: "Business registration", insurance: "Insurance", licence: "Driving / transport licence", id: "National ID / passport", other: "Other" };
+const REQUIRED_DOCS = { nrc: "NRC", drivers_licence: "driver's licence" };
 const PROVIDER_FIELDS = `id, kind, name, contact_person, phone, email, province, district, address, base_label, base_lat, base_lng,
   registration_number, licence_number, status, is_active, is_available, coverage_km, coverage_active, admin_note, approved_at, created_at`;
 
@@ -115,10 +118,9 @@ function registrationPayload(body) {
   const province = text(body.province, 50);
   const district = text(body.district, 80);
   const address = text(body.address, 255);
-  const baseLabel = text(body.base_label, 255);
+  // The operating location comes from the physical address: the point of
+  // the address suggestion picked, if any (otherwise looked up on register).
   const base = core.point(body.base_lat, body.base_lng);
-  const registration = text(body.registration_number, 80);
-  const licence = text(body.licence_number, 80);
   const errors = {};
   if (!name || name.length < 2) errors.name = kind === "company" ? "Please enter the company name." : "Please enter your full name.";
   if (kind === "company" && (!contactPerson || contactPerson.length < 2)) errors.contact_person = "Please enter the contact person.";
@@ -128,13 +130,10 @@ function registrationPayload(body) {
   if (!district || district.length < 2) errors.district = "Please choose your district.";
   else if (province && PROVINCES.includes(province) && !zambiaDistricts.match(province, district)) errors.district = `Please choose one of ${province} Province's districts.`;
   if (!address || address.length < 3) errors.address = "Please enter your physical address.";
-  if (!base) errors.base_point = "Please mark your operating location on the map.";
-  else if (!require("../lib/transport/pricing").inZambia(base)) errors.base_point = "Your operating location must be in Zambia.";
-  if (kind === "company" && !registration) errors.registration_number = "Please enter the business registration number.";
-  if (!licence) errors.licence_number = "Please enter your driving or transport licence / permit number.";
+  if (base && !require("../lib/transport/pricing").inZambia(base)) errors.address = "This address must be in Zambia.";
   return {
     errors,
-    data: { kind, name, contact_person: contactPerson || null, phone, email: email && email.toLowerCase(), province, district: (province && zambiaDistricts.match(province, district)) || district, address, base_label: baseLabel || null, base_lat: base && base.lat, base_lng: base && base.lng, registration_number: registration || null, licence_number: licence || null },
+    data: { kind, name, contact_person: contactPerson || null, phone, email: email && email.toLowerCase(), province, district: (province && zambiaDistricts.match(province, district)) || district, address, base_label: base ? address : null, base_lat: base && base.lat, base_lng: base && base.lng, registration_number: null, licence_number: null },
   };
 }
 
@@ -168,9 +167,32 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
     const problem = passwordRules.problem(password, { email: data.email, phone: data.phone });
     if (problem) errors.password = problem;
     if (!["1", "true", "on"].includes(String(req.body.accept_terms))) errors.accept_terms = "Please tick the box to accept the terms.";
-    if (!(req.files || []).length) errors.documents = "Please add your licence, permit or registration papers.";
+    const types = docTypesOf(req.body);
+    const missing = Object.keys(REQUIRED_DOCS).filter((t) => !types.slice(0, (req.files || []).length).includes(t));
+    if (missing.length) errors.documents = `Please upload your ${missing.map((t) => REQUIRED_DOCS[t]).join(" and ")}.`;
     if (!errors.email && (await emailTaken(data.email))) errors.email = "A transport account with this email already exists. Sign in instead.";
     if (Object.keys(errors).length) throw validationError(errors);
+    // No suggestion picked: find the physical address on the map (the
+    // address, else the district). If it can't be found, Frontier sets the
+    // operating location when reviewing the registration.
+    if (data.base_lat === null || data.base_lat === undefined) {
+      const pricing = require("../lib/transport/pricing");
+      const queries = [`${data.address}, ${data.district}, ${data.province}`, `${data.district}, ${data.province} Province`];
+      for (const [i, q] of queries.entries()) {
+        try {
+          const hit = (await require("../services/routing").geocode(q)).find((r) => pricing.inZambia(r));
+          if (hit) {
+            // Exact only when the place found is the address itself, not just the town.
+            const word = String(data.address).toLowerCase().split(/[^a-z0-9']+/).find((w) => w.length > 3 && !["plot", "house", "stand", "farm", "road", "street"].includes(w));
+            const exact = !i && word && hit.label.toLowerCase().includes(word);
+            Object.assign(data, { base_lat: hit.lat, base_lng: hit.lng, base_label: `${exact ? "" : "Approximate: "}${hit.label}`.slice(0, 255) });
+            break;
+          }
+        } catch (error) {
+          console.error(`Provider address lookup failed: ${error.message}`);
+        }
+      }
+    }
     await conn.beginTransaction();
     const [r] = await conn.query(
       `INSERT INTO transport_providers (kind, name, contact_person, phone, email, province, district, address, base_label, base_lat, base_lng,
@@ -194,7 +216,8 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
       subject: `New transport provider registration: ${data.name}`,
       heading: "A transport provider is waiting for approval",
       paragraphs: ["Please review their details and documents, then approve or reject them and set their coverage."],
-      rows: [["Name", data.name], ["Type", data.kind === "company" ? "Company" : "Individual"], ["Phone", data.phone], ["Email", data.email], ["Area", `${data.district}, ${data.province}`], ["Documents", String(req.files.length)]],
+      rows: [["Name", data.name], ["Type", data.kind === "company" ? "Company" : "Individual"], ["Phone", data.phone], ["Email", data.email], ["Area", `${data.district}, ${data.province}`], ["Address", data.address], ["Documents", req.files.map((f, i) => DOC_TYPES[docTypesOf(req.body)[i]] || "Other").join(", ")],
+        ["Operating location", data.base_lat === null || data.base_lat === undefined ? "Not found on the map: set it before approving" : data.base_label && data.base_label.startsWith("Approximate") ? "Approximate (the address wasn't found exactly): check it before approving" : "From the address"]],
       button: { label: "Review the provider", url: appUrl(`/admin/transport-providers?id=${r.insertId}`) },
     });
     notifications.broadcastAdmin("transport", { change: "provider_registered", provider_id: r.insertId });

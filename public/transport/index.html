@@ -487,10 +487,10 @@
                 <div><dt>Status</dt><dd>${escapeHtml(statusText)}${me.is_active ? "" : " · deactivated"}</dd></div>
                 <div><dt>Area</dt><dd>${escapeHtml(`${me.district}, ${me.province}`)}</dd></div>
                 <div><dt>Coverage (set by Frontier)</dt><dd>${me.coverage_active && me.coverage_km ? `${me.coverage_km} km by road from your operating location` : "Not set yet"}</dd></div>
-                <div><dt>Licence / permit</dt><dd>${escapeHtml(me.licence_number || "-")}</dd></div>
+                ${me.licence_number ? `<div><dt>Licence / permit</dt><dd>${escapeHtml(me.licence_number)}</dd></div>` : ""}
                 ${me.registration_number ? `<div><dt>Business registration</dt><dd>${escapeHtml(me.registration_number)}</dd></div>` : ""}
               </dl>
-              <p class="text-sm text-gray-500 mt-3">To change your operating location or area, please contact Frontier.</p>
+              <p class="text-sm text-gray-500 mt-3">Your coverage is measured from your physical address. To change your address or area, please contact Frontier.</p>
             </div>
             <form class="acc-card" data-contact novalidate><h2 class="txd-card-title">Contact details</h2>
               <div class="space-y-4">

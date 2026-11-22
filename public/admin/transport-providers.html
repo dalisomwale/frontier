@@ -143,9 +143,12 @@
                 <div><dt>Email</dt><dd><a href="mailto:${escapeHtml(p.email)}">${escapeHtml(p.email)}</a></dd></div>
                 <div><dt>Area</dt><dd>${escapeHtml(`${p.district}, ${p.province}`)}</dd></div>
                 <div><dt>Address</dt><dd>${escapeHtml(p.address)}</dd></div>
-                <div><dt>Licence / permit</dt><dd>${escapeHtml(p.licence_number || "-")}</dd></div>
-                <div><dt>Business registration</dt><dd>${escapeHtml(p.registration_number || "-")}</dd></div>
-              </dl><button type="button" class="acc-mini-btn mt-3" data-edit-base>Change operating location</button></div>
+                ${p.licence_number ? `<div><dt>Licence / permit</dt><dd>${escapeHtml(p.licence_number)}</dd></div>` : ""}
+                ${p.registration_number ? `<div><dt>Business registration</dt><dd>${escapeHtml(p.registration_number)}</dd></div>` : ""}
+              </dl>
+              ${p.base_lat === null ? `<p class="tr-warn-box mt-3">The address couldn't be found on the map, so this provider has no operating location and can't receive requests. Set it before approving.</p>`
+                : p.base_label && p.base_label.startsWith("Approximate") ? `<p class="tr-warn-box mt-3">The operating location is only approximate: the exact address wasn't found on the map (${escapeHtml(p.base_label.replace(/^Approximate:\s*/, ""))} was used). Check it before approving.</p>` : ""}
+              <button type="button" class="acc-mini-btn mt-3" data-edit-base>Change operating location</button></div>
               <div class="acc-card"><h2 class="txd-card-title">Documents</h2>${p.documents.length ? `<ul class="tr-qty">${p.documents.map((d) => `<li><a class="acc-link" href="/api/admin/transport/documents/${d.id}" target="_blank" rel="noopener">${escapeHtml(d.original_name || d.type_label)}</a><span class="text-gray-500">${escapeHtml(d.type_label)} · ${escapeHtml(formatDateShort(d.created_at))}</span></li>`).join("")}</ul>` : `<p class="text-sm text-gray-600">No documents uploaded.</p>`}</div>
               <div class="acc-card"><h2 class="txd-card-title">Performance</h2><dl class="sv-facts">
                 <div><dt>Rating</dt><dd>${trStarsHtml(p.rating, p.ratings)}</dd></div>

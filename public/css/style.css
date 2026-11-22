@@ -7227,3 +7227,9 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 /* Provider registration: District | Physical address on one row */
 .tp-place-row { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 640px) { .tp-place-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); } }
+/* Provider registration: one upload per document */
+.tr-doc-slots { display: grid; gap: 8px; }
+.tr-doc-slot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; font-size: 14px; }
+.tr-doc-slot small { display: block; margin-top: 2px; font-size: 12.5px; color: #6b7280; overflow-wrap: anywhere; }
+.tr-doc-slot.has-file { border-color: #bbd7c2; background: #f6faf4; }
+.tr-doc-slot.has-file small { color: #166534; }
