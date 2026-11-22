@@ -298,4 +298,38 @@ async function geocode(query) {
   return out;
 }
 
-module.exports = { provider, enabled, problem, route, matrix, RoutingError, decodePolyline, validPoint, geocode, geocoderName };
+// Address suggestions while typing (ORS autocomplete; other geocoders fall
+// back to a normal search). Each: { label, name, lat, lng, province, district }
+// where province / district are only set when they match Zambia's lists.
+const zambia = require("../../public/js/zambia-districts");
+async function suggest(query, focus = null) {
+  const q = String(query || "").trim().slice(0, 120);
+  const name = geocoderName();
+  if (q.length < 3 || !name) return [];
+  if (name !== "ors") {
+    const found = await geocode(q);
+    return found.map((r) => ({ ...r, name: String(r.label).replace(/,\s*Zambia$/i, ""), province: null, district: null }));
+  }
+  const params = { api_key: process.env.ORS_API_KEY, text: q, "boundary.country": "ZM", size: "7" };
+  if (focus && validPoint(focus)) Object.assign(params, { "focus.point.lat": String(focus.lat), "focus.point.lon": String(focus.lng) });
+  const k = `suggest:${JSON.stringify(params).replace(process.env.ORS_API_KEY, "")}`;
+  const hit = cached(k);
+  if (hit) return hit;
+  const body = await request(`https://api.openrouteservice.org/geocode/autocomplete?${new URLSearchParams(params)}`);
+  const out = ((body && body.features) || []).map((f) => {
+    const p = f.properties || {};
+    const province = zambia.province(p.region);
+    return {
+      label: p.label,
+      name: [p.name, p.locality && p.locality !== p.name ? p.locality : null].filter(Boolean).join(", ") || p.label,
+      lng: f.geometry.coordinates[0],
+      lat: f.geometry.coordinates[1],
+      province,
+      district: province ? zambia.match(province, p.county) : null,
+    };
+  }).filter((r) => r.label && validPoint(r));
+  remember(k, out);
+  return out;
+}
+
+module.exports = { provider, enabled, problem, route, matrix, RoutingError, decodePolyline, validPoint, geocode, geocoderName, suggest };

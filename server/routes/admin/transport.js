@@ -22,6 +22,7 @@ const { sendEmail, appUrl } = require("../../services/mailer");
 const { uploadTransportPhotos } = require("../../middleware/upload");
 const { positiveInt, text, badRequest, notFound, HttpError, PROVINCES } = require("../../lib/validate");
 const { sendPrivate, vehiclesOf, DOC_TYPES } = require("../transport");
+const zambia = require("../../../public/js/zambia-districts");
 
 const router = express.Router();
 
@@ -408,11 +409,12 @@ router.put("/providers/:id", async (req, res, next) => {
     const base = core.point(req.body.base_lat, req.body.base_lng);
     const errors = {};
     if (!province || !PROVINCES.includes(province)) errors.province = "Choose a province.";
-    if (!district) errors.district = "Enter the district.";
+    if (!district) errors.district = "Choose the district.";
+    else if (province && !zambia.match(province, district)) errors.district = `Choose one of ${province} Province's districts.`;
     if (!address) errors.address = "Enter the address.";
     if (!base) errors.base_point = "Mark the operating location on the map.";
     if (Object.keys(errors).length) throw validationError(errors);
-    await pool.query("UPDATE transport_providers SET province = ?, district = ?, address = ?, base_lat = ?, base_lng = ?, base_label = ? WHERE id = ?", [province, district, address, base.lat, base.lng, text(req.body.base_label, 255) || null, id]);
+    await pool.query("UPDATE transport_providers SET province = ?, district = ?, address = ?, base_lat = ?, base_lng = ?, base_label = ? WHERE id = ?", [province, zambia.match(province, district), address, base.lat, base.lng, text(req.body.base_label, 255) || null, id]);
     res.json({ success: true, message: "Saved.", data: await loadProviderFull(id) });
   } catch (error) {
     next(error);
@@ -575,6 +577,7 @@ router.put("/settings", async (req, res, next) => {
     if (!Number.isFinite(pct) || pct < 0 || pct > 100) errors.commission_pct = "From 0 to 100.";
     const point = core.point(b.frontier_pickup_lat, b.frontier_pickup_lng);
     if ((b.frontier_pickup_lat || b.frontier_pickup_lng) && !point) errors.frontier_pickup_point = "Mark the pickup point on the map.";
+    if (b.frontier_pickup_district && b.frontier_pickup_province && !zambia.match(b.frontier_pickup_province, b.frontier_pickup_district)) errors.frontier_pickup_district = `Choose one of ${b.frontier_pickup_province} Province's districts.`;
     if (Object.keys(errors).length) throw validationError(errors);
     const clip = (v, max) => String(v || "").trim().slice(0, max);
     const saved = await core.saveSettings({
@@ -584,7 +587,7 @@ router.put("/settings", async (req, res, next) => {
       commission_pct: String(Math.round(pct * 100) / 100),
       frontier_pickup_label: clip(b.frontier_pickup_label, 150) || "Frontier Farms & Consult",
       frontier_pickup_address: clip(b.frontier_pickup_address, 255),
-      frontier_pickup_district: clip(b.frontier_pickup_district, 80),
+      frontier_pickup_district: zambia.match(b.frontier_pickup_province, b.frontier_pickup_district) || clip(b.frontier_pickup_district, 80),
       frontier_pickup_province: PROVINCES.includes(b.frontier_pickup_province) ? b.frontier_pickup_province : "",
       frontier_pickup_phone: clip(b.frontier_pickup_phone, 30),
       frontier_pickup_lat: point ? String(point.lat) : "",
@@ -613,17 +616,19 @@ router.get("/sellers", async (req, res, next) => {
 router.put("/sellers/:id/pickup", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id) || 0;
-    const [[s]] = await pool.query("SELECT id FROM sellers WHERE id = ?", [id]);
+    const [[s]] = await pool.query("SELECT id, province FROM sellers WHERE id = ?", [id]);
     if (!s) throw notFound("Seller not found.");
     const district = text(req.body.pickup_district, 80);
     const address = text(req.body.pickup_address, 255);
     const point = core.point(req.body.pickup_lat, req.body.pickup_lng);
     const errors = {};
-    if (!district) errors.pickup_district = "Enter the district.";
+    if (!district) errors.pickup_district = "Choose the district.";
+    else if (s.province && zambia.list(s.province).length && !zambia.match(s.province, district)) errors.pickup_district = `Choose one of ${s.province} Province's districts (the seller's province).`;
+    else if (!zambia.provinceOf(district)) errors.pickup_district = "Choose a district from the list.";
     if (!address) errors.pickup_address = "Enter the address or directions.";
     if (!point) errors.pickup_point = "Mark the pickup point on the map.";
     if (Object.keys(errors).length) throw validationError(errors);
-    await pool.query("UPDATE sellers SET pickup_district = ?, pickup_address = ?, pickup_lat = ?, pickup_lng = ? WHERE id = ?", [district, address, point.lat, point.lng, id]);
+    await pool.query("UPDATE sellers SET pickup_district = ?, pickup_address = ?, pickup_lat = ?, pickup_lng = ? WHERE id = ?", [zambia.match(s.province, district) || zambia.match(zambia.provinceOf(district), district), address, point.lat, point.lng, id]);
     res.json({ success: true, message: "Pickup point saved." });
   } catch (error) {
     next(error);

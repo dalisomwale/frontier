@@ -17,6 +17,7 @@
     <script src="/js/xlsx-lite.js"></script>
     <script src="/js/livestock.js"></script>
     <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+    <script src="/js/zambia-districts.js"></script>
     <script src="/js/transport-ui.js"></script>
   </head>
   <body class="bg-gray-50 admin-pending">
@@ -234,7 +235,10 @@
               <div class="sm:col-span-2"><label class="field-label" for="eb-addr">Address</label><input id="eb-addr" name="address" class="field-input" value="${escapeHtml(p.address)}"><p class="field-error hidden" data-error-for="address"></p></div>
             </div><div data-map class="mt-2"></div><p class="field-error hidden" data-error-for="base_point"></p>`,
           submitText: "Save location",
-          onOpen: async (form) => { picker = await trPointPicker(form.querySelector("[data-map]"), { kind: "base", lat: p.base_lat, lng: p.base_lng, label: "Operating location" }); },
+          onOpen: async (form) => {
+            trPlaceFields({ province: form.province, district: form.district, address: form.address, picker: () => picker });
+            picker = await trPointPicker(form.querySelector("[data-map]"), { kind: "base", lat: p.base_lat, lng: p.base_lng, label: "Operating location" });
+          },
           onSubmit: async (form) => {
             const pt = picker && picker.get();
             const res = await adminApi(`/api/admin/transport/providers/${p.id}`, { method: "PUT", body: { province: form.province.value, district: form.district.value.trim(), address: form.address.value.trim(), base_lat: pt ? pt.lat : "", base_lng: pt ? pt.lng : "" } });

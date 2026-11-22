@@ -23,6 +23,7 @@ const core = require("../lib/transport/core");
 const bookings = require("../lib/transport/bookings");
 const views = require("../lib/transport/views");
 const passwordRules = require("../../public/js/password-rules");
+const zambiaDistricts = require("../../public/js/zambia-districts");
 
 const router = express.Router();
 const DUMMY_HASH = bcrypt.hashSync("frontier-transport-timing-guard", 12);
@@ -124,7 +125,8 @@ function registrationPayload(body) {
   if (!phone || !isPhone(phone)) errors.phone = "Please enter a valid phone number, e.g. 0977 123 456.";
   if (!email || !isEmail(email)) errors.email = "Please enter a valid email address.";
   if (!province || !PROVINCES.includes(province)) errors.province = "Please choose your province.";
-  if (!district || district.length < 2) errors.district = "Please enter your district.";
+  if (!district || district.length < 2) errors.district = "Please choose your district.";
+  else if (province && PROVINCES.includes(province) && !zambiaDistricts.match(province, district)) errors.district = `Please choose one of ${province} Province's districts.`;
   if (!address || address.length < 3) errors.address = "Please enter your physical address.";
   if (!base) errors.base_point = "Please mark your operating location on the map.";
   else if (!require("../lib/transport/pricing").inZambia(base)) errors.base_point = "Your operating location must be in Zambia.";
@@ -132,7 +134,7 @@ function registrationPayload(body) {
   if (!licence) errors.licence_number = "Please enter your driving or transport licence / permit number.";
   return {
     errors,
-    data: { kind, name, contact_person: contactPerson || null, phone, email: email && email.toLowerCase(), province, district, address, base_label: baseLabel || null, base_lat: base && base.lat, base_lng: base && base.lng, registration_number: registration || null, licence_number: licence || null },
+    data: { kind, name, contact_person: contactPerson || null, phone, email: email && email.toLowerCase(), province, district: (province && zambiaDistricts.match(province, district)) || district, address, base_label: baseLabel || null, base_lat: base && base.lat, base_lng: base && base.lng, registration_number: registration || null, licence_number: licence || null },
   };
 }
 

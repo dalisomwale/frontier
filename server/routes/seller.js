@@ -878,12 +878,17 @@ router.put("/me/pickup", requireSeller, async (req, res, next) => {
     const address = text(req.body.pickup_address, 255);
     const point = transportCore.point(req.body.pickup_lat, req.body.pickup_lng);
     const errors = {};
-    if (!district || district.length < 2) errors.pickup_district = "Please enter the district.";
+    const zambia = require("../../public/js/zambia-districts");
+    if (!district || district.length < 2) errors.pickup_district = "Please choose the district.";
+    else if (req.seller.province && zambia.list(req.seller.province).length && !zambia.match(req.seller.province, district)) errors.pickup_district = `Please choose one of ${req.seller.province} Province's districts (your profile's province).`;
+    else if (!zambia.provinceOf(district)) errors.pickup_district = "Please choose a district from the list.";
     if (!address || address.length < 3) errors.pickup_address = "Please enter the address or directions to the pickup point.";
     if (!point) errors.pickup_point = "Please mark the pickup point on the map.";
     else if (!require("../lib/transport/pricing").inZambia(point)) errors.pickup_point = "The pickup point must be in Zambia.";
     if (Object.keys(errors).length) throw validationError(errors);
-    await pool.query("UPDATE sellers SET pickup_district = ?, pickup_address = ?, pickup_lat = ?, pickup_lng = ? WHERE id = ?", [district, address, point.lat, point.lng, req.seller.id]);
+    const zambia2 = require("../../public/js/zambia-districts");
+    const cleanDistrict = zambia2.match(req.seller.province, district) || zambia2.match(zambia2.provinceOf(district), district) || district;
+    await pool.query("UPDATE sellers SET pickup_district = ?, pickup_address = ?, pickup_lat = ?, pickup_lng = ? WHERE id = ?", [cleanDistrict, address, point.lat, point.lng, req.seller.id]);
     res.json({ success: true, message: "Pickup point saved. Buyers can now choose transport for your listings.", data: await loadSeller(req.seller.id) });
   } catch (error) {
     next(error);

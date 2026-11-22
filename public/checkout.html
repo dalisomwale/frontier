@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css" />
     <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
     <script src="/js/seller.js"></script>
+    <script src="/js/zambia-districts.js"></script>
     <script src="/js/transport-ui.js"></script>
   </head>
   <body class="bg-gray-50">
@@ -160,12 +161,12 @@
                     </div>
                     <div>
                       <label for="co-ddist" class="field-label">District</label>
-                      <input id="co-ddist" name="dest_district" class="field-input" maxlength="80" placeholder="e.g. Chibombo">
+                      <input id="co-ddist" name="dest_district" class="field-input" maxlength="80" placeholder="Choose the province first">
                       <p class="field-error hidden" data-error-for="dest_district"></p>
                     </div>
                     <div class="sm:col-span-2">
                       <label for="co-daddr" class="field-label">Delivery address or directions</label>
-                      <input id="co-daddr" name="dest_address" class="field-input" maxlength="255" placeholder="e.g. Farm 12, 3 km past Chisamba turn-off">
+                      <input id="co-daddr" name="dest_address" class="field-input" maxlength="255" placeholder="Start typing for suggestions, e.g. Kabulonga Road">
                       <p class="field-error hidden" data-error-for="dest_address"></p>
                     </div>
                     <div>
@@ -324,6 +325,7 @@
           const on = delivery() === "transport";
           panel.hidden = !on;
           if (on && !tstate.picker) {
+            trPlaceFields({ province: form.elements.dest_province, district: form.elements.dest_district, address: form.elements.dest_address, picker: () => tstate.picker });
             form.elements.contact_name.value = buyer.full_name || "";
             form.elements.contact_phone.value = buyer.phone || "";
             paintJourneys();

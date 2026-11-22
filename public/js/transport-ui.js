@@ -442,3 +442,188 @@ document.addEventListener("change", trMarkDirty, true);
 function trEditing(root) {
   return Boolean(root && root.querySelector("form[data-dirty]"));
 }
+
+// ---------------------------------------------------- district and address
+// A district field that only offers the districts of the chosen province,
+// with type-to-search. `input` keeps its name, so forms post it as before.
+// province(): the province now chosen. Needs zambia-districts.js.
+function trDistrictField(input, province, { onPick } = {}) {
+  if (!input || input.dataset.districtField) return null;
+  input.dataset.districtField = "1";
+  input.setAttribute("autocomplete", "off");
+  input.setAttribute("role", "combobox");
+  input.setAttribute("aria-autocomplete", "list");
+  input.setAttribute("aria-expanded", "false");
+  const wrap = document.createElement("div");
+  wrap.className = "tr-combo";
+  input.parentNode.insertBefore(wrap, input);
+  wrap.appendChild(input);
+  const list = document.createElement("ul");
+  list.className = "tr-combo-list";
+  list.setAttribute("role", "listbox");
+  list.hidden = true;
+  wrap.appendChild(list);
+  let items = [];
+  let active = -1;
+  const districts = () => (window.ZambiaDistricts ? ZambiaDistricts.list(province()) : []);
+  const paintPlaceholder = () => {
+    const p = province();
+    input.placeholder = p ? `Search ${p} districts` : "Choose the province first";
+    input.disabled = !p && !input.value;
+  };
+  const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); active = -1; };
+  const open = () => {
+    const all = districts();
+    if (!all.length) { close(); return; }
+    const q = input.value.trim().toLowerCase();
+    // A district already chosen: show the whole list (to change it), with it marked.
+    const chosen = all.findIndex((d) => d.toLowerCase() === q);
+    items = q && chosen < 0 ? [...all.filter((d) => d.toLowerCase().startsWith(q)), ...all.filter((d) => !d.toLowerCase().startsWith(q) && d.toLowerCase().includes(q))] : all;
+    if (chosen >= 0 && active < 0) active = chosen;
+    list.innerHTML = items.length
+      ? items.map((d, i) => `<li role="option" data-i="${i}" class="${i === active ? "is-active" : ""}">${escapeHtml(d)}</li>`).join("")
+      : `<li class="tr-combo-none">No district in ${escapeHtml(province())} Province matches "${escapeHtml(input.value.trim())}".</li>`;
+    list.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+  };
+  const pick = (d) => {
+    input.value = d;
+    close();
+    input.classList.remove("has-error");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    if (onPick) onPick(d);
+  };
+  input.addEventListener("focus", open);
+  input.addEventListener("input", (e) => { if (e.isTrusted) { active = -1; open(); } });
+  input.addEventListener("keydown", (e) => {
+    if (list.hidden && ["ArrowDown", "ArrowUp"].includes(e.key)) open();
+    if (e.key === "ArrowDown") { e.preventDefault(); active = Math.min(items.length - 1, active + 1); open(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); active = Math.max(0, active - 1); open(); }
+    else if (e.key === "Enter" && !list.hidden && items.length) { e.preventDefault(); pick(items[Math.max(0, active)]); }
+    else if (e.key === "Escape") close();
+  });
+  list.addEventListener("mousedown", (e) => {
+    const li = e.target.closest("[data-i]");
+    if (!li) return;
+    e.preventDefault();
+    pick(items[Number(li.dataset.i)]);
+  });
+  // Leaving the field: keep a district typed in full (any spelling), else clear it.
+  input.addEventListener("blur", () => setTimeout(() => {
+    close();
+    if (!input.value.trim()) return;
+    const exact = window.ZambiaDistricts ? ZambiaDistricts.match(province(), input.value) : null;
+    if (exact) { if (exact !== input.value) pick(exact); return; }
+    if (items.length === 1) return pick(items[0]);
+    input.value = "";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, 120));
+  paintPlaceholder();
+  return {
+    // The province changed: a district from another province is cleared.
+    refresh() {
+      if (input.value && !(window.ZambiaDistricts && ZambiaDistricts.match(province(), input.value))) {
+        input.value = "";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      paintPlaceholder();
+    },
+    set(d) { input.value = d || ""; paintPlaceholder(); },
+  };
+}
+
+// Address suggestions while typing (OpenRouteService place search). Picking
+// one fills the address and calls onPick({ label, name, lat, lng, province,
+// district }) so the page can move the map pin and fill the province and
+// district. near(): a point to favour (the map pin), optional.
+function trAddressSuggest(input, { onPick, near } = {}) {
+  if (!input || input.dataset.addressSuggest) return;
+  input.dataset.addressSuggest = "1";
+  input.setAttribute("autocomplete", "off");
+  const wrap = document.createElement("div");
+  wrap.className = "tr-combo";
+  input.parentNode.insertBefore(wrap, input);
+  wrap.appendChild(input);
+  const list = document.createElement("ul");
+  list.className = "tr-combo-list";
+  list.hidden = true;
+  wrap.appendChild(list);
+  let timer = null;
+  let seq = 0;
+  let found = [];
+  let active = -1;
+  const close = () => { list.hidden = true; active = -1; };
+  const paint = () => {
+    list.innerHTML = found.length
+      ? found.map((r, i) => `<li data-i="${i}" class="${i === active ? "is-active" : ""}">${uiIcon("location")}<span>${escapeHtml(r.name)}<small>${escapeHtml(r.label)}</small></span></li>`).join("")
+        + `<li class="tr-combo-none">Not listed? Type the address and place the pin on the map.</li>`
+      : `<li class="tr-combo-none">No matching places. Type the address and place the pin on the map.</li>`;
+    list.hidden = false;
+  };
+  const pick = (r) => {
+    input.value = r.name;
+    close();
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    if (onPick) onPick(r);
+  };
+  input.addEventListener("input", (e) => {
+    if (!e.isTrusted) return;
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 3) { close(); return; }
+    timer = setTimeout(async () => {
+      const mine = ++seq;
+      const p = near ? near() : null;
+      const params = new URLSearchParams({ q, mode: "suggest" });
+      if (p && p.lat) { params.set("lat", p.lat); params.set("lng", p.lng); }
+      let rows = [];
+      try { rows = (await apiRequest(`/api/geocode?${params}`)).data; } catch { rows = []; }
+      if (mine !== seq || document.activeElement !== input) return;
+      found = rows;
+      active = -1;
+      paint();
+    }, 300);
+  });
+  input.addEventListener("keydown", (e) => {
+    if (list.hidden || !found.length) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); active = Math.min(found.length - 1, active + 1); paint(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); active = Math.max(0, active - 1); paint(); }
+    else if (e.key === "Enter" && active >= 0) { e.preventDefault(); pick(found[active]); }
+    else if (e.key === "Escape") close();
+  });
+  list.addEventListener("mousedown", (e) => {
+    const li = e.target.closest("[data-i]");
+    if (!li) return;
+    e.preventDefault();
+    pick(found[Number(li.dataset.i)]);
+  });
+  input.addEventListener("blur", () => setTimeout(close, 150));
+}
+
+// Wires a province select, district field, address field and map picker
+// together. Picking an address sets the province, district and pin when the
+// place search knows them. Returns { refresh() } for when the province changes.
+function trPlaceFields({ province, district, address, picker, provinceValue }) {
+  const getProvince = () => (province ? province.value : provinceValue ? provinceValue() : "");
+  const d = trDistrictField(district, getProvince);
+  if (province) province.addEventListener("change", () => d && d.refresh());
+  trAddressSuggest(address, {
+    near: () => (picker && picker() ? picker().get() : null),
+    onPick: (r) => {
+      if (province && r.province && province.value !== r.province) {
+        province.value = r.province;
+        province.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      if (district && r.district && (!province || getProvince() === r.province)) {
+        district.disabled = false;
+        district.value = r.district;
+        district.dispatchEvent(new Event("input", { bubbles: true }));
+        district.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      if (d) d.refresh();
+      if (picker && picker()) picker().set(r.lat, r.lng);
+    },
+  });
+  return { refresh: () => d && d.refresh() };
+}

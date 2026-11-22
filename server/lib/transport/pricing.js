@@ -14,6 +14,7 @@ const routing = require("../../services/routing");
 const core = require("./core");
 const matching = require("./matching");
 const { PROVINCES, text, isPhone } = require("../validate");
+const zambia = require("../../../public/js/zambia-districts");
 
 // Roughly Zambia, with a margin: a pin far outside is a mistake.
 const ZAMBIA = { minLat: -18.3, maxLat: -8.0, minLng: 21.8, maxLng: 33.9 };
@@ -32,7 +33,8 @@ function cleanDestination(body = {}) {
   const point = core.point(body.dest_lat, body.dest_lng);
   const errors = {};
   if (!province || !PROVINCES.includes(province)) errors.dest_province = "Please choose the province.";
-  if (!district || district.length < 2) errors.dest_district = district === undefined ? "District must be 80 characters or fewer." : "Please enter the district.";
+  if (!district || district.length < 2) errors.dest_district = district === undefined ? "District must be 80 characters or fewer." : "Please choose the district.";
+  else if (province && PROVINCES.includes(province) && !zambia.match(province, district)) errors.dest_district = `Please choose one of ${province} Province's districts.`;
   if (!address || address.length < 3) errors.dest_address = address === undefined ? "Address must be 255 characters or fewer." : "Please enter the delivery address or directions.";
   if (notes === undefined) errors.dest_notes = "Notes must be 255 characters or fewer.";
   if (!point) errors.dest_point = "Please mark the delivery point on the map.";
@@ -41,7 +43,7 @@ function cleanDestination(body = {}) {
   if (!contactPhone || !isPhone(contactPhone)) errors.contact_phone = "Please enter a valid phone number, e.g. 0977 123 456.";
   return {
     errors,
-    dest: { province, district, address, notes: notes || null, lat: point && point.lat, lng: point && point.lng, contact_name: contactName, contact_phone: contactPhone },
+    dest: { province, district: (province && zambia.match(province, district)) || district, address, notes: notes || null, lat: point && point.lat, lng: point && point.lng, contact_name: contactName, contact_phone: contactPhone },
   };
 }
 

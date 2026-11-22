@@ -16,6 +16,7 @@
     <script src="/js/admin.js"></script>
     <script src="/js/livestock.js"></script>
     <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+    <script src="/js/zambia-districts.js"></script>
     <script src="/js/transport-ui.js"></script>
   </head>
   <body class="bg-gray-50 admin-pending">
@@ -65,7 +66,7 @@
               <div><label class="field-label" for="st-label">Name</label><input id="st-label" name="frontier_pickup_label" class="field-input" maxlength="150"></div>
               <div><label class="field-label" for="st-phone">Phone at the pickup point</label><input id="st-phone" name="frontier_pickup_phone" class="field-input" maxlength="30"></div>
               <div><label class="field-label" for="st-prov">Province</label><select id="st-prov" name="frontier_pickup_province" class="field-input"></select></div>
-              <div><label class="field-label" for="st-dist">District</label><input id="st-dist" name="frontier_pickup_district" class="field-input" maxlength="80"></div>
+              <div><label class="field-label" for="st-dist">District</label><input id="st-dist" name="frontier_pickup_district" class="field-input" maxlength="80"><p class="field-error hidden" data-error-for="frontier_pickup_district"></p></div>
               <div class="sm:col-span-2"><label class="field-label" for="st-addr">Address</label><input id="st-addr" name="frontier_pickup_address" class="field-input" maxlength="255"></div>
             </div>
             <div class="mt-3" data-map></div>
@@ -154,6 +155,7 @@
         f.frontier_pickup_district.value = s.frontier_pickup.district;
         f.frontier_pickup_address.value = s.frontier_pickup.address;
         picker = await trPointPicker(f.querySelector("[data-map]"), { kind: "pickup", label: "Frontier pickup", lat: s.frontier_pickup.lat, lng: s.frontier_pickup.lng });
+        trPlaceFields({ province: f.frontier_pickup_province, district: f.frontier_pickup_district, address: f.frontier_pickup_address, picker: () => picker });
       }
       document.getElementById("settings").addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -185,11 +187,14 @@
           title: `Pickup point of ${s.business_name || s.name}`,
           wide: true,
           body: `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div><label class="field-label" for="sp-d">District</label><input id="sp-d" name="pickup_district" class="field-input" value="${escapeHtml(s.pickup_district || "")}"><p class="field-error hidden" data-error-for="pickup_district"></p></div>
+            <div><label class="field-label" for="sp-d">District${s.province ? ` <span class="text-gray-400 font-normal">(${escapeHtml(s.province)} Province)</span>` : ""}</label><input id="sp-d" name="pickup_district" class="field-input" value="${escapeHtml(s.pickup_district || "")}"><p class="field-error hidden" data-error-for="pickup_district"></p></div>
             <div><label class="field-label" for="sp-a">Address or directions</label><input id="sp-a" name="pickup_address" class="field-input" value="${escapeHtml(s.pickup_address || s.address || "")}"><p class="field-error hidden" data-error-for="pickup_address"></p></div></div>
             <div data-map></div><p class="field-error hidden" data-error-for="pickup_point"></p>`,
           submitText: "Save pickup point",
-          onOpen: async (form) => { pp = await trPointPicker(form.querySelector("[data-map]"), { kind: "pickup", lat: s.pickup_lat, lng: s.pickup_lng, label: "Pickup point" }); },
+          onOpen: async (form) => {
+            trPlaceFields({ district: form.pickup_district, address: form.pickup_address, picker: () => pp, provinceValue: () => s.province || "" });
+            pp = await trPointPicker(form.querySelector("[data-map]"), { kind: "pickup", lat: s.pickup_lat, lng: s.pickup_lng, label: "Pickup point" });
+          },
           onSubmit: async (form) => {
             const pt = pp && pp.get();
             const res = await adminApi(`/api/admin/transport/sellers/${s.id}/pickup`, { method: "PUT", body: { pickup_district: form.pickup_district.value.trim(), pickup_address: form.pickup_address.value.trim(), pickup_lat: pt ? pt.lat : "", pickup_lng: pt ? pt.lng : "" } });

@@ -14,6 +14,7 @@
     <script src="/js/seller.js"></script>
     <script src="/js/password-rules.js"></script>
     <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+    <script src="/js/zambia-districts.js"></script>
     <script src="/js/transport-ui.js"></script>
     <script src="/js/transport.js"></script>
   </head>
@@ -69,7 +70,7 @@
             </div>
             <div class="sm:col-span-2">
               <label for="address" class="field-label">Physical address</label>
-              <input id="address" name="address" class="field-input" maxlength="255" required />
+              <input id="address" name="address" class="field-input" maxlength="255" placeholder="Start typing for suggestions" required />
               <p class="field-error hidden" data-error-for="address"></p>
             </div>
           </div>
@@ -163,6 +164,7 @@
 
       let picker = null;
       trPointPicker(form.querySelector("[data-base-map]"), { kind: "base", label: "Operating location", hint: "Tap the map at your yard or depot, then drag the pin to the exact spot." }).then((p) => { picker = p; });
+      trPlaceFields({ province: form.province, district: form.district, address: form.address, picker: () => picker });
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();

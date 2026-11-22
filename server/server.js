@@ -309,11 +309,17 @@ app.get("/api/health", async (req, res) => {
 });
 // Place search for the transport maps (delivery, pickup and operating
 // points), through the routing service's geocoder. Rate limited.
-app.get("/api/geocode", limiter(60), async (req, res, next) => {
+// mode=suggest: address suggestions while typing (near lat/lng when given).
+app.get("/api/geocode", limiter(400), async (req, res, next) => {
   try {
     const q = String(req.query.q || "").trim().slice(0, 120);
     if (q.length < 3) return res.json({ success: true, data: [] });
-    res.json({ success: true, data: await require("./services/routing").geocode(q) });
+    const routing = require("./services/routing");
+    if (req.query.mode === "suggest") {
+      const focus = { lat: Number(req.query.lat), lng: Number(req.query.lng) };
+      return res.json({ success: true, data: await routing.suggest(q, req.query.lat ? focus : null) });
+    }
+    res.json({ success: true, data: await routing.geocode(q) });
   } catch (error) {
     // Place search is a convenience: when the geocoder fails, the pin is placed by hand.
     console.error(`Place search failed: ${error.message}`);
