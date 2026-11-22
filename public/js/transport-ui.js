@@ -93,7 +93,7 @@ async function trPointPicker(holder, opts = {}) {
     if (!map) return;
     if (!marker) {
       marker = L.marker([point.lat, point.lng], { draggable: true, icon: trPin(opts.kind || "dest", opts.label) }).addTo(map);
-      marker.on("dragend", () => { const p = marker.getLatLng(); set(p.lat, p.lng, { pan: false }); });
+      marker.on("dragend", () => { const p = marker.getLatLng(); clearAccuracy(); set(p.lat, p.lng, { pan: false }); });
     } else marker.setLatLng([point.lat, point.lng]);
     if (pan) map.setView([point.lat, point.lng], zoom || Math.max(map.getZoom(), 15));
     hint.textContent = `Pin at ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}. Drag it to adjust.`;
@@ -103,15 +103,69 @@ async function trPointPicker(holder, opts = {}) {
     if (point) set(point.lat, point.lng, { pan: false });
     map.on("click", (e) => set(e.latlng.lat, e.latlng.lng, { pan: false }));
   }
+  // "Use my location": listens for a few seconds and keeps the device's most
+  // accurate fix (phones improve as GPS locks on), shows how accurate it is,
+  // and explains what to do when it fails or is only approximate.
+  let accuracyCircle = null;
+  const clearAccuracy = () => { if (accuracyCircle) { accuracyCircle.remove(); accuracyCircle = null; } hint.classList.remove("tr-hint-warn"); };
+  if (map) map.on("click", clearAccuracy);
+  const describe = (m) => (m < 1000 ? `about ${Math.max(5, Math.round(m / 5) * 5)} m` : `about ${(m / 1000).toFixed(m < 10000 ? 1 : 0)} km`);
+  const showFix = (pos, final) => {
+    const c = pos.coords;
+    const acc = Number(c.accuracy) || 0;
+    set(c.latitude, c.longitude, { zoom: acc <= 150 ? 17 : acc <= 1500 ? 15 : acc <= 8000 ? 13 : 11 });
+    if (map) {
+      if (accuracyCircle) accuracyCircle.setLatLng([c.latitude, c.longitude]).setRadius(acc);
+      else accuracyCircle = L.circle([c.latitude, c.longitude], { radius: acc, color: "#2563eb", weight: 1, fillOpacity: 0.08, interactive: false }).addTo(map);
+    }
+    const rough = acc > 300;
+    hint.classList.toggle("tr-hint-warn", rough);
+    hint.textContent = rough
+      ? `Your device only knows roughly where you are (within ${describe(acc)}): computers without GPS estimate it from the internet connection. Drag the pin to the exact spot${opts.search ? ", or search the place above" : ""}.`
+      : `Pin placed at your location (accurate to ${describe(acc)})${final ? "" : ", improving…"}. Drag it if needed.`;
+  };
   holder.querySelector("[data-locate]").addEventListener("click", (e) => {
     const btn = e.currentTarget;
-    if (!navigator.geolocation) return showNotification("Your browser can't share your location. Place the pin on the map.", "error");
+    if (!window.isSecureContext) return showNotification("Your location can only be used on the secure (https) address of the site. Place the pin on the map instead.", "error");
+    if (!navigator.geolocation) return showNotification("This browser can't share your location. Place the pin on the map instead.", "error");
+    const label = btn.innerHTML;
     btn.disabled = true;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => { btn.disabled = false; set(pos.coords.latitude, pos.coords.longitude, { zoom: 16 }); },
-      () => { btn.disabled = false; showNotification("We couldn't get your location. Place the pin on the map instead.", "error"); },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+    btn.innerHTML = `<span class="btn-spinner"></span><span>Finding you…</span>`;
+    let best = null;
+    let done = false;
+    let watch = null;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      if (watch !== null) navigator.geolocation.clearWatch(watch);
+      btn.disabled = false;
+      btn.innerHTML = label;
+      if (best) showFix(best, true);
+    };
+    watch = navigator.geolocation.watchPosition(
+      (pos) => {
+        if (done) return;
+        if (!best || pos.coords.accuracy < best.coords.accuracy) { best = pos; showFix(pos, false); }
+        if (pos.coords.accuracy <= 25) finish();
+      },
+      (err) => {
+        if (done) return;
+        if (best) return finish();
+        finish();
+        const why = {
+          1: "Location is blocked for this site. Allow it in your browser (tap the lock or settings icon next to the address), then try again.",
+          2: "Your device couldn't work out where it is. Turn on location (GPS) in your phone's settings, or place the pin on the map.",
+          3: "Finding your location took too long. Try again, or place the pin on the map.",
+        }[err.code] || "We couldn't get your location. Place the pin on the map instead.";
+        showNotification(why, "error");
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
     );
+    // Stop listening after 12 seconds and keep the best position so far.
+    setTimeout(() => {
+      if (done) return;
+      if (best) finish();
+    }, 12000);
   });
   const search = holder.querySelector("[data-search]");
   if (search) {
