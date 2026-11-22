@@ -268,7 +268,6 @@
           action = `<div class="acc-card"><h2 class="txd-card-title">At the destination</h2><p class="text-sm text-gray-600">Drive to ${escapeHtml(d.destination.place)}. ${d.status === "arrived" ? "You've arrived. " : "Your arrival is noted automatically from your location. "}Hand the goods over to the buyer, then tap Delivered.</p><button type="button" class="acc-btn mt-4" data-delivered>${uiIcon("check")}<span>Delivered</span></button></div>`;
         } else if (d.status === "awaiting_confirmation") action = `<div class="acc-card acc-card-ok"><b>Delivered</b><p class="text-sm text-gray-600 mt-1">The buyer has been told. The delivery completes automatically unless they report a problem.</p></div>`;
         else if (d.status === "disputed") action = `<div class="tr-warn-box"><b>The buyer reported a problem.</b> Frontier is reviewing the records and may contact you.</div>`;
-        else if (d.status === "completed") action = `<div class="acc-card acc-card-ok"><b>Completed · ${escapeHtml(trWhen(d.times.completed_at))}</b><p class="text-sm text-gray-700 mt-1">Your earning: <b>${kwacha(d.provider_earning)}</b>.</p></div>`;
         const ratingCard = d.status === "completed"
           ? `<div class="acc-card"><h2 class="txd-card-title">Buyer's rating</h2>${d.rating ? `<p>${trStarsHtml(d.rating.stars)}</p>${d.rating.feedback ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(d.rating.feedback)}"</p>` : ""}` : `<p class="text-sm text-gray-500">The buyer hasn't rated this delivery yet.</p>`}</div>`
           : "";
