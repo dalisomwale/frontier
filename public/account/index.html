@@ -320,6 +320,17 @@
 
       // ---------------------------------------------- transport deliveries
       let follow = null;
+      // Big screens: "Delivery details" sits in the right column under the
+      // order card. Phones: it stays in the delivery column, above the ratings.
+      const wide = window.matchMedia("(min-width: 1024px)");
+      let detailsCard = null;
+      function placeDetailsCard() {
+        if (!detailsCard || !detailsCard.anchor.isConnected) return;
+        const { card, anchor, side } = detailsCard;
+        if (wide.matches && side) side.appendChild(card);
+        else anchor.parentNode.insertBefore(card, anchor);
+      }
+      wide.addEventListener("change", placeDetailsCard);
       async function loadDelivery(view, box, o) {
         let d;
         try {
@@ -341,9 +352,11 @@
             ${dispute ? `<div class="${dispute.status === "open" ? "tr-warn-box" : "tr-note-box"} mt-4"><b>${dispute.status === "open" ? "You reported a problem" : `Your report was resolved: ${dispute.resolution === "refund" ? "refund" : "delivered"}`}</b><p class="mt-1">${escapeHtml(dispute.description)}</p>${dispute.resolution_note ? `<p class="mt-1">Frontier: ${escapeHtml(dispute.resolution_note)}</p>` : ""}</div>` : ""}
           </div>
           ${tracking || d.tracking.route ? `<div class="acc-card mt-4"><h2 class="txd-card-title">Follow your delivery</h2><div data-track></div></div>` : ""}
-          <div class="acc-card mt-4"><h2 class="txd-card-title">Delivery details</h2>${trFactsHtml(d, { role: "customer", brief: true })}</div>
+          <div class="acc-card mt-4" data-d-details><h2 class="txd-card-title">Delivery details</h2>${trFactsHtml(d, { role: "customer", brief: true })}</div>
           <div data-ratings></div>
           <details class="acc-card mt-4 acc-more"><summary>History</summary>${trTimelineHtml(d.events)}</details>`;
+        detailsCard = { card: box.querySelector("[data-d-details]"), anchor: box.querySelector("[data-ratings]"), side: view.body.querySelector(".acc-order > div:last-child") };
+        placeDetailsCard();
         box.querySelector("[data-d-confirm]")?.addEventListener("click", (e) => completeDelivery(e.currentTarget, o, d));
         box.querySelector("[data-d-dispute]")?.addEventListener("click", () => openDisputeForm(o, d));
         const track = box.querySelector("[data-track]");
