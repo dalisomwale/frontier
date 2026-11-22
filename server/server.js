@@ -63,6 +63,10 @@ app.use(
       },
     },
     crossOriginEmbedderPolicy: false,
+    // Other sites get only our origin, never the page address (which can hold
+    // order and delivery links). OpenStreetMap's tile servers need the origin:
+    // without it they serve an "Access blocked" image instead of the map.
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   }),
 );
 app.use(cors({ origin: process.env.CORS_ORIGIN || false, credentials: true }));
