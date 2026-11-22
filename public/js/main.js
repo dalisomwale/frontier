@@ -232,24 +232,31 @@ function renderSiteFooter() {
   if (!el) return;
   el.classList.add("site-footer");
   const link = (href, text) => `<a href="${href}">${text}</a>`;
-  el.innerHTML = `
-    <div class="site-footer-inner">
-      <div class="site-footer-news">
-        <div class="site-footer-news-text">
-          <h2>Stay in the loop</h2>
+  // The newsletter sign-up: its own band just above the footer.
+  if (!document.querySelector(".news-band") && !location.pathname.startsWith("/newsletter/")) {
+    const band = document.createElement("section");
+    band.className = "news-band";
+    band.setAttribute("aria-labelledby", "news-title");
+    band.innerHTML = `
+      <div class="news-band-inner">
+        <div class="news-band-text">
+          <h2 id="news-title">Subscribe to our newsletter</h2>
           <p>Get our newsletter, promotions and the latest livestock and feed straight to your inbox.</p>
         </div>
-        <form class="site-footer-news-form" data-news-form novalidate>
-          <div class="site-footer-news-row">
+        <form class="news-band-form" data-news-form novalidate>
+          <div class="news-band-row">
             <label class="sr-only" for="news-email">Email address</label>
             <input id="news-email" type="email" name="email" placeholder="Your email address" autocomplete="email" maxlength="255" required>
-            <input type="text" name="website" class="site-footer-news-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <input type="text" name="website" class="news-band-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
             <button type="submit">Subscribe</button>
           </div>
-          <p class="site-footer-news-msg" data-news-msg role="status" hidden></p>
-          <small>No spam. Unsubscribe anytime.</small>
+          <p class="news-band-msg" data-news-msg role="status" hidden></p>
         </form>
-      </div>
+      </div>`;
+    el.before(band);
+  }
+  el.innerHTML = `
+    <div class="site-footer-inner">
       <div class="site-footer-grid">
         <div class="site-footer-brand">
           <a href="/" class="site-footer-logo" aria-label="Frontier Marketplace home">
