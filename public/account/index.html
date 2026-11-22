@@ -49,7 +49,6 @@
         </div>
         <div class="acc-head">
           <h1 class="admin-view-title !mb-0" id="page-title">My orders</h1>
-          <a href="/#listings" class="acc-mini-btn" id="shop-btn">Browse livestock</a>
         </div>
 
         <section id="tab-orders">
@@ -160,7 +159,6 @@
         Object.keys(TITLES).forEach((t) => (document.getElementById(`tab-${t}`).hidden = t !== name));
         document.querySelectorAll("[data-tab-link]").forEach((a) => a.classList.toggle("active", a.dataset.tabLink === name));
         document.getElementById("page-title").textContent = TITLES[name];
-        document.getElementById("shop-btn").hidden = name !== "orders";
         const url = new URL(location.href);
         url.searchParams.set("tab", name);
         ["id", "confirm", "welcome", "delivery"].forEach((k) => url.searchParams.delete(k));
@@ -335,7 +333,7 @@
         const dispute = d.disputes && d.disputes[0];
         box.innerHTML = `
           <div class="acc-card">
-            <div class="flex items-center justify-between gap-3 mb-3"><h2 class="txd-card-title !mb-0">Delivery ${escapeHtml(d.reference)}</h2>${trPill(d)}</div>
+            <h2 class="txd-card-title">Delivery ${escapeHtml(d.reference)}</h2>
             ${trProgressHtml(d.status)}
             ${trProviderHtml(d)}
             ${d.status === "awaiting_confirmation" ? `<div class="acc-card-ok acc-card mt-4"><b>Delivered.</b><p class="text-sm text-gray-700 mt-1">Please check the animals or feed. ${d.auto_complete_at ? `Your order completes automatically on <b>${escapeHtml(trWhen(d.auto_complete_at))}</b>` : "Your order completes automatically"} unless you report a problem. You don't need to do anything if all is well.</p>

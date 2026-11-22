@@ -7187,7 +7187,8 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 @media (max-width: 640px) {
   .tr-map { height: 260px; }
   .co-delivery .pm-choices { grid-template-columns: 1fr; }
-  .tr-path .tx-step-label { font-size: 10.5px; }
+  .tr-path { padding: 12px 4px; column-gap: 3px; }
+  .tr-path .tx-step-label { font-size: 10px; letter-spacing: -.01em; }
 }
 .pm-choice.is-off { opacity: .55; cursor: not-allowed; }
 .pay-truck { display: flex; align-items: center; justify-content: center; background: #f6faf4; color: #166534; }
