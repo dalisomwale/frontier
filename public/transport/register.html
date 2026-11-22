@@ -43,37 +43,37 @@
               <input id="name" name="name" class="field-input" maxlength="150" autocomplete="name" required />
               <p class="field-error hidden" data-error-for="name"></p>
             </div>
-            <div data-company-only hidden>
-              <label for="contact_person" class="field-label">Contact person</label>
-              <input id="contact_person" name="contact_person" class="field-input" maxlength="120" />
-              <p class="field-error hidden" data-error-for="contact_person"></p>
-            </div>
             <div>
               <label for="phone" class="field-label">Phone / WhatsApp</label>
               <input id="phone" name="phone" type="tel" class="field-input" maxlength="30" autocomplete="tel" placeholder="0977 123 456" required />
               <p class="field-error hidden" data-error-for="phone"></p>
+            </div>
+            <div class="sm:col-span-2" data-company-only hidden>
+              <label for="contact_person" class="field-label">Contact person</label>
+              <input id="contact_person" name="contact_person" class="field-input" maxlength="120" />
+              <p class="field-error hidden" data-error-for="contact_person"></p>
             </div>
             <div>
               <label for="email" class="field-label">Email</label>
               <input id="email" name="email" type="email" class="field-input" maxlength="255" autocomplete="email" required />
               <p class="field-error hidden" data-error-for="email"></p>
             </div>
-            <div class="sm:col-span-2 tp-place-row">
             <div>
               <label for="province" class="field-label">Province</label>
               <select id="province" name="province" class="field-input" required></select>
               <p class="field-error hidden" data-error-for="province"></p>
             </div>
-            <div>
-              <label for="district" class="field-label">District</label>
-              <input id="district" name="district" class="field-input" maxlength="80" required />
-              <p class="field-error hidden" data-error-for="district"></p>
-            </div>
-            <div>
-              <label for="address" class="field-label">Physical address</label>
-              <input id="address" name="address" class="field-input" maxlength="255" placeholder="Start typing for suggestions" required />
-              <p class="field-error hidden" data-error-for="address"></p>
-            </div>
+            <div class="sm:col-span-2 tp-place-row">
+              <div>
+                <label for="district" class="field-label">District</label>
+                <input id="district" name="district" class="field-input" maxlength="80" required />
+                <p class="field-error hidden" data-error-for="district"></p>
+              </div>
+              <div>
+                <label for="address" class="field-label">Physical address</label>
+                <input id="address" name="address" class="field-input" maxlength="255" placeholder="Start typing for suggestions" required />
+                <p class="field-error hidden" data-error-for="address"></p>
+              </div>
             </div>
           </div>
 
