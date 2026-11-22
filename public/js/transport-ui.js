@@ -391,7 +391,8 @@ function trRatingForm(holder, { title, hint, name, onSubmit }) {
 }
 
 // Facts about a delivery shown to everyone involved.
-function trFactsHtml(d, { role } = {}) {
+// opts.brief: show only where it's going and the fee, the rest under "More details".
+function trFactsHtml(d, { role, brief = false } = {}) {
   const rows = [
     ["Delivery", d.reference],
     ["From", [d.pickup.label, d.pickup.place].filter(Boolean).join(", ")],
@@ -404,7 +405,12 @@ function trFactsHtml(d, { role } = {}) {
     ...(d.fee !== undefined && d.fee !== null ? [["Transport fee", kwacha(d.fee)]] : []),
     ...(d.provider_earning !== undefined && d.provider_earning !== null && role === "provider" ? [["Your earning", kwacha(d.provider_earning)]] : []),
   ];
-  return `<dl class="sv-facts tr-facts">${rows.map(([k, v, raw]) => `<div><dt>${k}</dt><dd>${raw ? v : escapeHtml(v)}</dd></div>`).join("")}</dl>`;
+  const list = (items) => items.map(([k, v, raw]) => `<div><dt>${k}</dt><dd>${raw ? v : escapeHtml(v)}</dd></div>`).join("");
+  if (!brief) return `<dl class="sv-facts tr-facts">${list(rows)}</dl>`;
+  const main = rows.filter(([k]) => ["To", "Transport fee"].includes(k));
+  const more = rows.filter((r) => !main.includes(r));
+  return `<dl class="sv-facts tr-facts">${list(main)}</dl>
+    <details class="acc-more"><summary>More details</summary><dl class="sv-facts tr-facts">${list(more)}</dl></details>`;
 }
 
 function trProviderHtml(d) {
