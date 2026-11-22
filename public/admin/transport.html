@@ -217,7 +217,7 @@
             <div class="space-y-4 min-w-0">
               ${actions ? `<div class="acc-card"><h2 class="txd-card-title">Actions</h2><div class="tr-actions">${actions}</div></div>` : ""}
               <div class="acc-card"><h2 class="txd-card-title">Map</h2><div data-track></div></div>
-              <div class="acc-card"><h2 class="txd-card-title">Collection and delivery records</h2>${trEvidenceHtml(d)}</div>
+              <div class="acc-card"><h2 class="txd-card-title">Collection record</h2>${trEvidenceHtml(d)}</div>
               <div class="acc-card"><h2 class="txd-card-title">History</h2>${trTimelineHtml(d.events, { admin: true })}</div>
             </div>
             <div class="space-y-4 min-w-0">

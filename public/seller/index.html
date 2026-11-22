@@ -1170,7 +1170,7 @@
           vehicle_selected: "A provider has accepted and is on the way to collect.",
           awaiting_collection: "The provider is on the way to collect. Please have the goods ready.",
           collection_submitted: "The provider is collecting the goods.",
-          collection_confirmed: "Collected. On the way to the buyer.",
+          collection_confirmed: "Collected. The provider starts the delivery when they leave.",
           in_transit: "Collected. On the way to the buyer.",
           arrived: "Arrived at the buyer's address.",
           delivery_submitted: "Delivered to the buyer.",
@@ -1188,7 +1188,7 @@
             ${STAGE_NOTE[d.status] ? `<p class="tr-note-box mt-3">${escapeHtml(STAGE_NOTE[d.status])}</p>` : ""}
           </div>
           ${live ? `<div class="txd-card mt-4"><b>Follow the delivery</b><div class="mt-3" data-t-track></div></div>` : ""}
-          <div class="txd-card mt-4"><b>Collection and delivery records</b><div class="mt-3">${trEvidenceHtml(d)}</div></div>
+          <div class="txd-card mt-4"><b>Collection record</b><div class="mt-3">${trEvidenceHtml(d)}</div></div>
           <details class="txd-card mt-4 acc-more"><summary>History</summary>${trTimelineHtml(d.events)}</details>`;
         const track = box.querySelector("[data-t-track]");
         sellerFollow = track ? await trFollow(track, d, `/api/seller/transport/${d.id}/track`, sellerApi) : null;

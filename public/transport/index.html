@@ -260,17 +260,18 @@
         let action = "";
         if (can.collect) {
           action = commentForm("data-collect", "At the pickup",
-            `Drive to ${escapeHtml(d.pickup.place)}. Check the goods with the seller, then choose a comment, add photos and tap Collected. The delivery then starts and the buyer and seller are told.`,
+            `Drive to ${escapeHtml(d.pickup.place)}. Check the goods with the seller, then choose a comment, add photos and tap Collected. The buyer and seller are told.`,
             d.comments.collection, "Collected");
         } else if (can.start) {
-          action = `<div class="acc-card acc-card-ok"><b>Collection confirmed</b><p class="text-sm text-gray-700 mt-1">Start the delivery when you leave.</p><button type="button" class="acc-btn mt-3" data-start>${uiIcon("truck")}<span>Start delivery</span></button></div>`;
+          action = `<div class="acc-card acc-card-ok"><b>Collected</b><p class="text-sm text-gray-700 mt-1">Tap Start delivery when you leave for ${escapeHtml(d.destination.place)}. The buyer and seller are told you're on the way.</p><button type="button" class="acc-btn mt-3" data-start>${uiIcon("truck")}<span>Start delivery</span></button></div>`;
         } else if (can.deliver) {
-          action = commentForm("data-deliver", "At the destination",
-            `Drive to ${escapeHtml(d.destination.place)}. ${d.status === "arrived" ? "You've arrived. " : "Your arrival is noted automatically from your location. "}Hand the goods over, then choose a comment, add photos and tap Delivered.`,
-            d.comments.delivery, "Delivered");
+          action = `<div class="acc-card"><h2 class="txd-card-title">At the destination</h2><p class="text-sm text-gray-600">Drive to ${escapeHtml(d.destination.place)}. ${d.status === "arrived" ? "You've arrived. " : "Your arrival is noted automatically from your location. "}Hand the goods over to the buyer, then tap Delivered.</p><button type="button" class="acc-btn mt-4" data-delivered>${uiIcon("check")}<span>Delivered</span></button></div>`;
         } else if (d.status === "awaiting_confirmation") action = `<div class="acc-card acc-card-ok"><b>Delivered</b><p class="text-sm text-gray-600 mt-1">The buyer has been told. The delivery completes automatically unless they report a problem.</p></div>`;
         else if (d.status === "disputed") action = `<div class="tr-warn-box"><b>The buyer reported a problem.</b> Frontier is reviewing the records and may contact you.</div>`;
-        else if (d.status === "completed") action = `<div class="acc-card acc-card-ok"><b>Completed · ${escapeHtml(trWhen(d.times.completed_at))}</b><p class="text-sm text-gray-700 mt-1">Your earning: <b>${kwacha(d.provider_earning)}</b>.</p>${d.rating ? `<p class="mt-2">${trStarsHtml(d.rating.stars)}</p>${d.rating.feedback ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(d.rating.feedback)}"</p>` : ""}` : ""}</div>`;
+        else if (d.status === "completed") action = `<div class="acc-card acc-card-ok"><b>Completed · ${escapeHtml(trWhen(d.times.completed_at))}</b><p class="text-sm text-gray-700 mt-1">Your earning: <b>${kwacha(d.provider_earning)}</b>.</p></div>`;
+        const ratingCard = d.status === "completed"
+          ? `<div class="acc-card"><h2 class="txd-card-title">Buyer's rating</h2>${d.rating ? `<p>${trStarsHtml(d.rating.stars)}</p>${d.rating.feedback ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(d.rating.feedback)}"</p>` : ""}` : `<p class="text-sm text-gray-500">The buyer hasn't rated this delivery yet.</p>`}</div>`
+          : "";
         const showMap = TR_MOVING.includes(d.status) || ["delivery_submitted", "awaiting_confirmation"].includes(d.status);
         const goTo = onWay ? d.pickup : d.destination;
         view.body.innerHTML = `
@@ -282,13 +283,14 @@
               ${showMap ? `<div class="acc-card"><h2 class="txd-card-title">${onWay ? "To the pickup" : TR_MOVING.includes(d.status) ? "To the buyer" : "Route"}</h2><div data-track></div>
                 ${TR_MOVING.includes(d.status) && goTo.lat ? `<p class="text-sm mt-2"><a class="acc-link" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${goTo.lat},${goTo.lng}">Turn-by-turn directions in your maps app</a></p>` : ""}</div>` : ""}
               ${action}
-              <div class="acc-card"><h2 class="txd-card-title">Collection and delivery records</h2>${trEvidenceHtml(d)}</div>
-            </div>
-            <div class="space-y-4 min-w-0">
               <div class="acc-card"><h2 class="txd-card-title">Delivery details</h2>${trFactsHtml(d, { role: "provider" })}
                 ${d.vehicle ? `<p class="text-sm text-gray-700 mt-3 tr-inline-icon">${uiIcon("truck")} Vehicle <b>${escapeHtml(d.vehicle.registration)}</b> · ${escapeHtml(d.vehicle.type)}</p>` : ""}
                 <ul class="tr-qty mt-3">${d.orders.filter((o) => !o.cancelled).map((o) => `<li><span>${escapeHtml(o.reference)} · ${escapeHtml(o.title)}</span><b>${escapeHtml(o.units)}</b></li>`).join("")}</ul>
               </div>
+            </div>
+            <div class="space-y-4 min-w-0">
+              <div class="acc-card"><h2 class="txd-card-title">Collection record</h2>${trEvidenceHtml(d)}</div>
+              ${ratingCard}
               <details class="acc-card acc-more"><summary>History</summary>${trTimelineHtml(d.events)}</details>
             </div>
           </div>`;
@@ -326,10 +328,22 @@
           });
         };
         bindForm("[data-collect]", `/api/transport/bookings/${d.id}/collection`, "Saving…");
-        bindForm("[data-deliver]", `/api/transport/bookings/${d.id}/delivery`, "Submitting…");
+        view.body.querySelector("[data-delivered]")?.addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          if (!(await confirmAction({ title: "Mark as delivered?", message: "Only do this once the goods have been handed over. The buyer is asked to confirm everything is okay.", confirmText: "Delivered" }))) return;
+          try {
+            const res = await withBusy(btn, "Saving…", async () => {
+              const here = await currentPosition();
+              return transportApi(`/api/transport/bookings/${d.id}/delivery`, { method: "POST", body: here || {} });
+            });
+            showNotification(res.message, "success");
+            gps.stop();
+            reopen();
+          } catch (error) { showNotification(error.message, "error"); }
+        });
         view.body.querySelector("[data-start]")?.addEventListener("click", async (e) => {
           const btn = e.currentTarget;
-          if (!(await confirmAction({ title: "Start the delivery?", message: "Your phone's location will be shared with the buyer, the seller and Frontier until you mark the delivery as delivered. Keep this page open during the trip.", confirmText: "Start delivery" }))) return;
+          if (!(await confirmAction({ title: "Start the delivery?", message: "The buyer and seller are told you're on the way and can follow you until you mark it delivered. Keep this page open during the trip.", confirmText: "Start delivery" }))) return;
           try {
             const res = await withBusy(btn, "Starting…", async () => {
               const here = await currentPosition();

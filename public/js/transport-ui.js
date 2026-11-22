@@ -307,11 +307,9 @@ async function trFollow(holder, d, trackUrl, api) {
 }
 
 // ------------------------------------------------- photos and quantities
+// Only the provider's collection is recorded with photos; delivery is a tap.
 const TR_STAGES = [
-  ["seller_collection", "Seller's handover record", "seller_release"],
   ["provider_collection", "Provider's collection record", "provider_collected"],
-  ["provider_delivery", "Provider's delivery record", "provider_delivered"],
-  ["customer_delivery", "Buyer's record on receipt", null],
 ];
 const TR_PARTY = { seller: "Seller", provider: "Transport provider", customer: "Buyer", admin: "Frontier (for the seller)" };
 
@@ -336,7 +334,7 @@ function trEvidenceHtml(d, { only = null } = {}) {
       ${photos.length ? `<div class="acc-photos tr-photos">${photos.map((p) => `<a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener" title="${escapeHtml(`${TR_PARTY[p.party] || p.party}, ${trWhen(p.created_at)}`)}"><img src="${escapeHtml(p.thumb_path)}" alt="${escapeHtml(`${TR_PARTY[p.party] || p.party}'s photo`)}" loading="lazy"></a>`).join("")}</div>` : ""}
     </section>`;
   }).filter(Boolean);
-  return parts.length ? parts.join("") : `<p class="text-sm text-gray-500">No collection or delivery records yet.</p>`;
+  return parts.length ? parts.join("") : `<p class="text-sm text-gray-500">No collection record yet.</p>`;
 }
 
 function trTimelineHtml(events = [], { admin = false } = {}) {

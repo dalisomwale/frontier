@@ -588,8 +588,8 @@ async function submitCollection(who, bookingId, files, body = {}) {
 }
 
 // The provider collects the goods: a comment, photos, "Collected". The
-// collection is then confirmed and the delivery starts by itself; the seller,
-// the buyer and Frontier are told, with the provider's photos to see.
+// collection is then confirmed; the provider taps "Start delivery" when they
+// leave (start()). The seller, the buyer and Frontier are told.
 async function providerCollected(who, bookingId, files, body = {}) {
   const b0 = await loadBooking(bookingId);
   if (!b0) throw notFound("Delivery not found.");
@@ -610,7 +610,6 @@ async function providerCollected(who, bookingId, files, body = {}) {
       if (b.status === "awaiting_collection") await core.transition(conn, b, "collection_submitted", { event: "provider_collection", actor: "provider", actorName: who.name, detail });
       else await core.logEvent(conn, b.id, { event: "provider_collection", actor: "provider", actorName: who.name, detail });
       await core.transition(conn, b, "collection_confirmed", { event: "collection_confirmed", actor: "system", detail: "Collection recorded by the provider.", set: { collection_confirmed_at: { raw: "NOW()" } } });
-      await core.transition(conn, b, "in_transit", { event: "in_transit", actor: "system", detail: "The delivery started.", set: { started_at: { raw: "NOW()" }, delay_alert_at: null } });
       if (point) await recordPoint(conn, b, who.id, { ...point, recorded_at: body.recorded_at });
     });
   } catch (error) {
@@ -620,42 +619,40 @@ async function providerCollected(who, bookingId, files, body = {}) {
   const b = await loadBooking(bookingId);
   notify.seller(b, {
     title: `Your goods were collected (${bookingRef(b.id)})`,
-    body: `${who.name} collected them${b.vehicle_registration ? ` with ${b.vehicle_registration}` : ""} and is on the way to ${core.destPlace(b)}. ${c.note}`,
+    body: `${who.name} collected them${b.vehicle_registration ? ` with ${b.vehicle_registration}` : ""} for delivery to ${core.destPlace(b)}. ${c.note}`,
     subject: `Collected: ${bookingRef(b.id)}`,
     heading: "Your goods have been collected",
-    paragraphs: [`${who.name} collected the goods and the delivery is on its way to the buyer. You can see their photos and follow the delivery in your seller account.`, `Provider's comment: ${c.note}`],
+    paragraphs: [`${who.name} collected the goods and will now deliver them to the buyer. You can see their photos and follow the delivery in your seller account.`, `Provider's comment: ${c.note}`],
   });
   notify.customer(b, {
-    title: `Your order is on its way (${bookingRef(b.id)})`,
-    body: `${who.name} collected it and is heading to you. Follow it live in your order.`,
-    subject: `On its way: delivery ${bookingRef(b.id)}`,
-    heading: "Your order is on its way",
-    paragraphs: ["The transport provider has collected your order and is now driving to you. You can follow the vehicle live in your account; the position comes from the provider's phone."],
-    rows: [["Vehicle", `${b.vehicle_registration || "-"} (${b.vehicle_type || ""})`], ["Destination", core.destPlace(b)]],
+    title: `Your order has been collected (${bookingRef(b.id)})`,
+    body: `${who.name} collected it from the seller. You'll be told when the delivery starts.`,
   });
   notify.team(b, {
     subject: `${c.problem ? "Collected with a problem" : "Collected"}: ${bookingRef(b.id)}`,
-    heading: c.problem ? "A provider reported a problem at collection" : "Goods collected, delivery on its way",
+    heading: c.problem ? "A provider reported a problem at collection" : "Goods collected",
     paragraphs: [`${who.name}: ${c.note}`],
   });
-  notify.live(b, "in_transit");
+  notify.live(b, "collection_confirmed");
   return b;
 }
 
-// The provider hands the goods over: a comment, photos, "Delivered". The
-// buyer is told; the delivery completes by itself after the settings' time
-// unless the buyer reports a problem (or straight away with 0 hours).
+// The provider hands the goods over and taps "Delivered": no photos or
+// comment needed. The buyer is told; the delivery completes by itself after
+// the settings' time unless the buyer reports a problem (or straight away
+// with 0 hours).
 async function providerDelivered(who, bookingId, files, body = {}) {
   const b0 = await loadBooking(bookingId);
   if (!b0) throw notFound("Delivery not found.");
   mustOwn(b0, who);
   if (!TRACKING.includes(b0.status)) throw conflict(`The delivery can be recorded once it's on the way (now: "${STATUS_LABELS[b0.status]}").`);
-  const c = readComment(body, DELIVERY_NOTES);
-  if (!(files || []).length) c.errors.images = "Please add at least one photo of the delivered goods.";
+  // A comment is optional now (older app versions still send one).
+  const c = body.comment ? readComment(body, DELIVERY_NOTES) : { errors: {}, problem: false, note: "Delivered." };
   if (Object.keys(c.errors).length) throw invalid(c.errors);
+  files = files || [];
   const point = readPoint(body);
   const settings = await core.getSettings();
-  const saved = await savePhotos(files, { label: "photo of the delivered goods" });
+  const saved = files.length ? await savePhotos(files, { label: "photo of the delivered goods" }) : [];
   let orders = null;
   try {
     await core.withBooking(bookingId, async (conn, b) => {
@@ -663,8 +660,8 @@ async function providerDelivered(who, bookingId, files, body = {}) {
       if (!TRACKING.includes(b.status)) throw conflict("The delivery has already been recorded.");
       if (b.status === "in_transit") await core.transition(conn, b, "arrived", { event: "arrived", actor: "provider", actorName: who.name, detail: `${who.name} arrived at the destination.`, set: { arrived_at: { raw: "NOW()" } } });
       await insertSubmission(conn, b.id, { stage: "provider_delivery", party: "provider", actorName: who.name, note: c.note, discrepancy: c.problem, point });
-      await storePhotos(conn, b.id, "provider_delivery", "provider", saved, point);
-      await core.transition(conn, b, "delivery_submitted", { event: "delivery_submitted", actor: "provider", actorName: who.name, detail: `${who.name} delivered the goods with ${saved.length} photo${saved.length === 1 ? "" : "s"}: ${c.note}`, set: { delivery_submitted_at: { raw: "NOW()" } } });
+      if (saved.length) await storePhotos(conn, b.id, "provider_delivery", "provider", saved, point);
+      await core.transition(conn, b, "delivery_submitted", { event: "delivery_submitted", actor: "provider", actorName: who.name, detail: `${who.name} delivered the goods.${c.problem ? ` ${c.note}` : ""}`, set: { delivery_submitted_at: { raw: "NOW()" } } });
       await core.transition(conn, b, "awaiting_confirmation", { event: "awaiting_confirmation", actor: "system", detail: settings.auto_complete_hours ? `Completes automatically in ${settings.auto_complete_hours} hour${settings.auto_complete_hours === 1 ? "" : "s"} unless the buyer reports a problem.` : "Completing now." });
       if (!settings.auto_complete_hours && !c.problem) {
         await core.transition(conn, b, "completed", { event: "auto_completed", actor: "system", detail: "Completed on delivery.", set: { completed_at: { raw: "NOW()" } } });
@@ -684,20 +681,20 @@ async function providerDelivered(who, bookingId, files, body = {}) {
   const until = new Date(Date.now() + settings.auto_complete_hours * 3600000).toLocaleString("en-GB", { timeZone: process.env.APP_TIMEZONE || "Africa/Lusaka", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   notify.customer(b, {
     title: `Delivered: ${bookingRef(b.id)}`,
-    body: `Please check your goods. Your order completes automatically on ${until} unless you report a problem.`,
+    body: "Your order has arrived. Please confirm if everything is okay, or report a problem if not.",
     subject: `Delivered: ${bookingRef(b.id)}`,
-    heading: "Your order has been delivered",
+    heading: "Your order has arrived",
     paragraphs: [
-      `${who.name} has delivered your order. Their photos are in your account.`,
-      `Please check the animals or feed. If anything isn't right, report it from your order before ${until}; otherwise the order completes automatically then. You don't need to do anything if all is well.`,
+      `${who.name} has delivered your order.`,
+      `Please check the animals or feed and confirm in your account if everything is okay, or report a problem if not. If we don't hear from you, the order completes automatically on ${until}.`,
+      "Thank you for purchasing with Frontier.",
     ],
-    rows: [["Provider's comment", c.note]],
   });
-  notify.seller(b, { title: `Delivered: ${bookingRef(b.id)}`, body: `${who.name} delivered the goods to the buyer. ${c.note}`, subject: `Delivered: ${bookingRef(b.id)}`, heading: "Your goods have been delivered", paragraphs: [`${who.name} delivered the goods to the buyer. The order completes on ${until} unless the buyer reports a problem; Frontier then pays you.`, `Provider's comment: ${c.note}`] });
+  notify.seller(b, { title: `Delivered: ${bookingRef(b.id)}`, body: `${who.name} delivered the goods to the buyer.`, subject: `Delivered: ${bookingRef(b.id)}`, heading: "Your goods have been delivered", paragraphs: [`${who.name} delivered the goods to the buyer. The order completes once the buyer confirms, or automatically on ${until} unless they report a problem; Frontier then pays you.`] });
   notify.team(b, {
-    subject: `${c.problem ? "Delivered with a problem" : "Delivered"}: ${bookingRef(b.id)}`,
-    heading: c.problem ? "A provider reported a problem at delivery" : "Goods delivered",
-    paragraphs: [`${who.name}: ${c.note}`, `Completes automatically on ${until} unless the buyer reports a problem.`],
+    subject: `Delivered: ${bookingRef(b.id)}`,
+    heading: "Goods delivered",
+    paragraphs: [`${who.name} delivered the goods.`, `Completes automatically on ${until} unless the buyer reports a problem.`],
   });
   notify.live(b, "awaiting_confirmation");
   return b;

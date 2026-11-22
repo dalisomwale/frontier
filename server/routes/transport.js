@@ -727,7 +727,7 @@ router.post("/bookings/:id/decline", requireProvider, async (req, res, next) => 
 router.post("/bookings/:id/collection", requireProvider, requireApproved, uploadTransportPhotos, async (req, res, next) => {
   try {
     await bookings.providerCollected(req.who, positiveInt(req.params.id), req.files, req.body);
-    res.json({ success: true, message: "Collected. The delivery has started; the seller and buyer have been told." });
+    res.json({ success: true, message: "Collected. Tap Start delivery when you leave." });
   } catch (error) {
     next(error);
   }
@@ -754,7 +754,7 @@ router.post("/bookings/:id/location", requireProvider, async (req, res, next) =>
 router.post("/bookings/:id/arrive", requireProvider, requireApproved, async (req, res, next) => {
   try {
     await bookings.arrive(req.who, positiveInt(req.params.id), req.body);
-    res.json({ success: true, message: "Arrival recorded. Now record the delivery with photos." });
+    res.json({ success: true, message: "Arrival recorded. Tap Delivered once you've handed the goods over." });
   } catch (error) {
     next(error);
   }
