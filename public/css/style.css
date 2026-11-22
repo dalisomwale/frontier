@@ -7249,3 +7249,8 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .tr-locate button:disabled { cursor: wait; }
 .tr-locate svg { width: 18px; height: 18px; }
 .tr-locate .btn-spinner { width: 14px; height: 14px; border-color: #166534; border-right-color: transparent; }
+
+/* Rating pop-up shown right after the buyer confirms */
+.rate-modal { max-height: calc(100vh - 32px); overflow-y: auto; }
+.rate-modal-part { margin-top: 18px; padding-top: 16px; border-top: 1px solid #eef0ec; }
+.rate-modal-part .tr-stars { margin: 8px 0 6px; }

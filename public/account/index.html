@@ -336,7 +336,7 @@
             <h2 class="txd-card-title">Delivery ${escapeHtml(d.reference)}</h2>
             ${trProgressHtml(d.status)}
             ${trProviderHtml(d)}
-            ${d.status === "awaiting_confirmation" ? `<div class="acc-card-ok acc-card mt-4"><b>Delivered.</b><p class="text-sm text-gray-700 mt-1">Please check the animals or feed. ${d.auto_complete_at ? `Your order completes automatically on <b>${escapeHtml(trWhen(d.auto_complete_at))}</b>` : "Your order completes automatically"} unless you report a problem. You don't need to do anything if all is well.</p>
+            ${d.status === "awaiting_confirmation" ? `<div class="acc-card-ok acc-card mt-4"><p class="text-sm text-gray-700">Your order has arrived. Please confirm if everything is okay, or report a problem if not. Thank you for purchasing with Frontier.</p>
               <div class="tr-actions mt-3"><button type="button" class="acc-btn" data-d-confirm>Everything is fine</button><button type="button" class="acc-mini-btn" data-d-dispute>Report a delivery problem</button></div></div>` : ""}
             ${dispute ? `<div class="${dispute.status === "open" ? "tr-warn-box" : "tr-note-box"} mt-4"><b>${dispute.status === "open" ? "You reported a problem" : `Your report was resolved: ${dispute.resolution === "refund" ? "refund" : "delivered"}`}</b><p class="mt-1">${escapeHtml(dispute.description)}</p>${dispute.resolution_note ? `<p class="mt-1">Frontier: ${escapeHtml(dispute.resolution_note)}</p>` : ""}</div>` : ""}
           </div>
@@ -387,6 +387,88 @@
             await loadOrders();
             openOrder(o.id, { replace: true });
           },
+        });
+      }
+
+      // Straight after the buyer confirms: one pop-up to rate the transport
+      // provider (if there was one) and Frontier. "Not now" leaves the rating
+      // forms on the order page for later.
+      async function askForRatings(o, deliveryId = null) {
+        let provider = null;
+        let platform = null;
+        try {
+          if (deliveryId) {
+            const d = (await buyerApi(`/api/buyer/deliveries/${deliveryId}`)).data;
+            if (d.can.rate_provider && !d.rating) provider = { id: d.id, name: d.provider ? d.provider.name : "the transport provider" };
+            if (d.platform && d.platform.eligible && !d.platform.rated) platform = d.checkout_id || o.checkout_id;
+          } else {
+            const fresh = (await buyerApi(`/api/buyer/orders/${o.id}`)).data;
+            if (fresh.platform_rating && !fresh.platform_rating.rated) platform = fresh.checkout_id;
+          }
+        } catch {
+          return;
+        }
+        if (!provider && !platform) return;
+        const section = (name, title, hint) => `
+          <div class="rate-modal-part" data-part="${name}">
+            <p class="font-semibold text-gray-900">${escapeHtml(title)}</p>
+            <p class="text-sm text-gray-600">${escapeHtml(hint)}</p>
+            ${trStarsInput(name, `pop-${name}`)}
+            <p class="field-error hidden" data-error-for="${name}"></p>
+            <textarea name="${name}_feedback" rows="2" maxlength="1000" class="field-input" placeholder="Anything you'd like to tell us? (optional)"></textarea>
+          </div>`;
+        const overlay = document.createElement("div");
+        overlay.className = "fixed inset-0 z-[150] flex items-center justify-center bg-black bg-opacity-50 p-4";
+        overlay.innerHTML = `
+          <form class="rate-modal bg-white rounded-xl shadow-xl max-w-md w-full p-6" role="dialog" aria-modal="true" aria-labelledby="rate-modal-title" novalidate>
+            <h3 id="rate-modal-title" class="text-lg font-bold text-gray-900">How did it go?</h3>
+            <p class="text-sm text-gray-600 mt-1">Thank you for purchasing with Frontier. Your rating helps other buyers.</p>
+            ${provider ? section("provider_stars", `Rate ${provider.name}`, "Reliability, communication, timeliness and care of your animals or feed.") : ""}
+            ${platform ? section("platform_stars", "Rate Frontier Marketplace", "From finding your order to receiving it.") : ""}
+            <div class="flex gap-3 justify-end mt-5">
+              <button type="button" data-later class="acc-mini-btn">Not now</button>
+              <button type="submit" class="acc-btn">Submit rating</button>
+            </div>
+          </form>`;
+        document.body.appendChild(overlay);
+        const form = overlay.querySelector("form");
+        let sent = false;
+        const close = () => {
+          document.removeEventListener("keydown", onKey, true);
+          overlay.remove();
+          if (sent && orderView) openOrder(o.id, { replace: true });
+        };
+        const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+        document.addEventListener("keydown", onKey, true);
+        overlay.querySelector("[data-later]").addEventListener("click", close);
+        form.querySelectorAll(".tr-stars input").forEach((r) => r.addEventListener("change", () => form.querySelector(`[data-error-for="${r.name}"]`).classList.add("hidden")));
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const parts = [...form.querySelectorAll("[data-part]")];
+          const errors = {};
+          parts.forEach((p) => { if (!form.querySelector(`input[name="${p.dataset.part}"]:checked`)) errors[p.dataset.part] = "Please choose 1 to 5 stars."; });
+          if (Object.keys(errors).length) return showFieldErrors(form, { errors });
+          const value = (name) => ({ stars: Number(form.querySelector(`input[name="${name}"]:checked`).value), feedback: form[`${name}_feedback`].value.trim() });
+          try {
+            await withBusy(form.querySelector("button[type=submit]"), "Sending…", async () => {
+              // A part that went through is removed, so a retry only resends what failed.
+              if (form.querySelector('[data-part="provider_stars"]')) {
+                await buyerApi(`/api/buyer/deliveries/${provider.id}/rating`, { method: "POST", body: value("provider_stars") });
+                sent = true;
+                form.querySelector('[data-part="provider_stars"]').remove();
+              }
+              if (form.querySelector('[data-part="platform_stars"]')) {
+                await buyerApi(`/api/buyer/checkouts/${platform}/rating`, { method: "POST", body: value("platform_stars") });
+                sent = true;
+                form.querySelector('[data-part="platform_stars"]').remove();
+              }
+            });
+            showNotification("Thank you for your rating!", "success");
+            await loadOrders();
+            close();
+          } catch (error) {
+            showNotification(error.message, "error");
+          }
         });
       }
 
@@ -443,6 +525,7 @@
             await view.close(true);
             await loadOrders();
             if (orderView) openOrder(o.id, { replace: true });
+            if (confirm) askForRatings(o, d.id);
           } catch (error) {
             showFieldErrors(form, error);
             showNotification(error.message, "error");
@@ -535,6 +618,7 @@
             await view.close(true);
             await loadOrders();
             if (orderView) openOrder(o.id, { replace: true });
+            askForRatings(o);
           } catch (error) {
             showFieldErrors(form, error);
             alertBox.textContent = error.message;

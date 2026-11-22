@@ -357,9 +357,10 @@ function trQtyFields(orders, { start = (o) => o.quantity, ids = false, label = "
 }
 
 // ---------------------------------------------------------------- ratings
-function trStarsInput(name = "stars") {
+// idPrefix keeps the ids unique when the same rating appears twice on a page.
+function trStarsInput(name = "stars", idPrefix = name) {
   return `<div class="tr-stars" role="radiogroup" aria-label="Rating out of 5">${[5, 4, 3, 2, 1].map((n) => `
-    <input type="radio" id="${name}-${n}" name="${name}" value="${n}"><label for="${name}-${n}" title="${n} star${n === 1 ? "" : "s"}">★</label>`).join("")}</div>`;
+    <input type="radio" id="${idPrefix}-${n}" name="${name}" value="${n}"><label for="${idPrefix}-${n}" title="${n} star${n === 1 ? "" : "s"}">★</label>`).join("")}</div>`;
 }
 function trStarsHtml(n, count = null) {
   if (n === null || n === undefined) return `<span class="text-gray-400 text-sm">No ratings yet</span>`;
