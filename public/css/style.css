@@ -7055,6 +7055,8 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .acc-links > .acc-section:first-child { margin-top: 2px; }
 @media (max-width: 1023px) {
   .acc-section, .acc-shop-link { display: none !important; }
+  /* Phones and tablets: the bottom bar (Home, Orders, Notifications, Profile) replaces the side menu. */
+  .acc-nav { display: none; }
 }
 /* Export Excel beside the search box */
 .tx-export-bar { flex-shrink: 0; justify-content: center; padding: 8px 14px; font-size: 13.5px; white-space: nowrap; }

@@ -10,6 +10,22 @@ function renderBottomNav(variant = "public") {
   const hash = window.location.hash;
   const feedPage = new URLSearchParams(window.location.search).get("kind") === "feed";
 
+  // Signed-in buyer pages: the account tabs themselves (switched in place by the page).
+  if (variant === "buyer") {
+    const tab = new URLSearchParams(window.location.search).get("tab") || "orders";
+    const items = [
+      { href: "/", icon: "home", label: "Home" },
+      { key: "orders", icon: "cart", label: "Orders", badge: "orders" },
+      { key: "notifications", icon: "bell", label: "Notifications", badge: "notifications" },
+      { key: "profile", icon: "users", label: "Profile" },
+    ];
+    mount.innerHTML = items
+      .map((i) => `<a href="${i.href || `/account/?tab=${i.key}`}"${i.key ? ` data-tab-link="${i.key}"` : ""} class="${i.key === tab ? "active" : ""}">
+        <span class="relative inline-flex">${uiIcon(i.icon)}${i.badge ? `<span data-badge="${i.badge}" hidden class="absolute -top-1.5 -right-2.5 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full items-center justify-center leading-none">0</span>` : ""}</span><span>${i.label}</span></a>`)
+      .join("");
+    return;
+  }
+
   const tabs =
     variant === "admin"
       ? [
