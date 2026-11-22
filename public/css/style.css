@@ -7264,23 +7264,26 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .nl-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 @media (max-width: 640px) { .nl-two { grid-template-columns: 1fr; } .nl-search { max-width: none; } }
 
-/* Newsletter sign-up: its own band just above the site footer */
-.news-band { background: #f3f8ef; border-top: 1px solid #e3ecdd; }
-.news-band-inner { max-width: 80rem; margin: 0 auto; padding: 40px 32px; display: flex; align-items: center; justify-content: space-between; gap: 20px 40px; }
-.news-band-text h2 { font-size: 22px; font-weight: 800; color: #10231a; }
-.news-band-text p { margin-top: 6px; max-width: 48ch; color: #4b5563; line-height: 1.5; }
-.news-band-form { flex: 0 1 460px; min-width: 0; }
-.news-band-row { display: flex; gap: 8px; }
-.news-band-row input[type="email"] { flex: 1; min-width: 0; height: 48px; padding: 0 18px; border-radius: 999px; border: 1px solid #cfdcc6; background: #fff; color: #10231a; font-size: 15px; }
-.news-band-row input[type="email"]:focus { outline: 2px solid #166534; outline-offset: 2px; }
-.news-band-row button { flex: none; height: 48px; padding: 0 24px; border-radius: 999px; background: #166534; color: #fff; font-weight: 700; font-size: 15px; }
-.news-band-row button:hover { background: #14532d; }
+/* Newsletter sign-up: its own quiet, centred section just above the footer */
+.news-band { background: #fff; border-top: 1px solid #eef0ec; }
+.news-band-inner { max-width: 560px; margin: 0 auto; padding: 72px 24px 76px; text-align: center; }
+.news-band-eyebrow { font-size: 11.5px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: #6b8f5e; }
+.news-band-eyebrow::after { content: ""; display: block; width: 28px; height: 2px; margin: 12px auto 0; border-radius: 2px; background: linear-gradient(90deg, #fde047, #bef264); }
+.news-band h2 { margin-top: 18px; font-size: clamp(26px, 4vw, 34px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: #10231a; }
+.news-band-sub { margin-top: 10px; font-size: 15.5px; line-height: 1.6; color: #6b7280; }
+.news-band-form { margin-top: 28px; }
+.news-band-row { display: flex; align-items: center; padding: 5px; border-radius: 999px; border: 1px solid #dfe5dc; background: #fff; transition: border-color .2s, box-shadow .2s; }
+.news-band-row:focus-within { border-color: #10231a; box-shadow: 0 0 0 4px rgba(16, 35, 26, 0.06); }
+.news-band-row input[type="email"] { flex: 1; min-width: 0; height: 44px; padding: 0 18px; border: 0; background: transparent; color: #10231a; font-size: 15px; outline: none; }
+.news-band-row input[type="email"]::placeholder { color: #9ca3af; }
+.news-band-row button { flex: none; height: 44px; padding: 0 22px; border-radius: 999px; background: #10231a; color: #fff; font-weight: 600; font-size: 14.5px; letter-spacing: 0.01em; transition: background .2s; }
+.news-band-row button:hover { background: #1f3d2c; }
 .news-band-row button:disabled { opacity: 0.7; cursor: wait; }
 .news-band-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
-.news-band-msg { margin-top: 8px; padding-left: 18px; font-size: 13.5px; font-weight: 600; color: #166534; }
+.news-band-msg { margin-top: 12px; font-size: 14px; color: #166534; }
 .news-band-msg.is-error { color: #b91c1c; }
-@media (max-width: 767px) {
-  .news-band-inner { flex-direction: column; align-items: stretch; padding: 32px 16px; }
-  .news-band-form { flex: none; }
-  .news-band-row button { padding: 0 18px; }
+@media (max-width: 480px) {
+  .news-band-inner { padding: 56px 16px 60px; }
+  .news-band-row input[type="email"] { padding: 0 12px; font-size: 14.5px; }
+  .news-band-row button { padding: 0 16px; }
 }
