@@ -150,6 +150,8 @@ async function detail(b, role, { offer = null, conn = pool } = {}) {
     distance_km: num(b.distance_km),
     duration_min: b.duration_min,
     cargo_summary: b.cargo_summary,
+    vehicle_size: b.vehicle_size || null,
+    vehicle_size_label: core.sizeLabel(b.vehicle_size),
     band: b.band_max_km === null ? `Above ${Number(b.band_min_km)} km` : `${Number(b.band_min_km)} – ${Number(b.band_max_km)} km`,
     fee: role === "provider" ? undefined : num(b.fee),
     provider_earning: role === "provider" || isAdmin ? num(b.provider_earning) : undefined,
@@ -211,7 +213,7 @@ async function detail(b, role, { offer = null, conn = pool } = {}) {
   const out = {
     ...base,
     provider: role === "provider" ? null : await providerSummary(b.provider_id, conn),
-    vehicle: b.vehicle_registration ? { id: b.vehicle_id, registration: b.vehicle_registration, type: b.vehicle_type } : null,
+    vehicle: b.vehicle_registration ? { id: b.vehicle_id, registration: b.vehicle_registration, type: b.vehicle_type, size: core.sizeLabel(b.vehicle_size) } : null,
     on_hold: Boolean(b.on_hold),
     submissions: subs.map((s) => ({
       stage: s.stage, party: s.party, actor_name: s.actor_name, note: s.note, discrepancy: Boolean(s.discrepancy), created_at: s.created_at,
@@ -285,6 +287,7 @@ function row(b, role) {
     to: core.destPlace(b),
     distance_km: num(b.distance_km),
     cargo_summary: b.cargo_summary,
+    vehicle_size_label: core.sizeLabel(b.vehicle_size),
     fee: role === "provider" ? undefined : num(b.fee),
     provider_earning: role === "provider" || role === "admin" ? num(b.provider_earning) : undefined,
     vehicle_registration: b.vehicle_registration,

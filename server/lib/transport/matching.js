@@ -56,13 +56,18 @@ async function assess(conn, job, { providerIds = null, excludeBooking = 0 } = {}
     if (!core.point(p.base_lat, p.base_lng)) reasons.push("No operating location");
     const active = p.vehicles.filter((v) => v.status === "active");
     const suitable = active.filter((v) => core.vehicleFits(v.cargo, job.load));
-    const free = suitable.filter((v) => !v.busy);
+    const freeAny = suitable.filter((v) => !v.busy);
+    // The vehicle size the buyer chose (D: vehicle sizes): only vehicles of that size count.
+    const free = job.size ? freeAny.filter((v) => v.size_class === job.size) : freeAny;
     if (!active.length) reasons.push("No active vehicle");
     else if (!suitable.length) reasons.push("No vehicle that can carry this load");
-    else if (!free.length) reasons.push("Suitable vehicles are on other deliveries");
+    else if (!freeAny.length) reasons.push("Suitable vehicles are on other deliveries");
+    else if (!free.length) reasons.push(`No free ${core.sizeLabel(job.size) || job.size} vehicle that can carry this load`);
     return {
       provider: p,
       vehicles: free,
+      // Sizes of this provider's free vehicles that can carry the load (for the checkout's choice).
+      sizes: [...new Set(freeAny.map((v) => v.size_class).filter(Boolean))],
       pickup_km: null,
       dest_km: null,
       reasons,
@@ -106,6 +111,7 @@ async function jobOf(conn, booking) {
       pickup: core.point(booking.pickup_lat, booking.pickup_lng),
       dest: core.point(booking.dest_lat, booking.dest_lng),
       load: core.loadOf(orders),
+      size: booking.vehicle_size || null,
     },
   };
 }

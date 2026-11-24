@@ -448,6 +448,8 @@ async function vehiclesOf(providerId, id = null) {
     id: v.id,
     registration: v.registration,
     vehicle_type: v.vehicle_type,
+    size_class: v.size_class,
+    size_label: core.sizeLabel(v.size_class),
     capacity_note: v.capacity_note,
     status: v.status,
     busy_booking: v.busy_booking ? { id: v.busy_booking, reference: core.bookingRef(v.busy_booking) } : null,
@@ -461,6 +463,7 @@ async function vehiclesOf(providerId, id = null) {
 async function vehiclePayload(body, providerId, exceptId = 0) {
   const registration = text(body.registration, 30);
   const type = text(body.vehicle_type, 60);
+  const size = core.SIZE_KEYS.includes(body.size_class) ? body.size_class : null;
   const note = text(body.capacity_note, 255);
   const labels = await core.cargoLabels();
   const errors = {};
@@ -471,6 +474,7 @@ async function vehiclePayload(body, providerId, exceptId = 0) {
     if (taken) errors.registration = Number(taken.provider_id) === Number(providerId) ? "You've already registered this vehicle." : "This vehicle is registered by another provider. Please contact Frontier.";
   }
   if (!type || type.length < 2) errors.vehicle_type = "Please enter the vehicle type, e.g. 3-tonne truck.";
+  if (!size) errors.size_class = "Please choose the vehicle's size: Small, Medium, Large or Extra Large.";
   if (note === undefined) errors.capacity_note = "Must be 255 characters or fewer.";
   const cargo = [];
   for (const l of labels) {
@@ -481,7 +485,7 @@ async function vehiclePayload(body, providerId, exceptId = 0) {
     else cargo.push({ key: l.key, max: n });
   }
   if (!cargo.length) errors.cargo = "Please say what this vehicle can carry and how many at once.";
-  return { errors, data: { registration: reg, vehicle_type: type, capacity_note: note || null }, cargo };
+  return { errors, data: { registration: reg, vehicle_type: type, size_class: size, capacity_note: note || null }, cargo };
 }
 
 async function saveVehicleFiles(conn, vehicleId, files) {
@@ -508,7 +512,7 @@ async function saveVehicleFiles(conn, vehicleId, files) {
 
 router.get("/vehicles", requireProvider, async (req, res, next) => {
   try {
-    res.json({ success: true, data: await vehiclesOf(req.provider.id), cargo_types: await core.cargoLabels() });
+    res.json({ success: true, data: await vehiclesOf(req.provider.id), cargo_types: await core.cargoLabels(), sizes: core.SIZES });
   } catch (error) {
     next(error);
   }
@@ -521,7 +525,7 @@ router.post("/vehicles", requireProvider, uploadVehicleFiles, async (req, res, n
     if (!((req.files && req.files.photos) || []).length) errors.photos = "Please add at least one photo of the vehicle.";
     if (Object.keys(errors).length) throw validationError(errors);
     await conn.beginTransaction();
-    const [r] = await conn.query("INSERT INTO transport_vehicles (provider_id, registration, vehicle_type, capacity_note) VALUES (?, ?, ?, ?)", [req.provider.id, data.registration, data.vehicle_type, data.capacity_note]);
+    const [r] = await conn.query("INSERT INTO transport_vehicles (provider_id, registration, vehicle_type, size_class, capacity_note) VALUES (?, ?, ?, ?, ?)", [req.provider.id, data.registration, data.vehicle_type, data.size_class, data.capacity_note]);
     for (const c of cargo) await conn.query("INSERT INTO transport_vehicle_cargo (vehicle_id, cargo_key, max_quantity) VALUES (?, ?, ?)", [r.insertId, c.key, c.max]);
     await saveVehicleFiles(conn, r.insertId, req.files);
     await conn.commit();
@@ -555,7 +559,7 @@ router.put("/vehicles/:id", requireProvider, uploadVehicleFiles, async (req, res
     if (Object.keys(errors).length) throw validationError(errors);
     if (await vehicleBusy(v.id)) throw new HttpError(409, "This vehicle is on a delivery. You can edit it once the delivery is done.");
     await conn.beginTransaction();
-    await conn.query("UPDATE transport_vehicles SET registration = ?, vehicle_type = ?, capacity_note = ? WHERE id = ?", [data.registration, data.vehicle_type, data.capacity_note, v.id]);
+    await conn.query("UPDATE transport_vehicles SET registration = ?, vehicle_type = ?, size_class = ?, capacity_note = ? WHERE id = ?", [data.registration, data.vehicle_type, data.size_class, data.capacity_note, v.id]);
     await conn.query("DELETE FROM transport_vehicle_cargo WHERE vehicle_id = ?", [v.id]);
     for (const c of cargo) await conn.query("INSERT INTO transport_vehicle_cargo (vehicle_id, cargo_key, max_quantity) VALUES (?, ?, ?)", [v.id, c.key, c.max]);
     await saveVehicleFiles(conn, v.id, req.files);
@@ -700,7 +704,7 @@ async function vehicleChoices(providerId, b) {
   const { job } = await matching.jobOf(pool, b);
   const [p] = await matching.providersWithVehicles(pool, { providerIds: [providerId], excludeBooking: b.id });
   return (p ? p.vehicles : []).filter((v) => v.status === "active").map((v) => ({
-    id: v.id, registration: v.registration, vehicle_type: v.vehicle_type, busy: v.busy, fits: core.vehicleFits(v.cargo, job.load),
+    id: v.id, registration: v.registration, vehicle_type: v.vehicle_type, size_label: core.sizeLabel(v.size_class), busy: v.busy, fits: core.vehicleFits(v.cargo, job.load) && (!job.size || v.size_class === job.size), wrong_size: Boolean(job.size && v.size_class !== job.size),
   }));
 }
 

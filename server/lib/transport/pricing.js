@@ -90,7 +90,9 @@ async function unavailableReason() {
 // Returns { available, reason, groups, transport_total }; each group is one
 // journey: { seller_id, seller_label, pickup, distance_km, fee, ... , problem }.
 // checkProviders: also checks that at least one provider could take it now.
-async function plan(items, dest, { checkProviders = true } = {}) {
+// size: the vehicle size the buyer chose (small ... extra_large); when it isn't
+// given or can't be had, the smallest size that every journey can have is used.
+async function plan(items, dest, { checkProviders = true, size = null } = {}) {
   const base = await unavailableReason();
   if (base.reason) return { available: false, reason: base.reason, admin_reason: base.admin || null, groups: [], transport_total: 0 };
   const { settings, bands } = base;
@@ -146,19 +148,43 @@ async function plan(items, dest, { checkProviders = true } = {}) {
   if (checkProviders) {
     for (const g of groups.filter((x) => !x.problem)) {
       const found = await matching.assess(pool, { pickup: g.pickup, dest: destPoint, load: g.load });
-      g.providers = found.filter((x) => x.eligible).length;
+      const eligible = found.filter((x) => x.eligible);
+      g.providers = eligible.length;
+      // Vehicle sizes a provider covering this journey has free, able to carry the load.
+      g.sizes = [...new Set(eligible.flatMap((x) => x.sizes || []))];
       if (found.some((x) => x.reasons.some((rr) => rr.startsWith("Road distance unavailable")))) {
         g.problem = "We couldn't check which transport providers are free just now. Please try again in a moment.";
-      } else if (!g.providers) {
+      } else if (!g.providers || !g.sizes.length) {
         g.problem = `No transport provider covers the journey from ${where(g.pickup)} to your delivery point with a suitable vehicle right now. Please choose self-collection or contact us.`;
       }
     }
   }
+  // Sizes the whole order can have (one size for every journey), and the size used.
+  const priced = groups.filter((g) => !g.problem);
+  const possible = checkProviders
+    ? core.SIZE_KEYS.filter((k) => priced.length && priced.every((g) => (g.sizes || []).includes(k)))
+    : [...core.SIZE_KEYS];
+  if (checkProviders && priced.length === groups.length && groups.length && !possible.length) {
+    groups[0].problem = "There isn't one vehicle size that can collect from every seller in your cart right now. Please order from one seller at a time, or choose self-collection.";
+  }
+  const chosen = possible.includes(size) ? size : possible[0] || null;
+  const pctOf = (k) => settings.size_pct[k] || 100;
+  for (const g of groups.filter((x) => !x.problem && x.distance_km !== null)) {
+    const p = core.priceFor(g.distance_km, bands, settings.commission_pct, chosen ? pctOf(chosen) : 100);
+    Object.assign(g, { fee: p.fee, commission: p.commission, earning: p.earning, size_pct: chosen ? pctOf(chosen) : 100 });
+  }
   const ok = groups.length > 0 && groups.every((g) => !g.problem);
+  const totalFor = (k) => core.round2(priced.reduce((s, g) => s + core.priceFor(g.distance_km, bands, settings.commission_pct, pctOf(k)).fee, 0));
   return {
     available: ok,
     reason: ok ? null : (groups.find((g) => g.problem) || {}).problem || "Transport isn't available for this cart.",
     groups,
+    vehicle_size: ok ? chosen : null,
+    size_options: core.SIZES.map((x) => ({
+      ...x,
+      available: ok && possible.includes(x.key),
+      fee_total: ok && possible.includes(x.key) ? totalFor(x.key) : null,
+    })),
     transport_total: ok ? core.round2(groups.reduce((s, g) => s + g.fee, 0)) : 0,
   };
 }
@@ -169,6 +195,8 @@ function publicPlan(p) {
     available: p.available,
     reason: p.reason,
     transport_total: p.transport_total,
+    vehicle_size: p.vehicle_size || null,
+    size_options: p.size_options || [],
     journeys: p.groups.map((g) => ({
       seller: g.seller_label,
       from: g.pickup ? where(g.pickup) : null,

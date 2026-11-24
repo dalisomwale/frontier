@@ -269,14 +269,52 @@
           ctimer = setTimeout(poll, 4000);
         }
 
+        // Include transport: straight after paying, each delivery's progress is
+        // on this page, with one tap to the live tracking. It refreshes itself.
+        function tracker(c) {
+          const list = c.transport || [];
+          if (c.delivery_option !== "transport" || !list.length) return "";
+          return list.map((t) => {
+            const st = t.step || { n: 1, steps: [], label: "" };
+            return `<div class="pay-track-card">
+              <div class="pay-track-head"><b>${escapeHtml(t.reference)}</b>${t.vehicle_size ? `<span class="pay-track-size">${escapeHtml(t.vehicle_size)} vehicle</span>` : ""}</div>
+              <p class="pay-track-route">${escapeHtml(t.from || "")} → ${escapeHtml(t.to || "")}</p>
+              <ol class="pay-steps" aria-label="Delivery progress">${st.steps.map((label, i) => {
+                const k = i + 1;
+                const cls = k < st.n || st.done ? "is-done" : k === st.n ? "is-now" : "";
+                return `<li class="${cls}"><span class="pay-step-dot" aria-hidden="true"></span><span class="pay-step-label">${escapeHtml(label)}</span></li>`;
+              }).join("")}</ol>
+              <p class="pay-track-now" aria-live="polite">${st.live ? `<span class="pay-live-dot" aria-hidden="true"></span>` : ""}${escapeHtml(st.label)}</p>
+              <a href="${escapeHtml(t.track_url)}" class="btn-checkout btn-lg w-full mt-3">${st.live ? "Track Live" : "Track Delivery"}</a>
+            </div>`;
+          }).join("");
+        }
         function paid(c) {
+          const transport = c.delivery_option === "transport" && (c.transport || []).length;
           page(`<div class="text-center">
             <div class="order-done-icon" style="margin:0 auto">${tick}</div>
             <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Payment received</h1>
-            <p class="text-sm text-gray-600 mt-2">${kwacha(c.total)} · ${escapeHtml(c.reference)}. ${c.delivery_option === "transport" ? "We're now finding a transport provider. You can follow your delivery in your account." : "We'll contact you to arrange collection."}</p>
+            <p class="text-sm text-gray-600 mt-2">${kwacha(c.total)} · ${escapeHtml(c.reference)}. ${transport ? "You can follow your delivery right here." : "We'll contact you to arrange collection."}</p>
           </div>
-          ${items(c)}
+          ${transport ? `<div class="pay-track" data-tracker>${tracker(c)}</div>` : ""}
+          ${transport ? `<details class="pay-details mt-4"><summary>${c.items.length} item${c.items.length === 1 ? "" : "s"} in this order</summary>${items(c)}</details>` : items(c)}
           <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to listings</a>`, 3);
+          if (!transport) return;
+          // Keep the tracker current while the page is open (every 15 seconds,
+          // paused when the tab isn't visible), until every delivery is done.
+          clearTimeout(ctimer);
+          const refresh = async () => {
+            if (!document.hidden) {
+              try {
+                const now = (await apiRequest(capi)).data;
+                const box = root.querySelector("[data-tracker]");
+                if (box && now && now.transport) box.innerHTML = tracker(now);
+                if (now && (now.transport || []).every((t) => t.step && t.step.done)) return;
+              } catch { /* try again next time */ }
+            }
+            ctimer = setTimeout(refresh, 15000);
+          };
+          ctimer = setTimeout(refresh, 15000);
         }
 
         // --- Visa / Mastercard (Lipila's card page) ------------------------

@@ -573,6 +573,8 @@ CREATE TABLE IF NOT EXISTS transport_vehicles (
   provider_id    INT UNSIGNED NOT NULL,
   registration   VARCHAR(30) NOT NULL,
   vehicle_type   VARCHAR(60) NOT NULL,
+  -- Small, Medium, Large or Extra Large: what buyers choose at checkout.
+  size_class     ENUM('small', 'medium', 'large', 'extra_large') NULL,
   capacity_note  VARCHAR(255) NULL,
   status         ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
   created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -669,6 +671,7 @@ CREATE TABLE IF NOT EXISTS transport_bookings (
   platform_commission      DECIMAL(12,2) NOT NULL DEFAULT 0,
   provider_earning         DECIMAL(12,2) NOT NULL DEFAULT 0,
   cargo_summary            VARCHAR(500) NULL,
+  vehicle_size             ENUM('small', 'medium', 'large', 'extra_large') NULL,
   status                   VARCHAR(30) NOT NULL DEFAULT 'pending_payment',
   provider_id              INT UNSIGNED NULL,
   vehicle_id               INT UNSIGNED NULL,

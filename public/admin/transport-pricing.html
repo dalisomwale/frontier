@@ -62,6 +62,9 @@
               <div><label class="field-label" for="st-auto">Complete delivered orders after (hours)</label><input id="st-auto" name="auto_complete_hours" type="number" min="0" max="168" step="1" class="field-input"><p class="field-error hidden" data-error-for="auto_complete_hours"></p></div>
             </div>
             <p class="text-xs text-gray-500 mt-2">Not accepted within the window: the team is emailed (nothing is cancelled). No GPS for the quiet time during a delivery: the team is emailed. Commission comes off the fee; the rest is the provider's earning. A delivered order completes by itself after the hours set, unless the buyer reports a problem (0 = as soon as it's delivered).</p>
+            <h3 class="field-label mt-5" id="sizes">Price by vehicle size</h3>
+            <p class="text-xs text-gray-500 mb-2">Buyers choose a vehicle size when they order. Each size costs this percentage of the distance price above (100% = the band price; 150% = half as much again).</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4" data-size-fields></div>
             <h3 class="field-label mt-5" id="pickup">Frontier's own pickup point (for Frontier's stock)</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div><label class="field-label" for="st-label">Name</label><input id="st-label" name="frontier_pickup_label" class="field-input" maxlength="150"></div>
@@ -151,6 +154,11 @@
         f.gps_stale_minutes.value = s.gps_stale_minutes;
         f.commission_pct.value = s.commission_pct;
         f.auto_complete_hours.value = s.auto_complete_hours;
+        f.querySelector("[data-size-fields]").innerHTML = (res.sizes || []).map((x) => `
+          <div><label class="field-label" for="sz-${x.key}">${escapeHtml(x.label)} (%)</label>
+            <input id="sz-${x.key}" name="size_pct_${x.key}" type="number" min="1" max="1000" step="1" class="field-input" value="${Number(s.size_pct && s.size_pct[x.key]) || 100}">
+            <p class="text-xs text-gray-500 mt-1">${escapeHtml(x.hint)}</p>
+            <p class="field-error hidden" data-error-for="size_pct_${x.key}"></p></div>`).join("");
         f.frontier_pickup_province.innerHTML = `<option value="">Choose…</option>${ZAMBIA_PROVINCES.map((p) => `<option ${p === s.frontier_pickup.province ? "selected" : ""}>${p}</option>`).join("")}`;
         f.frontier_pickup_label.value = s.frontier_pickup.label;
         f.frontier_pickup_phone.value = s.frontier_pickup.phone;

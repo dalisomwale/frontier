@@ -342,7 +342,7 @@
         try { list = (await adminApi(`/api/admin/transport/bookings/${d.id}/eligibility`)).data; } catch (error) { form.querySelector("[data-list]").innerHTML = `<p class="text-sm text-red-600">${escapeHtml(error.message)}</p>`; return; }
         const usable = list.filter((x) => x.provider.status === "approved" && x.provider.is_active && x.vehicles.some((v) => !v.busy));
         form.querySelector("[data-list]").innerHTML = usable.length ? `<div class="tp-choice">${usable.sort((a, b) => Number(b.eligible) - Number(a.eligible)).map((x) => x.vehicles.filter((v) => !v.busy).map((v) => `
-          <label><input type="radio" name="pick" value="${x.provider.id}:${v.id}"><span><b>${escapeHtml(x.provider.name)}</b> · ${escapeHtml(v.registration)} (${escapeHtml(v.vehicle_type)})
+          <label><input type="radio" name="pick" value="${x.provider.id}:${v.id}"><span><b>${escapeHtml(x.provider.name)}</b> · ${escapeHtml(v.registration)} (${v.size_label ? `${escapeHtml(v.size_label)}, ` : ""}${escapeHtml(v.vehicle_type)})
             <small class="block ${x.eligible && v.fits ? "text-green-700" : "text-amber-700"}">${x.eligible && v.fits ? "Eligible" : escapeHtml([...x.reasons, ...(v.fits ? [] : ["vehicle's listed capacity doesn't cover the load"])].join("; "))}</small></span></label>`).join("")).join("")}</div>`
           : `<p class="text-sm text-gray-600">No approved, active provider has a free vehicle.</p>`;
       }

@@ -130,7 +130,7 @@
               <div class="acc-card"><h2 class="txd-card-title">Vehicles</h2>${p.vehicle_list.length ? `<div class="tp-vehicles">${p.vehicle_list.map((v) => `
                 <div class="tp-vehicle">${v.photos[0] ? `<a href="${escapeHtml(v.photos[0].image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(v.photos[0].thumb_path)}" alt=""></a>` : ""}
                   <div class="tp-vehicle-body"><div class="flex justify-between gap-2"><b>${escapeHtml(v.registration)}</b><span class="so-pill ${v.status === "active" ? "so-done" : "so-off"}">${v.status === "active" ? (v.busy_booking ? `On ${escapeHtml(v.busy_booking.reference)}` : "Active") : "Inactive"}</span></div>
-                  <p class="text-sm text-gray-600">${escapeHtml(v.vehicle_type)}${v.capacity_note ? ` · ${escapeHtml(v.capacity_note)}` : ""}</p>
+                  <p class="text-sm text-gray-600">${v.size_label ? `<span class="tp-size">${escapeHtml(v.size_label)}</span> ` : `<span class="text-amber-700">No size set · </span>`}${escapeHtml(v.vehicle_type)}${v.capacity_note ? ` · ${escapeHtml(v.capacity_note)}` : ""}</p>
                   <p class="text-sm text-gray-700 mt-1">${v.cargo.map((c) => `${escapeHtml(cargoLabel(c.key))}: ${c.max}`).join(" · ")}</p>
                   ${v.photos.length > 1 ? `<div class="acc-photos mt-2">${v.photos.slice(1).map((ph) => `<a href="${escapeHtml(ph.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(ph.thumb_path)}" alt=""></a>`).join("")}</div>` : ""}
                   ${v.documents.length ? `<p class="text-sm mt-2">${v.documents.map((f) => `<a class="acc-link" href="/api/admin/transport/vehicle-files/${f.id}" target="_blank" rel="noopener">${escapeHtml(f.original_name || "Document")}</a>`).join(" · ")}</p>` : ""}

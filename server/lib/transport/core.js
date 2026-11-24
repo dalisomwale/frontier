@@ -23,7 +23,22 @@ const DEFAULT_SETTINGS = {
   frontier_pickup_phone: "",
   frontier_pickup_lat: "",
   frontier_pickup_lng: "",
+  // Price of each vehicle size, as a percentage of the distance price (100 = the band price).
+  size_pct_small: "100",
+  size_pct_medium: "100",
+  size_pct_large: "100",
+  size_pct_extra_large: "100",
 };
+
+// Vehicle sizes: providers give each vehicle one; buyers choose one at checkout.
+const SIZES = [
+  { key: "small", label: "Small", hint: "Pickup or small van" },
+  { key: "medium", label: "Medium", hint: "Light truck" },
+  { key: "large", label: "Large", hint: "Truck" },
+  { key: "extra_large", label: "Extra Large", hint: "Heavy truck or trailer" },
+];
+const SIZE_KEYS = SIZES.map((x) => x.key);
+const sizeLabel = (k) => (SIZES.find((x) => x.key === k) || {}).label || null;
 
 async function getSettings(conn = pool) {
   const [rows] = await conn.query("SELECT name, value FROM transport_settings");
@@ -36,6 +51,7 @@ async function getSettings(conn = pool) {
     gps_stale_minutes: Math.max(2, num(out.gps_stale_minutes, 15)),
     commission_pct: Math.min(100, Math.max(0, num(out.commission_pct, 0))),
     auto_complete_hours: Math.min(168, Math.max(0, Math.round(num(out.auto_complete_hours, 24)))),
+    size_pct: Object.fromEntries(SIZE_KEYS.map((k) => [k, Math.min(1000, Math.max(1, num(out[`size_pct_${k}`], 100)))])),
     frontier_pickup: {
       label: out.frontier_pickup_label || "Frontier Farms & Consult",
       address: out.frontier_pickup_address || "",
@@ -89,10 +105,11 @@ function bandFor(km, bands) {
   return bands.find((b) => km >= b.min_km && (b.max_km === null || km < b.max_km)) || null;
 }
 
-function priceFor(km, bands, commissionPct = 0) {
+// pct: the chosen vehicle size's price, as a percentage of the band price.
+function priceFor(km, bands, commissionPct = 0, pct = 100) {
   const band = bandFor(km, bands);
   if (!band) return null;
-  const fee = round2(band.base_fee + band.per_km * km);
+  const fee = round2(((band.base_fee + band.per_km * km) * pct) / 100);
   const commission = round2((fee * commissionPct) / 100);
   return { band, fee, commission, earning: round2(fee - commission) };
 }
@@ -326,4 +343,5 @@ module.exports = {
   logEvent, transition, withBooking, conflict,
   cargoKeyOf, loadOf, vehicleFits, cargoLabels, loadText, bookingOrders,
   bookingRef, point, placeText, pickupPlace, destPlace,
+  SIZES, SIZE_KEYS, sizeLabel,
 };

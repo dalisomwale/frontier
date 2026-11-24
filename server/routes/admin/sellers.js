@@ -7,6 +7,7 @@ const { positiveInt, text, isEmail, isPhone, oneOf, badRequest, notFound, HttpEr
 const { sendEmail, appUrl } = require("../../services/mailer");
 const emails = require("../../lib/emails");
 const { notifySeller, disconnectSeller } = require("../../services/notifications");
+const { readPickup } = require("../../lib/transport/pickup");
 
 const router = express.Router();
 const STATUSES = ["active", "inactive"];
@@ -44,6 +45,7 @@ function payload(body) {
 
 // Never select password_hash.
 const COLUMNS = `s.id, s.name, s.business_name, s.phone, s.email, s.province, s.address, s.notes, s.status,
+  s.pickup_district, s.pickup_address, s.pickup_lat, s.pickup_lng,
   s.account_status, s.account_note, s.approved_at, s.last_login_at, s.created_at, s.updated_at`;
 
 const COUNTS = `
@@ -126,13 +128,27 @@ router.get("/:id", async (req, res, next) => {
   }
 });
 
+// The pickup point from the Add / Edit Seller form (optional; empty clears it).
+function pickupOf(body, province) {
+  const { errors, pickup } = readPickup(body, province, { who: "admin" });
+  if (Object.keys(errors).length) {
+    const e = new HttpError(422, "Please correct the highlighted fields.");
+    e.errors = errors;
+    throw e;
+  }
+  return pickup;
+}
+const pickupValues = (k) => (k ? [k.district, k.address, k.lat, k.lng] : [null, null, null, null]);
+
 router.post("/", async (req, res, next) => {
   try {
     const p = payload(req.body);
+    const pickup = pickupOf(req.body, p.province);
     const [result] = await pool.query(
-      `INSERT INTO sellers (name, business_name, phone, email, province, address, notes, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [p.name, p.business_name, p.phone, p.email, p.province, p.address, p.notes, p.status],
+      `INSERT INTO sellers (name, business_name, phone, email, province, address, notes, status,
+         pickup_district, pickup_address, pickup_lat, pickup_lng)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [p.name, p.business_name, p.phone, p.email, p.province, p.address, p.notes, p.status, ...pickupValues(pickup)],
     );
     const [rows] = await pool.query(`SELECT ${COLUMNS} FROM sellers s WHERE s.id = ?`, [result.insertId]);
     res.status(201).json({ success: true, data: rows[0] });
@@ -145,10 +161,14 @@ router.put("/:id", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);
     const p = payload(req.body);
+    // Forms that don't send the pickup fields leave the pickup point as it is.
+    const withPickup = ["pickup_district", "pickup_address", "pickup_lat", "pickup_lng"].some((k) => k in req.body);
+    const pickup = withPickup ? pickupOf(req.body, p.province) : null;
     const [result] = await pool.query(
       `UPDATE sellers SET name = ?, business_name = ?, phone = ?, email = ?, province = ?, address = ?, notes = ?, status = ?
+         ${withPickup ? ", pickup_district = ?, pickup_address = ?, pickup_lat = ?, pickup_lng = ?" : ""}
        WHERE id = ?`,
-      [p.name, p.business_name, p.phone, p.email, p.province, p.address, p.notes, p.status, id],
+      [p.name, p.business_name, p.phone, p.email, p.province, p.address, p.notes, p.status, ...(withPickup ? pickupValues(pickup) : []), id],
     );
     if (!result.affectedRows) throw notFound("Seller not found.");
     const [rows] = await pool.query(`SELECT ${COLUMNS} FROM sellers s WHERE s.id = ?`, [id]);

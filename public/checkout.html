@@ -95,7 +95,8 @@
 
       // Include transport: the delivery details, the road-distance quote, and
       // whether the quote still matches what's in the form.
-      const tstate = { quote: null, sig: "", busy: false, picker: null, timer: null };
+      // size: the vehicle size the buyer picked (or the smallest the quote offered).
+      const tstate = { quote: null, sig: "", busy: false, picker: null, timer: null, size: null };
       let transportOn = false;
 
       function render() {
@@ -288,6 +289,14 @@
               <b>${j.fee !== null ? kwacha(j.fee) : "-"}</b>
             </li>`).join("")}</ul>
             ${tq.journeys.length > 1 ? `<p class="co-quote-state">Your items come from ${tq.journeys.length} sellers, so each is delivered separately and charged for its own road distance.</p>` : ""}
+            ${tq.available && (tq.size_options || []).length ? `
+              <p class="field-label mt-4">Vehicle size</p>
+              <div class="co-sizes" role="radiogroup" aria-label="Vehicle size">${tq.size_options.map((o) => `
+                <label class="co-size${o.available ? "" : " is-off"}">
+                  <input type="radio" name="vehicle_size" value="${o.key}" ${o.key === tq.vehicle_size ? "checked" : ""} ${o.available ? "" : "disabled"}>
+                  <span><b>${escapeHtml(o.label)}</b><small>${escapeHtml(o.hint)}</small><em>${o.available ? kwacha(o.fee_total) : "Not available now"}</em></span>
+                </label>`).join("")}</div>
+              <p class="co-quote-state">Pick the size that fits your order. Only sizes a provider has free for this journey can be chosen.</p>` : ""}
             ${!tq.available ? `<p class="tr-warn-box mt-3">${escapeHtml(tq.reason || "Transport isn't available for this order.")} You can choose self-collection instead.</p>` : ""}`;
         };
         const requote = () => {
@@ -305,8 +314,14 @@
               const res = await apiRequest("/api/checkout/transport-quote", { method: "POST", body: { items: readCart(), ...v } });
               if (sig !== destSig(form)) return;
               tstate.quote = res.data;
-              tstate.sig = sig;
+              // The size used for the price: the buyer's pick, or the smallest one free.
+              tstate.size = res.data.vehicle_size || null;
+              tstate.sig = destSig(form);
               paintJourneys();
+              form.querySelectorAll('input[name="vehicle_size"]').forEach((r) => r.addEventListener("change", () => {
+                tstate.size = r.value;
+                requote();
+              }));
             } catch (error) {
               tstate.quote = null;
               tstate.sig = "";
@@ -408,12 +423,13 @@
           contact_phone: form.elements.contact_phone.value.trim(),
           dest_lat: p ? p.lat : "",
           dest_lng: p ? p.lng : "",
+          vehicle_size: st && st.size ? st.size : "",
         };
       }
       // What the transport quote depends on.
       function destSig(form) {
         const v = destValues(form, tstate);
-        return [v.dest_province, v.dest_district, v.dest_address, v.dest_lat, v.dest_lng].join("|");
+        return [v.dest_province, v.dest_district, v.dest_address, v.dest_lat, v.dest_lng, v.vehicle_size].join("|");
       }
 
       function showErrors(form, errors) {

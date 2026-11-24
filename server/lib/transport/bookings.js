@@ -183,13 +183,13 @@ async function insertBookings(conn, { checkoutId, buyerId, dest, plan, created }
          (checkout_id, buyer_id, seller_id, pickup_label, pickup_address, pickup_district, pickup_province, pickup_phone, pickup_lat, pickup_lng,
           dest_province, dest_district, dest_address, dest_notes, dest_lat, dest_lng, contact_name, contact_phone,
           distance_km, duration_min, route_geometry, routing_provider, band_id, band_min_km, band_max_km, base_fee, per_km, fee,
-          commission_pct, platform_commission, provider_earning, cargo_summary, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_payment')`,
+          commission_pct, platform_commission, provider_earning, cargo_summary, vehicle_size, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_payment')`,
       [checkoutId, buyerId || null, g.seller_id || null, String(g.pickup.label).slice(0, 150), g.pickup.address, g.pickup.district, g.pickup.province, g.pickup.phone,
         g.pickup.lat, g.pickup.lng, dest.province, dest.district, dest.address, dest.notes, dest.lat, dest.lng, dest.contact_name, dest.contact_phone,
         g.distance_km, g.duration_min, g.geometry && g.geometry.length ? JSON.stringify(g.geometry) : null, g.routing_provider,
         g.band.id, g.band.min_km, g.band.max_km, g.band.base_fee, g.band.per_km, g.fee,
-        g.commission_pct || 0, g.commission || 0, g.earning, String(g.cargo_summary || "").slice(0, 500)],
+        g.commission_pct || 0, g.commission || 0, g.earning, String(g.cargo_summary || "").slice(0, 500), plan.vehicle_size || null],
     );
     const bookingId = r.insertId;
     ids.push(bookingId);
@@ -200,7 +200,7 @@ async function insertBookings(conn, { checkoutId, buyerId, dest, plan, created }
     }
     await core.logEvent(conn, bookingId, {
       to: "pending_payment", event: "created", actor: "customer",
-      detail: `Transport booked at checkout ${checkoutRef(checkoutId)}: ${core.placeText(g.pickup.address, g.pickup.district, g.pickup.province) || g.pickup.label} → ${core.placeText(dest.address, dest.district, dest.province)}. ${g.distance_km} km by road (${g.routing_provider}), ${g.band.label} band, fee ${kwacha(g.fee)}.`,
+      detail: `Transport booked at checkout ${checkoutRef(checkoutId)}: ${core.placeText(g.pickup.address, g.pickup.district, g.pickup.province) || g.pickup.label} → ${core.placeText(dest.address, dest.district, dest.province)}. ${g.distance_km} km by road (${g.routing_provider}), ${g.band.label} band, fee ${kwacha(g.fee)}${plan.vehicle_size ? `, ${core.sizeLabel(plan.vehicle_size)} vehicle` : ""}.`,
     });
   }
   return ids;
@@ -343,6 +343,11 @@ async function accept(providerId, bookingId, vehicleId, { admin = null, force = 
       throw conflict(admin ? `${p.name} can't take this delivery: ${msg}.` : `You can't accept this delivery right now: ${msg}.`);
     }
     if (!fits) throw invalid({ vehicle_id: "This vehicle can't carry this load. Choose another vehicle." });
+    // The buyer chose (and paid for) a vehicle size: only a vehicle of that size can take it.
+    if (b0.vehicle_size && vehicle.size_class !== b0.vehicle_size) {
+      const want = core.sizeLabel(b0.vehicle_size);
+      throw invalid({ vehicle_id: `The buyer chose a ${want} vehicle. Choose one of ${admin ? "the provider's" : "your"} ${want} vehicles.` });
+    }
   }
   const actor = admin ? "admin" : "provider";
   const actorName = admin ? admin.name : p.name;

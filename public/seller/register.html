@@ -12,6 +12,10 @@
     <script src="/js/icons.js"></script>
     <script src="/js/seller.js"></script>
     <script src="/js/password-rules.js"></script>
+    <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css" />
+    <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+    <script src="/js/zambia-districts.js"></script>
+    <script src="/js/transport-ui.js"></script>
   </head>
   <body class="bg-gray-50 min-h-screen">
     <div id="seller-header"></div>
@@ -62,6 +66,34 @@
             <p class="field-error hidden" data-error-for="address"></p>
           </div>
           </div>
+          <section class="reg-pickup">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="field-label !mb-0">Pickup point for transport <span class="text-gray-400 font-normal">(optional)</span></p>
+                <p class="text-xs text-gray-500 mt-0.5">Where transport providers collect your livestock or feed. Buyers can choose transport once it's set. You can also add it later in your profile.</p>
+              </div>
+              <button type="button" id="pickup-toggle" class="reg-pickup-btn" aria-expanded="false" aria-controls="pickup-fields">Add now</button>
+            </div>
+            <div id="pickup-fields" class="space-y-3 mt-3" hidden>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label for="pickup_district" class="field-label">District</label>
+                  <input id="pickup_district" name="pickup_district" class="field-input" maxlength="80" />
+                  <p class="field-error hidden" data-error-for="pickup_district"></p>
+                </div>
+                <div>
+                  <label for="pickup_address" class="field-label">Address or directions</label>
+                  <input id="pickup_address" name="pickup_address" class="field-input" maxlength="255" placeholder="e.g. Farm 9, 2 km off Great North Rd" />
+                  <p class="field-error hidden" data-error-for="pickup_address"></p>
+                </div>
+              </div>
+              <div>
+                <p class="field-label">The exact pickup point</p>
+                <div id="pickup-map"></div>
+                <p class="field-error hidden" data-error-for="pickup_point"></p>
+              </div>
+            </div>
+          </section>
           <div>
             <label for="password" class="field-label">Password</label>
             <div class="relative">
@@ -91,10 +123,34 @@
 
       sellerApi("/api/seller/auth/me").then(() => (window.location.href = "/seller/")).catch(() => {});
 
+      // Optional pickup point: the map only loads when the seller opens it.
+      let pickupPicker = null;
+      const pickupBox = document.getElementById("pickup-fields");
+      const pickupToggle = document.getElementById("pickup-toggle");
+      pickupToggle.addEventListener("click", async () => {
+        const open = pickupBox.hidden;
+        pickupBox.hidden = !open;
+        pickupToggle.textContent = open ? "Not now" : "Add now";
+        pickupToggle.setAttribute("aria-expanded", String(open));
+        if (open && !pickupPicker) {
+          trPlaceFields({ province: form.province, district: form.pickup_district, address: form.pickup_address, picker: () => pickupPicker });
+          pickupPicker = await trPointPicker(document.getElementById("pickup-map"), { kind: "pickup", label: "Pickup point" });
+        }
+        if (!open) {
+          form.pickup_district.value = "";
+          form.pickup_address.value = "";
+          if (pickupPicker && pickupPicker.clear) pickupPicker.clear();
+        }
+      });
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         alertBox.classList.add("hidden");
         const v = Object.fromEntries(new FormData(form).entries());
+        // The pickup point goes with the form only when it was opened.
+        const pin = !pickupBox.hidden && pickupPicker ? pickupPicker.get() : null;
+        if (pickupBox.hidden) { delete v.pickup_district; delete v.pickup_address; }
+        else Object.assign(v, { pickup_lat: pin ? pin.lat : "", pickup_lng: pin ? pin.lng : "" });
         const errors = {};
         if (!v.name.trim()) errors.name = "Your name is required.";
         if (!v.phone.trim()) errors.phone = "WhatsApp number is required.";

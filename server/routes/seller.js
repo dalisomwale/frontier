@@ -17,6 +17,7 @@ const { orderRef, headCount } = require("../lib/orders");
 const handover = require("../lib/handover");
 const { uploadTransportPhotos } = require("../middleware/upload");
 const transportCore = require("../lib/transport/core");
+const { readPickup } = require("../lib/transport/pickup");
 const transport = require("../lib/transport/bookings");
 const transportViews = require("../lib/transport/views");
 
@@ -149,6 +150,9 @@ async function loadSeller(id) {
 router.post("/auth/register", async (req, res, next) => {
   try {
     const { errors, data } = profilePayload(req.body);
+    // The pickup point for transport: optional at registration, set later in the profile otherwise.
+    const pick = readPickup(req.body, data.province);
+    Object.assign(errors, pick.errors);
     const password = typeof req.body.password === "string" ? req.body.password : "";
     const passwordProblem = passwordRules.problem(password, { email: data.email, phone: data.phone });
     if (passwordProblem) errors.password = passwordProblem;
@@ -159,9 +163,12 @@ router.post("/auth/register", async (req, res, next) => {
 
     const hash = await bcrypt.hash(password, 12);
     const [result] = await pool.query(
-      `INSERT INTO sellers (name, business_name, phone, email, province, address, status, password_hash, account_status)
-       VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 'pending')`,
-      [data.name, data.business_name, data.phone, data.email, data.province, data.address, hash],
+      `INSERT INTO sellers (name, business_name, phone, email, province, address, status, password_hash, account_status,
+         pickup_district, pickup_address, pickup_lat, pickup_lng)
+       VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 'pending', ?, ?, ?, ?)`,
+      [data.name, data.business_name, data.phone, data.email, data.province, data.address, hash,
+        pick.pickup ? pick.pickup.district : null, pick.pickup ? pick.pickup.address : null,
+        pick.pickup ? pick.pickup.lat : null, pick.pickup ? pick.pickup.lng : null],
     );
     await startSession(req, result.insertId);
     emails.sellerWelcome(data);
@@ -874,21 +881,9 @@ router.post("/orders/:id/handover", requireSeller, async (req, res, next) => {
 // Where transport providers collect this seller's goods.
 router.put("/me/pickup", requireSeller, async (req, res, next) => {
   try {
-    const district = text(req.body.pickup_district, 80);
-    const address = text(req.body.pickup_address, 255);
-    const point = transportCore.point(req.body.pickup_lat, req.body.pickup_lng);
-    const errors = {};
-    const zambia = require("../../public/js/zambia-districts");
-    if (!district || district.length < 2) errors.pickup_district = "Please choose the district.";
-    else if (req.seller.province && zambia.list(req.seller.province).length && !zambia.match(req.seller.province, district)) errors.pickup_district = `Please choose one of ${req.seller.province} Province's districts (your profile's province).`;
-    else if (!zambia.provinceOf(district)) errors.pickup_district = "Please choose a district from the list.";
-    if (!address || address.length < 3) errors.pickup_address = "Please enter the address or directions to the pickup point.";
-    if (!point) errors.pickup_point = "Please mark the pickup point on the map.";
-    else if (!require("../lib/transport/pricing").inZambia(point)) errors.pickup_point = "The pickup point must be in Zambia.";
+    const { errors, pickup } = readPickup(req.body, req.seller.province, { required: true });
     if (Object.keys(errors).length) throw validationError(errors);
-    const zambia2 = require("../../public/js/zambia-districts");
-    const cleanDistrict = zambia2.match(req.seller.province, district) || zambia2.match(zambia2.provinceOf(district), district) || district;
-    await pool.query("UPDATE sellers SET pickup_district = ?, pickup_address = ?, pickup_lat = ?, pickup_lng = ? WHERE id = ?", [cleanDistrict, address, point.lat, point.lng, req.seller.id]);
+    await pool.query("UPDATE sellers SET pickup_district = ?, pickup_address = ?, pickup_lat = ?, pickup_lng = ? WHERE id = ?", [pickup.district, pickup.address, pickup.lat, pickup.lng, req.seller.id]);
     res.json({ success: true, message: "Pickup point saved. Buyers can now choose transport for your listings.", data: await loadSeller(req.seller.id) });
   } catch (error) {
     next(error);

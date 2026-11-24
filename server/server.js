@@ -455,6 +455,8 @@ const LATE_COLUMNS = [
   ["transport_bookings", "vehicle_registration", "VARCHAR(30) NULL AFTER provider_paid_by"],
   ["transport_bookings", "vehicle_type", "VARCHAR(60) NULL AFTER vehicle_registration"],
   ["transport_bookings", "on_hold", "TINYINT(1) NOT NULL DEFAULT 0 AFTER vehicle_type"],
+  ["transport_vehicles", "size_class", "ENUM('small', 'medium', 'large', 'extra_large') NULL AFTER vehicle_type"],
+  ["transport_bookings", "vehicle_size", "ENUM('small', 'medium', 'large', 'extra_large') NULL AFTER cargo_summary"],
   ["transport_providers", "preferred_coverage_km", "DECIMAL(7,1) NULL AFTER coverage_active"],
   ["transport_providers", "preferred_coverage_at", "DATETIME NULL AFTER preferred_coverage_km"],
 ];

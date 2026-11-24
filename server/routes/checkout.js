@@ -110,7 +110,9 @@ router.post("/", async (req, res, next) => {
     if (option === "transport") {
       const d = require("../lib/transport/pricing").cleanDestination(req.body);
       Object.assign(errors, d.errors);
-      delivery = { option, dest: d.dest };
+      const size = req.body.vehicle_size;
+      if (!require("../lib/transport/core").SIZE_KEYS.includes(size)) errors.vehicle_size = "Please choose the vehicle size.";
+      delivery = { option, dest: d.dest, size };
     }
     if (Object.keys(errors).length) {
       return res.status(422).json({ success: false, message: "Please correct the highlighted fields.", errors });

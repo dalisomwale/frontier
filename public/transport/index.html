@@ -136,7 +136,7 @@
       const jobCard = (b, attr) => `<button type="button" class="tp-job" ${attr}="${b.id}">
           <span class="tp-job-top"><span class="text-sm text-gray-500">${escapeHtml(b.reference)}${b.offered_at ? ` · ${escapeHtml(timeAgo(b.offered_at))}` : ""}</span>${trPill(b)}</span>
           <span class="tp-job-route block">${escapeHtml(b.from)} → ${escapeHtml(b.to)}</span>
-          <span class="tp-job-meta block">${trKm(b.distance_km)} by road · ${escapeHtml(b.cargo_summary || "")}${b.provider_earning !== undefined ? ` · <b>${kwacha(b.provider_earning)}</b>` : ""}</span>
+          <span class="tp-job-meta block">${trKm(b.distance_km)} by road${b.vehicle_size_label ? ` · <b>${escapeHtml(b.vehicle_size_label)} vehicle</b>` : ""} · ${escapeHtml(b.cargo_summary || "")}${b.provider_earning !== undefined ? ` · <b>${kwacha(b.provider_earning)}</b>` : ""}</span>
         </button>`;
 
       async function loadRequests() {
@@ -226,6 +226,7 @@
                   <div><dt>Road distance</dt><dd>${trKm(d.distance_km)}${d.duration_min ? ` · about ${trDuration(d.duration_min)}` : ""}</dd></div>
                   ${d.offer.pickup_km !== null ? `<div><dt>From your address to pickup</dt><dd>${trKm(d.offer.pickup_km)}</dd></div>` : ""}
                   <div><dt>Load</dt><dd>${escapeHtml(d.cargo_summary || "-")}</dd></div>
+                  ${d.vehicle_size_label ? `<div><dt>Vehicle size</dt><dd>${escapeHtml(d.vehicle_size_label)}</dd></div>` : ""}
                   <div><dt>Your earning</dt><dd><b>${kwacha(d.provider_earning)}</b></dd></div>
                 </dl>
                 <ul class="tr-qty mt-3">${d.orders.filter((o) => !o.cancelled).map((o) => `<li><span>${escapeHtml(o.title)}</span><b>${escapeHtml(o.units)}</b></li>`).join("")}</ul>
@@ -235,7 +236,7 @@
             <div class="space-y-4 min-w-0">
               ${d.can.accept ? `<form class="acc-card" data-accept novalidate>
                 <h2 class="txd-card-title">Accept with a vehicle</h2>
-                ${vs.length ? `<div class="tp-choice">${vs.map((v) => `<label class="${v.fits && !v.busy ? "" : "is-off"}"><input type="radio" name="vehicle_id" value="${v.id}" ${v.fits && !v.busy ? "" : "disabled"}><span><b>${escapeHtml(v.registration)}</b> · ${escapeHtml(v.vehicle_type)}${v.busy ? " · on another delivery" : !v.fits ? " · can't carry this load" : ""}</span></label>`).join("")}</div>`
+                ${vs.length ? `<div class="tp-choice">${vs.map((v) => `<label class="${v.fits && !v.busy ? "" : "is-off"}"><input type="radio" name="vehicle_id" value="${v.id}" ${v.fits && !v.busy ? "" : "disabled"}><span><b>${escapeHtml(v.registration)}</b> · ${v.size_label ? `${escapeHtml(v.size_label)} · ` : ""}${escapeHtml(v.vehicle_type)}${v.busy ? " · on another delivery" : v.wrong_size ? " · not the size the buyer chose" : !v.fits ? " · can't carry this load" : ""}</span></label>`).join("")}</div>`
                   : `<p class="text-sm text-gray-600">You have no active vehicles.</p>`}
                 <p class="field-error hidden" data-error-for="vehicle_id"></p>
                 <div class="tr-actions mt-4"><button type="submit" class="acc-btn">Accept delivery</button><button type="button" class="acc-mini-btn" data-decline>Decline</button></div>
@@ -429,6 +430,7 @@
         const res = await transportApi("/api/transport/vehicles");
         vehicles = res.data;
         meta.cargo_types = res.cargo_types;
+        meta.sizes = res.sizes || [];
         const list = document.getElementById("vehicles-list");
         const label = (k) => (meta.cargo_types.find((c) => c.key === k) || { label: k }).label;
         list.innerHTML = vehicles.length ? vehicles.map((v) => `
@@ -436,7 +438,8 @@
             ${v.photos[0] ? `<img src="${escapeHtml(v.photos[0].thumb_path)}" alt="${escapeHtml(v.registration)}">` : ""}
             <div class="tp-vehicle-body">
               <div class="flex items-center justify-between gap-2"><b>${escapeHtml(v.registration)}</b><span class="so-pill ${v.status === "active" ? (v.busy_booking ? "so-act" : "so-done") : "so-off"}">${v.status === "active" ? (v.busy_booking ? `On ${escapeHtml(v.busy_booking.reference)}` : "Active") : "Inactive"}</span></div>
-              <p class="text-sm text-gray-600 mt-1">${escapeHtml(v.vehicle_type)}${v.capacity_note ? ` · ${escapeHtml(v.capacity_note)}` : ""}</p>
+              <p class="text-sm text-gray-600 mt-1">${v.size_label ? `<span class="tp-size">${escapeHtml(v.size_label)}</span> ` : ""}${escapeHtml(v.vehicle_type)}${v.capacity_note ? ` · ${escapeHtml(v.capacity_note)}` : ""}</p>
+              ${v.size_label ? "" : `<p class="tr-warn-box mt-2">Choose this vehicle's size (Edit), so it can get delivery requests.</p>`}
               <p class="text-sm text-gray-700 mt-2">${v.cargo.map((c) => `${escapeHtml(label(c.key))}: up to ${c.max}`).join(" · ")}</p>
               <div class="tr-actions mt-3"><button type="button" class="acc-mini-btn" data-edit="${v.id}">Edit</button>
                 <button type="button" class="acc-mini-btn" data-toggle="${v.id}">${v.status === "active" ? "Deactivate" : "Activate"}</button></div>
@@ -465,6 +468,11 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div><label class="field-label" for="v-reg">Registration number</label><input id="v-reg" name="registration" class="field-input" maxlength="30" value="${escapeHtml(v ? v.registration : "")}" placeholder="e.g. ABC 1234"><p class="field-error hidden" data-error-for="registration"></p></div>
               <div><label class="field-label" for="v-type">Vehicle type</label><input id="v-type" name="vehicle_type" class="field-input" maxlength="60" value="${escapeHtml(v ? v.vehicle_type : "")}" placeholder="e.g. 7-tonne truck with crate"><p class="field-error hidden" data-error-for="vehicle_type"></p></div>
+              <div class="sm:col-span-2">
+                <p class="field-label">Size <span class="text-gray-400 font-normal">(buyers choose a size when they order)</span></p>
+                <div class="tp-sizes" role="radiogroup" aria-label="Vehicle size">${meta.sizes.map((x) => `<label class="tp-size-opt"><input type="radio" name="size_class" value="${x.key}" ${v && v.size_class === x.key ? "checked" : ""}><span><b>${escapeHtml(x.label)}</b><small>${escapeHtml(x.hint)}</small></span></label>`).join("")}</div>
+                <p class="field-error hidden" data-error-for="size_class"></p>
+              </div>
               <div class="sm:col-span-2"><label class="field-label" for="v-cap">Capacity notes <span class="text-gray-400 font-normal">(optional)</span></label><input id="v-cap" name="capacity_note" class="field-input" maxlength="255" value="${escapeHtml(v && v.capacity_note ? v.capacity_note : "")}" placeholder="e.g. Double-deck crate, ventilated"></div>
             </div>
             <p class="field-label mt-5">What it can carry at once <span class="text-gray-400 font-normal">(leave empty what it doesn't carry)</span></p>
@@ -494,6 +502,7 @@
           e.preventDefault();
           const fd = new FormData();
           ["registration", "vehicle_type", "capacity_note"].forEach((k) => fd.append(k, form[k].value.trim()));
+          fd.append("size_class", form.size_class.value || "");
           meta.cargo_types.forEach((c) => fd.append(`cargo_${c.key}`, form[`cargo_${c.key}`].value.trim()));
           picker.files().forEach((f) => fd.append("photos", f));
           [...form.documents.files].forEach((f) => fd.append("documents", f));

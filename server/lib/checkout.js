@@ -178,7 +178,7 @@ async function transportQuote(items, body) {
     e.expose = true;
     throw e;
   }
-  const plan = await transportPricing().plan(q.items, dest);
+  const plan = await transportPricing().plan(q.items, dest, { size: body.vehicle_size || null });
   const view = transportPricing().publicPlan(plan);
   return { ...view, product_total: q.total, grand_total: Math.round((q.total + (plan.available ? plan.transport_total : 0)) * 100) / 100 };
 }
@@ -200,9 +200,16 @@ async function create(lines, buyer, ip, pay = null, delivery = null) {
       e.code = "CART_CHANGED";
       throw e;
     }
-    plan = await transportPricing().plan(q.items, delivery.dest);
+    plan = await transportPricing().plan(q.items, delivery.dest, { size: delivery.size || null });
     if (!plan.available) {
       const e = new Error(plan.reason || "Transport isn't available for this order.");
+      e.status = 409;
+      e.code = "TRANSPORT_UNAVAILABLE";
+      throw e;
+    }
+    // The size the buyer chose has just been taken: they choose again (never a silent swap).
+    if (delivery.size && plan.vehicle_size !== delivery.size) {
+      const e = new Error(`A ${require("./transport/core").sizeLabel(delivery.size)} vehicle is no longer free for this delivery. Please choose another size.`);
       e.status = 409;
       e.code = "TRANSPORT_UNAVAILABLE";
       throw e;
@@ -402,7 +409,7 @@ async function load(id) {
   c.transport = [];
   if (c.delivery_option === "transport") {
     const [rows] = await pool.query(
-      `SELECT b.id, b.status, b.fee, b.distance_km, b.pickup_address, b.pickup_district, b.pickup_province, b.pickup_label, b.dest_address, b.dest_district, b.dest_province,
+      `SELECT b.id, b.status, b.fee, b.distance_km, b.vehicle_size, b.provider_id, b.vehicle_registration, b.pickup_address, b.pickup_district, b.pickup_province, b.pickup_label, b.dest_address, b.dest_district, b.dest_province,
          EXISTS (SELECT 1 FROM transport_booking_orders bo JOIN orders o ON o.id = bo.order_id WHERE bo.booking_id = b.id AND o.status <> 'cancelled') AS carries
        FROM transport_bookings b WHERE b.checkout_id = ? ORDER BY b.id`,
       [id],
@@ -484,14 +491,46 @@ function publicView(checkout, orders) {
     // Include transport: one line per journey (pickup area to destination).
     delivery_option: checkout.delivery_option || "collect",
     transport: (checkout.transport || []).filter((t) => t.status !== "cancelled").map((t) => ({
+      id: t.id,
       reference: `TR-${1000 + Number(t.id)}`,
       from: require("./transport/core").pickupPlace(t),
       to: require("./transport/core").destPlace(t),
       distance_km: Number(t.distance_km),
       fee: Number(t.fee),
+      vehicle_size: require("./transport/core").sizeLabel(t.vehicle_size),
+      // Where the delivery stands, in the buyer's words, for the payment page's tracker.
+      status: t.status,
+      step: trackStep(t.status),
+      vehicle: t.vehicle_registration || null,
+      track_url: `/account/?tab=orders&delivery=${t.id}`,
     })),
     transport_total: transportTotal,
   };
+}
+
+// A delivery's progress for the buyer, in five plain steps (payment page):
+// 1 Paid, 2 Driver assigned, 3 Collected, 4 On the way, 5 Delivered.
+const TRACK_STEPS = ["Paid", "Driver Assigned", "Collected", "On The Way", "Delivered"];
+function trackStep(status) {
+  const at = {
+    pending_payment: 0,
+    payment_confirmed: 1, awaiting_provider: 1, awaiting_reassignment: 1,
+    provider_accepted: 2, vehicle_selected: 2, awaiting_collection: 2, collection_submitted: 2,
+    collection_confirmed: 3,
+    in_transit: 4, arrived: 4,
+    delivery_submitted: 5, awaiting_confirmation: 5, completed: 5, disputed: 5,
+  }[status];
+  const n = at === undefined ? 0 : at;
+  const label = {
+    pending_payment: "Waiting for payment",
+    payment_confirmed: "Finding a transport provider", awaiting_provider: "Finding a transport provider", awaiting_reassignment: "Finding a transport provider",
+    provider_accepted: "A driver is assigned", vehicle_selected: "A driver is assigned", awaiting_collection: "The driver is collecting your order", collection_submitted: "The driver is collecting your order",
+    collection_confirmed: "Collected from the seller",
+    in_transit: "On the way to you", arrived: "Arrived at your delivery point",
+    delivery_submitted: "Delivered: please confirm", awaiting_confirmation: "Delivered: please confirm", completed: "Delivered", disputed: "Delivered: problem reported",
+    refund_pending: "Cancelled: refund pending", refunded: "Cancelled and refunded",
+  }[status] || status;
+  return { n, of: TRACK_STEPS.length, steps: TRACK_STEPS, label, live: ["in_transit", "arrived"].includes(status), done: status === "completed" };
 }
 
 // Copies the checkout's payment state onto its unpaid orders, so the admin

@@ -349,6 +349,13 @@ async function main() {
     ["vehicle_type", "VARCHAR(60) NULL AFTER vehicle_registration"],
     ["on_hold", "TINYINT(1) NOT NULL DEFAULT 0 AFTER vehicle_type"],
   ], "transport bookings record the vehicle used");
+  // Vehicle sizes (Small to Extra Large): providers set them, buyers choose one.
+  await addColumns("transport_vehicles", [
+    ["size_class", "ENUM('small', 'medium', 'large', 'extra_large') NULL AFTER vehicle_type"],
+  ], "vehicles have a size");
+  await addColumns("transport_bookings", [
+    ["vehicle_size", "ENUM('small', 'medium', 'large', 'extra_large') NULL AFTER cargo_summary"],
+  ], "deliveries record the vehicle size the buyer chose");
   // Providers state how far they'd like to travel; Frontier sets the coverage.
   await addColumns("transport_providers", [
     ["preferred_coverage_km", "DECIMAL(7,1) NULL AFTER coverage_active"],

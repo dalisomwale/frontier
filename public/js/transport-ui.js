@@ -401,6 +401,7 @@ function trFactsHtml(d, { role, brief = false } = {}) {
     ...(d.destination.contact_name ? [["Receiver", `${escapeHtml(d.destination.contact_name)} · <a href="tel:${escapeHtml(d.destination.contact_phone.replace(/[^\d+]/g, ""))}">${escapeHtml(d.destination.contact_phone)}</a>`, true]] : []),
     ["Road distance", `${trKm(d.distance_km)}${d.duration_min ? ` · about ${trDuration(d.duration_min)}` : ""}`],
     ["Load", d.cargo_summary || "-"],
+    ...(d.vehicle_size_label ? [["Vehicle size", d.vehicle_size_label]] : []),
     ...(d.fee !== undefined && d.fee !== null ? [["Transport fee", kwacha(d.fee)]] : []),
     ...(d.provider_earning !== undefined && d.provider_earning !== null && role === "provider" ? [["Your earning", kwacha(d.provider_earning)]] : []),
   ];

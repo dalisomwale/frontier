@@ -13,6 +13,10 @@
     <script src="/js/app-shell.js"></script>
     <script src="/js/admin.js"></script>
     <script src="/js/xlsx-lite.js"></script>
+    <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css" />
+    <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
+    <script src="/js/zambia-districts.js"></script>
+    <script src="/js/transport-ui.js"></script>
   </head>
   <body class="bg-gray-50 admin-pending">
     <div id="app-sidebar"></div>
@@ -341,6 +345,7 @@
       }
 
       function openEditor(s = {}, after) {
+        let pickupPicker = null;
         openFormModal({
           title: s.id ? "Edit Seller" : "Add Seller",
           crumb: s.id && !document.querySelector(".seller-view") ? s.name : undefined,
@@ -360,10 +365,29 @@
               ${field({ name: "province", label: "Province", value: s.province || "", options: [{ value: "", label: "Not set" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
               ${field({ name: "address", label: "Town / address", value: s.address, attrs: 'maxlength="255"' })}
             </div>
+            <div class="admin-pickup">
+              <p class="field-label !mb-0">Pickup point for transport <span class="text-gray-400 font-normal">(optional)</span></p>
+              <p class="text-xs text-gray-500 mt-0.5 mb-3">Where transport providers collect this seller's goods. Buyers can only choose transport for the seller's listings once it's set.</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                ${field({ name: "pickup_district", label: "District", value: s.pickup_district, attrs: 'maxlength="80"' })}
+                ${field({ name: "pickup_address", label: "Address or directions", value: s.pickup_address, placeholder: "e.g. Farm 9, 2 km off Great North Rd", attrs: 'maxlength="255"' })}
+              </div>
+              <p class="field-label mt-3">The exact pickup point</p>
+              <div data-pickup-map></div>
+              <p class="field-error hidden" data-error-for="pickup_point"></p>
+            </div>
             ${field({ name: "notes", label: "Notes", type: "textarea", value: s.notes, rows: 3, help: "Only visible to admins.", attrs: 'maxlength="2000"' })}
             ${field({ name: "status", label: "Status", value: s.status || "active", options: [{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }] })}`,
+          async onOpen(form) {
+            trPlaceFields({ province: form.province, district: form.pickup_district, address: form.pickup_address, picker: () => pickupPicker });
+            pickupPicker = await trPointPicker(form.querySelector("[data-pickup-map]"), {
+              kind: "pickup", label: "Pickup point", lat: s.pickup_lat ?? null, lng: s.pickup_lng ?? null,
+            });
+          },
           async onSubmit(form) {
             const v = formValues(form);
+            const pin = pickupPicker ? pickupPicker.get() : null;
+            Object.assign(v, { pickup_lat: pin ? pin.lat : "", pickup_lng: pin ? pin.lng : "" });
             const errors = {};
             if (!v.name.trim()) errors.name = "Full name is required.";
             if (!v.phone.trim()) errors.phone = "Phone number is required.";
@@ -479,6 +503,7 @@
                     <div><dt>Phone</dt><dd>${escapeHtml(s.phone)}</dd></div>
                     <div><dt>Email</dt><dd class="break-all">${s.email ? escapeHtml(s.email) : "-"}</dd></div>
                     <div><dt>Province</dt><dd>${s.province ? escapeHtml(s.province) : "-"}</dd></div>
+                    <div><dt>Pickup point</dt><dd>${s.pickup_lat !== null && s.pickup_lat !== undefined ? escapeHtml([s.pickup_address, s.pickup_district].filter(Boolean).join(", ")) : '<span class="text-amber-700">Not set: buyers can\'t choose transport</span>'}</dd></div>
                     <div><dt>Town / address</dt><dd>${s.address ? escapeHtml(s.address) : "-"}</dd></div>
                     <div><dt>Added</dt><dd>${formatDateShort(s.created_at)}</dd></div>
                   </dl>

@@ -203,7 +203,7 @@ router.get("/bookings/:id/eligibility", async (req, res, next) => {
         reasons: x.reasons,
         pickup_km: x.pickup_km,
         dest_km: x.dest_km,
-        vehicles: x.provider.vehicles.filter((v) => v.status === "active").map((v) => ({ id: v.id, registration: v.registration, vehicle_type: v.vehicle_type, busy: v.busy, fits: core.vehicleFits(v.cargo, job.load) })),
+        vehicles: x.provider.vehicles.filter((v) => v.status === "active").map((v) => ({ id: v.id, registration: v.registration, vehicle_type: v.vehicle_type, size_label: core.sizeLabel(v.size_class), busy: v.busy, fits: core.vehicleFits(v.cargo, job.load) && (!job.size || v.size_class === job.size) })),
       })),
     });
   } catch (error) {
@@ -568,7 +568,7 @@ router.get("/bands/price", async (req, res, next) => {
 
 router.get("/settings", async (req, res, next) => {
   try {
-    res.json({ success: true, data: await core.getSettings(), routing: views.routingStatus(), geocoder: routing.geocoderName() });
+    res.json({ success: true, data: await core.getSettings(), sizes: core.SIZES, routing: views.routingStatus(), geocoder: routing.geocoderName() });
   } catch (error) {
     next(error);
   }
@@ -586,6 +586,15 @@ router.put("/settings", async (req, res, next) => {
     if (!Number.isFinite(stale) || stale < 2 || stale > 720) errors.gps_stale_minutes = "From 2 to 720 minutes.";
     if (!Number.isFinite(pct) || pct < 0 || pct > 100) errors.commission_pct = "From 0 to 100.";
     if (!Number.isFinite(autoHours) || autoHours < 0 || autoHours > 168) errors.auto_complete_hours = "From 0 (straight away) to 168 hours.";
+    // Each vehicle size's price, as a percentage of the distance price (left out: unchanged).
+    const sizePct = {};
+    for (const k of core.SIZE_KEYS) {
+      const raw = b[`size_pct_${k}`];
+      if (raw === undefined || raw === "") continue;
+      const v = Number(raw);
+      if (!Number.isFinite(v) || v < 1 || v > 1000) errors[`size_pct_${k}`] = "From 1% to 1000%.";
+      else sizePct[`size_pct_${k}`] = String(Math.round(v * 100) / 100);
+    }
     const point = core.point(b.frontier_pickup_lat, b.frontier_pickup_lng);
     if ((b.frontier_pickup_lat || b.frontier_pickup_lng) && !point) errors.frontier_pickup_point = "Mark the pickup point on the map.";
     if (b.frontier_pickup_district && b.frontier_pickup_province && !zambia.match(b.frontier_pickup_province, b.frontier_pickup_district)) errors.frontier_pickup_district = `Choose one of ${b.frontier_pickup_province} Province's districts.`;
@@ -604,6 +613,7 @@ router.put("/settings", async (req, res, next) => {
       frontier_pickup_phone: clip(b.frontier_pickup_phone, 30),
       frontier_pickup_lat: point ? String(point.lat) : "",
       frontier_pickup_lng: point ? String(point.lng) : "",
+      ...sizePct,
     });
     res.json({ success: true, message: "Transport settings saved.", data: saved });
   } catch (error) {
@@ -630,17 +640,9 @@ router.put("/sellers/:id/pickup", async (req, res, next) => {
     const id = positiveInt(req.params.id) || 0;
     const [[s]] = await pool.query("SELECT id, province FROM sellers WHERE id = ?", [id]);
     if (!s) throw notFound("Seller not found.");
-    const district = text(req.body.pickup_district, 80);
-    const address = text(req.body.pickup_address, 255);
-    const point = core.point(req.body.pickup_lat, req.body.pickup_lng);
-    const errors = {};
-    if (!district) errors.pickup_district = "Choose the district.";
-    else if (s.province && zambia.list(s.province).length && !zambia.match(s.province, district)) errors.pickup_district = `Choose one of ${s.province} Province's districts (the seller's province).`;
-    else if (!zambia.provinceOf(district)) errors.pickup_district = "Choose a district from the list.";
-    if (!address) errors.pickup_address = "Enter the address or directions.";
-    if (!point) errors.pickup_point = "Mark the pickup point on the map.";
+    const { errors, pickup } = require("../../lib/transport/pickup").readPickup(req.body, s.province, { required: true, who: "admin" });
     if (Object.keys(errors).length) throw validationError(errors);
-    await pool.query("UPDATE sellers SET pickup_district = ?, pickup_address = ?, pickup_lat = ?, pickup_lng = ? WHERE id = ?", [zambia.match(s.province, district) || zambia.match(zambia.provinceOf(district), district), address, point.lat, point.lng, id]);
+    await pool.query("UPDATE sellers SET pickup_district = ?, pickup_address = ?, pickup_lat = ?, pickup_lng = ? WHERE id = ?", [pickup.district, pickup.address, pickup.lat, pickup.lng, id]);
     res.json({ success: true, message: "Pickup point saved." });
   } catch (error) {
     next(error);
