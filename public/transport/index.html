@@ -122,7 +122,7 @@
           box.innerHTML = me.status !== "approved" || !me.is_active ? `<div class="tr-warn-box"><b>${escapeHtml(me.name)} isn't taking deliveries yet.</b> Please check with your company.</div>` : "";
           return;
         }
-        if (me.status === "pending") html = `<div class="tr-warn-box"><b>Waiting for Frontier's approval.</b> We're reviewing your details and documents. ${me.kind === "company" ? "In the meantime, give your drivers their sign-in codes (Drivers) and add photos of your vehicles" : "Add your vehicles in the meantime"}: you'll start receiving requests once you're approved and your coverage is set.</div>`;
+        if (me.status === "pending") html = `<div class="tr-warn-box"><b>Waiting for Frontier's approval.</b> We're reviewing your details and documents. ${me.kind === "company" ? "In the meantime, give your drivers their sign-in codes (Drivers) and add photos of your vehicles" : "Add photos of your vehicle in the meantime"}: you'll start receiving requests once you're approved and your coverage is set.</div>`;
         else if (me.status === "rejected") html = `<div class="tr-warn-box"><b>Your registration was not approved.</b>${me.admin_note ? ` ${escapeHtml(me.admin_note)}` : ""} Please contact Frontier.</div>`;
         else if (me.status === "suspended") html = `<div class="tr-warn-box"><b>Your account is suspended.</b>${me.admin_note ? ` ${escapeHtml(me.admin_note)}` : ""} You won't receive requests. Please contact Frontier.</div>`;
         else if (!me.is_active) html = `<div class="tr-warn-box"><b>Your account has been deactivated by Frontier.</b> Please contact us.</div>`;

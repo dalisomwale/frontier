@@ -92,8 +92,8 @@
             </div>
           </section>
 
-          <section class="ob-step" data-key="fleet" data-title="Drivers & Vehicles" data-skip hidden>
-            <div>
+          <section class="ob-step" data-key="fleet" data-title="Your Vehicle" hidden>
+            <div data-company-only hidden>
               <p class="ob-step-lead">Your Drivers</p>
               <p class="text-xs text-gray-500 mt-1">They sign in with their phone number. You'll get their sign-in codes in your dashboard.</p>
               <div data-drivers class="ob-rows mt-3"></div>
@@ -101,8 +101,8 @@
               <p class="field-error hidden" data-error-for="drivers"></p>
             </div>
             <div>
-              <p class="ob-step-lead">Your Vehicles</p>
-              <p class="text-xs text-gray-500 mt-1">Your drivers can only use these. Add photos later in your dashboard.</p>
+              <p class="ob-step-lead" data-vehicles-title>Your Vehicles</p>
+              <p class="text-xs text-gray-500 mt-1" data-vehicles-help>Add photos later in your dashboard.</p>
               <div data-vehicles class="ob-rows mt-3"></div>
               <button type="button" class="ob-add" data-add-vehicle>+ Add Another Vehicle</button>
               <p class="field-error hidden" data-error-for="vehicles"></p>
@@ -206,7 +206,9 @@
         form.querySelector("[data-name-label]").textContent = company() ? "Company Name" : "Full Name";
         form.querySelector("[data-address-label]").textContent = company() ? "Office Address" : "Physical Address";
         workStep.dataset.title = company() ? "Your Offices" : "Where You Work";
-        fleetStep.toggleAttribute("data-skip", !company());
+        fleetStep.dataset.title = company() ? "Drivers & Vehicles" : "Your Vehicle";
+        form.querySelector("[data-vehicles-title]").textContent = company() ? "Your Vehicles" : "Your Vehicle";
+        form.querySelector("[data-vehicles-help]").textContent = company() ? "Your drivers can only use these. Add photos later in your dashboard." : "Have more than one? Add them all. Add photos later in your dashboard.";
         if (steps) steps.refresh();
       };
       form.querySelectorAll('input[name="kind"]').forEach((r) => r.addEventListener("change", paintKind));
@@ -289,8 +291,8 @@
         const seen = new Set();
         const ds = driverRows();
         const vs = vehicleRows();
-        if (!ds.length) e.drivers = "Please add at least one driver.";
-        for (const [i, d] of ds.entries()) {
+        if (company() && !ds.length) e.drivers = "Please add at least one driver.";
+        for (const [i, d] of (company() ? ds : []).entries()) {
           const key = d.phone.replace(/\D/g, "").slice(-9);
           if (d.name.length < 2) { e.drivers = `Driver ${i + 1}: please enter their full name.`; break; }
           if (!obPhoneOk(d.phone)) { e.drivers = `Driver ${i + 1}: please enter their phone number, e.g. 0977 123 456.`; break; }
@@ -358,7 +360,8 @@
         fd.append("kind", kind());
         const pt = picker && picker.get();
         if (pt) { fd.append("base_lat", pt.lat); fd.append("base_lng", pt.lng); }
-        if (company()) { fd.append("drivers", JSON.stringify(driverRows())); fd.append("vehicles", JSON.stringify(vehicleRows())); }
+        fd.append("vehicles", JSON.stringify(vehicleRows()));
+        if (company()) fd.append("drivers", JSON.stringify(driverRows()));
         if (form.accept_terms.checked) fd.append("accept_terms", "1");
         Object.entries(docs).forEach(([type, file]) => { fd.append("documents", file); fd.append("doc_types", type); });
         try {

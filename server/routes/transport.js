@@ -204,14 +204,15 @@ function jsonList(raw) {
     return [];
   }
 }
-async function fleetPayload(body) {
+// Companies add drivers and vehicles; owner-drivers add their vehicles.
+async function fleetPayload(body, { withDrivers = true } = {}) {
   const errors = {};
-  const driverRows = jsonList(body.drivers).slice(0, MAX_FLEET);
+  const driverRows = withDrivers ? jsonList(body.drivers).slice(0, MAX_FLEET) : [];
   const vehicleRows = jsonList(body.vehicles).slice(0, MAX_FLEET);
   const outDrivers = [];
   const outVehicles = [];
   const phones = new Set();
-  if (!driverRows.length) errors.drivers = "Please add at least one driver.";
+  if (withDrivers && !driverRows.length) errors.drivers = "Please add at least one driver.";
   for (const [i, row] of driverRows.entries()) {
     const { errors: e, data } = await drivers.driverPayload(row || {}, { taken: phones });
     if (Object.keys(e).length) { errors.drivers = `Driver ${i + 1}: ${Object.values(e)[0]}`; break; }
@@ -244,7 +245,7 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
     const missing = Object.keys(REQUIRED_DOCS).filter((t) => !types.slice(0, (req.files || []).length).includes(t));
     if (missing.length) errors.documents = `Please upload your ${missing.map((t) => REQUIRED_DOCS[t]).join(" and ")}.`;
     if (!errors.email && (await emailTaken(data.email))) errors.email = "A transport account with this email already exists. Sign in instead.";
-    const fleet = data.kind === "company" ? await fleetPayload(req.body) : { errors: {}, drivers: [], vehicles: [] };
+    const fleet = await fleetPayload(req.body, { withDrivers: data.kind === "company" });
     Object.assign(errors, fleet.errors);
     if (Object.keys(errors).length) throw validationError(errors);
     // No suggestion picked: find the physical address on the map (the
@@ -298,7 +299,7 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
       subject: `New transport provider registration: ${data.name}`,
       heading: "A transport provider is waiting for approval",
       paragraphs: ["Please review their details and documents, then approve or reject them and set their coverage."],
-      rows: [["Name", data.name], ["Type", data.kind === "company" ? "Company" : "Individual"], ["Phone", data.phone], ["Email", data.email], ["Area", `${data.district}, ${data.province}`], ["Address", data.address], ["Preferred coverage", `${data.preferred_coverage_km} km`], ...(data.kind === "company" ? [["Drivers", String(fleet.drivers.length)], ["Vehicles", fleet.vehicles.map((v) => v.data.registration).join(", ")]] : []), ["Documents", req.files.map((f, i) => DOC_TYPES[docTypesOf(req.body)[i]] || "Other").join(", ")],
+      rows: [["Name", data.name], ["Type", data.kind === "company" ? "Company" : "Individual"], ["Phone", data.phone], ["Email", data.email], ["Area", `${data.district}, ${data.province}`], ["Address", data.address], ["Preferred coverage", `${data.preferred_coverage_km} km`], ...(data.kind === "company" ? [["Drivers", String(fleet.drivers.length)]] : []), ["Vehicles", fleet.vehicles.map((v) => v.data.registration).join(", ")], ["Documents", req.files.map((f, i) => DOC_TYPES[docTypesOf(req.body)[i]] || "Other").join(", ")],
         ["Operating location", data.base_lat === null || data.base_lat === undefined ? "Not found on the map: set it before approving" : data.base_label && data.base_label.startsWith("Approximate") ? "Approximate (the address wasn't found exactly): check it before approving" : "From the address"]],
       button: { label: "Review the provider", url: appUrl(`/admin/transport-providers?id=${r.insertId}`) },
     });

@@ -190,10 +190,15 @@ function client(base, header) {
     const coVeh = await q("SELECT v.registration, v.size_class, c.max_quantity FROM transport_vehicles v JOIN transport_vehicle_cargo c ON c.vehicle_id = v.id WHERE v.provider_id = ?", [coRow.id]);
     ok(coDrivers.length === 2 && coDrivers.every((d) => d.password_hash === null), "its drivers are saved, waiting for sign-in codes", coDrivers);
     ok(coVeh.length === 1 && coVeh[0].size_class === "large" && coVeh[0].max_quantity === 20, "its vehicle is saved with size and load", coVeh);
-    const solo = await client(base, "X-Frontier-Transport")("POST", "/api/transport/auth/register", pf({
-      kind: "individual", name: "Solo Driver", phone: "0977222444", email: `solo${stamp}@test.zm`, province: "Lusaka", district: "Lusaka", address: "Plot 2", base_lat: -15.41, base_lng: 28.28, preferred_coverage_km: 50, password: "Truck#Pass123", confirm_password: "Truck#Pass123", accept_terms: "1",
+    const soloReg = (extra) => client(base, "X-Frontier-Transport")("POST", "/api/transport/auth/register", pf({
+      kind: "individual", name: "Solo Driver", phone: "0977222444", email: `solo${stamp}@test.zm`, province: "Lusaka", district: "Lusaka", address: "Plot 2", base_lat: -15.41, base_lng: 28.28, preferred_coverage_km: 50, password: "Truck#Pass123", confirm_password: "Truck#Pass123", accept_terms: "1", ...extra,
     }, [["documents", pdf, "nrc.pdf", "application/pdf", "nrc"], ["documents", pdf, "lic.pdf", "application/pdf", "drivers_licence"]]), { form: true });
-    ok(solo.status === 201, "an owner-driver registers without drivers or vehicles", solo.body);
+    const soloNoVeh = await soloReg({});
+    ok(soloNoVeh.status === 422 && soloNoVeh.body.errors.vehicles && !soloNoVeh.body.errors.drivers, "an owner-driver must add their vehicle (no drivers asked)", soloNoVeh.body.errors);
+    const solo = await soloReg({ vehicles: JSON.stringify([{ registration: `SOLO ${tag}`, vehicle_type: "Pickup", size_class: "small", cargo_a1: "4" }]) });
+    ok(solo.status === 201, "an owner-driver registers with their vehicle", solo.body);
+    const soloVeh = await q("SELECT v.size_class FROM transport_vehicles v JOIN transport_providers p ON p.id = v.provider_id WHERE p.email = ?", [`solo${stamp}@test.zm`]);
+    ok(soloVeh.length === 1 && soloVeh[0].size_class === "small", "the owner-driver's vehicle is saved", soloVeh);
 
     // Vehicles, added by the admin (photos optional here).
     const vf = (reg2, size) => pf({ registration: reg2, vehicle_type: "Truck with crate", ...(size ? { size_class: size } : {}), cargo_a1: "10" });
