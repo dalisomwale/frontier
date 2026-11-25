@@ -94,17 +94,14 @@
 
           <section class="ob-step" data-key="fleet" data-title="Your Vehicle" hidden>
             <div data-company-only hidden>
-              <p class="ob-step-lead">Your Drivers</p>
-              <p class="text-xs text-gray-500 mt-1">They sign in with their phone number. You'll get their sign-in codes in your dashboard.</p>
+              <p class="text-sm text-gray-600">Each driver has their own vehicle. They sign in with their phone number; you'll get their sign-in codes in your dashboard.</p>
               <div data-drivers class="ob-rows mt-3"></div>
               <button type="button" class="ob-add" data-add-driver>+ Add Another Driver</button>
               <p class="field-error hidden" data-error-for="drivers"></p>
             </div>
-            <div>
-              <p class="ob-step-lead" data-vehicles-title>Your Vehicles</p>
-              <p class="text-xs text-gray-500 mt-1" data-vehicles-help>Add photos later in your dashboard.</p>
-              <div data-vehicles class="ob-rows mt-3"></div>
-              <button type="button" class="ob-add" data-add-vehicle>+ Add Another Vehicle</button>
+            <div data-individual-only>
+              <div data-vehicles class="ob-rows"></div>
+              <p class="text-xs text-gray-500 mt-2">Add photos later in your dashboard.</p>
               <p class="field-error hidden" data-error-for="vehicles"></p>
             </div>
           </section>
@@ -172,29 +169,42 @@
       form.province.innerHTML = `<option value="">Choose…</option>${ZAMBIA_PROVINCES.map((p) => `<option>${p}</option>`).join("")}`;
       const meter = bindPasswordMeter(form.password, () => ({ email: form.email.value, phone: form.phone.value }));
 
-      // One file per document: NRC and driver's licence required, passport optional.
-      const docs = {};
-      form.querySelectorAll("[data-slot]").forEach((slot) => {
-        const input = slot.querySelector("input[type=file]");
-        const btn = slot.querySelector("[data-pick]");
-        const what = slot.querySelector("b").textContent;
-        btn.setAttribute("aria-label", `Upload ${what}`);
-        btn.title = `Upload ${what}`;
-        btn.addEventListener("click", () => input.click());
-        input.addEventListener("change", () => {
-          const f = input.files[0];
-          input.value = "";
-          if (!f) return;
-          if (!/^(application\/pdf|image\/(jpeg|png|webp))$/.test(f.type)) return showNotification("Documents must be a PDF or a photo (JPEG, PNG or WebP).", "error");
-          if (f.size > 12 * 1024 * 1024) return showNotification("Each document must be under 12 MB.", "error");
-          docs[slot.dataset.slot] = f;
-          slot.querySelector("[data-file]").textContent = f.name;
-          slot.classList.add("has-file");
-          btn.setAttribute("aria-label", `Change ${what} file`);
-          btn.title = `Change ${what} file`;
-          form.querySelector('[data-error-for="documents"]').classList.add("hidden");
+      // One file per document: NRC and driver's licence required, passport
+      // optional. The owner-driver's own (Documents step) and each company
+      // driver's (on their card) work the same way.
+      const DOC_SLOTS = [["nrc", "NRC", false], ["drivers_licence", "Driver's Licence", false], ["passport", "Passport", true]];
+      const docSlotsHtml = () => `<div class="tr-doc-slots">${DOC_SLOTS.map(([key, label, optional]) => `
+        <div class="tr-doc-slot" data-slot="${key}">
+          <span><b>${label}</b>${optional ? ` <span class="ob-opt">(optional)</span>` : ""}<small data-file>No file chosen</small></span>
+          <button type="button" class="tr-doc-btn" data-pick>${uiIcon("upload")}</button>
+          <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" hidden />
+        </div>`).join("")}</div>`;
+      function bindDocSlots(root, store, onPick) {
+        root.querySelectorAll("[data-slot]").forEach((slot) => {
+          const input = slot.querySelector("input[type=file]");
+          const btn = slot.querySelector("[data-pick]");
+          const what = slot.querySelector("b").textContent;
+          btn.setAttribute("aria-label", `Upload ${what}`);
+          btn.title = `Upload ${what}`;
+          btn.addEventListener("click", () => input.click());
+          input.addEventListener("change", () => {
+            const f = input.files[0];
+            input.value = "";
+            if (!f) return;
+            if (!/^(application\/pdf|image\/(jpeg|png|webp))$/.test(f.type)) return showNotification("Documents must be a PDF or a photo (JPEG, PNG or WebP).", "error");
+            if (f.size > 12 * 1024 * 1024) return showNotification("Each document must be under 12 MB.", "error");
+            store[slot.dataset.slot] = f;
+            slot.querySelector("[data-file]").textContent = f.name;
+            slot.classList.add("has-file");
+            btn.setAttribute("aria-label", `Change ${what} file`);
+            btn.title = `Change ${what} file`;
+            if (onPick) onPick();
+          });
         });
-      });
+      }
+      const missingDocs = (store) => [!store.nrc && "NRC", !store.drivers_licence && "driver's licence"].filter(Boolean);
+      const docs = {};
+      bindDocSlots(form.querySelector('[data-key="docs"]'), docs, () => form.querySelector('[data-error-for="documents"]').classList.add("hidden"));
 
       const kind = () => form.querySelector('input[name="kind"]:checked').value;
       const company = () => kind() === "company";
@@ -203,21 +213,17 @@
       let steps = null;
       const paintKind = () => {
         form.querySelectorAll("[data-company-only]").forEach((el) => { el.hidden = !company(); });
+        form.querySelectorAll("[data-individual-only]").forEach((el) => { el.hidden = company(); });
         form.querySelector("[data-name-label]").textContent = company() ? "Company Name" : "Full Name";
         form.querySelector("[data-address-label]").textContent = company() ? "Office Address" : "Physical Address";
         workStep.dataset.title = company() ? "Your Offices" : "Work Coverage";
         fleetStep.dataset.title = company() ? "Drivers & Vehicles" : "Your Vehicle";
         // Owner-drivers: About You, Documents, Work Coverage, Your Vehicle, Password.
-        // Companies: About You, Your Offices, Drivers & Vehicles, Documents, Password.
+        // Companies: About You, Your Offices, Drivers & Vehicles, Password (each
+        // driver's documents are on their card).
         const docsStep = form.querySelector('[data-key="docs"]');
-        if (company()) form.querySelector('[data-key="password"]').before(docsStep);
-        else form.querySelector('[data-key="about"]').after(docsStep);
-        form.querySelector("[data-vehicles-title]").textContent = company() ? "Your Vehicles" : "Your Vehicle";
-        form.querySelector("[data-vehicles-help]").textContent = company() ? "Your drivers can only use these. Add photos later in your dashboard." : "Add photos later in your dashboard.";
-        // Several vehicles: companies only. An owner-driver keeps the first one.
-        form.querySelector("[data-add-vehicle]").hidden = !company();
-        if (!company()) [...vehiclesBox.querySelectorAll("[data-vehicle-row]")].slice(1).forEach((r) => r.remove());
-        renumber();
+        form.querySelector('[data-key="about"]').after(docsStep);
+        docsStep.toggleAttribute("data-skip", company());
         if (steps) steps.refresh();
       };
       form.querySelectorAll('input[name="kind"]').forEach((r) => r.addEventListener("change", paintKind));
@@ -272,81 +278,89 @@
       });
       form.district.addEventListener("change", () => { if (!(picker && picker.get())) paintCircle({ fit: true }); });
 
-      // Drivers and vehicles (companies).
+      // Companies: one card per driver with their vehicle and their papers.
+      // Owner-drivers: their one vehicle.
       let options = { cargo_types: [], sizes: [] };
       const driversBox = form.querySelector("[data-drivers]");
       const vehiclesBox = form.querySelector("[data-vehicles]");
-      const rowHead = () => `<div class="ob-row-head"><b></b><button type="button" class="ob-row-rm" data-rm>Remove</button></div>`;
+      const vehicleFields = () => `
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div><label class="field-label">Vehicle Name</label><input data-f="vehicle_type" class="field-input" maxlength="60" placeholder="e.g. Toyota Hilux" autocomplete="off"></div>
+          <div><label class="field-label">Registration Number</label><input data-f="registration" class="field-input" maxlength="30" placeholder="e.g. ABC 1234" autocomplete="off"></div>
+          <div class="sm:col-span-2"><label class="field-label">Vehicle Size</label><select data-f="size_class" data-sizes class="field-input"></select></div>
+        </div>`;
+      function fillSizes(root) {
+        root.querySelectorAll("[data-sizes]").forEach((sel) => {
+          if (!sel.childElementCount && options.sizes.length) sel.innerHTML = `<option value="">Choose…</option>${options.sizes.map((x) => `<option value="${x.key}">${escapeHtml(x.label)}: ${escapeHtml(x.hint)}</option>`).join("")}`;
+        });
+      }
       const renumber = () => {
         driversBox.querySelectorAll("[data-driver-row]").forEach((r, i, all) => { r.querySelector(".ob-row-head b").textContent = `Driver ${i + 1}`; r.querySelector("[data-rm]").hidden = all.length < 2; });
-        vehiclesBox.querySelectorAll("[data-vehicle-row]").forEach((r, i, all) => { r.querySelector("[data-rm]").hidden = all.length < 2; r.querySelector(".ob-row-head").hidden = all.length < 2; });
       };
       function addDriver() {
         const row = document.createElement("div");
         row.className = "ob-row";
         row.dataset.driverRow = "1";
-        row.innerHTML = `${rowHead()}
+        row.docs = {};
+        row.innerHTML = `<div class="ob-row-head"><b></b><button type="button" class="ob-row-rm" data-rm>Remove</button></div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label class="field-label">Full Name</label><input data-f="name" class="field-input" maxlength="120" autocomplete="off"></div>
             <div><label class="field-label">Phone Number</label><input data-f="phone" type="tel" inputmode="tel" class="field-input" maxlength="30" placeholder="0977 123 456" autocomplete="off"></div>
             <div class="sm:col-span-2"><label class="field-label">Driving Licence No. <span class="ob-opt">(optional)</span></label><input data-f="licence_number" class="field-input" maxlength="80" autocomplete="off"></div>
-          </div>`;
+          </div>
+          <p class="ob-sub-lead">Their Vehicle</p>
+          ${vehicleFields()}
+          <p class="ob-sub-lead">Their Documents</p>
+          ${docSlotsHtml()}`;
         row.querySelector("[data-rm]").addEventListener("click", () => { row.remove(); renumber(); });
+        bindDocSlots(row, row.docs, () => steps && steps.clear("drivers"));
         driversBox.appendChild(row);
+        fillSizes(row);
         renumber();
         return row;
       }
-      function fillVehicle(row) {
-        const sizes = row.querySelector("[data-sizes]");
-        if (!sizes.childElementCount && options.sizes.length) sizes.innerHTML = `<option value="">Choose…</option>${options.sizes.map((x) => `<option value="${x.key}">${escapeHtml(x.label)}: ${escapeHtml(x.hint)}</option>`).join("")}`;
-      }
-      function addVehicle() {
-        const row = document.createElement("div");
-        row.className = "ob-row";
-        row.dataset.vehicleRow = "1";
-        row.innerHTML = `<div class="ob-row-head"><span></span><button type="button" class="ob-row-rm" data-rm>Remove</button></div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div><label class="field-label">Vehicle Name</label><input data-f="vehicle_type" class="field-input" maxlength="60" placeholder="e.g. Toyota Hilux" autocomplete="off"></div>
-            <div><label class="field-label">Registration Number</label><input data-f="registration" class="field-input" maxlength="30" placeholder="e.g. ABC 1234" autocomplete="off"></div>
-            <div class="sm:col-span-2"><label class="field-label">Vehicle Size</label><select data-f="size_class" data-sizes class="field-input"></select></div>
-          </div>`;
-        row.querySelector("[data-rm]").addEventListener("click", () => { row.remove(); renumber(); });
-        vehiclesBox.appendChild(row);
-        fillVehicle(row);
-        renumber();
-        return row;
-      }
+      vehiclesBox.innerHTML = `<div class="ob-row" data-vehicle-row>${vehicleFields()}</div>`;
       form.querySelector("[data-add-driver]").addEventListener("click", () => addDriver().querySelector("input").focus());
-      form.querySelector("[data-add-vehicle]").addEventListener("click", () => addVehicle().querySelector("input").focus());
       addDriver();
-      addVehicle();
-      transportApi("/api/transport/auth/options").then((r) => { options = r.data; form.querySelectorAll("[data-vehicle-row]").forEach(fillVehicle); }).catch(() => {});
-      const driverRows = () => [...driversBox.querySelectorAll("[data-driver-row]")].map((r) => Object.fromEntries([...r.querySelectorAll("[data-f]")].map((i) => [i.dataset.f, i.value.trim()])));
-      const vehicleRows = () => [...vehiclesBox.querySelectorAll("[data-vehicle-row]")].map((r) => Object.fromEntries([...r.querySelectorAll("[data-f]")].map((i) => [i.dataset.f, i.value.trim()])));
+      transportApi("/api/transport/auth/options").then((r) => { options = r.data; fillSizes(form); }).catch(() => {});
+      const fieldsOf = (row) => Object.fromEntries([...row.querySelectorAll("[data-f]")].map((i) => [i.dataset.f, i.value.trim()]));
+      const driverCards = () => [...driversBox.querySelectorAll("[data-driver-row]")];
+      const vehicleRows = () => [...vehiclesBox.querySelectorAll("[data-vehicle-row]")].map(fieldsOf);
+      const vehicleProblem = (v) => (v.vehicle_type.length < 2 ? "please enter the vehicle name, e.g. Toyota Hilux."
+        : v.registration.length < 3 ? "please enter the registration number."
+          : !v.size_class ? "please choose the vehicle size." : null);
       const fleetErrors = () => {
         const e = {};
-        const seen = new Set();
-        const ds = driverRows();
-        const vs = vehicleRows();
-        if (company() && !ds.length) e.drivers = "Please add at least one driver.";
-        for (const [i, d] of (company() ? ds : []).entries()) {
-          const key = d.phone.replace(/\D/g, "").slice(-9);
-          if (d.name.length < 2) { e.drivers = `Driver ${i + 1}: please enter their full name.`; break; }
-          if (!obPhoneOk(d.phone)) { e.drivers = `Driver ${i + 1}: please enter their phone number, e.g. 0977 123 456.`; break; }
-          if (seen.has(key)) { e.drivers = `Driver ${i + 1}: this phone number is listed twice.`; break; }
-          seen.add(key);
-        }
-        if (!vs.length) e.vehicles = "Please add at least one vehicle.";
-        const which = (i) => (vs.length > 1 ? `Vehicle ${i + 1}: p` : "P");
-        for (const [i, v] of vs.entries()) {
-          if (v.vehicle_type.length < 2) { e.vehicles = `${which(i)}lease enter the vehicle name, e.g. Toyota Hilux.`; break; }
-          if (v.registration.length < 3) { e.vehicles = `${which(i)}lease enter the registration number.`; break; }
-          if (!v.size_class) { e.vehicles = `${which(i)}lease choose the vehicle size.`; break; }
+        if (company()) {
+          const phones = new Set();
+          const regs = new Set();
+          if (!driverCards().length) e.drivers = "Please add at least one driver with their vehicle.";
+          for (const [i, row] of driverCards().entries()) {
+            const d = fieldsOf(row);
+            const who = `Driver ${i + 1}`;
+            const key = d.phone.replace(/\D/g, "").slice(-9);
+            const reg = d.registration.toUpperCase().replace(/\s+/g, " ");
+            const problem = d.name.length < 2 ? "please enter their full name."
+              : !obPhoneOk(d.phone) ? "please enter their phone number, e.g. 0977 123 456."
+                : phones.has(key) ? "this phone number is listed twice." : null;
+            if (problem) { e.drivers = `${who}: ${problem}`; break; }
+            const vp = vehicleProblem(d) || (regs.has(reg) ? "this registration number is listed twice." : null);
+            if (vp) { e.drivers = `${who}'s vehicle: ${vp}`; break; }
+            const missing = missingDocs(row.docs);
+            if (missing.length) { e.drivers = `${who}: please upload their ${missing.join(" and ")}.`; break; }
+            phones.add(key);
+            regs.add(reg);
+          }
+        } else {
+          const v = vehicleRows()[0];
+          const vp = v && vehicleProblem(v);
+          if (vp) e.vehicles = vp.charAt(0).toUpperCase() + vp.slice(1);
         }
         return e;
       };
-      // Typing in a driver or vehicle row clears that list's message.
+      // Typing in a driver card or the vehicle clears that message.
       driversBox.addEventListener("input", () => steps && steps.clear("drivers"));
+      driversBox.addEventListener("change", () => steps && steps.clear("drivers"));
       vehiclesBox.addEventListener("input", () => steps && steps.clear("vehicles"));
       vehiclesBox.addEventListener("change", () => steps && steps.clear("vehicles"));
 
@@ -368,9 +382,7 @@
             if (!(picker && picker.get())) e.base_point = company() ? "Please mark your offices on the map." : "Please mark where you're based on the map.";
           }
           if (key === "fleet") Object.assign(e, fleetErrors());
-          if (key === "docs" && (!docs.nrc || !docs.drivers_licence)) {
-            e.documents = `Please upload your ${[!docs.nrc && "NRC", !docs.drivers_licence && "driver's licence"].filter(Boolean).join(" and ")}.`;
-          }
+          if (key === "docs" && missingDocs(docs).length) e.documents = `Please upload your ${missingDocs(docs).join(" and ")}.`;
           if (key === "password") {
             if (meter && meter.problem()) e.password = meter.problem();
             else if (!form.password.value) e.password = "Please choose a password.";
@@ -398,10 +410,15 @@
         fd.append("kind", kind());
         const pt = picker && picker.get();
         if (pt) { fd.append("base_lat", pt.lat); fd.append("base_lng", pt.lng); }
-        fd.append("vehicles", JSON.stringify(vehicleRows()));
-        if (company()) fd.append("drivers", JSON.stringify(driverRows()));
         if (form.accept_terms.checked) fd.append("accept_terms", "1");
-        Object.entries(docs).forEach(([type, file]) => { fd.append("documents", file); fd.append("doc_types", type); });
+        if (company()) {
+          // Each driver with their vehicle; each file says whose it is.
+          fd.append("drivers", JSON.stringify(driverCards().map(fieldsOf)));
+          driverCards().forEach((row, i) => Object.entries(row.docs).forEach(([type, file]) => { fd.append("documents", file); fd.append("doc_types", type); fd.append("doc_owner", String(i)); }));
+        } else {
+          fd.append("vehicles", JSON.stringify(vehicleRows()));
+          Object.entries(docs).forEach(([type, file]) => { fd.append("documents", file); fd.append("doc_types", type); });
+        }
         try {
           await withBusy(document.getElementById("submit-btn"), "Registering…", () => transportApi("/api/transport/auth/register", { method: "POST", body: fd }));
           window.location.href = "/transport/?welcome=1";

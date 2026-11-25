@@ -521,6 +521,8 @@ CREATE TABLE IF NOT EXISTS transport_providers (
 CREATE TABLE IF NOT EXISTS transport_provider_documents (
   id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   provider_id    INT UNSIGNED NOT NULL,
+  -- A company driver's own papers (NRC, licence); NULL: the provider's.
+  driver_id      INT UNSIGNED NULL,
   doc_type       VARCHAR(40) NOT NULL,
   file_name      VARCHAR(255) NOT NULL,
   original_name  VARCHAR(255) NULL,
@@ -606,6 +608,8 @@ CREATE TABLE IF NOT EXISTS transport_drivers (
   phone           VARCHAR(30) NOT NULL,
   phone_key       VARCHAR(12) NOT NULL,
   licence_number  VARCHAR(80) NULL,
+  -- The company vehicle this driver drives: one vehicle per driver, one driver per vehicle.
+  vehicle_id      INT UNSIGNED NULL,
   password_hash   VARCHAR(255) NULL,
   is_active       TINYINT(1) NOT NULL DEFAULT 1,
   code_made_at    DATETIME NULL,
@@ -615,6 +619,7 @@ CREATE TABLE IF NOT EXISTS transport_drivers (
   CONSTRAINT fk_td_provider FOREIGN KEY (provider_id)
     REFERENCES transport_providers(id) ON DELETE CASCADE,
   UNIQUE KEY uq_td_phone (phone_key),
+  UNIQUE KEY uq_td_vehicle (vehicle_id),
   INDEX idx_td_provider (provider_id, is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

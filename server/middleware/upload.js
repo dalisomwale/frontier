@@ -172,6 +172,13 @@ const uploadDocuments = multer({
   limits: { fileSize: MAX_BYTES, files: MAX_DOCS },
   fileFilter: docFilter,
 }).array("documents", MAX_DOCS);
+// Transport registration: a company sends each driver's papers (up to 10
+// drivers, 3 files each); an owner-driver their own.
+const uploadRegistration = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BYTES, files: 30 },
+  fileFilter: docFilter,
+}).array("documents", 30);
 // A vehicle: "photos" (public) and "documents" (private).
 const uploadVehicleFiles = multer({
   storage: multer.memoryStorage(),
@@ -220,6 +227,7 @@ function deletePrivateDocuments(...names) {
 }
 
 module.exports = {
+  uploadRegistration,
   uploadTransportPhotos,
   TRANSPORT_PHOTOS,
   uploadDocuments,

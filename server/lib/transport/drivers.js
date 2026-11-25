@@ -59,15 +59,25 @@ async function driverPayload(body, { exceptId = 0, taken = new Set(), conn = poo
   return { errors, data: { name, phone, phone_key: phoneKey(phone), licence_number: licence || null } };
 }
 
-// The company's drivers, each with the delivery they're on (if any).
+// The company's drivers, each with their vehicle, their papers and the
+// delivery they're on (if any).
+const DOC_LABELS = { nrc: "NRC", drivers_licence: "Driver's licence", passport: "Passport" };
 async function listOf(providerId, id = null) {
   const [rows] = await pool.query(
-    `SELECT d.*, (SELECT b.id FROM transport_bookings b WHERE b.driver_id = d.id AND b.status IN (?) ORDER BY b.id DESC LIMIT 1) AS busy_booking,
+    `SELECT d.*, v.registration AS v_registration, v.vehicle_type AS v_type, v.size_class AS v_size, v.status AS v_status,
+       (SELECT b.id FROM transport_bookings b WHERE b.driver_id = d.id AND b.status IN (?) ORDER BY b.id DESC LIMIT 1) AS busy_booking,
        (SELECT COUNT(*) FROM transport_bookings b WHERE b.driver_id = d.id AND b.status = 'completed') AS completed
-     FROM transport_drivers d WHERE d.provider_id = ? ${id ? "AND d.id = ?" : ""} ORDER BY d.is_active DESC, d.name`,
+     FROM transport_drivers d LEFT JOIN transport_vehicles v ON v.id = d.vehicle_id
+     WHERE d.provider_id = ? ${id ? "AND d.id = ?" : ""} ORDER BY d.is_active DESC, d.name`,
     [core.VEHICLE_BUSY, providerId, ...(id ? [id] : [])],
   );
-  return rows.map(view);
+  const [docs] = rows.length
+    ? await pool.query("SELECT id, driver_id, doc_type, original_name, created_at FROM transport_provider_documents WHERE driver_id IN (?) ORDER BY id", [rows.map((d) => d.id)])
+    : [[]];
+  return rows.map((d) => ({
+    ...view(d),
+    documents: docs.filter((x) => x.driver_id === d.id).map((x) => ({ id: x.id, doc_type: x.doc_type, type_label: DOC_LABELS[x.doc_type] || x.doc_type, original_name: x.original_name, created_at: x.created_at })),
+  }));
 }
 
 function view(d) {
@@ -76,6 +86,7 @@ function view(d) {
     name: d.name,
     phone: d.phone,
     licence_number: d.licence_number,
+    vehicle: d.vehicle_id ? { id: d.vehicle_id, registration: d.v_registration, vehicle_type: d.v_type, size_label: core.sizeLabel(d.v_size), active: d.v_status === "active" } : null,
     is_active: Boolean(d.is_active),
     has_code: Boolean(d.password_hash),
     code_made_at: d.code_made_at,
@@ -91,4 +102,4 @@ async function load(id, conn = pool) {
   return d || null;
 }
 
-module.exports = { phoneKey, makeCode, codeForm, setCode, passwordMatches, driverPayload, listOf, load, view };
+module.exports = { DOC_LABELS, phoneKey, makeCode, codeForm, setCode, passwordMatches, driverPayload, listOf, load, view };

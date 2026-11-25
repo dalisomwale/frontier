@@ -257,7 +257,7 @@
                   : `<p class="text-sm text-gray-600">You have no active vehicles.</p>`}
                 <p class="field-error hidden" data-error-for="vehicle_id"></p>
                 ${d.drivers ? `<label class="field-label mt-4" for="acc-driver">Driver</label>
-                  <select id="acc-driver" name="driver_id" class="field-input"><option value="">Choose later</option>${d.drivers.map((x) => `<option value="${x.id}" ${x.busy ? "disabled" : ""}>${escapeHtml(x.name)}${x.busy ? " · on another delivery" : ""}</option>`).join("")}</select>
+                  <select id="acc-driver" name="driver_id" class="field-input"><option value="">Choose later</option>${d.drivers.map((x) => `<option value="${x.id}" data-vehicle="${x.vehicle ? x.vehicle.id : ""}" ${x.busy ? "disabled" : ""}>${escapeHtml(x.name)}${x.vehicle ? ` · ${escapeHtml(x.vehicle.registration)}` : ""}${x.busy ? " · on another delivery" : ""}</option>`).join("")}</select>
                   <p class="field-error hidden" data-error-for="driver_id"></p>` : ""}
                 <div class="tr-actions mt-4"><button type="submit" class="acc-btn">Accept delivery</button>${isDriver() ? "" : `<button type="button" class="acc-mini-btn" data-decline>Decline</button>`}</div>
               </form>` : `<div class="acc-card"><p class="text-sm text-gray-700">${d.offer.status === "declined" ? "You declined this request." : "This request is no longer open."}</p></div>`}
@@ -267,6 +267,12 @@
         if (!form) return;
         const first = form.querySelector('input[name="vehicle_id"]:not([disabled])');
         if (first) first.checked = true;
+        // A driver drives their own vehicle: choosing them chooses it.
+        form.driver_id?.addEventListener("change", () => {
+          const vid = form.driver_id.selectedOptions[0]?.dataset.vehicle;
+          const radio = vid && form.querySelector(`input[name="vehicle_id"][value="${vid}"]`);
+          if (radio && !radio.disabled) radio.checked = true;
+        });
         form.addEventListener("submit", async (e) => {
           e.preventDefault();
           const v = form.querySelector('input[name="vehicle_id"]:checked');
@@ -473,6 +479,7 @@
             ${v.photos[0] ? `<img src="${escapeHtml(v.photos[0].thumb_path)}" alt="${escapeHtml(v.registration)}">` : ""}
             <div class="tp-vehicle-body">
               <div class="flex items-center justify-between gap-2"><b>${escapeHtml(v.registration)}</b><span class="so-pill ${v.status === "active" ? (v.busy_booking ? "so-act" : "so-done") : "so-off"}">${v.status === "active" ? (v.busy_booking ? `On ${escapeHtml(v.busy_booking.reference)}` : "Active") : "Inactive"}</span></div>
+              ${me.kind === "company" ? `<p class="text-sm mt-1 ${v.driver_name ? "text-gray-700" : "text-amber-700 font-semibold"}">${v.driver_name ? `Driver: <b>${escapeHtml(v.driver_name)}</b>` : "No driver yet (Drivers)"}</p>` : ""}
               <p class="text-sm text-gray-600 mt-1">${v.size_label ? `<span class="tp-size">${escapeHtml(v.size_label)}</span> ` : ""}${escapeHtml(v.vehicle_type)}${v.capacity_note ? ` · ${escapeHtml(v.capacity_note)}` : ""}</p>
               ${v.size_label ? "" : `<p class="tr-warn-box mt-2">Choose this vehicle's size (Edit), so it can get delivery requests.</p>`}
               ${v.photos.length ? "" : `<p class="tr-note-box mt-2">Add a photo of this vehicle (Edit).</p>`}
@@ -568,7 +575,9 @@
               <div class="min-w-0 flex-1"><b class="block text-gray-900 truncate">${escapeHtml(x.name)}</b><a class="text-sm acc-link" href="tel:${escapeHtml(x.phone.replace(/[^\d+]/g, ""))}">${escapeHtml(x.phone)}</a></div>
               <span class="so-pill ${!x.is_active ? "so-off" : x.busy_booking ? "so-act" : "so-done"}">${!x.is_active ? "Off" : x.busy_booking ? `On ${escapeHtml(x.busy_booking.reference)}` : "Free"}</span>
             </div>
-            <p class="text-sm text-gray-600 mt-3">${!x.has_code ? `<span class="text-amber-700 font-semibold">No sign-in code yet</span>` : x.last_login_at ? `Last signed in ${escapeHtml(timeAgo(x.last_login_at))}` : "Hasn't signed in yet"} · ${x.completed} completed</p>
+            <p class="text-sm text-gray-700 mt-3 tp-driver-veh">${x.vehicle ? `${uiIcon("truck")} <b>${escapeHtml(x.vehicle.registration)}</b> · ${escapeHtml(x.vehicle.vehicle_type)}${x.vehicle.size_label ? ` · ${escapeHtml(x.vehicle.size_label)}` : ""}` : `<span class="text-amber-700 font-semibold">No vehicle yet (Edit)</span>`}</p>
+            <div class="tp-driver-docs">${["nrc", "drivers_licence"].map((t) => { const doc = x.documents.find((d0) => d0.doc_type === t); const label = t === "nrc" ? "NRC" : "Driver's Licence"; return doc ? `<a href="/api/transport/me/documents/${doc.id}" target="_blank" rel="noopener">${label} ✓</a>` : `<span class="is-missing">${label} missing</span>`; }).join("")}${x.documents.filter((d0) => !["nrc", "drivers_licence"].includes(d0.doc_type)).map((d0) => `<a href="/api/transport/me/documents/${d0.id}" target="_blank" rel="noopener">${escapeHtml(d0.type_label)} ✓</a>`).join("")}</div>
+            <p class="text-sm text-gray-600 mt-2">${!x.has_code ? `<span class="text-amber-700 font-semibold">No sign-in code yet</span>` : x.last_login_at ? `Last signed in ${escapeHtml(timeAgo(x.last_login_at))}` : "Hasn't signed in yet"} · ${x.completed} completed</p>
             <div class="tr-actions mt-3">
               <button type="button" class="acc-mini-btn" data-code="${x.id}">${x.has_code ? "New Sign-In Code" : "Get Sign-In Code"}</button>
               <button type="button" class="acc-mini-btn" data-edit-driver="${x.id}">Edit</button>
@@ -621,8 +630,12 @@
         view.body.querySelector("[data-done]").addEventListener("click", () => view.close(true));
       }
 
-      function openDriver(x) {
+      async function openDriver(x) {
+        try { vehicles = (await transportApi("/api/transport/vehicles")).data; } catch {}
+        // One vehicle per driver: the vehicles nobody else drives.
+        const free = vehicles.filter((v) => !v.driver_name || (x && x.vehicle && x.vehicle.id === v.id));
         const view = openAdminView({ title: x ? x.name : "Add a driver", params: {} });
+        const docRow = (key, label, optional) => `<div class="tp-doc-row"><span class="text-sm font-semibold text-gray-700 min-w-[130px]">${label}${optional ? ` <span class="ob-opt">(optional)</span>` : ""}${x && x.documents.some((d0) => d0.doc_type === key) ? ` <span class="text-green-700">✓</span>` : ""}</span><input type="file" name="doc_${key}" accept="application/pdf,image/jpeg,image/png,image/webp" class="text-sm"></div>`;
         view.body.innerHTML = `
           <form class="acc-card max-w-xl" novalidate>
             <h1 class="admin-view-title">${x ? `Edit ${escapeHtml(x.name)}` : "Add a Driver"}</h1>
@@ -630,6 +643,12 @@
               <div><label class="field-label" for="d-name">Full Name</label><input id="d-name" name="name" class="field-input" maxlength="120" value="${escapeHtml(x ? x.name : "")}"><p class="field-error hidden" data-error-for="name"></p></div>
               <div><label class="field-label" for="d-phone">Phone Number</label><input id="d-phone" name="phone" type="tel" inputmode="tel" class="field-input" maxlength="30" placeholder="0977 123 456" value="${escapeHtml(x ? x.phone : "")}"><p class="text-xs text-gray-500 mt-1">They sign in with this number.</p><p class="field-error hidden" data-error-for="phone"></p></div>
               <div><label class="field-label" for="d-lic">Driving Licence No. <span class="ob-opt">(optional)</span></label><input id="d-lic" name="licence_number" class="field-input" maxlength="80" value="${escapeHtml(x && x.licence_number ? x.licence_number : "")}"><p class="field-error hidden" data-error-for="licence_number"></p></div>
+              <div><label class="field-label" for="d-veh">Their Vehicle</label>
+                <select id="d-veh" name="vehicle_id" class="field-input"><option value="">No vehicle yet</option>${free.map((v) => `<option value="${v.id}" ${x && x.vehicle && x.vehicle.id === v.id ? "selected" : ""}>${escapeHtml(v.registration)} · ${escapeHtml(v.vehicle_type)}${v.size_label ? ` · ${escapeHtml(v.size_label)}` : ""}</option>`).join("")}</select>
+                <p class="text-xs text-gray-500 mt-1">${free.length ? "Each driver has their own vehicle. They can only take deliveries with it." : "All your vehicles have drivers. Add a vehicle in Vehicles first."}</p>
+                <p class="field-error hidden" data-error-for="vehicle_id"></p></div>
+              <div><p class="field-label">Their Documents</p><div class="space-y-2">${docRow("nrc", "NRC")}${docRow("drivers_licence", "Driver's Licence")}${docRow("passport", "Passport", true)}</div>
+                <p class="field-error hidden" data-error-for="documents"></p></div>
             </div>
             <div class="acc-actionbar"><button type="submit" class="acc-btn">${x ? "Save Driver" : "Add Driver"}</button></div>
           </form>`;
@@ -637,8 +656,14 @@
         form.addEventListener("submit", async (e) => {
           e.preventDefault();
           try {
-            const body = Object.fromEntries(new FormData(form));
-            const res = await withBusy(form.querySelector("button[type=submit]"), "Saving…", () => transportApi(x ? `/api/transport/drivers/${x.id}` : "/api/transport/drivers", { method: x ? "PUT" : "POST", body }));
+            const body = { name: form.name.value.trim(), phone: form.phone.value.trim(), licence_number: form.licence_number.value.trim(), vehicle_id: Number(form.vehicle_id.value) || null };
+            const res = await withBusy(form.querySelector("button[type=submit]"), "Saving…", async () => {
+              const saved = await transportApi(x ? `/api/transport/drivers/${x.id}` : "/api/transport/drivers", { method: x ? "PUT" : "POST", body });
+              const fd = new FormData();
+              ["nrc", "drivers_licence", "passport"].forEach((k) => { const f = form[`doc_${k}`].files[0]; if (f) { fd.append("documents", f); fd.append("doc_types", k); } });
+              if (fd.has("documents")) await transportApi(`/api/transport/drivers/${saved.data.id}/documents`, { method: "POST", body: fd });
+              return saved;
+            });
             showNotification(res.message, "success");
             await view.close(true);
             loadDrivers();
@@ -754,7 +779,7 @@
           </div>
           <div class="space-y-4 min-w-0">
             <div class="acc-card"><h2 class="txd-card-title">Documents</h2>
-              ${docs.data.length ? `<ul class="tr-qty">${docs.data.map((d0) => `<li><a class="acc-link" href="/api/transport/me/documents/${d0.id}" target="_blank" rel="noopener">${escapeHtml(d0.original_name || d0.type_label)}</a><span class="text-gray-500">${escapeHtml(d0.type_label)}</span></li>`).join("")}</ul>` : `<p class="text-sm text-gray-600">No documents.</p>`}
+              ${docs.data.length ? `<ul class="tr-qty">${docs.data.map((d0) => `<li><a class="acc-link" href="/api/transport/me/documents/${d0.id}" target="_blank" rel="noopener">${escapeHtml(d0.original_name || d0.type_label)}</a><span class="text-gray-500">${escapeHtml(d0.type_label)}${d0.driver_name ? ` · ${escapeHtml(d0.driver_name)}` : ""}</span></li>`).join("")}</ul>` : `<p class="text-sm text-gray-600">No documents.</p>`}
               <form data-docs class="mt-4" novalidate>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <select name="doc_types" class="field-input">${Object.entries(docs.types).map(([k, v]) => `<option value="${k}">${escapeHtml(v)}</option>`).join("")}</select>

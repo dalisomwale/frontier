@@ -373,6 +373,13 @@ async function main() {
   await addColumns("transport_bookings", [
     ["driver_id", "INT UNSIGNED NULL AFTER vehicle_id, ADD INDEX idx_tb_driver (driver_id, status)"],
   ], "deliveries record the company driver");
+  // Each company driver has their own vehicle and their own papers.
+  await addColumns("transport_drivers", [
+    ["vehicle_id", "INT UNSIGNED NULL AFTER licence_number, ADD UNIQUE KEY uq_td_vehicle (vehicle_id)"],
+  ], "each driver has their vehicle");
+  await addColumns("transport_provider_documents", [
+    ["driver_id", "INT UNSIGNED NULL AFTER provider_id, ADD INDEX idx_tp_documents_driver (driver_id)"],
+  ], "drivers have their own documents");
   const [[partyColumn]] = await conn.query(
     "SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = ? AND table_name = 'order_receipt_photos' AND column_name = 'party'",
     [DB_NAME],

@@ -138,9 +138,10 @@ function client(base, header) {
     const pf = (fields, files = []) => {
       const fd = new FormData();
       for (const [k, v] of Object.entries(fields)) fd.append(k, v);
-      for (const [name, buf, file, type, docType] of files) {
+      for (const [name, buf, file, type, docType, owner] of files) {
         fd.append(name, new Blob([buf], { type }), file);
         if (docType) fd.append("doc_types", docType);
+        if (owner !== undefined) fd.append("doc_owner", String(owner));
       }
       return fd;
     };
@@ -175,21 +176,28 @@ function client(base, header) {
     const link2 = await admin("POST", `/api/admin/transport/providers/${pid}/password-link`, {});
     ok(link2.status === 200 && /token=/.test(link2.body.setup_link), "admin sends a new password link", link2.body);
     // A company registers with its drivers and vehicles (D: drivers).
-    const coReg = (extra) => client(base, "X-Frontier-Transport")("POST", "/api/transport/auth/register", pf({
+    // A company registers: each driver with their own vehicle and papers.
+    const driverDocs = (i) => [["documents", pdf, `nrc${i}.pdf`, "application/pdf", "nrc", i], ["documents", pdf, `lic${i}.pdf`, "application/pdf", "drivers_licence", i]];
+    const coReg = (extra, files = [...driverDocs(0), ...driverDocs(1)]) => client(base, "X-Frontier-Transport")("POST", "/api/transport/auth/register", pf({
       kind: "company", name: "Kafue Haulage", contact_person: "Ben Tembo", phone: "0977222333", email: `kafue${stamp}@test.zm`, province: "Lusaka", district: "Kafue", address: "Plot 1, Kafue Rd", base_lat: -15.77, base_lng: 28.18, preferred_coverage_km: 200, password: "Truck#Pass123", confirm_password: "Truck#Pass123", accept_terms: "1", ...extra,
-    }, [["documents", pdf, "nrc.pdf", "application/pdf", "nrc"], ["documents", pdf, "lic.pdf", "application/pdf", "drivers_licence"]]), { form: true });
+    }, files), { form: true });
     const noFleet = await coReg({});
-    ok(noFleet.status === 422 && noFleet.body.errors.drivers && noFleet.body.errors.vehicles, "a company must add drivers and vehicles", noFleet.body.errors);
-    const fleet = { drivers: JSON.stringify([{ name: "Alice Phiri", phone: `0977 ${tag.padStart(5, "0")}9` }, { name: "Bob Zulu", phone: `0977 ${tag.padStart(5, "0")}8`, licence_number: "DL-9" }]), vehicles: JSON.stringify([{ registration: `KFH ${tag}`, vehicle_type: "Truck", size_class: "large", cargo_a1: "20" }]) };
-    const twice = await coReg({ ...fleet, drivers: JSON.stringify([{ name: "Alice Phiri", phone: "0977111000" }, { name: "Al Phiri", phone: "+260977111000" }]) });
+    ok(noFleet.status === 422 && /at least one driver/.test(noFleet.body.errors.drivers) && !noFleet.body.errors.documents, "a company must add drivers (no company documents step)", noFleet.body.errors);
+    const crew = [
+      { name: "Alice Phiri", phone: `0977 ${tag.padStart(5, "0")}9`, vehicle_type: "Isuzu FTR", registration: `KFH ${tag}`, size_class: "large" },
+      { name: "Bob Zulu", phone: `0977 ${tag.padStart(5, "0")}8`, licence_number: "DL-9", vehicle_type: "Toyota Hilux", registration: `KFS ${tag}`, size_class: "small" },
+    ];
+    const noVeh = await coReg({ drivers: JSON.stringify([crew[0], { ...crew[1], registration: "" }]) });
+    ok(noVeh.status === 422 && /^Driver 2's vehicle: Please enter the registration number/.test(noVeh.body.errors.drivers), "each driver needs their vehicle", noVeh.body.errors);
+    const noDocs = await coReg({ drivers: JSON.stringify(crew) }, driverDocs(0));
+    ok(noDocs.status === 422 && /^Driver 2: please upload their NRC and driver's licence/.test(noDocs.body.errors.drivers), "each driver needs their NRC and licence", noDocs.body.errors);
+    const twice = await coReg({ drivers: JSON.stringify([crew[0], { ...crew[1], phone: crew[0].phone.replace(/^0/, "+260 ") }]) });
     ok(twice.status === 422 && /Driver 2: This phone number is listed twice/.test(twice.body.errors.drivers), "the same driver number twice is caught", twice.body.errors);
-    const co = await coReg(fleet);
-    ok(co.status === 201, "the company registers with 2 drivers and 1 vehicle", co.body);
+    const co = await coReg({ drivers: JSON.stringify(crew) });
+    ok(co.status === 201, "the company registers with 2 drivers, each with their vehicle and papers", co.body);
     const [[coRow]] = [await q("SELECT id FROM transport_providers WHERE email = ?", [`kafue${stamp}@test.zm`])];
-    const coDrivers = await q("SELECT name, password_hash FROM transport_drivers WHERE provider_id = ?", [coRow.id]);
-    const coVeh = await q("SELECT v.registration, v.size_class, c.max_quantity FROM transport_vehicles v JOIN transport_vehicle_cargo c ON c.vehicle_id = v.id WHERE v.provider_id = ?", [coRow.id]);
-    ok(coDrivers.length === 2 && coDrivers.every((d) => d.password_hash === null), "its drivers are saved, waiting for sign-in codes", coDrivers);
-    ok(coVeh.length === 1 && coVeh[0].size_class === "large" && coVeh[0].max_quantity === 20, "its vehicle is saved with size and load", coVeh);
+    const coDrivers = await q("SELECT d.name, d.password_hash, v.registration, v.size_class, (SELECT COUNT(*) FROM transport_provider_documents x WHERE x.driver_id = d.id) AS docs FROM transport_drivers d JOIN transport_vehicles v ON v.id = d.vehicle_id WHERE d.provider_id = ? ORDER BY d.id", [coRow.id]);
+    ok(coDrivers.length === 2 && coDrivers[0].registration === `KFH ${tag}` && coDrivers[1].size_class === "small" && coDrivers.every((d) => Number(d.docs) === 2 && d.password_hash === null), "each driver is saved with their vehicle and their 2 documents", coDrivers);
     const soloReg = (extra, c = client(base, "X-Frontier-Transport")) => c("POST", "/api/transport/auth/register", pf({
       kind: "individual", name: "Solo Driver", phone: "0977222444", email: `solo${stamp}@test.zm`, province: "Lusaka", district: "Lusaka", address: "Plot 2", base_lat: -15.41, base_lng: 28.28, preferred_coverage_km: 50, password: "Truck#Pass123", confirm_password: "Truck#Pass123", accept_terms: "1", ...extra,
     }, [["documents", pdf, "nrc.pdf", "application/pdf", "nrc"], ["documents", pdf, "lic.pdf", "application/pdf", "drivers_licence"]]), { form: true });
@@ -269,7 +277,7 @@ function client(base, header) {
     ok(offer && offer.status === "offered", "the request went to the provider with a free Medium vehicle", offer);
     // ------------------------------------------- a company's drivers (D: drivers)
     console.log("Company drivers");
-    const addDrv = await provider("POST", "/api/transport/drivers", { name: "Moses Daka", phone: `0955 ${tag.padStart(5, "0").slice(0, 3)} ${tag.padStart(5, "0").slice(3)}1` });
+    const addDrv = await provider("POST", "/api/transport/drivers", { name: "Moses Daka", phone: `0955 ${tag.padStart(5, "0").slice(0, 3)} ${tag.padStart(5, "0").slice(3)}1`, vehicle_id: medId });
     ok(addDrv.status === 201 && /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(addDrv.body.code), "the company adds a driver and gets a sign-in code", addDrv.body);
     const drvPhone = addDrv.body.data.phone;
     const dup2 = await provider("POST", "/api/transport/drivers", { name: "Copy", phone: `+260 ${drvPhone.replace(/\D/g, "").slice(1)}` });
@@ -295,15 +303,26 @@ function client(base, header) {
     ok(mine.body.data.length === 1 && mine.body.data[0].id === bk.id, "the driver's deliveries: only theirs", mine.body.data.map((x) => x.id));
     const coList = await provider("GET", "/api/transport/bookings");
     ok(coList.body.data.find((x) => x.id === bk.id).driver_name === "Moses Daka", "the company sees who drives it");
-    const add2 = await provider("POST", "/api/transport/drivers", { name: "Ruth Mbewe", phone: `0966 ${tag.padStart(5, "0")}2` });
+    const takenVeh = await provider("POST", "/api/transport/drivers", { name: "Copy Cat", phone: `0966 ${tag.padStart(5, "0")}7`, vehicle_id: medId });
+    ok(takenVeh.status === 422 && /Moses Daka's/.test(takenVeh.body.errors.vehicle_id), "a vehicle can't be given to two drivers", takenVeh.body);
+    const add2 = await provider("POST", "/api/transport/drivers", { name: "Ruth Mbewe", phone: `0966 ${tag.padStart(5, "0")}2`, vehicle_id: small.body.data.id });
     const driver2 = client(base, "X-Frontier-Transport");
     await driver2("POST", "/api/transport/auth/driver-login", { phone: add2.body.data.phone, password: add2.body.code });
     ok((await driver2("GET", `/api/transport/bookings/${bk.id}`)).status === 404, "another driver can't open it");
     ok((await driver2("POST", `/api/transport/bookings/${bk.id}/location`, { lat: -15.4, lng: 28.3 })).status === 403, "another driver can't act on it");
     const busyOff = await provider("PATCH", `/api/transport/drivers/${addDrv.body.data.id}/status`, { active: false });
     ok(busyOff.status === 409, "a driver on a delivery can't be switched off", busyOff.body);
+    const smallDrv = await provider("PATCH", `/api/transport/bookings/${bk.id}/driver`, { driver_id: add2.body.data.id });
+    ok(smallDrv.status === 422 && /not the size the buyer chose/.test(smallDrv.body.errors.driver_id), "a driver whose vehicle is the wrong size can't take it", smallDrv.body);
+    const med2 = await admin("POST", `/api/admin/transport/providers/${pid}/vehicles`, vf(`MED2 ${tag}`, "medium"), { form: true });
+    const med2Id = med2.body.data.vehicle_list.find((v) => v.registration === `MED2 ${tag}`).id;
+    await provider("PUT", `/api/transport/drivers/${add2.body.data.id}`, { name: "Ruth Mbewe", phone: add2.body.data.phone, vehicle_id: med2Id });
     const reassigned = await provider("PATCH", `/api/transport/bookings/${bk.id}/driver`, { driver_id: add2.body.data.id });
     ok(reassigned.status === 200, "the company gives the delivery to another driver", reassigned.body);
+    const [bv] = await q("SELECT vehicle_id, vehicle_registration FROM transport_bookings WHERE id = ?", [bk.id]);
+    ok(Number(bv.vehicle_id) === Number(med2Id), "and the delivery moves to that driver's own vehicle", bv);
+    const dDocs = await provider("POST", `/api/transport/drivers/${add2.body.data.id}/documents`, pf({}, [["documents", pdf, "nrc.pdf", "application/pdf", "nrc"]]), { form: true });
+    ok(dDocs.status === 201 && dDocs.body.data.documents.length === 1 && dDocs.body.data.documents[0].doc_type === "nrc", "the company adds a driver's NRC", dDocs.body);
     ok((await driver2("GET", `/api/transport/bookings/${bk.id}`)).status === 200 && (await driver("GET", `/api/transport/bookings/${bk.id}`)).status === 404, "now only the new driver sees it");
     const detail = (await buyer("GET", `/api/checkout/${cid}?token=${placed.body.data.token}`)).body.data;
     ok(detail.status === "paid", "buyer's order still paid");

@@ -295,7 +295,10 @@ router.get("/providers", async (req, res, next) => {
 async function loadProviderFull(id) {
   const [[p]] = await pool.query(`${PROVIDER_LIST} WHERE p.id = ?`, [ONGOING, id]);
   if (!p) throw notFound("Transport provider not found.");
-  const [docs] = await pool.query("SELECT id, doc_type, original_name, mime, size_bytes, created_at FROM transport_provider_documents WHERE provider_id = ? ORDER BY id", [id]);
+  const [docs] = await pool.query(
+    "SELECT x.id, x.doc_type, x.original_name, x.mime, x.size_bytes, x.created_at, d.name AS driver_name FROM transport_provider_documents x LEFT JOIN transport_drivers d ON d.id = x.driver_id WHERE x.provider_id = ? ORDER BY x.driver_id IS NOT NULL, d.name, x.id",
+    [id],
+  );
   const [history] = await pool.query("SELECT * FROM transport_bookings WHERE provider_id = ? ORDER BY id DESC LIMIT 200", [id]);
   const [ratings] = await pool.query("SELECT id, booking_id, stars, feedback, hidden, created_at FROM transport_ratings WHERE provider_id = ? ORDER BY id DESC LIMIT 200", [id]);
   const [[perf]] = await pool.query(

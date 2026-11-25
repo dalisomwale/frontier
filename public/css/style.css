@@ -7476,3 +7476,9 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .tp-code { display: flex; align-items: center; justify-content: center; gap: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 26px; font-weight: 800; letter-spacing: .12em; color: #111827; background: #f3f4f6; border-radius: 14px; padding: 16px; margin: 14px 0; }
 .tr-km-tag { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; background: #2563eb; color: #fff; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 9999px; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); }
 .ob-row-head[hidden] { display: none; }
+.ob-sub-lead { margin: 16px 0 8px; font-size: 13px; font-weight: 700; color: #374151; padding-top: 12px; border-top: 1px dashed #e5e7eb; }
+.ob-row .tr-doc-slots { margin-top: 0; }
+.tp-driver-docs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tp-driver-docs span, .tp-driver-docs a { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 9999px; background: #f0fdf4; color: #166534; }
+.tp-driver-docs .is-missing { background: #fffbeb; color: #92400e; }
+.tp-driver-veh svg { display: inline-block; width: 16px; height: 16px; vertical-align: -3px; margin-right: 2px; }

@@ -16,7 +16,7 @@ const { sendEmail, appUrl, recipients } = require("../services/mailer");
 const notifications = require("../services/notifications");
 const { positiveInt, text, isEmail, isPhone, badRequest, notFound, HttpError, PROVINCES } = require("../lib/validate");
 const {
-  uploadDocuments, uploadVehicleFiles, uploadTransportPhotos, savePrivateDocument, privateDocumentPath, deletePrivateDocuments,
+  uploadDocuments, uploadRegistration, uploadVehicleFiles, uploadTransportPhotos, savePrivateDocument, privateDocumentPath, deletePrivateDocuments,
   saveImage, deleteImageFiles,
 } = require("../middleware/upload");
 const core = require("../lib/transport/core");
@@ -170,7 +170,7 @@ function registrationPayload(body) {
   };
 }
 
-async function storeDocuments(conn, providerId, files, types) {
+async function storeDocuments(conn, providerId, files, types, driverId = null) {
   const saved = [];
   try {
     for (let i = 0; i < files.length; i++) {
@@ -178,8 +178,8 @@ async function storeDocuments(conn, providerId, files, types) {
       saved.push(doc.file_name);
       const type = Object.keys(DOC_TYPES).includes(types[i]) ? types[i] : "other";
       await conn.query(
-        "INSERT INTO transport_provider_documents (provider_id, doc_type, file_name, original_name, mime, size_bytes) VALUES (?, ?, ?, ?, ?, ?)",
-        [providerId, type, doc.file_name, String(files[i].originalname || "").slice(0, 255), doc.mime, doc.size_bytes],
+        "INSERT INTO transport_provider_documents (provider_id, driver_id, doc_type, file_name, original_name, mime, size_bytes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [providerId, driverId, type, doc.file_name, String(files[i].originalname || "").slice(0, 255), doc.mime, doc.size_bytes],
       );
     }
   } catch (error) {
@@ -191,10 +191,14 @@ async function storeDocuments(conn, providerId, files, types) {
 
 const docTypesOf = (body) => [].concat(body.doc_types || []).flatMap((v) => String(v).split(","));
 
-// A company's drivers and vehicles at registration (D: drivers): sent as JSON
-// lists. Each is checked like the dashboard checks it; a problem is reported
-// as "Driver 2: …" / "Vehicle 1: …".
-const MAX_FLEET = 30;
+// What comes with a registration besides the account (D: drivers):
+//   company: its drivers, each with their own vehicle and papers (NRC and
+//     driver's licence; passport if any). Sent as a JSON list "drivers"
+//     ([{ name, phone, licence_number, vehicle_type, registration, size_class }]);
+//     each file says whose it is in "doc_owner" (the driver's index).
+//   owner-driver: their one vehicle ("vehicles": [{ … }]) and their papers.
+// A problem is reported as "Driver 2: …".
+const MAX_FLEET = 10;
 function jsonList(raw) {
   if (Array.isArray(raw)) return raw;
   try {
@@ -204,35 +208,49 @@ function jsonList(raw) {
     return [];
   }
 }
-// Companies add drivers and vehicles; owner-drivers add their vehicles.
-async function fleetPayload(body, { withDrivers = true } = {}) {
+const docOwnersOf = (body) => [].concat(body.doc_owner || []).flatMap((v) => String(v).split(","));
+async function fleetPayload(body, files = [], { company = false } = {}) {
   const errors = {};
-  const driverRows = withDrivers ? jsonList(body.drivers).slice(0, MAX_FLEET) : [];
-  // Owner-drivers have one vehicle; companies can have many.
-  const vehicleRows = jsonList(body.vehicles).slice(0, withDrivers ? MAX_FLEET : 1);
-  const outDrivers = [];
-  const outVehicles = [];
-  const phones = new Set();
-  if (withDrivers && !driverRows.length) errors.drivers = "Please add at least one driver.";
-  for (const [i, row] of driverRows.entries()) {
-    const { errors: e, data } = await drivers.driverPayload(row || {}, { taken: phones });
-    if (Object.keys(e).length) { errors.drivers = `Driver ${i + 1}: ${Object.values(e)[0]}`; break; }
-    phones.add(data.phone_key);
-    outDrivers.push(data);
-  }
-  if (!vehicleRows.length) errors.vehicles = "Please add at least one vehicle.";
+  const types = docTypesOf(body);
+  const owners = docOwnersOf(body);
+  const filesOf = (owner) => files.map((f, i) => ({ file: f, type: types[i], owner: owners[i] ?? "" })).filter((x) => String(x.owner) === String(owner));
+  const missingDocs = (list) => Object.keys(REQUIRED_DOCS).filter((t) => !list.some((x) => x.type === t)).map((t) => REQUIRED_DOCS[t]);
+  const out = { drivers: [], vehicles: [], ownDocs: [] };
   const regs = new Set();
-  for (const [i, row] of vehicleRows.entries()) {
-    const { errors: e, data, cargo } = await vehiclePayload(row || {}, 0);
-    if (data.registration && regs.has(data.registration)) e.registration = "This registration number is listed twice.";
-    if (Object.keys(e).length) { errors.vehicles = vehicleRows.length > 1 ? `Vehicle ${i + 1}: ${Object.values(e)[0]}` : Object.values(e)[0]; break; }
-    regs.add(data.registration);
-    outVehicles.push({ data, cargo });
+  if (company) {
+    const rows = jsonList(body.drivers).slice(0, MAX_FLEET);
+    const phones = new Set();
+    if (!rows.length) errors.drivers = "Please add at least one driver with their vehicle.";
+    for (const [i, row] of rows.entries()) {
+      const who = `Driver ${i + 1}`;
+      const { errors: e, data } = await drivers.driverPayload(row || {}, { taken: phones });
+      if (Object.keys(e).length) { errors.drivers = `${who}: ${Object.values(e)[0]}`; break; }
+      const v = await vehiclePayload(row || {}, 0);
+      if (v.data.registration && regs.has(v.data.registration)) v.errors.registration = "This registration number is listed twice.";
+      if (Object.keys(v.errors).length) { errors.drivers = `${who}'s vehicle: ${Object.values(v.errors)[0]}`; break; }
+      const docs = filesOf(i);
+      const missing = missingDocs(docs);
+      if (missing.length) { errors.drivers = `${who}: please upload their ${missing.join(" and ")}.`; break; }
+      phones.add(data.phone_key);
+      regs.add(v.data.registration);
+      out.drivers.push({ data, vehicle: v, docs });
+    }
+  } else {
+    const rows = jsonList(body.vehicles).slice(0, 1); // owner-drivers have one vehicle
+    if (!rows.length) errors.vehicles = "Please add your vehicle.";
+    for (const row of rows) {
+      const v = await vehiclePayload(row || {}, 0);
+      if (Object.keys(v.errors).length) { errors.vehicles = Object.values(v.errors)[0]; break; }
+      out.vehicles.push(v);
+    }
+    out.ownDocs = filesOf("");
+    const missing = missingDocs(out.ownDocs);
+    if (missing.length) errors.documents = `Please upload your ${missing.join(" and ")}.`;
   }
-  return { errors, drivers: outDrivers, vehicles: outVehicles };
+  return { errors, ...out };
 }
 
-router.post("/auth/register", uploadDocuments, async (req, res, next) => {
+router.post("/auth/register", uploadRegistration, async (req, res, next) => {
   const conn = await pool.getConnection();
   let saved = [];
   try {
@@ -242,11 +260,8 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
     if (problem) errors.password = problem;
     if (req.body.confirm_password !== undefined && req.body.confirm_password !== password) errors.confirm_password = "The passwords don't match.";
     if (!["1", "true", "on"].includes(String(req.body.accept_terms))) errors.accept_terms = "Please tick the box to accept the terms.";
-    const types = docTypesOf(req.body);
-    const missing = Object.keys(REQUIRED_DOCS).filter((t) => !types.slice(0, (req.files || []).length).includes(t));
-    if (missing.length) errors.documents = `Please upload your ${missing.map((t) => REQUIRED_DOCS[t]).join(" and ")}.`;
     if (!errors.email && (await emailTaken(data.email))) errors.email = "A transport account with this email already exists. Sign in instead.";
-    const fleet = await fleetPayload(req.body, { withDrivers: data.kind === "company" });
+    const fleet = await fleetPayload(req.body, req.files || [], { company: data.kind === "company" });
     Object.assign(errors, fleet.errors);
     if (Object.keys(errors).length) throw validationError(errors);
     // No suggestion picked: find the physical address on the map (the
@@ -278,13 +293,17 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
       [data.kind, data.name, data.contact_person, data.phone, data.email, data.province, data.district, data.address, data.base_label, data.base_lat, data.base_lng,
         data.registration_number, data.licence_number, data.preferred_coverage_km, await bcrypt.hash(password, 12)],
     );
-    saved = await storeDocuments(conn, r.insertId, req.files, docTypesOf(req.body));
-    for (const d of fleet.drivers) {
-      await conn.query("INSERT INTO transport_drivers (provider_id, name, phone, phone_key, licence_number) VALUES (?, ?, ?, ?, ?)", [r.insertId, d.name, d.phone, d.phone_key, d.licence_number]);
-    }
-    for (const v of fleet.vehicles) {
+    const addVehicle = async (v) => {
       const [vr] = await conn.query("INSERT INTO transport_vehicles (provider_id, registration, vehicle_type, size_class, capacity_note) VALUES (?, ?, ?, ?, ?)", [r.insertId, v.data.registration, v.data.vehicle_type, v.data.size_class, v.data.capacity_note]);
       for (const c of v.cargo) await conn.query("INSERT INTO transport_vehicle_cargo (vehicle_id, cargo_key, max_quantity) VALUES (?, ?, ?)", [vr.insertId, c.key, c.max]);
+      return vr.insertId;
+    };
+    saved = await storeDocuments(conn, r.insertId, fleet.ownDocs.map((x) => x.file), fleet.ownDocs.map((x) => x.type));
+    for (const v of fleet.vehicles) await addVehicle(v);
+    for (const d of fleet.drivers) {
+      const vehicleId = await addVehicle(d.vehicle);
+      const [dr] = await conn.query("INSERT INTO transport_drivers (provider_id, name, phone, phone_key, licence_number, vehicle_id) VALUES (?, ?, ?, ?, ?, ?)", [r.insertId, d.data.name, d.data.phone, d.data.phone_key, d.data.licence_number, vehicleId]);
+      saved.push(...(await storeDocuments(conn, r.insertId, d.docs.map((x) => x.file), d.docs.map((x) => x.type), dr.insertId)));
     }
     await conn.commit();
     await startSession(req, r.insertId);
@@ -300,7 +319,7 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
       subject: `New transport provider registration: ${data.name}`,
       heading: "A transport provider is waiting for approval",
       paragraphs: ["Please review their details and documents, then approve or reject them and set their coverage."],
-      rows: [["Name", data.name], ["Type", data.kind === "company" ? "Company" : "Individual"], ["Phone", data.phone], ["Email", data.email], ["Area", `${data.district}, ${data.province}`], ["Address", data.address], ["Preferred coverage", `${data.preferred_coverage_km} km`], ...(data.kind === "company" ? [["Drivers", String(fleet.drivers.length)]] : []), ["Vehicles", fleet.vehicles.map((v) => v.data.registration).join(", ")], ["Documents", req.files.map((f, i) => DOC_TYPES[docTypesOf(req.body)[i]] || "Other").join(", ")],
+      rows: [["Name", data.name], ["Type", data.kind === "company" ? "Company" : "Individual"], ["Phone", data.phone], ["Email", data.email], ["Area", `${data.district}, ${data.province}`], ["Address", data.address], ["Preferred coverage", `${data.preferred_coverage_km} km`], ...(data.kind === "company" ? [["Drivers", fleet.drivers.map((d) => `${d.data.name} (${d.vehicle.data.registration})`).join(", ")]] : [["Vehicle", fleet.vehicles.map((v) => v.data.registration).join(", ")]]), ["Documents", req.files.map((f, i) => DOC_TYPES[docTypesOf(req.body)[i]] || "Other").join(", ")],
         ["Operating location", data.base_lat === null || data.base_lat === undefined ? "Not found on the map: set it before approving" : data.base_label && data.base_label.startsWith("Approximate") ? "Approximate (the address wasn't found exactly): check it before approving" : "From the address"]],
       button: { label: "Review the provider", url: appUrl(`/admin/transport-providers?id=${r.insertId}`) },
     });
@@ -498,7 +517,10 @@ router.patch("/me/coverage", requireProvider, ownerOnly, async (req, res, next) 
 // ------------------------------------------------------------- documents
 router.get("/me/documents", requireProvider, ownerOnly, async (req, res, next) => {
   try {
-    const [rows] = await pool.query("SELECT id, doc_type, original_name, mime, size_bytes, created_at FROM transport_provider_documents WHERE provider_id = ? ORDER BY id", [req.provider.id]);
+    const [rows] = await pool.query(
+      "SELECT x.id, x.doc_type, x.original_name, x.mime, x.size_bytes, x.created_at, d.name AS driver_name FROM transport_provider_documents x LEFT JOIN transport_drivers d ON d.id = x.driver_id WHERE x.provider_id = ? ORDER BY x.driver_id IS NOT NULL, d.name, x.id",
+      [req.provider.id],
+    );
     res.json({ success: true, data: rows.map((d) => ({ ...d, type_label: DOC_TYPES[d.doc_type] || d.doc_type })), types: DOC_TYPES });
   } catch (error) {
     next(error);
@@ -541,7 +563,8 @@ router.get("/me/documents/:id", requireProvider, ownerOnly, async (req, res, nex
 // -------------------------------------------------------------- vehicles
 async function vehiclesOf(providerId, id = null) {
   const [vehicles] = await pool.query(
-    `SELECT v.*, (SELECT b.id FROM transport_bookings b WHERE b.vehicle_id = v.id AND b.status IN (?) LIMIT 1) AS busy_booking
+    `SELECT v.*, (SELECT b.id FROM transport_bookings b WHERE b.vehicle_id = v.id AND b.status IN (?) LIMIT 1) AS busy_booking,
+       (SELECT d.name FROM transport_drivers d WHERE d.vehicle_id = v.id LIMIT 1) AS driver_name
      FROM transport_vehicles v WHERE v.provider_id = ? ${id ? "AND v.id = ?" : ""} ORDER BY v.status, v.id`,
     [core.VEHICLE_BUSY, providerId, ...(id ? [id] : [])],
   );
@@ -558,6 +581,7 @@ async function vehiclesOf(providerId, id = null) {
     capacity_note: v.capacity_note,
     status: v.status,
     busy_booking: v.busy_booking ? { id: v.busy_booking, reference: core.bookingRef(v.busy_booking) } : null,
+    driver_name: v.driver_name || null,
     cargo: cargo.filter((c) => c.vehicle_id === v.id).map((c) => ({ key: c.cargo_key, max: Number(c.max_quantity) })),
     photos: files.filter((f) => f.vehicle_id === v.id && f.kind === "photo").map((f) => ({ id: f.id, image_path: f.image_path, thumb_path: f.thumb_path })),
     documents: files.filter((f) => f.vehicle_id === v.id && f.kind === "document").map((f) => ({ id: f.id, original_name: f.original_name, mime: f.mime, created_at: f.created_at })),
@@ -728,6 +752,15 @@ function companyOnly(req, res, next) {
   if (req.provider.kind === "company") return next();
   return res.status(403).json({ success: false, message: "Drivers are for transport companies." });
 }
+// One vehicle per driver, one driver per vehicle.
+async function vehicleForDriver(providerId, vehicleId, exceptDriverId = 0) {
+  if (!vehicleId) return { id: null };
+  const [[v]] = await pool.query("SELECT id FROM transport_vehicles WHERE id = ? AND provider_id = ?", [vehicleId, providerId]);
+  if (!v) return { error: "Please choose one of your vehicles." };
+  const [[other]] = await pool.query("SELECT name FROM transport_drivers WHERE vehicle_id = ? AND id <> ?", [vehicleId, exceptDriverId]);
+  if (other) return { error: `This vehicle is ${other.name}'s. Each driver has their own vehicle.` };
+  return { id: v.id };
+}
 async function ownDriver(providerId, id) {
   const d = await drivers.load(id);
   if (!d || Number(d.provider_id) !== Number(providerId)) throw notFound("Driver not found.");
@@ -746,8 +779,10 @@ router.get("/drivers", requireProvider, ownerOnly, companyOnly, async (req, res,
 router.post("/drivers", requireProvider, ownerOnly, companyOnly, async (req, res, next) => {
   try {
     const { errors, data } = await drivers.driverPayload(req.body);
+    const veh = await vehicleForDriver(req.provider.id, positiveInt(req.body.vehicle_id));
+    if (veh.error) errors.vehicle_id = veh.error;
     if (Object.keys(errors).length) throw validationError(errors);
-    const [r] = await pool.query("INSERT INTO transport_drivers (provider_id, name, phone, phone_key, licence_number) VALUES (?, ?, ?, ?, ?)", [req.provider.id, data.name, data.phone, data.phone_key, data.licence_number]);
+    const [r] = await pool.query("INSERT INTO transport_drivers (provider_id, name, phone, phone_key, licence_number, vehicle_id) VALUES (?, ?, ?, ?, ?, ?)", [req.provider.id, data.name, data.phone, data.phone_key, data.licence_number, veh.id]);
     const code = await drivers.setCode(r.insertId);
     res.status(201).json({ success: true, message: "Driver added.", data: (await drivers.listOf(req.provider.id, r.insertId))[0], code });
   } catch (error) {
@@ -760,12 +795,32 @@ router.put("/drivers/:id", requireProvider, ownerOnly, companyOnly, async (req, 
   try {
     const d = await ownDriver(req.provider.id, positiveInt(req.params.id));
     const { errors, data } = await drivers.driverPayload(req.body, { exceptId: d.id });
+    const veh = await vehicleForDriver(req.provider.id, positiveInt(req.body.vehicle_id), d.id);
+    if (veh.error) errors.vehicle_id = veh.error;
     if (Object.keys(errors).length) throw validationError(errors);
-    await pool.query("UPDATE transport_drivers SET name = ?, phone = ?, phone_key = ?, licence_number = ? WHERE id = ?", [data.name, data.phone, data.phone_key, data.licence_number, d.id]);
+    await pool.query("UPDATE transport_drivers SET name = ?, phone = ?, phone_key = ?, licence_number = ?, vehicle_id = ? WHERE id = ?", [data.name, data.phone, data.phone_key, data.licence_number, veh.id, d.id]);
     res.json({ success: true, message: "Driver saved.", data: (await drivers.listOf(req.provider.id, d.id))[0] });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") return next(validationError({ phone: "This phone number is already registered as a driver." }));
     next(error);
+  }
+});
+
+// The driver's papers (NRC, driver's licence, passport), added by the company.
+router.post("/drivers/:id/documents", requireProvider, ownerOnly, companyOnly, uploadDocuments, async (req, res, next) => {
+  const conn = await pool.getConnection();
+  try {
+    const d = await ownDriver(req.provider.id, positiveInt(req.params.id));
+    if (!(req.files || []).length) throw validationError({ documents: "Please choose a file." });
+    await conn.beginTransaction();
+    await storeDocuments(conn, req.provider.id, req.files, docTypesOf(req.body), d.id);
+    await conn.commit();
+    res.status(201).json({ success: true, message: "Uploaded. Frontier will review it.", data: (await drivers.listOf(req.provider.id, d.id))[0] });
+  } catch (error) {
+    await conn.rollback().catch(() => {});
+    next(error);
+  } finally {
+    conn.release();
   }
 });
 
@@ -872,17 +927,22 @@ async function forProvider(req) {
 router.get("/bookings/:id", requireProvider, async (req, res, next) => {
   try {
     const { b, offer } = await forProvider(req);
+    const mine = req.driver ? await drivers.load(req.driver.id) : null;
     const data = await views.detail(b, "provider", { offer: offer || null });
     data.can = offer
       ? { accept: offer.status === "offered" && bookings.ACCEPTABLE.includes(b.status) && req.provider.status === "approved" && req.provider.is_active, decline: offer.status === "offered" && bookings.ACCEPTABLE.includes(b.status) }
       : await providerActions(b);
     data.comments = { collection: bookings.COLLECTION_NOTES, delivery: bookings.DELIVERY_NOTES };
     // Which of their vehicles could take it.
-    if (data.can.accept) data.vehicles = await vehicleChoices(req.provider.id, b);
+    if (data.can.accept) {
+      data.vehicles = await vehicleChoices(req.provider.id, b);
+      // A company driver drives their own vehicle only.
+      if (mine) data.vehicles = data.vehicles.filter((v) => Number(v.id) === Number(mine.vehicle_id));
+    }
     // Companies: their drivers, to choose who does it (D: drivers).
     data.role = req.driver ? "driver" : "owner";
     if (!req.driver && req.provider.kind === "company") {
-      data.drivers = (await drivers.listOf(req.provider.id)).filter((x) => x.is_active).map((x) => ({ id: x.id, name: x.name, phone: x.phone, busy: Boolean(x.busy_booking && x.busy_booking.id !== b.id) }));
+      data.drivers = (await drivers.listOf(req.provider.id)).filter((x) => x.is_active).map((x) => ({ id: x.id, name: x.name, phone: x.phone, vehicle: x.vehicle, busy: Boolean(x.busy_booking && x.busy_booking.id !== b.id) }));
       data.can.assign_driver = !offer && !["completed", "cancelled", "refund_pending", "refunded"].includes(b.status);
     }
     res.json({ success: true, data });
@@ -919,10 +979,15 @@ router.post("/bookings/:id/accept", requireProvider, requireApproved, async (req
     const bookingId = positiveInt(req.params.id);
     // Who drives: the driver who accepts, or the one the company chooses.
     let driver = null;
-    if (req.driver) driver = req.driver;
-    else if (positiveInt(req.body.driver_id)) {
+    if (req.driver) {
+      const d = await drivers.load(req.driver.id);
+      if (!d.vehicle_id) throw new HttpError(409, "Your company hasn't given you a vehicle yet. Please ask them to.");
+      if (Number(d.vehicle_id) !== Number(vehicleId)) throw validationError({ vehicle_id: "Please use your own vehicle." });
+      driver = req.driver;
+    } else if (positiveInt(req.body.driver_id)) {
       const d = await ownDriver(req.provider.id, positiveInt(req.body.driver_id));
       if (!d.is_active) throw validationError({ driver_id: "This driver is switched off." });
+      if (d.vehicle_id && Number(d.vehicle_id) !== Number(vehicleId)) throw validationError({ driver_id: `${d.name} drives their own vehicle. Choose it, or another driver.` });
       driver = d;
     }
     await bookings.accept(req.provider.id, bookingId, vehicleId);
@@ -947,6 +1012,17 @@ router.patch("/bookings/:id/driver", requireProvider, ownerOnly, companyOnly, as
     if (positiveInt(req.body.driver_id)) {
       d = await ownDriver(req.provider.id, positiveInt(req.body.driver_id));
       if (!d.is_active) throw validationError({ driver_id: "This driver is switched off." });
+    }
+    // Each driver drives their own vehicle: a different driver means their
+    // vehicle goes, which is only possible before the goods are collected.
+    if (d && d.vehicle_id && Number(d.vehicle_id) !== Number(b.vehicle_id)) {
+      if (!["provider_accepted", "vehicle_selected", "awaiting_collection"].includes(b.status)) throw validationError({ driver_id: `The goods are already in ${b.vehicle_registration}. Only its driver can take this delivery now.` });
+      const choice = (await vehicleChoices(req.provider.id, b)).find((v) => Number(v.id) === Number(d.vehicle_id));
+      if (!choice || choice.busy) throw validationError({ driver_id: `${d.name}'s vehicle is on another delivery.` });
+      if (!choice.fits) throw validationError({ driver_id: `${d.name}'s vehicle ${choice.registration} can't take this delivery${choice.wrong_size ? " (not the size the buyer chose)" : ""}.` });
+      const [[v]] = await pool.query("SELECT registration, vehicle_type FROM transport_vehicles WHERE id = ?", [d.vehicle_id]);
+      await pool.query("UPDATE transport_bookings SET vehicle_id = ?, vehicle_registration = ?, vehicle_type = ? WHERE id = ?", [d.vehicle_id, v.registration, v.vehicle_type, b.id]);
+      await core.logEvent(pool, b.id, { event: "vehicle_selected", actor: "provider", actorName: req.who.name, detail: `Vehicle ${v.registration} (${v.vehicle_type}).` });
     }
     await setDriver(b.id, d, req.who);
     notifications.notifyProvider(req.provider.id, { type: "delivery", title: d ? `${core.bookingRef(b.id)} is with ${d.name}` : `${core.bookingRef(b.id)} has no driver`, link: `/transport/?booking=${b.id}` });

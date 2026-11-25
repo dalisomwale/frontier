@@ -467,6 +467,8 @@ const LATE_COLUMNS = [
   ["transport_providers", "preferred_coverage_km", "DECIMAL(7,1) NULL AFTER coverage_active"],
   ["transport_providers", "preferred_coverage_at", "DATETIME NULL AFTER preferred_coverage_km"],
   ["transport_bookings", "driver_id", "INT UNSIGNED NULL AFTER vehicle_id, ADD INDEX idx_tb_driver (driver_id, status)"],
+  ["transport_drivers", "vehicle_id", "INT UNSIGNED NULL AFTER licence_number, ADD UNIQUE KEY uq_td_vehicle (vehicle_id)"],
+  ["transport_provider_documents", "driver_id", "INT UNSIGNED NULL AFTER provider_id, ADD INDEX idx_tp_documents_driver (driver_id)"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");
