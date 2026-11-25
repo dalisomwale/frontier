@@ -15,66 +15,65 @@
     <script src="/js/seller.js"></script>
     <script src="/js/cart.js"></script>
     <script src="/js/buyer.js"></script>
+    <script src="/js/onboarding.js"></script>
   </head>
   <body class="bg-gray-50 min-h-screen">
     <div id="account-header"></div>
-    <header class="page-band">
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 class="page-band-title">Create your account</h1>
-        <span class="page-band-swoosh" aria-hidden="true"></span>
-        <p class="page-band-sub">Track your orders, check out faster and confirm when you've received your livestock.</p>
-      </div>
-    </header>
-
-    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+    <main class="max-w-md mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
-      <div class="acc-split">
-        <div class="acc-card">
-          <form id="register-form" class="space-y-4" novalidate>
-            <div id="checkout-note" class="alert alert-info text-sm mb-0" hidden>You need an account to check out. Your cart is kept.</div>
-            <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
+      <div class="ob-card">
+        <div class="ob-head">
+          <h1 class="ob-title">Create Your Account</h1>
+          <p class="ob-sub">Order, pay and track your deliveries.</p>
+        </div>
+        <form id="register-form" novalidate>
+          <div id="checkout-note" class="alert alert-info text-sm mb-4" hidden>Create an account to check out. Your cart is kept.</div>
+          <div id="form-alert" class="hidden alert text-sm mb-4" role="alert"></div>
+          <div data-ob-progress></div>
+
+          <section class="ob-step" data-title="Your Details">
             <div>
-              <label for="full_name" class="field-label">Full name <span class="text-red-500">*</span></label>
+              <label for="full_name" class="field-label">Full Name</label>
               <input id="full_name" name="full_name" class="field-input" autocomplete="name" maxlength="120" required />
               <p class="field-error hidden" data-error-for="full_name"></p>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label for="email" class="field-label">Email <span class="text-red-500">*</span></label>
-                <input id="email" name="email" type="email" class="field-input" autocomplete="email" required />
-                <p class="field-error hidden" data-error-for="email"></p>
-              </div>
-              <div>
-                <label for="phone" class="field-label">Phone number <span class="text-red-500">*</span></label>
-                <input id="phone" name="phone" type="tel" class="field-input" autocomplete="tel" placeholder="0977 123 456" required />
-                <p class="field-error hidden" data-error-for="phone"></p>
-              </div>
+            <div>
+              <label for="phone" class="field-label">Phone Number</label>
+              <input id="phone" name="phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" placeholder="0977 123 456" required />
+              <p class="field-error hidden" data-error-for="phone"></p>
             </div>
-          <div>
-            <label for="password" class="field-label">Password <span class="text-red-500">*</span></label>
-            <div class="relative">
-              <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
-              <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+          </section>
+
+          <section class="ob-step" data-title="Sign-In Details" hidden>
+            <div>
+              <label for="email" class="field-label">Email</label>
+              <input id="email" name="email" type="email" class="field-input" autocomplete="email" inputmode="email" required />
+              <p class="text-xs text-gray-500 mt-1">Ordered before? Use the same email to see those orders.</p>
+              <p class="field-error hidden" data-error-for="email"></p>
             </div>
-            <p class="field-error hidden" data-error-for="password"></p>
-          </div>
+            <div>
+              <label for="password" class="field-label">Password</label>
+              <div class="relative">
+                <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
+                <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+              </div>
+              <p class="field-error hidden" data-error-for="password"></p>
+            </div>
             <label class="co-terms-box">
               <input type="checkbox" name="accept_terms" />
-              <span>I have read and accept the <a href="/terms" target="_blank" class="acc-link">Terms</a>, <a href="/refund-policy" target="_blank" class="acc-link">Refund</a>, <a href="/return-policy" target="_blank" class="acc-link">Return</a> and <a href="/cancellation-policy" target="_blank" class="acc-link">Cancellation</a> policies.</span>
+              <span>I accept the <a href="/terms" target="_blank" class="acc-link">Terms</a> and the <a href="/refund-policy" target="_blank" class="acc-link">Refund</a>, <a href="/return-policy" target="_blank" class="acc-link">Return</a> and <a href="/cancellation-policy" target="_blank" class="acc-link">Cancellation</a> policies.</span>
             </label>
-            <p class="field-error hidden -mt-2" data-error-for="accept_terms"></p>
-            <button id="submit-btn" type="submit" class="acc-btn">Create account</button>
-            <p class="text-sm text-gray-600 text-center">Already have an account? <a id="login-link2" href="/account/login" class="acc-link font-semibold">Log in</a></p>
-          </form>
-        </div>
-        <aside class="acc-why">
-          <p class="acc-why-title">With an account you can</p>
-          <div class="acc-why-item"><span data-icon="cart"></span><div><b>See all your orders</b><p>Payment, collection and delivery in one place.</p></div></div>
-          <div class="acc-why-item"><span data-icon="camera"></span><div><b>Confirm what you've received</b><p>Add a few photos when you collect or receive your animals.</p></div></div>
-          <div class="acc-why-item"><span data-icon="check"></span><div><b>Check out faster</b><p>Your details are filled in for you.</p></div></div>
-          <p class="acc-why-note">Ordered before? Use the same email. Once you confirm it, your past orders appear in your account.</p>
-          <p class="acc-why-note">Selling livestock? <a href="/seller/register" class="acc-link">Register as a seller</a></p>
-        </aside>
+            <p class="field-error hidden" data-error-for="accept_terms"></p>
+          </section>
+
+          <div class="ob-nav">
+            <button type="button" class="ob-btn ob-btn-back" data-ob-back>Back</button>
+            <button type="button" class="ob-btn" data-ob-next>Continue</button>
+            <button id="submit-btn" type="submit" class="ob-btn" data-ob-submit hidden>Create Account</button>
+          </div>
+        </form>
+        <p class="ob-foot">Already have an account? <a id="login-link2" href="/account/login">Log In</a></p>
+        <p class="ob-foot !mt-2">Selling livestock or feed? <a href="/seller/register">Register as a Seller</a></p>
       </div>
     </main>
     <footer id="site-footer"></footer>
@@ -87,14 +86,31 @@
       bindPasswordToggles();
       const alertBox = document.getElementById("form-alert");
       const showAlert = (message, kind = "error") => {
-        alertBox.className = `alert alert-${kind} text-sm mb-0`;
+        alertBox.className = `alert alert-${kind} text-sm mb-4`;
         alertBox.textContent = message;
       };
       const form = document.getElementById("register-form");
       const next = buyerNext();
       if (next.startsWith("/checkout")) document.getElementById("checkout-note").hidden = false;
       document.getElementById("login-link2").href = `/account/login${location.search}`;
-      bindPasswordMeter(form.password, () => ({ email: form.email.value, phone: form.phone.value }));
+      const meter = bindPasswordMeter(form.password, () => ({ email: form.email.value, phone: form.phone.value }));
+      const steps = obSteps(form, {
+        check(i) {
+          const e = {};
+          if (i === 0) {
+            if (form.full_name.value.trim().length < 2) e.full_name = "Please enter your full name.";
+            if (!obPhoneOk(form.phone.value)) e.phone = "Please enter your phone number, e.g. 0977 123 456.";
+          }
+          if (i === 1) {
+            if (!OB_EMAIL.test(form.email.value.trim())) e.email = "Please enter a valid email address.";
+            if (meter && meter.problem()) e.password = meter.problem();
+            else if (!form.password.value) e.password = "Please choose a password.";
+            if (!form.accept_terms.checked) e.accept_terms = "Please accept the terms to continue.";
+          }
+          return e;
+        },
+        onStep: () => alertBox.classList.add("hidden"),
+      });
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const body = {
@@ -110,9 +126,9 @@
           setBuyerHint(true);
           window.location.href = next === "/account/" ? "/account/?welcome=1" : next;
         } catch (error) {
-          showFieldErrors(form, error);
-          showAlert(error.message);
-          alertBox.scrollIntoView({ block: "nearest" });
+          const errs = error.errors || {};
+          steps.showErrors(errs);
+          if (!Object.keys(errs).some((k) => form.querySelector(`[data-error-for="${k}"]`))) showAlert(error.message);
         }
       });
     </script>

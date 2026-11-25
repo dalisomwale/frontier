@@ -16,65 +16,66 @@
     <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
     <script src="/js/zambia-districts.js"></script>
     <script src="/js/transport-ui.js"></script>
+    <script src="/js/onboarding.js"></script>
   </head>
   <body class="bg-gray-50 min-h-screen">
     <div id="seller-header"></div>
 
     <main class="max-w-lg mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
-      <div class="bg-white rounded-2xl border border-gray-100 p-5 sm:p-8">
-        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Sell on Frontier</h1>
+      <div class="ob-card ob-blue">
+        <div class="ob-head">
+          <h1 class="ob-title">Sell on Frontier</h1>
+          <p class="ob-sub">List your livestock and feed in three quick steps.</p>
+        </div>
+        <form id="register-form" novalidate>
+          <div id="form-alert" class="hidden alert alert-error text-sm mb-4" role="alert"></div>
+          <div data-ob-progress></div>
 
-        <form id="register-form" class="space-y-4 mt-6" novalidate>
-          <div id="form-alert" class="hidden alert alert-error text-sm mb-0" role="alert"></div>
-          <div>
-            <label for="name" class="field-label">Full name</label>
-            <input id="name" name="name" type="text" class="field-input" autocomplete="name" required maxlength="120" />
-            
-            <p class="field-error hidden" data-error-for="name"></p>
-          </div>
-          <div>
-            <label for="business_name" class="field-label">Farm or business name <span class="text-gray-400 font-normal">(optional)</span></label>
-            <input id="business_name" name="business_name" type="text" class="field-input" autocomplete="organization"  maxlength="150" />
-            
-            <p class="field-error hidden" data-error-for="business_name"></p>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label for="phone" class="field-label">WhatsApp Number</label>
-            <input id="phone" name="phone" type="tel" class="field-input" autocomplete="tel" required maxlength="30" placeholder="0977 123 456" />
-            
-            <p class="field-error hidden" data-error-for="phone"></p>
-          </div>
-          <div>
-            <label for="email" class="field-label">Email</label>
-            <input id="email" name="email" type="email" class="field-input" autocomplete="email" required maxlength="255" />
-            
-            <p class="field-error hidden" data-error-for="email"></p>
-          </div>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <section class="ob-step" data-title="About You">
             <div>
-              <label for="province" class="field-label">Province</label>
-              <select id="province" name="province" class="field-input" required></select>
-              <p class="field-error hidden" data-error-for="province"></p>
+              <label for="name" class="field-label">Full Name</label>
+              <input id="name" name="name" type="text" class="field-input" autocomplete="name" required maxlength="120" />
+              <p class="field-error hidden" data-error-for="name"></p>
             </div>
-          <div>
-            <label for="address" class="field-label">Town / farm location <span class="text-gray-400 font-normal">(optional)</span></label>
-            <input id="address" name="address" type="text" class="field-input" autocomplete="address-level2"  maxlength="255" />
-            
-            <p class="field-error hidden" data-error-for="address"></p>
-          </div>
-          </div>
-          <section class="reg-pickup">
-            <div class="flex items-start justify-between gap-3">
+            <div>
+              <label for="business_name" class="field-label">Farm or Business Name <span class="ob-opt">(optional)</span></label>
+              <input id="business_name" name="business_name" type="text" class="field-input" autocomplete="organization" maxlength="150" />
+              <p class="field-error hidden" data-error-for="business_name"></p>
+            </div>
+            <div>
+              <label for="phone" class="field-label">WhatsApp Number</label>
+              <input id="phone" name="phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" required maxlength="30" placeholder="0977 123 456" />
+              <p class="field-error hidden" data-error-for="phone"></p>
+            </div>
+            <div>
+              <label for="email" class="field-label">Email</label>
+              <input id="email" name="email" type="email" class="field-input" autocomplete="email" inputmode="email" required maxlength="255" />
+              <p class="field-error hidden" data-error-for="email"></p>
+            </div>
+          </section>
+
+          <section class="ob-step" data-title="Your Farm" hidden>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <p class="field-label !mb-0">Pickup point for transport <span class="text-gray-400 font-normal">(optional)</span></p>
-                <p class="text-xs text-gray-500 mt-0.5">Where transport providers collect your livestock or feed. Buyers can choose transport once it's set. You can also add it later in your profile.</p>
+                <label for="province" class="field-label">Province</label>
+                <select id="province" name="province" class="field-input" required></select>
+                <p class="field-error hidden" data-error-for="province"></p>
               </div>
-              <button type="button" id="pickup-toggle" class="reg-pickup-btn" aria-expanded="false" aria-controls="pickup-fields">Add now</button>
+              <div>
+                <label for="address" class="field-label">Town or Farm Area <span class="ob-opt">(optional)</span></label>
+                <input id="address" name="address" type="text" class="field-input" autocomplete="address-level2" maxlength="255" />
+                <p class="field-error hidden" data-error-for="address"></p>
+              </div>
             </div>
-            <div id="pickup-fields" class="space-y-3 mt-3" hidden>
+            <div>
+              <p class="field-label">Pickup Point for Transport</p>
+              <div class="ob-choice" role="radiogroup" aria-label="Pickup point">
+                <label><input type="radio" name="pickup_now" value="1"><span>Add It Now<small>Buyers can order transport</small></span></label>
+                <label><input type="radio" name="pickup_now" value="0" checked><span>Later<small>Add it in your profile</small></span></label>
+              </div>
+            </div>
+            <div id="pickup-fields" class="space-y-4" hidden>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label for="pickup_district" class="field-label">District</label>
@@ -82,33 +83,41 @@
                   <p class="field-error hidden" data-error-for="pickup_district"></p>
                 </div>
                 <div>
-                  <label for="pickup_address" class="field-label">Address or directions</label>
-                  <input id="pickup_address" name="pickup_address" class="field-input" maxlength="255" placeholder="e.g. Farm 9, 2 km off Great North Rd" />
+                  <label for="pickup_address" class="field-label">Address or Directions</label>
+                  <input id="pickup_address" name="pickup_address" class="field-input" maxlength="255" placeholder="e.g. Plot 9, off Great North Rd" />
                   <p class="field-error hidden" data-error-for="pickup_address"></p>
                 </div>
               </div>
               <div>
-                <p class="field-label">The exact pickup point</p>
                 <div id="pickup-map"></div>
                 <p class="field-error hidden" data-error-for="pickup_point"></p>
               </div>
             </div>
           </section>
-          <div>
-            <label for="password" class="field-label">Password</label>
-            <div class="relative">
-              <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
-              <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+
+          <section class="ob-step" data-title="Password" hidden>
+            <div>
+              <label for="password" class="field-label">Password</label>
+              <div class="relative">
+                <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
+                <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+              </div>
+              <p class="field-error hidden" data-error-for="password"></p>
             </div>
-            <p class="field-error hidden" data-error-for="password"></p>
+            <label class="co-terms-box">
+              <input id="agree" name="agree" type="checkbox" />
+              <span>I accept the <a href="/terms" target="_blank" class="text-blue-700 hover:underline">Terms</a> and <a href="/privacy" target="_blank" class="text-blue-700 hover:underline">Privacy Policy</a>.</span>
+            </label>
+            <p class="field-error hidden" data-error-for="agree"></p>
+          </section>
+
+          <div class="ob-nav">
+            <button type="button" class="ob-btn ob-btn-back" data-ob-back>Back</button>
+            <button type="button" class="ob-btn" data-ob-next>Continue</button>
+            <button id="submit-btn" type="submit" class="ob-btn" data-ob-submit hidden>Create Account</button>
           </div>
-          <label class="flex items-start gap-2 text-sm text-gray-600">
-            <input id="agree" type="checkbox" class="mt-1" required />
-            <span>I accept the <a href="/terms" target="_blank" class="text-blue-700 hover:underline">terms</a> and <a href="/privacy" target="_blank" class="text-blue-700 hover:underline">privacy policy</a></span>
-          </label>
-          <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Create account</button>
         </form>
-        <p class="text-sm text-gray-600 text-center mt-6">Already have an account? <a href="/seller/login" class="text-blue-700 font-medium hover:underline">Sign in</a></p>
+        <p class="ob-foot">Already have an account? <a href="/seller/login">Sign In</a></p>
       </div>
     </main>
 
@@ -119,59 +128,76 @@
       const form = document.getElementById("register-form");
       const meter = bindPasswordMeter(form.elements.password, () => ({ email: form.elements.email.value, phone: form.elements.phone.value }));
       const alertBox = document.getElementById("form-alert");
-      form.province.innerHTML = `<option value="">Select province</option>` + ZAMBIA_PROVINCES.map((p) => `<option>${p}</option>`).join("");
+      form.province.innerHTML = `<option value="">Choose…</option>` + ZAMBIA_PROVINCES.map((p) => `<option>${p}</option>`).join("");
 
       sellerApi("/api/seller/auth/me").then(() => (window.location.href = "/seller/")).catch(() => {});
 
-      // Optional pickup point: the map only loads when the seller opens it.
+      // The pickup point: the map only loads when the seller chooses to add it now.
       let pickupPicker = null;
       const pickupBox = document.getElementById("pickup-fields");
-      const pickupToggle = document.getElementById("pickup-toggle");
-      pickupToggle.addEventListener("click", async () => {
-        const open = pickupBox.hidden;
-        pickupBox.hidden = !open;
-        pickupToggle.textContent = open ? "Not now" : "Add now";
-        pickupToggle.setAttribute("aria-expanded", String(open));
-        if (open && !pickupPicker) {
+      const pickupNow = () => form.querySelector('input[name="pickup_now"]:checked').value === "1";
+      form.querySelectorAll('input[name="pickup_now"]').forEach((r) => r.addEventListener("change", async () => {
+        pickupBox.hidden = !pickupNow();
+        showFieldErrors(form, {});
+        if (pickupNow() && !pickupPicker) {
           trPlaceFields({ province: form.province, district: form.pickup_district, address: form.pickup_address, picker: () => pickupPicker });
-          pickupPicker = await trPointPicker(document.getElementById("pickup-map"), { kind: "pickup", label: "Pickup point" });
+          pickupPicker = await trPointPicker(document.getElementById("pickup-map"), { kind: "pickup", label: "Pickup point", onChange: () => steps.clear("pickup_point") });
         }
-        if (!open) {
-          form.pickup_district.value = "";
-          form.pickup_address.value = "";
-          if (pickupPicker && pickupPicker.clear) pickupPicker.clear();
-        }
+        if (pickupNow() && pickupPicker && pickupPicker.map) setTimeout(() => pickupPicker.map.invalidateSize(), 50);
+      }));
+
+      const steps = obSteps(form, {
+        check(i) {
+          const e = {};
+          if (i === 0) {
+            if (form.name.value.trim().length < 2) e.name = "Please enter your full name.";
+            if (!obPhoneOk(form.phone.value)) e.phone = "Please enter your WhatsApp number, e.g. 0977 123 456.";
+            if (!OB_EMAIL.test(form.email.value.trim())) e.email = "Please enter a valid email address.";
+          }
+          if (i === 1) {
+            if (!form.province.value) e.province = "Please choose your province.";
+            if (pickupNow()) {
+              if (form.pickup_district.value.trim().length < 2) e.pickup_district = "Please choose the district.";
+              if (form.pickup_address.value.trim().length < 3) e.pickup_address = "Please enter the address or directions.";
+              if (!(pickupPicker && pickupPicker.get())) e.pickup_point = "Please mark the pickup point on the map.";
+            }
+          }
+          if (i === 2) {
+            if (meter && meter.problem()) e.password = meter.problem();
+            else if (!form.password.value) e.password = "Please choose a password.";
+            if (!form.agree.checked) e.agree = "Please accept the Terms and Privacy Policy.";
+          }
+          return e;
+        },
+        onStep: (i) => {
+          alertBox.classList.add("hidden");
+          if (i === 1 && pickupPicker && pickupPicker.map) setTimeout(() => pickupPicker.map.invalidateSize(), 50);
+        },
       });
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         alertBox.classList.add("hidden");
         const v = Object.fromEntries(new FormData(form).entries());
-        // The pickup point goes with the form only when it was opened.
-        const pin = !pickupBox.hidden && pickupPicker ? pickupPicker.get() : null;
-        if (pickupBox.hidden) { delete v.pickup_district; delete v.pickup_address; }
-        else Object.assign(v, { pickup_lat: pin ? pin.lat : "", pickup_lng: pin ? pin.lng : "" });
-        const errors = {};
-        if (!v.name.trim()) errors.name = "Your name is required.";
-        if (!v.phone.trim()) errors.phone = "WhatsApp number is required.";
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email.trim())) errors.email = "Please enter a valid email address.";
-        if (!v.province) errors.province = "Please choose your province.";
-        if (meter.problem()) errors.password = meter.problem();
-        if (Object.keys(errors).length) return showFieldErrors(form, { errors });
-        if (!document.getElementById("agree").checked) {
-          alertBox.textContent = "Please agree to the Terms of Service and Privacy Policy.";
-          return alertBox.classList.remove("hidden");
-        }
-        showFieldErrors(form, {});
+        delete v.pickup_now;
+        delete v.agree;
+        // The pickup point goes with the form only when the seller chose to add it now.
+        if (pickupNow()) {
+          const pin = pickupPicker ? pickupPicker.get() : null;
+          Object.assign(v, { pickup_lat: pin ? pin.lat : "", pickup_lng: pin ? pin.lng : "" });
+        } else { delete v.pickup_district; delete v.pickup_address; }
         try {
           await withBusy(document.getElementById("submit-btn"), "Creating account…", () =>
             sellerApi("/api/seller/auth/register", { method: "POST", body: v }));
           setSellerHint(true);
           window.location.href = "/seller/?welcome=1";
         } catch (error) {
-          showFieldErrors(form, error);
-          alertBox.textContent = error.message;
-          alertBox.classList.remove("hidden");
+          const errs = error.errors || {};
+          steps.showErrors(errs);
+          if (!Object.keys(errs).some((k) => form.querySelector(`[data-error-for="${k}"]`))) {
+            alertBox.textContent = error.message;
+            alertBox.classList.remove("hidden");
+          }
         }
       });
     </script>

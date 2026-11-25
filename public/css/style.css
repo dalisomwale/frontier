@@ -7409,3 +7409,49 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .tr-picker-near { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #374151; min-width: 0; }
 .tr-picker-near svg { width: 15px; height: 15px; flex: none; color: #c2410c; }
 .tr-picker-near b { font-weight: 600; color: #111827; }
+
+/* Sign-up in steps (customer, seller, transport provider). */
+.ob-card { background: #fff; border: 1px solid #eef0f2; border-radius: 18px; padding: 22px 18px; box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
+@media (min-width: 640px) { .ob-card { padding: 30px 32px; } }
+.ob-head { text-align: center; margin-bottom: 18px; }
+.ob-title { font-size: 22px; font-weight: 800; color: #111827; line-height: 1.2; }
+.ob-sub { margin-top: 4px; font-size: 14px; color: #6b7280; }
+.ob-progress { display: flex; align-items: flex-start; list-style: none; margin: 0 0 6px; padding: 0; }
+.ob-progress li { flex: 1; position: relative; text-align: center; }
+.ob-progress li + li::before { content: ""; position: absolute; top: 15px; right: 50%; width: 100%; height: 2px; background: #e5e7eb; z-index: 0; }
+.ob-progress li.is-done + li::before, .ob-progress li.is-done + li.is-now::before { background: var(--ob, #166534); }
+.ob-progress button { position: relative; z-index: 1; display: inline-flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: 0; padding: 0; cursor: default; }
+.ob-progress li.is-done button { cursor: pointer; }
+.ob-dot { width: 32px; height: 32px; border-radius: 9999px; display: grid; place-items: center; font-size: 14px; font-weight: 700; background: #fff; color: #9ca3af; border: 2px solid #e5e7eb; transition: all .2s; }
+.ob-progress li.is-now .ob-dot { border-color: var(--ob, #166534); color: var(--ob, #166534); box-shadow: 0 0 0 4px var(--ob-soft, #dcfce7); }
+.ob-progress li.is-done .ob-dot { background: var(--ob, #166534); border-color: var(--ob, #166534); color: #fff; }
+.ob-name { font-size: 12px; font-weight: 600; color: #9ca3af; max-width: 96px; line-height: 1.25; }
+.ob-progress li.is-now .ob-name, .ob-progress li.is-done .ob-name { color: #374151; }
+.ob-count { display: none; text-align: center; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+@media (max-width: 479px) { .ob-name { display: none; } .ob-count { display: block; } }
+.ob-step { padding-top: 18px; }
+.ob-step[hidden], .ob-nav [hidden] { display: none !important; }
+.ob-step > * + * { margin-top: 16px; }
+.ob-step-lead { font-size: 15px; font-weight: 700; color: #111827; }
+.ob-nav { display: flex; gap: 10px; margin-top: 24px; }
+.ob-nav > * { flex: 1; }
+.ob-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 18px; border-radius: 12px; font-weight: 700; font-size: 15px; background: var(--ob, #166534); color: #fff; transition: filter .15s; }
+.ob-btn:hover { filter: brightness(.93); }
+.ob-btn:disabled { opacity: .7; cursor: wait; }
+.ob-btn-back { flex: 0 0 auto; background: #fff; color: #374151; border: 1px solid #d1d5db; }
+.ob-btn-back:hover { background: #f9fafb; filter: none; }
+.ob-foot { margin-top: 18px; text-align: center; font-size: 14px; color: #4b5563; }
+.ob-foot a { color: var(--ob, #166534); font-weight: 600; }
+.ob-foot a:hover { text-decoration: underline; }
+.ob-blue { --ob: #2563eb; --ob-soft: #dbeafe; }
+.ob-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ob-choice label { display: block; cursor: pointer; }
+.ob-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.ob-choice span { display: flex; flex-direction: column; gap: 2px; height: 100%; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 12px; font-weight: 700; color: #111827; font-size: 14px; }
+.ob-choice small { font-weight: 500; color: #6b7280; font-size: 12.5px; }
+.ob-choice input:checked + span { border-color: var(--ob, #166534); background: var(--ob-soft, #f0fdf4); }
+.ob-choice input:focus-visible + span { outline: 2px solid var(--ob, #166534); outline-offset: 2px; }
+.ob-skip { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px dashed #d1d5db; border-radius: 12px; }
+.ob-skip b { font-size: 14px; color: #111827; }
+.ob-skip small { display: block; font-size: 12.5px; color: #6b7280; font-weight: 500; }
+.ob-opt { color: #9ca3af; font-weight: 400; }

@@ -15,117 +15,125 @@
     <script src="/js/zambia-districts.js"></script>
     <script src="/js/transport-ui.js"></script>
     <script src="/js/transport.js"></script>
+    <script src="/js/onboarding.js"></script>
   </head>
   <body class="bg-gray-50 min-h-screen">
     <div id="page-header"></div>
 
-    <main class="max-w-2xl mx-auto px-4 py-8 sm:py-12">
+    <main class="max-w-lg mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
-      <div class="bg-white rounded-2xl border border-gray-100 p-5 sm:p-8">
-        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transport for Frontier Marketplace</h1>
-        <p class="text-sm text-gray-600 mt-2">Register to carry livestock and feed for Frontier's buyers. Frontier reviews your details and papers, approves your account and sets the area you cover. You receive paid delivery requests in that area, and the price of each delivery is set by Frontier.</p>
+      <div class="ob-card ob-blue">
+        <div class="ob-head">
+          <h1 class="ob-title">Drive for Frontier</h1>
+          <p class="ob-sub">Carry livestock and feed for Frontier's buyers.</p>
+        </div>
+        <form id="register-form" novalidate>
+          <div id="form-alert" class="hidden alert alert-error text-sm mb-4" role="alert"></div>
+          <div data-ob-progress></div>
 
-        <form id="register-form" class="space-y-5 mt-6" novalidate>
-          <div id="form-alert" class="hidden alert alert-error text-sm mb-0" role="alert"></div>
-
-          <div>
-            <p class="field-label">You are registering as</p>
-            <div class="tp-choice sm:grid-cols-2" style="display:grid">
-              <label><input type="radio" name="kind" value="individual" checked><span>An individual (owner-driver)</span></label>
-              <label><input type="radio" name="kind" value="company"><span>A company</span></label>
+          <section class="ob-step" data-title="About You">
+            <div class="ob-choice" role="radiogroup" aria-label="You are registering as">
+              <label><input type="radio" name="kind" value="individual" checked><span>Individual<small>Owner-driver</small></span></label>
+              <label><input type="radio" name="kind" value="company"><span>Company<small>With drivers</small></span></label>
             </div>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label for="name" class="field-label" data-name-label>Full name</label>
+              <label for="name" class="field-label" data-name-label>Full Name</label>
               <input id="name" name="name" class="field-input" maxlength="150" autocomplete="name" required />
               <p class="field-error hidden" data-error-for="name"></p>
             </div>
-            <div>
-              <label for="phone" class="field-label">Phone / WhatsApp</label>
-              <input id="phone" name="phone" type="tel" class="field-input" maxlength="30" autocomplete="tel" placeholder="0977 123 456" required />
-              <p class="field-error hidden" data-error-for="phone"></p>
-            </div>
-            <div class="sm:col-span-2" data-company-only hidden>
-              <label for="contact_person" class="field-label">Contact person</label>
+            <div data-company-only hidden>
+              <label for="contact_person" class="field-label">Contact Person</label>
               <input id="contact_person" name="contact_person" class="field-input" maxlength="120" />
               <p class="field-error hidden" data-error-for="contact_person"></p>
             </div>
             <div>
-              <label for="email" class="field-label">Email</label>
-              <input id="email" name="email" type="email" class="field-input" maxlength="255" autocomplete="email" required />
-              <p class="field-error hidden" data-error-for="email"></p>
+              <label for="phone" class="field-label">Phone / WhatsApp</label>
+              <input id="phone" name="phone" type="tel" class="field-input" maxlength="30" autocomplete="tel" inputmode="tel" placeholder="0977 123 456" required />
+              <p class="field-error hidden" data-error-for="phone"></p>
             </div>
             <div>
-              <label for="province" class="field-label">Province</label>
-              <select id="province" name="province" class="field-input" required></select>
-              <p class="field-error hidden" data-error-for="province"></p>
+              <label for="email" class="field-label">Email</label>
+              <input id="email" name="email" type="email" class="field-input" maxlength="255" autocomplete="email" inputmode="email" required />
+              <p class="field-error hidden" data-error-for="email"></p>
             </div>
-            <div class="sm:col-span-2 tp-place-row">
+          </section>
+
+          <section class="ob-step" data-title="Where You Work" hidden>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label for="province" class="field-label">Province</label>
+                <select id="province" name="province" class="field-input" required></select>
+                <p class="field-error hidden" data-error-for="province"></p>
+              </div>
               <div>
                 <label for="district" class="field-label">District</label>
                 <input id="district" name="district" class="field-input" maxlength="80" required />
                 <p class="field-error hidden" data-error-for="district"></p>
               </div>
-              <div>
-                <label for="address" class="field-label">Physical address</label>
-                <input id="address" name="address" class="field-input" maxlength="255" placeholder="Start typing for suggestions" required />
-                <p class="field-error hidden" data-error-for="address"></p>
-              </div>
             </div>
-            <div class="sm:col-span-2">
-              <label for="preferred_coverage_km" class="field-label">Preferred coverage radius</label>
-              <div class="tr-km-row"><input id="preferred_coverage_km" name="preferred_coverage_km" type="number" min="5" max="1000" step="1" inputmode="numeric" class="field-input" placeholder="e.g. 100" required /><span>km by road from your address</span></div>
-              <p class="text-xs text-gray-500 mt-1">How far you're willing to travel to collect and deliver. Frontier confirms it when approving your account.</p>
+            <div>
+              <label for="address" class="field-label">Physical Address</label>
+              <input id="address" name="address" class="field-input" maxlength="255" placeholder="Start typing for suggestions" required />
+              <p class="field-error hidden" data-error-for="address"></p>
+            </div>
+            <div>
+              <label for="preferred_coverage_km" class="field-label">How Far You'll Travel</label>
+              <div class="tr-km-row"><input id="preferred_coverage_km" name="preferred_coverage_km" type="number" min="5" max="1000" step="1" inputmode="numeric" class="field-input" placeholder="e.g. 100" required /><span>km by road</span></div>
               <p class="field-error hidden" data-error-for="preferred_coverage_km"></p>
             </div>
-          </div>
+          </section>
 
-          <div>
-            <p class="field-label">Documents <span class="text-gray-400 font-normal">(PDF or photo, up to 12 MB each)</span></p>
+          <section class="ob-step" data-title="Documents" hidden>
+            <p class="text-sm text-gray-600">A PDF or a clear photo of each, up to 12 MB.</p>
             <div class="tr-doc-slots">
               <div class="tr-doc-slot" data-slot="nrc">
-                <span><b>NRC</b> <span class="text-red-500">*</span><small data-file>No file chosen</small></span>
+                <span><b>NRC</b><small data-file>No file chosen</small></span>
                 <button type="button" class="tr-doc-btn" data-pick><span data-icon="upload"></span></button>
                 <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" hidden />
               </div>
               <div class="tr-doc-slot" data-slot="drivers_licence">
-                <span><b>Driver's licence</b> <span class="text-red-500">*</span><small data-file>No file chosen</small></span>
+                <span><b>Driver's Licence</b><small data-file>No file chosen</small></span>
                 <button type="button" class="tr-doc-btn" data-pick><span data-icon="upload"></span></button>
                 <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" hidden />
               </div>
               <div class="tr-doc-slot" data-slot="passport">
-                <span><b>Passport</b> <span class="text-gray-400 font-normal">(if any)</span><small data-file>No file chosen</small></span>
+                <span><b>Passport</b> <span class="ob-opt">(optional)</span><small data-file>No file chosen</small></span>
                 <button type="button" class="tr-doc-btn" data-pick><span data-icon="upload"></span></button>
                 <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" hidden />
               </div>
             </div>
             <p class="field-error hidden" data-error-for="documents"></p>
-          </div>
+          </section>
 
-          <div>
-            <label for="password" class="field-label">Password</label>
-            <div class="relative">
-              <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
-              <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400" aria-label="Show password"></button>
+          <section class="ob-step" data-title="Password" hidden>
+            <div>
+              <label for="password" class="field-label">Password</label>
+              <div class="relative">
+                <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
+                <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400" aria-label="Show password"></button>
+              </div>
+              <p class="field-error hidden" data-error-for="password"></p>
             </div>
-            <p class="field-error hidden" data-error-for="password"></p>
-          </div>
-          <div>
-            <label for="confirm_password" class="field-label">Confirm password</label>
-            <div class="relative">
-              <input id="confirm_password" name="confirm_password" type="password" class="field-input pr-12" autocomplete="new-password" required />
-              <button type="button" data-toggle-password="confirm_password" class="absolute inset-y-0 right-0 px-3 text-gray-400" aria-label="Show password"></button>
+            <div>
+              <label for="confirm_password" class="field-label">Confirm Password</label>
+              <div class="relative">
+                <input id="confirm_password" name="confirm_password" type="password" class="field-input pr-12" autocomplete="new-password" required />
+                <button type="button" data-toggle-password="confirm_password" class="absolute inset-y-0 right-0 px-3 text-gray-400" aria-label="Show password"></button>
+              </div>
+              <p class="field-error hidden" data-error-for="confirm_password"></p>
             </div>
-            <p class="field-error hidden" data-error-for="confirm_password"></p>
+            <label class="co-terms-box"><input type="checkbox" name="accept_terms" value="1"><span>I accept the <a href="/terms" target="_blank" rel="noopener">Terms</a> and confirm my details and documents are true.</span></label>
+            <p class="field-error hidden" data-error-for="accept_terms"></p>
+            <p class="text-xs text-gray-500">Frontier checks your documents, then approves your account.</p>
+          </section>
+
+          <div class="ob-nav">
+            <button type="button" class="ob-btn ob-btn-back" data-ob-back>Back</button>
+            <button type="button" class="ob-btn" data-ob-next>Continue</button>
+            <button id="submit-btn" type="submit" class="ob-btn" data-ob-submit hidden>Register</button>
           </div>
-
-          <label class="co-terms-box"><input type="checkbox" name="accept_terms" value="1"><span>I accept the <a href="/terms" target="_blank" rel="noopener">terms</a>, and confirm the details and documents are true.</span></label>
-          <p class="field-error hidden" data-error-for="accept_terms"></p>
-
-          <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Register</button>
         </form>
-        <p class="text-sm text-gray-600 text-center mt-6">Already have an account? <a href="/transport/login" class="text-blue-700 font-medium hover:underline">Sign in</a></p>
+        <p class="ob-foot">Already have an account? <a href="/transport/login">Sign In</a></p>
       </div>
     </main>
 
@@ -136,7 +144,7 @@
       const form = document.getElementById("register-form");
       const alertBox = document.getElementById("form-alert");
       form.province.innerHTML = `<option value="">Choose…</option>${ZAMBIA_PROVINCES.map((p) => `<option>${p}</option>`).join("")}`;
-      bindPasswordMeter(form.password, () => ({ email: form.email.value, phone: form.phone.value }));
+      const meter = bindPasswordMeter(form.password, () => ({ email: form.email.value, phone: form.phone.value }));
 
       // One file per document: NRC and driver's licence required, passport optional.
       const docs = {};
@@ -166,7 +174,7 @@
       const paintKind = () => {
         const company = kind() === "company";
         form.querySelector("[data-company-only]").hidden = !company;
-        form.querySelector("[data-name-label]").textContent = company ? "Company name" : "Full name";
+        form.querySelector("[data-name-label]").textContent = company ? "Company Name" : "Full Name";
       };
       form.querySelectorAll('input[name="kind"]').forEach((r) => r.addEventListener("change", paintKind));
 
@@ -177,31 +185,55 @@
       form.address.addEventListener("input", (e) => { if (e.isTrusted) basePoint = null; });
       trPlaceFields({ province: form.province, district: form.district, address: form.address, picker: () => addressPoint });
 
+      const steps = obSteps(form, {
+        check(i) {
+          const e = {};
+          if (i === 0) {
+            if (form.name.value.trim().length < 2) e.name = kind() === "company" ? "Please enter the company name." : "Please enter your full name.";
+            if (kind() === "company" && form.contact_person.value.trim().length < 2) e.contact_person = "Please enter the contact person.";
+            if (!obPhoneOk(form.phone.value)) e.phone = "Please enter your phone number, e.g. 0977 123 456.";
+            if (!OB_EMAIL.test(form.email.value.trim())) e.email = "Please enter a valid email address.";
+          }
+          if (i === 1) {
+            if (!form.province.value) e.province = "Please choose your province.";
+            if (form.district.value.trim().length < 2) e.district = "Please choose your district.";
+            if (form.address.value.trim().length < 3) e.address = "Please enter your physical address.";
+            const km = Number(form.preferred_coverage_km.value);
+            if (!(km >= 5 && km <= 1000)) e.preferred_coverage_km = "Please enter a distance from 5 to 1000 km.";
+          }
+          if (i === 2 && (!docs.nrc || !docs.drivers_licence)) {
+            e.documents = `Please upload your ${[!docs.nrc && "NRC", !docs.drivers_licence && "driver's licence"].filter(Boolean).join(" and ")}.`;
+          }
+          if (i === 3) {
+            if (meter && meter.problem()) e.password = meter.problem();
+            else if (!form.password.value) e.password = "Please choose a password.";
+            if (form.password.value !== form.confirm_password.value) e.confirm_password = "The passwords don't match.";
+            if (!form.accept_terms.checked) e.accept_terms = "Please accept the Terms to continue.";
+          }
+          return e;
+        },
+        onStep: () => alertBox.classList.add("hidden"),
+      });
+
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         alertBox.classList.add("hidden");
         const fd = new FormData();
-        if (form.password.value !== form.confirm_password.value) {
-          showFieldErrors(form, { errors: { confirm_password: "The passwords don't match." } });
-          return form.confirm_password.focus();
-        }
         ["name", "contact_person", "phone", "email", "province", "district", "address", "preferred_coverage_km", "password", "confirm_password"].forEach((k) => fd.append(k, form[k].value.trim()));
         fd.append("kind", kind());
         if (basePoint) { fd.append("base_lat", basePoint.lat); fd.append("base_lng", basePoint.lng); }
         if (form.accept_terms.checked) fd.append("accept_terms", "1");
-        if (!docs.nrc || !docs.drivers_licence) {
-          showFieldErrors(form, { errors: { documents: `Please upload your ${[!docs.nrc && "NRC", !docs.drivers_licence && "driver's licence"].filter(Boolean).join(" and ")}.` } });
-          return form.querySelector("[data-slot]").scrollIntoView({ behavior: "smooth", block: "center" });
-        }
         Object.entries(docs).forEach(([type, file]) => { fd.append("documents", file); fd.append("doc_types", type); });
         try {
           await withBusy(document.getElementById("submit-btn"), "Registering…", () => transportApi("/api/transport/auth/register", { method: "POST", body: fd }));
           window.location.href = "/transport/?welcome=1";
         } catch (error) {
-          showFieldErrors(form, error);
-          alertBox.textContent = error.message;
-          alertBox.classList.remove("hidden");
-          alertBox.scrollIntoView({ behavior: "smooth", block: "center" });
+          const errs = error.errors || {};
+          steps.showErrors(errs);
+          if (!Object.keys(errs).some((k) => form.querySelector(`[data-error-for="${k}"]`))) {
+            alertBox.textContent = error.message;
+            alertBox.classList.remove("hidden");
+          }
         }
       });
     </script>
