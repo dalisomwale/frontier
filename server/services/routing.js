@@ -59,9 +59,10 @@ async function request(url, options = {}) {
 
 async function requestOnce(url, options = {}) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), options.timeout || TIMEOUT_MS);
   try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
+    const { timeout, ...fetchOptions } = options;
+    const res = await fetch(url, { ...fetchOptions, signal: controller.signal });
     const raw = await res.text();
     let body = null;
     try {
@@ -265,71 +266,167 @@ async function matrix(sources, dests) {
   return value;
 }
 
-// Place search for the delivery map, limited to Zambia. Uses the routing
-// service's own geocoder (ORS or Google), or a Nominatim server when
-// NOMINATIM_URL is set. Returns [{ label, lat, lng }] (empty when none is set up).
+// Place search for the maps (delivery, pickup and operating points), limited
+// to Zambia. The main geocoder is the routing service's own (ORS or Google),
+// or a Nominatim server when NOMINATIM_URL is set. OpenStreetMap's Photon
+// search (no key needed) backs it up: it answers when the main geocoder fails
+// or finds nothing, and on its own when no geocoder is set up, so an address
+// typed at checkout always has a chance of placing the pin.
+// PLACE_SEARCH_FALLBACK=off turns the backup off; PHOTON_URL points it at
+// your own Photon server. Each result: { label, name, lat, lng, province, district }
+// (province / district only when they match Zambia's lists).
+const zambia = require("../../public/js/zambia-districts");
+const ZAMBIA_BBOX = "21.8,-18.3,33.9,-8.0";
+const plain = (s) => String(s || "").replace(/\s+(province|district)$/i, "").trim();
+const provinceOfName = (s) => zambia.province(plain(s));
+const districtIn = (province, s) => (province ? zambia.match(province, plain(s)) : null);
+
 function geocoderName() {
   if (process.env.NOMINATIM_URL) return "nominatim";
   const name = provider();
-  return name === "ors" || name === "google" ? name : null;
+  if (name === "ors" || name === "google") return name;
+  return fallbackOn() ? "photon" : null;
+}
+const fallbackOn = () => !/^(off|0|false|no)$/i.test(String(process.env.PLACE_SEARCH_FALLBACK || "").trim());
+
+// The main geocoder's last failure, logged at most every 10 minutes so the
+// reason shows in the server log without flooding it.
+const lastWarned = new Map();
+function warn(name, error, role = "main") {
+  if (Date.now() - (lastWarned.get(name) || 0) < 10 * 60 * 1000) return;
+  lastWarned.set(name, Date.now());
+  console.error(`Place search (${name}${role === "backup" ? ", backup" : ""}) failed${role === "main" ? ", using the OpenStreetMap backup" : ""}: ${error.message}`);
+}
+const UA = "FrontierMarketplace/2.0 (marketplace.frontierfc.co.zm)";
+const BACKUP_TIMEOUT_MS = 6000;
+
+async function photon(q, { limit = 6, focus = null } = {}) {
+  const base = String(process.env.PHOTON_URL || "https://photon.komoot.io").replace(/\/+$/, "");
+  const params = { q, limit: String(limit + 4), bbox: ZAMBIA_BBOX, lang: "en" };
+  if (focus && validPoint(focus)) Object.assign(params, { lat: String(focus.lat), lon: String(focus.lng) });
+  const body = await requestOnce(`${base}/api/?${new URLSearchParams(params)}`, { timeout: BACKUP_TIMEOUT_MS, headers: { "User-Agent": UA, Accept: "application/json" } });
+  return ((body && body.features) || [])
+    .filter((f) => !f.properties || !f.properties.countrycode || f.properties.countrycode === "ZM")
+    .map((f) => {
+      const p = f.properties || {};
+      const province = provinceOfName(p.state);
+      const district = districtIn(province, p.county) || districtIn(province, p.city) || districtIn(province, p.district);
+      const same = (a) => plain(a).toLowerCase() === plain(p.name).toLowerCase();
+      const town = p.city && !same(p.city) ? p.city : p.county && !same(p.county) ? plain(p.county) : null;
+      const name = [p.name || p.street, p.name && p.street && p.street !== p.name ? p.street : null, town].filter(Boolean).join(", ");
+      const label = [name, p.state, "Zambia"].filter(Boolean).join(", ");
+      return { label, name: name || label, lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], province, district };
+    })
+    .filter((r, i, all) => r.name && validPoint(r) && all.findIndex((x) => x.label === r.label) === i)
+    .slice(0, limit);
 }
 
-async function geocode(query) {
+// OpenStreetMap's own search (Nominatim): the second backup, for when Photon
+// is down. Its public server allows light use only (about one search a
+// second), which the cache and the browser's pause while typing keep to.
+async function osmSearch(q, { limit = 6 } = {}) {
+  const base = String(process.env.OSM_SEARCH_URL || "https://nominatim.openstreetmap.org").replace(/\/+$/, "");
+  const body = await requestOnce(`${base}/search?${new URLSearchParams({ q, format: "jsonv2", countrycodes: "zm", limit: String(limit), addressdetails: "1" })}`, { timeout: BACKUP_TIMEOUT_MS, headers: { "User-Agent": UA, Accept: "application/json" } });
+  return (Array.isArray(body) ? body : []).map((r) => {
+    const a = r.address || {};
+    const province = provinceOfName(a.state || a.province);
+    const district = districtIn(province, a.county) || districtIn(province, a.state_district) || districtIn(province, a.city || a.town);
+    const name = String(r.display_name || "").replace(/,\s*Zambia$/i, "").split(",").slice(0, 3).map((x) => x.trim()).join(", ");
+    return { label: r.display_name, name, lat: Number(r.lat), lng: Number(r.lon), province, district };
+  }).filter((r) => r.label && validPoint(r));
+}
+
+// The backups in turn: Photon, then Nominatim. Never throws.
+async function backup(q, opts = {}) {
+  for (const [name, fn] of [["Photon", photon], ["OpenStreetMap search", osmSearch]]) {
+    try {
+      const out = await fn(q, opts);
+      if (out.length) return out;
+    } catch (error) {
+      warn(name, error, "backup");
+    }
+  }
+  return [];
+}
+
+async function mainGeocode(name, q) {
+  if (name === "ors") {
+    const body = await request(`https://api.openrouteservice.org/geocode/search?${new URLSearchParams({ api_key: process.env.ORS_API_KEY, text: q, "boundary.country": "ZM", size: "6" })}`);
+    return ((body && body.features) || []).map((f) => ({ label: f.properties && f.properties.label, lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
+  }
+  if (name === "google") {
+    const body = await request(`https://maps.googleapis.com/maps/api/geocode/json?${new URLSearchParams({ address: q, components: "country:ZM", key: process.env.GOOGLE_MAPS_API_KEY })}`);
+    // Google answers 200 even when the key isn't allowed to geocode.
+    if (body && body.status && !["OK", "ZERO_RESULTS"].includes(body.status)) {
+      throw new RoutingError(`Google Geocoding: ${body.status}${body.error_message ? ` (${body.error_message})` : ""}`);
+    }
+    return ((body && body.results) || []).slice(0, 6).map((r) => ({ label: r.formatted_address, lat: r.geometry.location.lat, lng: r.geometry.location.lng }));
+  }
+  const base = String(process.env.NOMINATIM_URL).replace(/\/+$/, "");
+  const body = await request(`${base}/search?${new URLSearchParams({ q, format: "jsonv2", countrycodes: "zm", limit: "6" })}`, { headers: { "User-Agent": UA, Accept: "application/json" } });
+  return (Array.isArray(body) ? body : []).map((r) => ({ label: r.display_name, lat: Number(r.lat), lng: Number(r.lon) }));
+}
+
+// Runs the main geocoder, then the backup when it failed or found nothing.
+// { strict: true } (the check script) throws the main geocoder's error instead.
+async function geocode(query, { strict = false } = {}) {
   const q = String(query || "").trim().slice(0, 120);
   const name = geocoderName();
   if (!q || !name) return [];
   const k = `geo:${name}:${q.toLowerCase()}`;
-  const hit = cached(k);
+  const hit = !strict && cached(k);
   if (hit) return hit;
   let out = [];
-  if (name === "ors") {
-    const body = await request(`https://api.openrouteservice.org/geocode/search?${new URLSearchParams({ api_key: process.env.ORS_API_KEY, text: q, "boundary.country": "ZM", size: "6" })}`);
-    out = ((body && body.features) || []).map((f) => ({ label: f.properties && f.properties.label, lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
-  } else if (name === "google") {
-    const body = await request(`https://maps.googleapis.com/maps/api/geocode/json?${new URLSearchParams({ address: q, components: "country:ZM", key: process.env.GOOGLE_MAPS_API_KEY })}`);
-    out = ((body && body.results) || []).slice(0, 6).map((r) => ({ label: r.formatted_address, lat: r.geometry.location.lat, lng: r.geometry.location.lng }));
-  } else {
-    const base = String(process.env.NOMINATIM_URL).replace(/\/+$/, "");
-    const body = await request(`${base}/search?${new URLSearchParams({ q, format: "jsonv2", countrycodes: "zm", limit: "6" })}`, { headers: { "User-Agent": "FrontierMarketplace/2.0", Accept: "application/json" } });
-    out = (Array.isArray(body) ? body : []).map((r) => ({ label: r.display_name, lat: Number(r.lat), lng: Number(r.lon) }));
+  if (name !== "photon") {
+    try {
+      out = (await mainGeocode(name, q)).filter((r) => r.label && validPoint(r)).map((r) => ({ ...r, name: String(r.label).replace(/,\s*Zambia$/i, ""), province: null, district: null }));
+    } catch (error) {
+      if (strict || !fallbackOn()) throw error;
+      warn(name, error);
+    }
   }
-  out = out.filter((r) => r.label && validPoint(r));
-  remember(k, out);
+  if (!out.length && fallbackOn()) out = await backup(q);
+  if (out.length) remember(k, out);
   return out;
 }
 
-// Address suggestions while typing (ORS autocomplete; other geocoders fall
-// back to a normal search). Each: { label, name, lat, lng, province, district }
-// where province / district are only set when they match Zambia's lists.
-const zambia = require("../../public/js/zambia-districts");
+// Address suggestions while typing: ORS autocomplete, or Photon (which is
+// made for it), or a normal search; near the map's pin when there is one.
 async function suggest(query, focus = null) {
   const q = String(query || "").trim().slice(0, 120);
   const name = geocoderName();
   if (q.length < 3 || !name) return [];
-  if (name !== "ors") {
-    const found = await geocode(q);
-    return found.map((r) => ({ ...r, name: String(r.label).replace(/,\s*Zambia$/i, ""), province: null, district: null }));
-  }
-  const params = { api_key: process.env.ORS_API_KEY, text: q, "boundary.country": "ZM", size: "7" };
-  if (focus && validPoint(focus)) Object.assign(params, { "focus.point.lat": String(focus.lat), "focus.point.lon": String(focus.lng) });
-  const k = `suggest:${JSON.stringify(params).replace(process.env.ORS_API_KEY, "")}`;
+  const k = `suggest:${name}:${q.toLowerCase()}:${focus && validPoint(focus) ? key(focus) : ""}`;
   const hit = cached(k);
   if (hit) return hit;
-  const body = await request(`https://api.openrouteservice.org/geocode/autocomplete?${new URLSearchParams(params)}`);
-  const out = ((body && body.features) || []).map((f) => {
-    const p = f.properties || {};
-    const province = zambia.province(p.region);
-    return {
-      label: p.label,
-      name: [p.name, p.locality && p.locality !== p.name ? p.locality : null].filter(Boolean).join(", ") || p.label,
-      lng: f.geometry.coordinates[0],
-      lat: f.geometry.coordinates[1],
-      province,
-      district: province ? zambia.match(province, p.county) : null,
-    };
-  }).filter((r) => r.label && validPoint(r));
-  remember(k, out);
+  let out = [];
+  try {
+    if (name === "ors") {
+      const params = { api_key: process.env.ORS_API_KEY, text: q, "boundary.country": "ZM", size: "7" };
+      if (focus && validPoint(focus)) Object.assign(params, { "focus.point.lat": String(focus.lat), "focus.point.lon": String(focus.lng) });
+      const body = await request(`https://api.openrouteservice.org/geocode/autocomplete?${new URLSearchParams(params)}`);
+      out = ((body && body.features) || []).map((f) => {
+        const p = f.properties || {};
+        const province = provinceOfName(p.region);
+        return {
+          label: p.label,
+          name: [p.name, p.locality && p.locality !== p.name ? p.locality : null].filter(Boolean).join(", ") || p.label,
+          lng: f.geometry.coordinates[0],
+          lat: f.geometry.coordinates[1],
+          province,
+          district: districtIn(province, p.county),
+        };
+      }).filter((r) => r.label && validPoint(r));
+    } else if (name !== "photon") {
+      out = await geocode(q);
+    }
+  } catch (error) {
+    if (!fallbackOn()) throw error;
+    warn(name, error);
+  }
+  if (!out.length && fallbackOn()) out = await backup(q, { limit: 7, focus });
+  if (out.length) remember(k, out);
   return out;
 }
 
-module.exports = { provider, enabled, problem, route, matrix, RoutingError, decodePolyline, validPoint, geocode, geocoderName, suggest };
+module.exports = { provider, enabled, problem, route, matrix, RoutingError, decodePolyline, validPoint, geocode, geocoderName, suggest, photon, osmSearch };
