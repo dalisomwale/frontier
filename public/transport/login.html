@@ -16,11 +16,14 @@
   <body class="bg-gray-50 min-h-screen">
     <div id="page-header"></div>
 
-    <main class="max-w-sm mx-auto px-4 py-10 sm:py-16">
+    <main class="max-w-md mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
-      <div class="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
-        <h1 class="text-xl font-bold text-gray-900">Transport Sign In</h1>
-        <div class="ob-tabs mt-5" role="tablist" aria-label="Sign in as">
+      <div class="ob-card ob-auth ob-blue">
+        <div class="ob-head">
+          <span class="ob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
+          <h1 class="ob-title">Transport Sign In</h1>
+        </div>
+        <div class="ob-tabs" role="tablist" aria-label="Sign in as">
           <button type="button" role="tab" aria-selected="true" data-as="owner">Provider</button>
           <button type="button" role="tab" aria-selected="false" data-as="driver">Company Driver</button>
         </div>
@@ -42,14 +45,14 @@
             </div>
             <p class="text-xs text-gray-500 mt-1" data-driver hidden>The code your company gave you, e.g. ABCD-2345.</p>
           </div>
-          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 -mt-1 text-sm">
-            <label class="inline-flex items-center gap-2 text-gray-700 whitespace-nowrap"><input id="remember" name="remember" type="checkbox" checked /> Keep me signed in for 30 days</label>
-            <a href="/transport/forgot" class="text-blue-700 hover:underline whitespace-nowrap" data-owner>Forgot password?</a>
+          <div class="ob-auth-row">
+            <label><input id="remember" name="remember" type="checkbox" checked /> Keep me signed in</label>
+            <a href="/transport/forgot" data-owner>Forgot Password?</a>
           </div>
-          <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Sign In</button>
+          <button id="submit-btn" type="submit" class="ob-btn w-full">Sign In</button>
         </form>
-        <p class="text-sm text-gray-600 text-center mt-6" data-owner>Don't have an account? <a href="/transport/register" class="text-blue-700 font-medium hover:underline">Register</a></p>
-        <p class="text-sm text-gray-600 text-center mt-6" data-driver hidden>No code yet? Ask your company for one.</p>
+        <p class="ob-foot" data-owner>Don't have an account? <a href="/transport/register">Register</a></p>
+        <p class="ob-foot" data-driver hidden>No code yet? Ask your company for one.</p>
       </div>
     </main>
 

@@ -15,16 +15,19 @@
   <body class="bg-gray-50 min-h-screen">
     <div id="seller-header"></div>
 
-    <main class="max-w-sm mx-auto px-4 py-10 sm:py-16">
+    <main class="max-w-md mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
-      <div class="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
-        <h1 class="text-xl font-bold text-gray-900">Seller sign in</h1>
-        <form id="login-form" class="space-y-4 mt-6" novalidate>
+      <div class="ob-card ob-auth ob-blue">
+        <div class="ob-head">
+          <span class="ob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0V9z"/><path d="M5 13v8h14v-8"/><path d="M10 21v-5h4v5"/></svg></span>
+          <h1 class="ob-title">Seller Sign In</h1>
+          <p class="ob-sub">Manage your listings and orders.</p>
+        </div>
+        <form id="login-form" class="space-y-4" novalidate>
           <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
           <div>
             <label for="email" class="field-label">Email</label>
-            <input id="email" name="email" type="email" class="field-input" autocomplete="username" required  />
-            
+            <input id="email" name="email" type="email" class="field-input" autocomplete="username" inputmode="email" required />
             <p class="field-error hidden" data-error-for="email"></p>
           </div>
           <div>
@@ -33,16 +36,15 @@
               <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="current-password" required />
               <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
             </div>
-            
             <p class="field-error hidden" data-error-for="password"></p>
           </div>
-          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 -mt-1 text-sm">
-            <label class="inline-flex items-center gap-2 text-gray-700 whitespace-nowrap"><input id="remember" name="remember" type="checkbox" checked /> Keep me signed in for 30 days</label>
-            <a href="/seller/forgot" class="text-blue-700 hover:underline whitespace-nowrap">Forgot password?</a>
+          <div class="ob-auth-row">
+            <label><input id="remember" name="remember" type="checkbox" checked /> Keep me signed in</label>
+            <a href="/seller/forgot">Forgot Password?</a>
           </div>
-          <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Sign in</button>
+          <button id="submit-btn" type="submit" class="ob-btn w-full">Sign In</button>
         </form>
-        <p class="text-sm text-gray-600 text-center mt-6">Don't have an account? <a href="/seller/register" class="text-blue-700 font-medium hover:underline">Register</a></p>
+        <p class="ob-foot">Don't have an account? <a href="/seller/register">Start Selling</a></p>
       </div>
     </main>
 

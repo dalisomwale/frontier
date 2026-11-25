@@ -18,28 +18,28 @@
   </head>
   <body class="bg-gray-50 min-h-screen">
     <div id="account-header"></div>
-    <header class="page-band">
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 class="page-band-title">Choose a new password</h1>
-        <span class="page-band-swoosh" aria-hidden="true"></span>
-      </div>
-    </header>
 
-    <main class="max-w-md mx-auto px-4 py-8 sm:py-10">
+    <main class="max-w-md mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
-      <div class="acc-card">
+      <div class="ob-card ob-auth">
+        <div class="ob-head">
+          <span class="ob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <h1 class="ob-title">Choose a New Password</h1>
+          
+        </div>
         <form id="reset-form" class="space-y-4" novalidate>
           <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
           <div>
-            <label for="password" class="field-label">New password</label>
+            <label for="password" class="field-label">New Password</label>
             <div class="relative">
               <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="new-password" required />
               <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
             </div>
             <p class="field-error hidden" data-error-for="password"></p>
           </div>
-          <button id="submit-btn" type="submit" class="acc-btn">Save password</button>
+          <button id="submit-btn" type="submit" class="ob-btn w-full">Save Password</button>
         </form>
+        <p class="ob-foot"><a href="/account/login">Back to Log In</a></p>
       </div>
     </main>
     <footer id="site-footer"></footer>

@@ -7482,3 +7482,14 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .tp-driver-docs span, .tp-driver-docs a { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 9999px; background: #f0fdf4; color: #166534; }
 .tp-driver-docs .is-missing { background: #fffbeb; color: #92400e; }
 .tp-driver-veh svg { display: inline-block; width: 16px; height: 16px; vertical-align: -3px; margin-right: 2px; }
+/* Sign-in, forgot and reset pages (same card as sign-up). */
+.ob-auth .ob-head { margin-bottom: 22px; }
+.ob-icon { width: 54px; height: 54px; margin: 0 auto 12px; border-radius: 16px; display: grid; place-items: center; background: var(--ob-soft, #dcfce7); color: var(--ob, #166534); }
+.ob-icon svg { width: 26px; height: 26px; }
+.ob-auth-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; font-size: 14px; margin-top: 4px; }
+.ob-auth-row label { display: inline-flex; align-items: center; gap: 8px; color: #374151; white-space: nowrap; }
+.ob-auth-row input[type="checkbox"] { accent-color: var(--ob, #166534); width: 16px; height: 16px; }
+.ob-auth-row a { color: var(--ob, #166534); font-weight: 600; white-space: nowrap; }
+.ob-auth-row a:hover { text-decoration: underline; }
+.ob-auth .ob-btn { margin-top: 6px; padding-top: 13px; padding-bottom: 13px; }
+.ob-auth .ob-tabs { margin-top: -4px; }
