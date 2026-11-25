@@ -151,7 +151,8 @@ router.post("/auth/register", async (req, res, next) => {
   try {
     const { errors, data } = profilePayload(req.body);
     // The pickup point for transport: optional at registration, set later in the profile otherwise.
-    const pick = readPickup(req.body, data.province);
+    // The pickup point is part of registering (Your Business step).
+    const pick = readPickup(req.body, data.province, { required: true });
     Object.assign(errors, pick.errors);
     const password = typeof req.body.password === "string" ? req.body.password : "";
     const passwordProblem = passwordRules.problem(password, { email: data.email, phone: data.phone });

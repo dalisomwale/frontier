@@ -124,7 +124,7 @@ function client(base, header) {
     const [g] = await q("SELECT id, pickup_district, pickup_lat FROM sellers WHERE email = ?", [`grace${stamp}@test.zm`]);
     ok(g && g.pickup_district === "Chongwe" && Number(g.pickup_lat) === -15.33, "pickup point saved with the district's proper name", g);
     const plain = await client(base, "X-Frontier-Seller")("POST", "/api/seller/auth/register", { name: "Peter Phiri", phone: "0971000002", email: `peter${stamp}@test.zm`, province: "Lusaka", password: "Green#Pasture7" });
-    ok(plain.status === 201, "seller registers without a pickup point (optional)", plain.body);
+    ok(plain.status === 422 && plain.body.errors.pickup_district, "a seller must give their pickup point to register", plain.body);
     const added = await admin("POST", "/api/admin/sellers", { name: "Admin Added", phone: "0971000003", province: "Lusaka", status: "active", pickup_district: "Kafue", pickup_address: "Plot 4, Kafue Rd", pickup_lat: -15.77, pickup_lng: 28.18 });
     ok(added.status === 201 && Number(added.body.data.pickup_lat) === -15.77, "admin adds a seller with a pickup point", added.body);
     const sid = added.body.data.id;

@@ -55,7 +55,7 @@
             </div>
           </section>
 
-          <section class="ob-step" data-title="Your Farm" hidden>
+          <section class="ob-step" data-title="Your Business" hidden>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label for="province" class="field-label">Province</label>
@@ -63,35 +63,19 @@
                 <p class="field-error hidden" data-error-for="province"></p>
               </div>
               <div>
-                <label for="address" class="field-label">Town or Farm Area <span class="ob-opt">(optional)</span></label>
-                <input id="address" name="address" type="text" class="field-input" autocomplete="address-level2" maxlength="255" />
-                <p class="field-error hidden" data-error-for="address"></p>
+                <label for="pickup_district" class="field-label">District</label>
+                <input id="pickup_district" name="pickup_district" class="field-input" maxlength="80" />
+                <p class="field-error hidden" data-error-for="pickup_district"></p>
               </div>
             </div>
             <div>
-              <p class="field-label">Pickup Point for Transport</p>
-              <div class="ob-choice" role="radiogroup" aria-label="Pickup point">
-                <label><input type="radio" name="pickup_now" value="1"><span>Add It Now<small>Buyers can order transport</small></span></label>
-                <label><input type="radio" name="pickup_now" value="0" checked><span>Later<small>Add it in your profile</small></span></label>
-              </div>
+              <label for="pickup_address" class="field-label">Pickup Address or Directions</label>
+              <input id="pickup_address" name="pickup_address" class="field-input" maxlength="255" placeholder="e.g. Plot 9, off Great North Rd" />
+              <p class="field-error hidden" data-error-for="pickup_address"></p>
             </div>
-            <div id="pickup-fields" class="space-y-4" hidden>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label for="pickup_district" class="field-label">District</label>
-                  <input id="pickup_district" name="pickup_district" class="field-input" maxlength="80" />
-                  <p class="field-error hidden" data-error-for="pickup_district"></p>
-                </div>
-                <div>
-                  <label for="pickup_address" class="field-label">Address or Directions</label>
-                  <input id="pickup_address" name="pickup_address" class="field-input" maxlength="255" placeholder="e.g. Plot 9, off Great North Rd" />
-                  <p class="field-error hidden" data-error-for="pickup_address"></p>
-                </div>
-              </div>
-              <div>
-                <div id="pickup-map"></div>
-                <p class="field-error hidden" data-error-for="pickup_point"></p>
-              </div>
+            <div>
+              <div id="pickup-map"></div>
+              <p class="field-error hidden" data-error-for="pickup_point"></p>
             </div>
           </section>
 
@@ -132,19 +116,9 @@
 
       sellerApi("/api/seller/auth/me").then(() => (window.location.href = "/seller/")).catch(() => {});
 
-      // The pickup point: the map only loads when the seller chooses to add it now.
+      // The pickup point (where transport providers collect): the map loads on its step.
       let pickupPicker = null;
-      const pickupBox = document.getElementById("pickup-fields");
-      const pickupNow = () => form.querySelector('input[name="pickup_now"]:checked').value === "1";
-      form.querySelectorAll('input[name="pickup_now"]').forEach((r) => r.addEventListener("change", async () => {
-        pickupBox.hidden = !pickupNow();
-        showFieldErrors(form, {});
-        if (pickupNow() && !pickupPicker) {
-          trPlaceFields({ province: form.province, district: form.pickup_district, address: form.pickup_address, picker: () => pickupPicker });
-          pickupPicker = await trPointPicker(document.getElementById("pickup-map"), { kind: "pickup", label: "Pickup point", onChange: () => steps.clear("pickup_point") });
-        }
-        if (pickupNow() && pickupPicker && pickupPicker.map) setTimeout(() => pickupPicker.map.invalidateSize(), 50);
-      }));
+      trPlaceFields({ province: form.province, district: form.pickup_district, address: form.pickup_address, picker: () => pickupPicker });
 
       const steps = obSteps(form, {
         check(i) {
@@ -156,11 +130,9 @@
           }
           if (i === 1) {
             if (!form.province.value) e.province = "Please choose your province.";
-            if (pickupNow()) {
-              if (form.pickup_district.value.trim().length < 2) e.pickup_district = "Please choose the district.";
-              if (form.pickup_address.value.trim().length < 3) e.pickup_address = "Please enter the address or directions.";
-              if (!(pickupPicker && pickupPicker.get())) e.pickup_point = "Please mark the pickup point on the map.";
-            }
+            if (form.pickup_district.value.trim().length < 2) e.pickup_district = "Please choose the district.";
+            if (form.pickup_address.value.trim().length < 3) e.pickup_address = "Please enter the address or directions.";
+            if (!(pickupPicker && pickupPicker.get())) e.pickup_point = "Please mark the pickup point on the map.";
           }
           if (i === 2) {
             if (meter && meter.problem()) e.password = meter.problem();
@@ -169,9 +141,11 @@
           }
           return e;
         },
-        onStep: (i) => {
+        onStep: async (i) => {
           alertBox.classList.add("hidden");
-          if (i === 1 && pickupPicker && pickupPicker.map) setTimeout(() => pickupPicker.map.invalidateSize(), 50);
+          if (i !== 1) return;
+          if (!pickupPicker) pickupPicker = await trPointPicker(document.getElementById("pickup-map"), { kind: "pickup", label: "Pickup point", onChange: () => steps.clear("pickup_point") });
+          else if (pickupPicker.map) setTimeout(() => pickupPicker.map.invalidateSize(), 50);
         },
       });
 
@@ -179,13 +153,10 @@
         event.preventDefault();
         alertBox.classList.add("hidden");
         const v = Object.fromEntries(new FormData(form).entries());
-        delete v.pickup_now;
         delete v.agree;
-        // The pickup point goes with the form only when the seller chose to add it now.
-        if (pickupNow()) {
-          const pin = pickupPicker ? pickupPicker.get() : null;
-          Object.assign(v, { pickup_lat: pin ? pin.lat : "", pickup_lng: pin ? pin.lng : "" });
-        } else { delete v.pickup_district; delete v.pickup_address; }
+        const pin = pickupPicker ? pickupPicker.get() : null;
+        // The town is the pickup district (shown on listings and orders).
+        Object.assign(v, { address: v.pickup_district, pickup_lat: pin ? pin.lat : "", pickup_lng: pin ? pin.lng : "" });
         try {
           await withBusy(document.getElementById("submit-btn"), "Creating account…", () =>
             sellerApi("/api/seller/auth/register", { method: "POST", body: v }));
