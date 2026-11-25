@@ -19,7 +19,8 @@ const matching = require("../../lib/transport/matching");
 const routing = require("../../services/routing");
 const notifications = require("../../services/notifications");
 const { sendEmail, appUrl } = require("../../services/mailer");
-const { uploadTransportPhotos, uploadDocuments, uploadVehicleFiles, deletePrivateDocuments, deleteImageFiles } = require("../../middleware/upload");
+const { uploadTransportPhotos, uploadDocuments, uploadRegistration, uploadVehicleFiles, deletePrivateDocuments, deleteImageFiles } = require("../../middleware/upload");
+const drivers = require("../../lib/transport/drivers");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const { positiveInt, text, badRequest, notFound, HttpError, PROVINCES } = require("../../lib/validate");
@@ -325,6 +326,99 @@ async function loadProviderFull(id) {
   };
 }
 
+// ---------------------------------------------------------------- drivers
+// A company's drivers, as the company manages them (D: drivers): each with
+// their own vehicle and papers, and a sign-in code to share with them.
+async function companyOf(id) {
+  const [[p]] = await pool.query("SELECT id, kind, name FROM transport_providers WHERE id = ?", [id || 0]);
+  if (!p) throw notFound("Transport provider not found.");
+  if (p.kind !== "company") throw new HttpError(409, "Drivers are for transport companies. An owner-driver drives their own vehicle.");
+  return p;
+}
+async function driverOf(id) {
+  const d = await drivers.load(id);
+  if (!d) throw notFound("Driver not found.");
+  return d;
+}
+const driverDocs = async (conn, d, req) => {
+  if (!(req.files || []).length) return [];
+  return providerSide.storeDocuments(conn, d.provider_id, req.files, providerSide.docTypesOf(req.body), d.id);
+};
+
+router.post("/providers/:id/drivers", uploadDocuments, async (req, res, next) => {
+  const conn = await pool.getConnection();
+  let saved = [];
+  try {
+    const p = await companyOf(positiveInt(req.params.id));
+    const { errors, data } = await drivers.driverPayload(req.body);
+    const veh = await providerSide.vehicleForDriver(p.id, positiveInt(req.body.vehicle_id));
+    if (veh.error) errors.vehicle_id = veh.error;
+    if (Object.keys(errors).length) throw validationError(errors);
+    await conn.beginTransaction();
+    const [r] = await conn.query("INSERT INTO transport_drivers (provider_id, name, phone, phone_key, licence_number, vehicle_id) VALUES (?, ?, ?, ?, ?, ?)", [p.id, data.name, data.phone, data.phone_key, data.licence_number, veh.id]);
+    saved = await driverDocs(conn, { id: r.insertId, provider_id: p.id }, req);
+    await conn.commit();
+    const code = await drivers.setCode(r.insertId);
+    res.status(201).json({ success: true, message: `${data.name} added.`, data: (await drivers.listOf(p.id, r.insertId))[0], code, provider: await loadProviderFull(p.id) });
+  } catch (error) {
+    await conn.rollback().catch(() => {});
+    deletePrivateDocuments(...saved);
+    if (error.code === "ER_DUP_ENTRY") return next(validationError({ phone: "This phone number is already registered as a driver." }));
+    next(error);
+  } finally {
+    conn.release();
+  }
+});
+
+router.put("/drivers/:id", uploadDocuments, async (req, res, next) => {
+  const conn = await pool.getConnection();
+  let saved = [];
+  try {
+    const d = await driverOf(positiveInt(req.params.id));
+    const { errors, data } = await drivers.driverPayload(req.body, { exceptId: d.id });
+    const veh = await providerSide.vehicleForDriver(d.provider_id, positiveInt(req.body.vehicle_id), d.id);
+    if (veh.error) errors.vehicle_id = veh.error;
+    if (Object.keys(errors).length) throw validationError(errors);
+    await conn.beginTransaction();
+    await conn.query("UPDATE transport_drivers SET name = ?, phone = ?, phone_key = ?, licence_number = ?, vehicle_id = ? WHERE id = ?", [data.name, data.phone, data.phone_key, data.licence_number, veh.id, d.id]);
+    saved = await driverDocs(conn, d, req);
+    await conn.commit();
+    res.json({ success: true, message: `${data.name} saved.`, provider: await loadProviderFull(d.provider_id) });
+  } catch (error) {
+    await conn.rollback().catch(() => {});
+    deletePrivateDocuments(...saved);
+    if (error.code === "ER_DUP_ENTRY") return next(validationError({ phone: "This phone number is already registered as a driver." }));
+    next(error);
+  } finally {
+    conn.release();
+  }
+});
+
+router.post("/drivers/:id/code", async (req, res, next) => {
+  try {
+    const d = await driverOf(positiveInt(req.params.id));
+    const code = await drivers.setCode(d.id);
+    res.json({ success: true, message: `New sign-in code for ${d.name}. The old one no longer works.`, code, data: (await drivers.listOf(d.provider_id, d.id))[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/drivers/:id/status", async (req, res, next) => {
+  try {
+    const d = await driverOf(positiveInt(req.params.id));
+    const active = req.body.active === true || req.body.active === "1" || req.body.active === "true";
+    if (!active) {
+      const [[busy]] = await pool.query("SELECT id FROM transport_bookings WHERE driver_id = ? AND status IN (?) LIMIT 1", [d.id, core.VEHICLE_BUSY]);
+      if (busy) throw new HttpError(409, `${d.name} is on delivery ${core.bookingRef(busy.id)}.`);
+    }
+    await pool.query("UPDATE transport_drivers SET is_active = ? WHERE id = ?", [active ? 1 : 0, d.id]);
+    res.json({ success: true, message: active ? `${d.name} can sign in again.` : `${d.name} is switched off and can't sign in.`, provider: await loadProviderFull(d.provider_id) });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/providers/:id", async (req, res, next) => {
   try {
     res.json({ success: true, data: await loadProviderFull(positiveInt(req.params.id) || 0), cargo_types: await core.cargoLabels(), sizes: core.SIZES, doc_types: DOC_TYPES });
@@ -475,7 +569,7 @@ async function sendSetupEmail(p, link, { first = true } = {}) {
   });
 }
 
-router.post("/providers", uploadDocuments, async (req, res, next) => {
+router.post("/providers", uploadRegistration, async (req, res, next) => {
   const conn = await pool.getConnection();
   let saved = [];
   try {
@@ -486,6 +580,10 @@ router.post("/providers", uploadDocuments, async (req, res, next) => {
     Object.assign(errors, more);
     if (!core.point(data.base_lat, data.base_lng)) errors.base_point = "Mark the operating location on the map.";
     if (!errors.email && (await providerSide.emailTaken(data.email))) errors.email = "A transport provider with this email already exists.";
+    // Like registering: a company's drivers (each with their vehicle and
+    // papers), an owner-driver's vehicle. Papers and vehicles can follow later.
+    const fleet = await providerSide.fleetPayload(req.body, req.files || [], { company: data.kind === "company", requireDocs: false, requireFleet: false });
+    Object.assign(errors, fleet.errors);
     if (Object.keys(errors).length) throw validationError(errors);
     // Nobody can sign in with this until the provider chooses a password.
     const unusable = await bcrypt.hash(crypto.randomBytes(24).toString("hex"), 12);
@@ -497,7 +595,7 @@ router.post("/providers", uploadDocuments, async (req, res, next) => {
       [data.kind, data.name, data.contact_person, data.phone, data.email, data.province, data.district, data.address, data.address, data.base_lat, data.base_lng,
         extras.registration_number, extras.licence_number, unusable, extras.coverage_km, extras.coverage_km ? 1 : 0, `Added by ${req.admin.name}`.slice(0, 500)],
     );
-    saved = await providerSide.storeDocuments(conn, r.insertId, req.files || [], providerSide.docTypesOf(req.body));
+    saved = await providerSide.saveFleet(conn, r.insertId, fleet);
     await conn.commit();
     const link = await providerSide.passwordLink(r.insertId);
     const mail = await sendSetupEmail(data, link);

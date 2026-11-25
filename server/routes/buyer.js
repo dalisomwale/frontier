@@ -234,7 +234,7 @@ router.post("/auth/reset", async (req, res, next) => {
     await pool.query("DELETE FROM buyer_tokens WHERE buyer_id = ? AND purpose = 'reset'", [buyer.id]);
     // The reset link came to their inbox, so the email is theirs.
     await emailProven(buyer.id);
-    res.json({ success: true, message: "Password updated. You can now log in." });
+    res.json({ success: true, message: "Password updated. You can now sign in." });
   } catch (error) {
     next(error);
   }

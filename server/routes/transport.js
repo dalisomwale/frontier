@@ -209,7 +209,9 @@ function jsonList(raw) {
   }
 }
 const docOwnersOf = (body) => [].concat(body.doc_owner || []).flatMap((v) => String(v).split(","));
-async function fleetPayload(body, files = [], { company = false } = {}) {
+// opts.requireDocs / requireFleet: false when Frontier's team adds a provider
+// (papers and vehicles can follow later).
+async function fleetPayload(body, files = [], { company = false, requireDocs = true, requireFleet = true } = {}) {
   const errors = {};
   const types = docTypesOf(body);
   const owners = docOwnersOf(body);
@@ -220,7 +222,7 @@ async function fleetPayload(body, files = [], { company = false } = {}) {
   if (company) {
     const rows = jsonList(body.drivers).slice(0, MAX_FLEET);
     const phones = new Set();
-    if (!rows.length) errors.drivers = "Please add at least one driver with their vehicle.";
+    if (!rows.length && requireFleet) errors.drivers = "Please add at least one driver with their vehicle.";
     for (const [i, row] of rows.entries()) {
       const who = `Driver ${i + 1}`;
       const { errors: e, data } = await drivers.driverPayload(row || {}, { taken: phones });
@@ -230,24 +232,44 @@ async function fleetPayload(body, files = [], { company = false } = {}) {
       if (Object.keys(v.errors).length) { errors.drivers = `${who}'s vehicle: ${Object.values(v.errors)[0]}`; break; }
       const docs = filesOf(i);
       const missing = missingDocs(docs);
-      if (missing.length) { errors.drivers = `${who}: please upload their ${missing.join(" and ")}.`; break; }
+      if (missing.length && requireDocs) { errors.drivers = `${who}: please upload their ${missing.join(" and ")}.`; break; }
       phones.add(data.phone_key);
       regs.add(v.data.registration);
       out.drivers.push({ data, vehicle: v, docs });
     }
   } else {
-    const rows = jsonList(body.vehicles).slice(0, 1); // owner-drivers have one vehicle
-    if (!rows.length) errors.vehicles = "Please add your vehicle.";
+    const rows = jsonList(body.vehicles).filter((r) => r && (r.registration || r.vehicle_type || r.size_class)).slice(0, 1); // owner-drivers have one vehicle
+    if (!rows.length && requireFleet) errors.vehicles = "Please add your vehicle.";
     for (const row of rows) {
       const v = await vehiclePayload(row || {}, 0);
       if (Object.keys(v.errors).length) { errors.vehicles = Object.values(v.errors)[0]; break; }
       out.vehicles.push(v);
     }
-    out.ownDocs = filesOf("");
-    const missing = missingDocs(out.ownDocs);
-    if (missing.length) errors.documents = `Please upload your ${missing.join(" and ")}.`;
+    const missing = missingDocs(filesOf(""));
+    if (missing.length && requireDocs) errors.documents = `Please upload your ${missing.join(" and ")}.`;
   }
+  // The provider's own papers (a company's too, when Frontier adds them).
+  out.ownDocs = filesOf("");
   return { errors, ...out };
+}
+
+// Saves what fleetPayload checked: the provider's papers, an owner-driver's
+// vehicle, each company driver with their vehicle and papers. Returns the
+// stored file names (to remove if the transaction fails).
+async function saveFleet(conn, providerId, fleet) {
+  const addVehicle = async (v) => {
+    const [vr] = await conn.query("INSERT INTO transport_vehicles (provider_id, registration, vehicle_type, size_class, capacity_note) VALUES (?, ?, ?, ?, ?)", [providerId, v.data.registration, v.data.vehicle_type, v.data.size_class, v.data.capacity_note]);
+    for (const c of v.cargo) await conn.query("INSERT INTO transport_vehicle_cargo (vehicle_id, cargo_key, max_quantity) VALUES (?, ?, ?)", [vr.insertId, c.key, c.max]);
+    return vr.insertId;
+  };
+  const saved = await storeDocuments(conn, providerId, fleet.ownDocs.map((x) => x.file), fleet.ownDocs.map((x) => x.type));
+  for (const v of fleet.vehicles) await addVehicle(v);
+  for (const d of fleet.drivers) {
+    const vehicleId = await addVehicle(d.vehicle);
+    const [dr] = await conn.query("INSERT INTO transport_drivers (provider_id, name, phone, phone_key, licence_number, vehicle_id) VALUES (?, ?, ?, ?, ?, ?)", [providerId, d.data.name, d.data.phone, d.data.phone_key, d.data.licence_number, vehicleId]);
+    saved.push(...(await storeDocuments(conn, providerId, d.docs.map((x) => x.file), d.docs.map((x) => x.type), dr.insertId)));
+  }
+  return saved;
 }
 
 router.post("/auth/register", uploadRegistration, async (req, res, next) => {
@@ -293,18 +315,7 @@ router.post("/auth/register", uploadRegistration, async (req, res, next) => {
       [data.kind, data.name, data.contact_person, data.phone, data.email, data.province, data.district, data.address, data.base_label, data.base_lat, data.base_lng,
         data.registration_number, data.licence_number, data.preferred_coverage_km, await bcrypt.hash(password, 12)],
     );
-    const addVehicle = async (v) => {
-      const [vr] = await conn.query("INSERT INTO transport_vehicles (provider_id, registration, vehicle_type, size_class, capacity_note) VALUES (?, ?, ?, ?, ?)", [r.insertId, v.data.registration, v.data.vehicle_type, v.data.size_class, v.data.capacity_note]);
-      for (const c of v.cargo) await conn.query("INSERT INTO transport_vehicle_cargo (vehicle_id, cargo_key, max_quantity) VALUES (?, ?, ?)", [vr.insertId, c.key, c.max]);
-      return vr.insertId;
-    };
-    saved = await storeDocuments(conn, r.insertId, fleet.ownDocs.map((x) => x.file), fleet.ownDocs.map((x) => x.type));
-    for (const v of fleet.vehicles) await addVehicle(v);
-    for (const d of fleet.drivers) {
-      const vehicleId = await addVehicle(d.vehicle);
-      const [dr] = await conn.query("INSERT INTO transport_drivers (provider_id, name, phone, phone_key, licence_number, vehicle_id) VALUES (?, ?, ?, ?, ?, ?)", [r.insertId, d.data.name, d.data.phone, d.data.phone_key, d.data.licence_number, vehicleId]);
-      saved.push(...(await storeDocuments(conn, r.insertId, d.docs.map((x) => x.file), d.docs.map((x) => x.type), dr.insertId)));
-    }
+    saved = await saveFleet(conn, r.insertId, fleet);
     await conn.commit();
     await startSession(req, r.insertId);
     sendEmail({
@@ -1168,5 +1179,8 @@ module.exports.vehiclePayload = vehiclePayload;
 module.exports.saveVehicleFiles = saveVehicleFiles;
 module.exports.vehicleBusy = vehicleBusy;
 module.exports.passwordLink = passwordLink;
+module.exports.fleetPayload = fleetPayload;
+module.exports.saveFleet = saveFleet;
+module.exports.vehicleForDriver = vehicleForDriver;
 module.exports.sendPrivate = sendPrivate;
 module.exports.vehiclesOf = vehiclesOf;

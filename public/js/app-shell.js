@@ -94,6 +94,7 @@ function renderSidebar(active) {
     { key: "transport-providers", href: "/admin/transport-providers", icon: "users", label: "Transport providers" },
     { key: "transport-pricing", href: "/admin/transport-pricing", icon: "route", label: "Pricing & settings" },
     { section: "People" },
+    { key: "customers", href: "/admin/customers", icon: "users", label: "Customers" },
     { key: "sellers", href: "/admin/sellers", icon: "users", label: "Sellers" },
     { key: "newsletter", href: "/admin/newsletter", icon: "mail", label: "Newsletter" },
     { section: "Setup" },

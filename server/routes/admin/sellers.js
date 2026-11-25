@@ -150,8 +150,11 @@ router.post("/", async (req, res, next) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [p.name, p.business_name, p.phone, p.email, p.province, p.address, p.notes, p.status, ...pickupValues(pickup)],
     );
+    // "Send them a sign-in link": they choose a password and sign in, as if they'd signed up.
+    let setup = null;
+    if (["1", "true", "on"].includes(String(req.body.send_link)) && p.email) setup = await sellerPasswordLink({ id: result.insertId, name: p.name, email: p.email }, req.admin && req.admin.name);
     const [rows] = await pool.query(`SELECT ${COLUMNS} FROM sellers s WHERE s.id = ?`, [result.insertId]);
-    res.status(201).json({ success: true, data: rows[0] });
+    res.status(201).json({ success: true, data: rows[0], ...(setup ? { setup_link: setup.link, emailed: Boolean(setup.mail.sent) } : {}) });
   } catch (error) {
     next(error);
   }
@@ -240,6 +243,46 @@ router.patch("/:id/account", async (req, res, next) => {
 
 // A seller with listings can't be deleted, so no listing silently loses its
 // seller. Their past inquiries keep the seller's name.
+// A link for the seller to choose a password and sign in, like signing up
+// (a seller Frontier added has no password). Their account is approved.
+async function sellerPasswordLink(seller, adminName) {
+  const crypto = require("crypto");
+  const { sendEmail, appUrl } = require("../../services/mailer");
+  const token = crypto.randomBytes(32).toString("hex");
+  const hash = crypto.createHash("sha256").update(token).digest("hex");
+  await pool.query("DELETE FROM seller_password_resets WHERE seller_id = ? OR expires_at < NOW()", [seller.id]);
+  await pool.query("INSERT INTO seller_password_resets (seller_id, token_hash, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 72 HOUR))", [seller.id, hash]);
+  await pool.query("UPDATE sellers SET account_status = 'approved', approved_at = COALESCE(approved_at, NOW()) WHERE id = ? AND (account_status IS NULL OR account_status <> 'approved')", [seller.id]);
+  const link = appUrl(`/seller/reset?token=${token}`);
+  let mail = { sent: false, error: "no email address" };
+  if (seller.email) {
+    try {
+      mail = (await sendEmail({
+        to: seller.email,
+        subject: "Your Frontier Marketplace seller account",
+        heading: "Choose your password",
+        paragraphs: [`Hi ${String(seller.name).split(/\s+/)[0]},`, `${adminName ? `${adminName} at Frontier` : "Frontier"} has set up your seller account. Use the button below to choose your password, then sign in to manage your listings and orders. The link works for 3 days.`],
+        button: { label: "Choose your password", url: link },
+      })) || { sent: true };
+      if (mail.sent === undefined) mail.sent = true;
+    } catch (error) {
+      mail = { sent: false, error: error.message };
+    }
+  }
+  return { link, mail };
+}
+
+router.post("/:id/password-link", async (req, res, next) => {
+  try {
+    const [[seller]] = await pool.query("SELECT id, name, email FROM sellers WHERE id = ?", [positiveInt(req.params.id) || 0]);
+    if (!seller) throw notFound("Seller not found.");
+    const { link, mail } = await sellerPasswordLink(seller, req.admin && req.admin.name);
+    res.json({ success: true, message: mail.sent ? `We've emailed ${seller.name} a link to choose their password.` : `The email didn't go (${mail.error}): share the link with ${seller.name} yourself.`, setup_link: link, emailed: Boolean(mail.sent) });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.delete("/:id", async (req, res, next) => {
   try {
     const id = positiveInt(req.params.id);

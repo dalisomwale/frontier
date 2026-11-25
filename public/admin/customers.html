@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Customers - Frontier Admin</title>
+    <link rel="icon" href="/images/logo-icon.jpg" />
+    <link rel="stylesheet" href="/css/tailwind.css" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <script src="/js/main.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/app-shell.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/livestock.js"></script>
+    <script src="/js/xlsx-lite.js"></script>
+  </head>
+  <body class="bg-gray-50 admin-pending">
+    <div id="app-sidebar"></div>
+    <div id="admin-topbar"></div>
+
+    <main class="app-content-shifted tx-page-wide mx-auto px-3 sm:px-4 py-6">
+      <div class="sl-head">
+        <div>
+          <h1 class="admin-view-title !mb-0">Customers</h1>
+          <p class="text-sm text-gray-500 mt-1">Buyer accounts: who orders livestock and feed.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
+            <span class="w-5 h-5" data-icon="plus"></span> Add Customer
+          </button>
+        </div>
+      </div>
+
+      <div class="tx-totals" id="totals"></div>
+
+      <div class="sl-card">
+        <div class="sl-toolbar">
+          <div class="seg" id="tabs"></div>
+          <div class="search-export se-fixed md:ml-auto">
+            <div class="relative search-export-in">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" data-icon="search"></span>
+              <input id="search" type="search" placeholder="Search name, email, phone" class="field-input !py-2 !pl-9 !text-sm" />
+            </div>
+            <button type="button" id="export" class="tx-export tx-export-bar">Export Excel</button>
+          </div>
+        </div>
+        <div id="list"></div>
+      </div>
+    </main>
+
+    <div id="app-bottom-nav"></div>
+
+    <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
+      const TABS = [{ value: "", label: "All", key: "all" }, { value: "active", label: "Active", key: "active" }, { value: "inactive", label: "Switched off", key: "inactive" }];
+      const state = { status: "", q: "" };
+      let rows = [];
+      const dateOnly = (v) => (v ? new Date(v).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "");
+      const initials = (name) => String(name || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+      const pill = (c) => (c.active ? `<span class="status-pill st-active">Active</span>` : `<span class="status-pill st-disabled">Switched off</span>`);
+      const PAY = { paid: "Paid", pending: "Waiting for payment", unpaid: "Not paid", failed: "Payment failed" };
+
+      function renderTabs(summary = {}) {
+        document.getElementById("tabs").innerHTML = TABS.map((t) => `
+          <button type="button" data-tab="${t.value}" class="${t.value === state.status ? "active" : ""}">${t.label}${summary[t.key] !== undefined ? `<span class="count">${summary[t.key]}</span>` : ""}</button>`).join("");
+        document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => { state.status = b.dataset.tab; load(); }));
+      }
+      function renderTotals(s = {}) {
+        document.getElementById("totals").innerHTML = `
+          <div class="tx-total txc-received"><span>Customers</span><b>${Number(s.all) || 0}</b></div>
+          <div class="tx-total txc-paid"><span>Active</span><b>${Number(s.active) || 0}</b></div>
+          <div class="tx-total txc-failed"><span>Switched off</span><b>${Number(s.inactive) || 0}</b></div>`;
+      }
+
+      async function load() {
+        const params = new URLSearchParams();
+        if (state.status) params.set("status", state.status);
+        if (state.q) params.set("q", state.q);
+        let res;
+        try { res = await adminApi(`/api/admin/customers?${params}`); } catch (error) { return showNotification(error.message, "error"); }
+        rows = res.data;
+        renderTabs(res.summary);
+        renderTotals(res.summary);
+        const list = document.getElementById("list");
+        list.innerHTML = rows.length ? `<div class="overflow-x-auto"><table class="admin-table">
+          <thead><tr><th>Customer</th><th class="hidden md:table-cell">Phone</th><th class="hidden lg:table-cell">Orders</th><th class="hidden lg:table-cell">Joined</th><th>Status</th></tr></thead>
+          <tbody>${rows.map((c) => `<tr class="cursor-pointer" data-open="${c.id}" tabindex="0">
+            <td><div class="sl-who"><span class="sl-avatar ${c.active ? "" : "sl-avatar-off"}">${escapeHtml(initials(c.full_name))}</span><div class="min-w-0"><p class="sl-name">${escapeHtml(c.full_name)}</p><p class="sl-farm">${escapeHtml(c.email)}</p></div></div></td>
+            <td class="hidden md:table-cell">${escapeHtml(c.phone)}</td>
+            <td class="hidden lg:table-cell">${c.orders}${c.spent ? ` · ${kwacha(c.spent)}` : ""}</td>
+            <td class="hidden lg:table-cell text-gray-600">${escapeHtml(dateOnly(c.created_at))}</td>
+            <td>${pill(c)}</td></tr>`).join("")}</tbody></table></div>`
+          : `<div class="empty-state"><p class="font-semibold text-gray-800">No customers${state.q ? " match" : " yet"}</p></div>`;
+        list.querySelectorAll("[data-open]").forEach((tr) => {
+          tr.addEventListener("click", () => openCustomer(tr.dataset.open));
+          tr.addEventListener("keydown", (e) => { if (e.key === "Enter") openCustomer(tr.dataset.open); });
+        });
+      }
+
+      // The link to choose a password, to share by WhatsApp or SMS too.
+      function showLink(name, link) {
+        confirmAction({ title: `Password link for ${name}`, message: `Send this link to ${name} if the email doesn't reach them. It works once, for 3 days:\n\n${link}`, confirmText: "Copy Link", cancelText: "Close" })
+          .then(async (copy) => {
+            if (!copy) return;
+            try { await navigator.clipboard.writeText(link); showNotification("Link copied.", "success"); }
+            catch { window.prompt("Copy the link:", link); }
+          });
+      }
+
+      // Add or edit: the same details a customer gives when signing up.
+      function openEditor(c = {}, after) {
+        openFormModal({
+          title: c.id ? "Edit Customer" : "Add Customer",
+          submitText: c.id ? "Save Changes" : "Add Customer",
+          body: `
+            ${field({ name: "full_name", label: "Full Name", value: c.full_name, required: true, attrs: 'maxlength="120" autocomplete="off"' })}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              ${field({ name: "phone", label: "Phone Number", type: "tel", value: c.phone, required: true, placeholder: "0977 123 456", attrs: 'maxlength="30" inputmode="tel"' })}
+              ${field({ name: "email", label: "Email", type: "email", value: c.email, required: true, attrs: 'maxlength="255" inputmode="email"' })}
+            </div>
+            ${c.id ? "" : `<label class="co-terms-box"><input type="checkbox" name="send_link" value="1" checked><span>Email them a link to choose a password and sign in, as if they'd signed up.</span></label>`}`,
+          async onSubmit(form) {
+            const v = formValues(form);
+            if (form.send_link) v.send_link = form.send_link.checked ? "1" : "0";
+            const res = await adminApi(c.id ? `/api/admin/customers/${c.id}` : "/api/admin/customers", { method: c.id ? "PUT" : "POST", body: v });
+            showNotification(res.message, res.setup_link && !res.emailed ? "warning" : "success");
+            load();
+            if (after) after();
+            else if (!c.id) setTimeout(() => openCustomer(res.data.id), 50);
+            if (res.setup_link && !res.emailed) setTimeout(() => showLink(res.data.full_name, res.setup_link), 80);
+          },
+        });
+      }
+
+      async function openCustomer(id) {
+        let c;
+        try { c = (await adminApi(`/api/admin/customers/${id}`)).data; } catch (error) { return showNotification(error.message, "error"); }
+        const view = openAdminView({ title: c.full_name, params: { id: c.id } });
+        const refresh = async () => {
+          try { c = (await adminApi(`/api/admin/customers/${c.id}`)).data; } catch (error) { return showNotification(error.message, "error"); }
+          view.setTitle(c.full_name);
+          paint();
+        };
+        const paint = () => {
+          view.body.innerHTML = `
+            <div class="sv-head"><h1 class="admin-view-title !mb-0">${escapeHtml(c.full_name)}</h1>${pill(c)}</div>
+            <div class="tr-two">
+              <div class="space-y-4 min-w-0">
+                <div class="acc-card"><h2 class="txd-card-title">Details</h2>
+                  <dl class="sv-facts">
+                    <div><dt>Email</dt><dd><a class="acc-link" href="mailto:${escapeHtml(c.email)}">${escapeHtml(c.email)}</a>${c.email_verified_at ? "" : ` <span class="text-amber-700 text-xs">(not confirmed)</span>`}</dd></div>
+                    <div><dt>Phone</dt><dd><a class="acc-link" href="tel:${escapeHtml(c.phone.replace(/[^\d+]/g, ""))}">${escapeHtml(c.phone)}</a></dd></div>
+                    <div><dt>Joined</dt><dd>${escapeHtml(dateOnly(c.created_at))}</dd></div>
+                    <div><dt>Last sign-in</dt><dd>${c.last_login_at ? escapeHtml(dateOnly(c.last_login_at)) : "Never"}</dd></div>
+                    <div><dt>Orders</dt><dd>${c.orders}${c.spent ? ` · ${kwacha(c.spent)} paid` : ""}</dd></div>
+                  </dl>
+                  <div class="tr-actions mt-4">
+                    <button type="button" class="acc-mini-btn" data-edit>Edit Details</button>
+                    <button type="button" class="acc-mini-btn" data-link>Send Password Link</button>
+                    <button type="button" class="acc-mini-btn" data-toggle>${c.active ? "Switch Off" : "Switch On"}</button>
+                  </div>
+                </div>
+              </div>
+              <div class="space-y-4 min-w-0">
+                <div class="acc-card"><h2 class="txd-card-title">Orders</h2>
+                  ${c.order_list.length ? `<table class="admin-table"><tbody>${c.order_list.map((o) => `<tr class="cursor-pointer" data-order="${o.id}" data-ref="${escapeHtml(o.reference)}">
+                    <td class="font-semibold">${escapeHtml(o.reference)}</td><td class="text-gray-600">${escapeHtml(dateOnly(o.created_at))}</td>
+                    <td>${escapeHtml(PAY[o.payment_status] || o.payment_status)}${o.delivery_option === "transport" ? " · Transport" : ""}</td><td class="text-right">${kwacha(o.total)}</td></tr>`).join("")}</tbody></table>`
+                    : `<p class="text-sm text-gray-600">No orders yet.</p>`}
+                </div>
+              </div>
+            </div>`;
+          view.body.querySelector("[data-edit]").addEventListener("click", () => openEditor(c, refresh));
+          view.body.querySelector("[data-link]").addEventListener("click", async () => {
+            if (!(await confirmAction({ title: `Send ${c.full_name} a password link?`, message: `We'll email ${c.email} a link to choose a new password (it works for 3 days).`, confirmText: "Send Link" }))) return;
+            try {
+              const res = await adminApi(`/api/admin/customers/${c.id}/password-link`, { method: "POST", body: {} });
+              showNotification(res.message, res.emailed ? "success" : "warning");
+              showLink(c.full_name, res.setup_link);
+            } catch (error) { showNotification(error.message, "error"); }
+          });
+          view.body.querySelector("[data-toggle]").addEventListener("click", async () => {
+            if (c.active && !(await confirmAction({ title: `Switch off ${c.full_name}?`, message: "They're signed out and can't sign in until switched on again. Their orders stay as they are.", confirmText: "Switch Off", variant: "danger" }))) return;
+            try {
+              const res = await adminApi(`/api/admin/customers/${c.id}/status`, { method: "PATCH", body: { active: !c.active } });
+              showNotification(res.message, "success");
+              load();
+              refresh();
+            } catch (error) { showNotification(error.message, "error"); }
+          });
+          view.body.querySelectorAll("[data-order]").forEach((tr) => tr.addEventListener("click", () => { location.href = `/admin/orders?q=${encodeURIComponent(tr.dataset.ref)}`; }));
+        };
+        paint();
+      }
+
+      function exportExcel() {
+        downloadXlsx(`frontier-customers-${new Date().toISOString().slice(0, 10)}.xlsx`, "Customers",
+          ["Joined", "Name", "Email", "Phone", "Orders", "Paid (K)", "Status", "Last sign-in"],
+          rows.map((c) => [dateOnly(c.created_at), c.full_name, c.email, c.phone, c.orders, c.spent, c.active ? "Active" : "Switched off", dateOnly(c.last_login_at)]),
+          { numberCols: [4, 5] });
+      }
+
+      (async () => {
+        await initAdminPage("customers");
+        let timer;
+        document.getElementById("search").addEventListener("input", (e) => { clearTimeout(timer); timer = setTimeout(() => { state.q = e.target.value.trim(); load(); }, 300); });
+        document.getElementById("add-btn").addEventListener("click", () => openEditor());
+        document.getElementById("export").addEventListener("click", exportExcel);
+        await load();
+        const q = getQueryParams();
+        if (q.id) openCustomer(q.id);
+      })();
+    </script>
+  </body>
+</html>

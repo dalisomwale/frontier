@@ -175,6 +175,64 @@ function client(base, header) {
     ok(docs.status === 201 && docs.body.data.documents.length === 2, "admin adds a document", docs.body);
     const link2 = await admin("POST", `/api/admin/transport/providers/${pid}/password-link`, {});
     ok(link2.status === 200 && /token=/.test(link2.body.setup_link), "admin sends a new password link", link2.body);
+
+    // ------------------------------------- the admin does what sign-up does
+    console.log("Admin: customers, sellers and transport, as at sign-up");
+    const tokenOf = (link) => String(link || "").split("token=")[1];
+    // Customers
+    const cu = await admin("POST", "/api/admin/customers", { full_name: "Chileshe Mwansa", phone: "0977 444 001", email: `chileshe${stamp}@test.zm`, send_link: "1" });
+    ok(cu.status === 201 && /\/account\/reset\?token=/.test(cu.body.setup_link), "admin adds a customer and gets their password link", cu.body);
+    ok((await admin("POST", "/api/admin/customers", { full_name: "Copy", phone: "0977444002", email: `chileshe${stamp}@test.zm` })).status === 422, "the same customer email can't be added twice");
+    const cuClient = client(base, "X-Frontier-Buyer");
+    ok((await cuClient("POST", "/api/buyer/auth/reset", { token: tokenOf(cu.body.setup_link), password: "Blue#Lake2024" })).status === 200, "the customer chooses a password with the link");
+    ok((await cuClient("POST", "/api/buyer/auth/login", { email: `chileshe${stamp}@test.zm`, password: "Blue#Lake2024" })).status === 200, "and signs in");
+    const cuEdit = await admin("PUT", `/api/admin/customers/${cu.body.data.id}`, { full_name: "Chileshe M. Mwansa", phone: "0977 444 009", email: `chileshe${stamp}@test.zm` });
+    ok(cuEdit.status === 200 && cuEdit.body.data.phone === "0977 444 009" && cuEdit.body.data.email_verified_at, "admin edits a customer (email unchanged stays confirmed)", cuEdit.body);
+    await admin("PATCH", `/api/admin/customers/${cu.body.data.id}/status`, { active: false });
+    ok((await client(base, "X-Frontier-Buyer")("POST", "/api/buyer/auth/login", { email: `chileshe${stamp}@test.zm`, password: "Blue#Lake2024" })).status === 403, "a switched-off customer can't sign in");
+    const cuList = await admin("GET", `/api/admin/customers?q=chileshe${stamp}`);
+    ok(cuList.status === 200 && cuList.body.data.length === 1 && cuList.body.data[0].status === "inactive", "the customer list finds them", cuList.body);
+    // Sellers
+    const se = await admin("POST", "/api/admin/sellers", { name: "Mutale Farms", phone: "0966 300 100", email: `mutale${stamp}@test.zm`, province: "Lusaka", status: "active", pickup_district: "Chongwe", pickup_address: "Plot 4", pickup_lat: -15.33, pickup_lng: 28.68, send_link: "1" });
+    ok(se.status === 201 && /\/seller\/reset\?token=/.test(se.body.setup_link), "admin adds a seller with a sign-in link", se.body);
+    const seClient = client(base, "X-Frontier-Seller");
+    ok((await seClient("POST", "/api/seller/auth/reset", { token: tokenOf(se.body.setup_link), password: "Green#Hills55" })).status === 200, "the seller chooses a password with the link");
+    const seLogin = await seClient("POST", "/api/seller/auth/login", { email: `mutale${stamp}@test.zm`, password: "Green#Hills55" });
+    ok(seLogin.status === 200, "and signs in", seLogin.body);
+    const [seRow] = await q("SELECT account_status FROM sellers WHERE email = ?", [`mutale${stamp}@test.zm`]);
+    ok(seRow.account_status === "approved", "their account is approved", seRow);
+    const seLink = await admin("POST", `/api/admin/sellers/${se.body.data.id}/password-link`, {});
+    ok(seLink.status === 200 && /token=/.test(seLink.body.setup_link), "admin sends a seller a new password link", seLink.body);
+    // Transport: a company with drivers (each with their vehicle and papers), an owner-driver with a vehicle
+    const adCo = await admin("POST", "/api/admin/transport/providers", pf({
+      kind: "company", name: "Admin Fleet Ltd", contact_person: "Joe Banda", phone: "0977 600 100", email: `adfleet${stamp}@test.zm`, province: "Lusaka", district: "Lusaka", address: "Plot 9", base_lat: -15.41, base_lng: 28.28, coverage_km: 120,
+      drivers: JSON.stringify([{ name: "Driver One", phone: `0955 ${tag.padStart(5, "0")}3`, vehicle_type: "Hino 500", registration: `ADF ${tag}`, size_class: "large" }, { name: "Driver Two", phone: `0955 ${tag.padStart(5, "0")}4`, vehicle_type: "Toyota Dyna", registration: `ADG ${tag}`, size_class: "medium" }]),
+    }, [["documents", pdf, "permit.pdf", "application/pdf", "permit", ""], ["documents", pdf, "d1nrc.pdf", "application/pdf", "nrc", 0]]), { form: true });
+    ok(adCo.status === 201 && adCo.body.data.drivers.length === 2 && adCo.body.data.drivers.every((d) => d.vehicle), "admin adds a company with 2 drivers, each with their vehicle", adCo.body);
+    ok(adCo.body.data.drivers.find((d) => d.name === "Driver One").documents.length === 1 && adCo.body.data.documents.some((d) => d.doc_type === "permit" && !d.driver_name), "the driver's NRC and the company's permit are stored as theirs", adCo.body.data.documents);
+    const adSolo = await admin("POST", "/api/admin/transport/providers", pf({
+      kind: "individual", name: "Admin Solo", phone: "0977 600 200", email: `adsolo${stamp}@test.zm`, province: "Lusaka", district: "Lusaka", address: "Plot 10", base_lat: -15.42, base_lng: 28.29,
+      vehicles: JSON.stringify([{ vehicle_type: "Honda Motorbike", registration: `ADB ${tag}`, size_class: "bike" }]),
+    }), { form: true });
+    ok(adSolo.status === 201 && adSolo.body.data.vehicle_list.length === 1 && adSolo.body.data.vehicle_list[0].size_class === "bike", "admin adds an owner-driver with their vehicle", adSolo.body);
+    const coId = adCo.body.data.id;
+    const spareVeh = await admin("POST", `/api/admin/transport/providers/${coId}/vehicles`, pf({ registration: `ADH ${tag}`, vehicle_type: "Toyota Hilux", size_class: "small" }), { form: true });
+    const spareId = spareVeh.body.data.vehicle_list.find((v) => v.registration === `ADH ${tag}`).id;
+    const adDrv = await admin("POST", `/api/admin/transport/providers/${coId}/drivers`, pf({ name: "Driver Three", phone: `0955 ${tag.padStart(5, "0")}5`, vehicle_id: spareId }, [["documents", pdf, "lic.pdf", "application/pdf", "drivers_licence"]]), { form: true });
+    ok(adDrv.status === 201 && /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(adDrv.body.code) && adDrv.body.data.vehicle.id === spareId && adDrv.body.data.documents.length === 1, "admin adds a driver with their vehicle and licence, and gets their sign-in code", adDrv.body);
+    const takenV = await admin("POST", `/api/admin/transport/providers/${coId}/drivers`, pf({ name: "Driver Four", phone: `0955 ${tag.padStart(5, "0")}6`, vehicle_id: spareId }), { form: true });
+    ok(takenV.status === 422 && takenV.body.errors.vehicle_id, "one vehicle per driver, from the admin side too", takenV.body);
+    ok((await admin("POST", `/api/admin/transport/providers/${adSolo.body.data.id}/drivers`, pf({ name: "X", phone: "0955000111" }), { form: true })).status === 409, "owner-drivers don't have drivers");
+    const dc = client(base, "X-Frontier-Transport");
+    ok((await dc("POST", "/api/transport/auth/driver-login", { phone: adDrv.body.data.phone, password: adDrv.body.code })).status === 200, "the driver signs in with the code from admin");
+    const adEdit = await admin("PUT", `/api/admin/transport/drivers/${adDrv.body.data.id}`, pf({ name: "Driver Three B", phone: adDrv.body.data.phone, vehicle_id: spareId }), { form: true });
+    ok(adEdit.status === 200 && adEdit.body.provider.drivers.some((d) => d.name === "Driver Three B"), "admin edits a driver", adEdit.body);
+    const adCode = await admin("POST", `/api/admin/transport/drivers/${adDrv.body.data.id}/code`, {});
+    ok(adCode.status === 200 && adCode.body.code !== adDrv.body.code, "admin makes a new sign-in code");
+    const adOff = await admin("PATCH", `/api/admin/transport/drivers/${adDrv.body.data.id}/status`, { active: false });
+    ok(adOff.status === 200 && (await dc("GET", "/api/transport/auth/me")).status === 401, "admin switches a driver off: they're signed out");
+    // These two stay out of the delivery checks below.
+    await q("UPDATE transport_providers SET is_available = 0 WHERE id IN (?)", [[coId, adSolo.body.data.id]]);
     // A company registers with its drivers and vehicles (D: drivers).
     // A company registers: each driver with their own vehicle and papers.
     const driverDocs = (i) => [["documents", pdf, `nrc${i}.pdf`, "application/pdf", "nrc", i], ["documents", pdf, `lic${i}.pdf`, "application/pdf", "drivers_licence", i]];

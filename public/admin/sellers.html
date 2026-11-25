@@ -344,6 +344,16 @@
         } catch (error) { showNotification(error.message, "error"); }
       }
 
+      // The link to choose a password, to share by WhatsApp or SMS too.
+      function showSellerLink(name, link) {
+        confirmAction({ title: `Password link for ${name}`, message: `Send this link to ${name} if the email doesn't reach them. It works once, for 3 days:\n\n${link}`, confirmText: "Copy Link", cancelText: "Close" })
+          .then(async (copy) => {
+            if (!copy) return;
+            try { await navigator.clipboard.writeText(link); showNotification("Link copied.", "success"); }
+            catch { window.prompt("Copy the link:", link); }
+          });
+      }
+
       function openEditor(s = {}, after) {
         let pickupPicker = null;
         openFormModal({
@@ -354,28 +364,24 @@
           wide: true,
           body: `
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              ${field({ name: "name", label: "Full name", value: s.name, required: true, attrs: 'maxlength="120" autocomplete="off"' })}
-              ${field({ name: "business_name", label: "Farm / business name", value: s.business_name, attrs: 'maxlength="150"' })}
+              ${field({ name: "name", label: "Full Name", value: s.name, required: true, attrs: 'maxlength="120" autocomplete="off"' })}
+              ${field({ name: "business_name", label: "Farm or Business Name (optional)", value: s.business_name, attrs: 'maxlength="150"' })}
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              ${field({ name: "phone", label: "Phone number", type: "tel", value: s.phone, required: true, attrs: 'maxlength="30" inputmode="tel"' })}
+              ${field({ name: "phone", label: "WhatsApp Number", type: "tel", value: s.phone, required: true, placeholder: "0977 123 456", attrs: 'maxlength="30" inputmode="tel"' })}
               ${field({ name: "email", label: "Email", type: "email", value: s.email, attrs: 'maxlength="255" inputmode="email"' })}
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              ${field({ name: "province", label: "Province", value: s.province || "", options: [{ value: "", label: "Not set" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
-              ${field({ name: "address", label: "Town / address", value: s.address, attrs: 'maxlength="255"' })}
-            </div>
             <div class="admin-pickup">
-              <p class="field-label !mb-0">Pickup point for transport <span class="text-gray-400 font-normal">(optional)</span></p>
-              <p class="text-xs text-gray-500 mt-0.5 mb-3">Where transport providers collect this seller's goods. Buyers can only choose transport for the seller's listings once it's set.</p>
+              <p class="field-label">Their Business <span class="text-gray-400 font-normal">(the pickup point: buyers can order transport once it's set)</span></p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                ${field({ name: "province", label: "Province", value: s.province || "", options: [{ value: "", label: "Choose…" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
                 ${field({ name: "pickup_district", label: "District", value: s.pickup_district, attrs: 'maxlength="80"' })}
-                ${field({ name: "pickup_address", label: "Address or directions", value: s.pickup_address, placeholder: "e.g. Farm 9, 2 km off Great North Rd", attrs: 'maxlength="255"' })}
               </div>
-              <p class="field-label mt-3">The exact pickup point</p>
-              <div data-pickup-map></div>
+              ${field({ name: "pickup_address", label: "Pickup Address or Directions", value: s.pickup_address, placeholder: "e.g. Plot 9, off Great North Rd", attrs: 'maxlength="255"' })}
+              <div data-pickup-map class="mt-3"></div>
               <p class="field-error hidden" data-error-for="pickup_point"></p>
             </div>
+            ${s.id ? "" : `<label class="co-terms-box"><input type="checkbox" name="send_link" value="1" checked><span>Email them a link to choose a password and sign in, as if they'd signed up (needs their email).</span></label>`}
             ${field({ name: "notes", label: "Notes", type: "textarea", value: s.notes, rows: 3, help: "Only visible to admins.", attrs: 'maxlength="2000"' })}
             ${field({ name: "status", label: "Status", value: s.status || "active", options: [{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }] })}`,
           async onOpen(form) {
@@ -387,7 +393,9 @@
           async onSubmit(form) {
             const v = formValues(form);
             const pin = pickupPicker ? pickupPicker.get() : null;
-            Object.assign(v, { pickup_lat: pin ? pin.lat : "", pickup_lng: pin ? pin.lng : "" });
+            // The town is the pickup district, as at sign-up (kept when no district is given).
+            Object.assign(v, { pickup_lat: pin ? pin.lat : "", pickup_lng: pin ? pin.lng : "", address: v.pickup_district || s.address || "" });
+            if (form.send_link) v.send_link = form.send_link.checked ? "1" : "";
             const errors = {};
             if (!v.name.trim()) errors.name = "Full name is required.";
             if (!v.phone.trim()) errors.phone = "Phone number is required.";
@@ -396,8 +404,9 @@
               e.errors = errors;
               throw e;
             }
-            await adminApi(s.id ? `/api/admin/sellers/${s.id}` : "/api/admin/sellers", { method: s.id ? "PUT" : "POST", body: v });
-            showNotification(s.id ? "Seller updated." : "Seller added.", "success");
+            const res = await adminApi(s.id ? `/api/admin/sellers/${s.id}` : "/api/admin/sellers", { method: s.id ? "PUT" : "POST", body: v });
+            showNotification(s.id ? "Seller updated." : res.setup_link ? (res.emailed ? "Seller added. We've emailed them a link to choose their password." : "Seller added.") : "Seller added.", res.setup_link && !res.emailed ? "warning" : "success");
+            if (res.setup_link && !res.emailed) setTimeout(() => showSellerLink(v.name, res.setup_link), 50);
             load();
             if (after) after();
           },
@@ -469,6 +478,7 @@
                 ${s.business_name ? `<p class="text-sm text-gray-500 mt-1">${escapeHtml(s.business_name)}</p>` : ""}
               </div>
               <div class="sv-actions">
+                ${s.email ? `<button type="button" data-password-link class="acc-mini-btn">Send Password Link</button>` : ""}
                 <button type="button" data-edit class="sv-icon-btn sv-icon-primary" title="Edit" aria-label="Edit"><span>${uiIcon("edit")}</span></button>
                 <button type="button" data-toggle class="sv-icon-btn ${s.status === "active" ? "" : "sv-icon-on"}" title="${s.status === "active" ? "Deactivate" : "Activate"}" aria-label="${s.status === "active" ? "Deactivate" : "Activate"}"><span>${uiIcon("power")}</span></button>
                 <button type="button" data-delete class="sv-icon-btn sv-icon-danger" title="Delete" aria-label="Delete"><span>${uiIcon("trash")}</span></button>
@@ -549,6 +559,15 @@
             </div>`;
           const b = view.body;
           b.querySelector("[data-edit]").addEventListener("click", () => openEditor(s, refresh));
+          b.querySelector("[data-password-link]")?.addEventListener("click", async () => {
+            if (!(await confirmAction({ title: `Send ${s.name} a password link?`, message: `We'll email ${s.email} a link to choose a password (it works for 3 days), so they can sign in as a seller.`, confirmText: "Send Link" }))) return;
+            try {
+              const res = await adminApi(`/api/admin/sellers/${s.id}/password-link`, { method: "POST", body: {} });
+              showNotification(res.message, res.emailed ? "success" : "warning");
+              showSellerLink(s.name, res.setup_link);
+              refresh();
+            } catch (error) { showNotification(error.message, "error"); }
+          });
           b.querySelector("[data-toggle]").addEventListener("click", () => toggleSeller(s, refresh));
           b.querySelector("[data-delete]").addEventListener("click", () => deleteSeller(s, () => view.close(true)));
           b.querySelectorAll("[data-account]").forEach((btn) => btn.addEventListener("click", () => reviewAccount(s, btn.dataset.account, refresh)));
