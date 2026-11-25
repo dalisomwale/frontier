@@ -328,6 +328,12 @@ app.get("/api/geocode", limiter(400), async (req, res, next) => {
     res.json({ success: true, data: [] });
   }
 });
+// What is at a point: the road and area under the map pin.
+app.get("/api/geocode/reverse", limiter(400), async (req, res) => {
+  const point = { lat: Number(req.query.lat), lng: Number(req.query.lng) };
+  if (!(point.lat >= -18.5 && point.lat <= -7.8 && point.lng >= 21.5 && point.lng <= 34.2)) return res.json({ success: true, data: null });
+  res.json({ success: true, data: await require("./services/routing").reverse(point) });
+});
 app.get("/api/map-config", (req, res) => {
   res.set("Cache-Control", "public, max-age=3600");
   res.json({ success: true, data: { tiles: MAP_TILES, attribution: MAP_ATTRIBUTION, search: Boolean(require("./services/routing").geocoderName()) } });

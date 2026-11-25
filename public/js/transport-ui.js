@@ -82,26 +82,56 @@ async function trPointPicker(holder, opts = {}) {
     <div class="tr-picker">
       ${opts.search ? `<div class="tr-picker-tools"><div class="tr-search"><input type="search" class="field-input !py-2 !text-sm" placeholder="Search a place, e.g. Kabulonga, Lusaka" data-search aria-label="Search a place"><ul class="tr-search-list" data-results hidden></ul></div></div>` : ""}
       <div class="tr-map" data-map></div>
-      <p class="tr-picker-hint" data-hint>${escapeHtml(opts.hint || "Tap the map to place the pin, then drag it to the exact spot.")}</p>
+      <div class="tr-picker-bar">
+        <button type="button" class="tr-locate-btn" data-locate-btn>${uiIcon("location")}<span>Use My Current Location</span></button>
+        <span class="tr-picker-near" data-near hidden></span>
+      </div>
+      <p class="tr-picker-hint" data-hint>${escapeHtml(opts.hint || "Tap the map to place the pin, then drag it to the exact spot. Zoom in to see the streets.")}</p>
     </div>`;
   const map = await trBaseMap(holder.querySelector("[data-map]"), { center: opts.lat ? [opts.lat, opts.lng] : ZAMBIA_CENTER, zoom: opts.lat ? 15 : 6 });
   let marker = null;
   let point = opts.lat ? { lat: Number(opts.lat), lng: Number(opts.lng) } : null;
   const hint = holder.querySelector("[data-hint]");
-  const set = (lat, lng, { pan = true, zoom = null } = {}) => {
+  const near = holder.querySelector("[data-near]");
+  // What is under the pin (road and area), looked up once the pin settles.
+  // Tells everyone on the page (the address fields fill an empty address
+  // from it after "Use My Current Location").
+  let nearTimer = null;
+  let nearSeq = 0;
+  const lookNear = (source) => {
+    clearTimeout(nearTimer);
+    const at = point;
+    nearTimer = setTimeout(async () => {
+      const mine = ++nearSeq;
+      let place = null;
+      try { place = (await apiRequest(`/api/geocode/reverse?${new URLSearchParams({ lat: at.lat, lng: at.lng })}`)).data; } catch { place = null; }
+      if (mine !== nearSeq || point !== at) return;
+      near.hidden = !place;
+      near.innerHTML = place ? `${uiIcon("location")}<span>Pin is at <b>${escapeHtml(place.label)}</b></span>` : "";
+      if (place) holder.dispatchEvent(new CustomEvent("tr-pin-near", { bubbles: true, detail: { place, source } }));
+    }, 500);
+  };
+  const set = (lat, lng, { pan = true, zoom = null, source = "set", quiet = false } = {}) => {
     point = { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 };
     if (!map) return;
     if (!marker) {
-      marker = L.marker([point.lat, point.lng], { draggable: true, icon: trPin(opts.kind || "dest", opts.label) }).addTo(map);
-      marker.on("dragend", () => { const p = marker.getLatLng(); clearAccuracy(); set(p.lat, p.lng, { pan: false }); });
+      marker = L.marker([point.lat, point.lng], { draggable: true, autoPan: true, icon: trPin(opts.kind || "dest", opts.label) }).addTo(map);
+      marker.on("dragend", () => { const p = marker.getLatLng(); clearAccuracy(); set(p.lat, p.lng, { pan: false, source: "drag" }); });
     } else marker.setLatLng([point.lat, point.lng]);
     if (pan) map.setView([point.lat, point.lng], zoom || Math.max(map.getZoom(), 15));
-    hint.textContent = `Pin at ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}. Drag it to adjust.`;
+    if (!quiet) hint.textContent = `Pin at ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}. Drag it to the exact spot; zoom in to see streets and buildings.`;
+    hint.classList.remove("tr-hint-warn");
+    lookNear(source);
     if (opts.onChange) opts.onChange(point);
   };
   if (map) {
-    if (point) set(point.lat, point.lng, { pan: false });
-    map.on("click", (e) => set(e.latlng.lat, e.latlng.lng, { pan: false }));
+    if (point) set(point.lat, point.lng, { pan: false, quiet: true, source: "start" });
+    // A tap far out (the whole country showing) zooms in on that spot so the
+    // pin can be put on the right street; closer in, it places the pin there.
+    map.on("click", (e) => {
+      const z = map.getZoom();
+      set(e.latlng.lat, e.latlng.lng, { pan: z < 13, zoom: z < 10 ? 13 : z < 13 ? 16 : null, source: "tap" });
+    });
     const Locate = L.Control.extend({
       options: { position: "topleft" },
       onAdd() {
@@ -123,7 +153,7 @@ async function trPointPicker(holder, opts = {}) {
   const showFix = (pos, final) => {
     const c = pos.coords;
     const acc = Number(c.accuracy) || 0;
-    set(c.latitude, c.longitude, { zoom: acc <= 150 ? 17 : acc <= 1500 ? 15 : acc <= 8000 ? 13 : 11 });
+    set(c.latitude, c.longitude, { zoom: acc <= 150 ? 18 : acc <= 1500 ? 15 : acc <= 8000 ? 13 : 11, source: "locate", quiet: true });
     if (map) {
       if (accuracyCircle) accuracyCircle.setLatLng([c.latitude, c.longitude]).setRadius(acc);
       else accuracyCircle = L.circle([c.latitude, c.longitude], { radius: acc, color: "#2563eb", weight: 1, fillOpacity: 0.08, interactive: false }).addTo(map);
@@ -134,14 +164,14 @@ async function trPointPicker(holder, opts = {}) {
       ? `Your device only knows roughly where you are (within ${describe(acc)}): computers without GPS estimate it from the internet connection. Drag the pin to the exact spot.`
       : `Pin placed at your location (accurate to ${describe(acc)})${final ? "" : ", improving…"}. Drag it if needed.`;
   };
-  holder.querySelector("[data-locate]")?.addEventListener("click", (e) => {
-    const btn = e.currentTarget;
+  const locate = (btn) => {
     if (!window.isSecureContext) return showNotification("Your location can only be used on the secure (https) address of the site. Place the pin on the map instead.", "error");
     if (!navigator.geolocation) return showNotification("This browser can't share your location. Place the pin on the map instead.", "error");
     const label = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = `<span class="btn-spinner"></span>`;
-    btn.setAttribute("aria-label", "Finding your location…");
+    const wide = "locateBtn" in btn.dataset;
+    btn.innerHTML = wide ? `<span class="btn-spinner"></span><span>Finding Your Location…</span>` : `<span class="btn-spinner"></span>`;
+    if (!wide) btn.setAttribute("aria-label", "Finding your location…");
     let best = null;
     let done = false;
     let watch = null;
@@ -151,7 +181,7 @@ async function trPointPicker(holder, opts = {}) {
       if (watch !== null) navigator.geolocation.clearWatch(watch);
       btn.disabled = false;
       btn.innerHTML = label;
-      btn.setAttribute("aria-label", "Go to my current location");
+      if (!wide) btn.setAttribute("aria-label", "Go to my current location");
       if (best) showFix(best, true);
     };
     watch = navigator.geolocation.watchPosition(
@@ -178,7 +208,9 @@ async function trPointPicker(holder, opts = {}) {
       if (done) return;
       if (best) finish();
     }, 12000);
-  });
+  };
+  holder.querySelector("[data-locate]")?.addEventListener("click", (e) => locate(e.currentTarget));
+  holder.querySelector("[data-locate-btn]").addEventListener("click", (e) => locate(e.currentTarget));
   const search = holder.querySelector("[data-search]");
   if (search) {
     const list = holder.querySelector("[data-results]");
@@ -206,7 +238,8 @@ async function trPointPicker(holder, opts = {}) {
   }
   return {
     get: () => point,
-    set: (lat, lng) => set(lat, lng),
+    // opts: { zoom, source }; the map moves to the point.
+    set: (lat, lng, o = {}) => set(lat, lng, { ...o, quiet: Boolean(o.quiet) }),
     map,
     // A note under the map (e.g. where the pin came from); warn: highlighted.
     note(text, warn = false) { hint.textContent = text; hint.classList.toggle("tr-hint-warn", warn); },
@@ -668,8 +701,29 @@ function trPlaceFields({ province, district, address, picker, provinceValue, aut
       if (p.note) p.note("We couldn't find this address on the map. Tap the map where the delivery point is.", true);
       return;
     }
-    p.set(hit.lat, hit.lng);
-    if (p.note) p.note(rough ? "We couldn't find this exact address, so the pin is in the district. Drag it to the exact spot." : "Pin placed from the address. Drag it to the exact spot if needed.", rough);
+    p.set(hit.lat, hit.lng, { zoom: rough ? 13 : 17, source: "address" });
+    if (p.note) {
+      if (rough) p.note("We couldn't find this exact address, so the pin is in the district. Zoom in and drag it to the exact spot.", true);
+      else if (hit.approx) p.note(`The map doesn't know ${hit.detail ? `"${hit.detail}"` : "this exact address"}, so the pin is at ${hit.name || hit.label}. Drag it to the exact ${hit.detail && /^(house|flat|apartment|apt|shop|unit|no|#|\d)/i.test(hit.detail) ? "building" : "plot"}.`, true);
+      else p.note("Pin placed from the address. Drag it to the exact spot if needed.");
+    }
+  }
+  // "Use My Current Location" with the address still empty: fill it (and the
+  // district) from what is at the pin, for the person to check and add the plot.
+  const form = address.form || address.closest("form");
+  if (form) {
+    form.addEventListener("tr-pin-near", (e) => {
+      const { place, source } = e.detail || {};
+      if (source !== "locate" || !place || address.value.trim()) return;
+      address.value = place.road ? [place.road, place.area].filter(Boolean).join(", ") : place.label;
+      if (district && !district.value.trim() && place.district && (!getProvince() || getProvince() === place.province)) {
+        district.disabled = false;
+        district.value = place.district;
+        district.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      lastKey = where().join("|").toLowerCase();
+      address.dispatchEvent(new Event("input", { bubbles: true }));
+    });
   }
   if (province) province.addEventListener("change", () => { if (d) d.refresh(); });
   address.addEventListener("input", (e) => {
@@ -699,8 +753,8 @@ function trPlaceFields({ province, district, address, picker, provinceValue, aut
       lastKey = where().join("|").toLowerCase();
       const p = pin();
       if (p) {
-        p.set(r.lat, r.lng);
-        if (p.note) p.note(`Pin placed at ${r.name}. Drag it to the exact spot if needed.`);
+        p.set(r.lat, r.lng, { zoom: 17, source: "address" });
+        if (p.note) p.note(r.approx ? `The map doesn't know "${r.detail}", so the pin is on the street. Drag it to the exact plot.` : `Pin placed at ${r.name}. Drag it to the exact spot if needed.`, Boolean(r.approx));
       }
     },
   });

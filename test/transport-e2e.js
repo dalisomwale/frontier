@@ -145,6 +145,8 @@ function client(base, header) {
       return fd;
     };
     const pdf = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
+    // Only this run's providers take part (the test database keeps earlier runs' data).
+    await q("UPDATE transport_providers SET is_available = 0");
     const noPin = await admin("POST", "/api/admin/transport/providers", pf({ kind: "individual", name: "John Tembo", phone: "0977111222", email: `john${stamp}@test.zm`, province: "Lusaka", district: "Lusaka", address: "Plot 5, Cairo Rd" }), { form: true });
     ok(noPin.status === 422 && noPin.body.errors.base_point, "adding a provider needs the operating location on the map", noPin.body);
     const prov = await admin(
@@ -228,7 +230,12 @@ function client(base, header) {
     ok(page.status === "paid", "payment confirmed");
     ok(t.step.n === 1 && /Finding a transport provider/.test(t.step.label), "success page tracker: finding a provider", t.step);
     ok(t.track_url === `/account/?tab=orders&delivery=${bk.id}` && t.vehicle_size === "Medium", "success page links straight to the delivery, with its size", t);
-    const [offer] = await q("SELECT status FROM transport_offers WHERE booking_id = ?", [bk.id]);
+    // The request goes out in the background after payment: wait for it (up to 10 s).
+    let offer;
+    for (let i = 0; i < 50 && !offer; i++) {
+      [offer] = await q("SELECT status FROM transport_offers WHERE booking_id = ? AND provider_id = ?", [bk.id, pid]);
+      if (!offer) await new Promise((r) => setTimeout(r, 200));
+    }
     ok(offer && offer.status === "offered", "the request went to the provider with a free Medium vehicle", offer);
     const wrong = await provider("POST", `/api/transport/bookings/${bk.id}/accept`, { vehicle_id: small.body.data.id });
     ok([400, 409, 422].includes(wrong.status), "accepting with the Small vehicle is refused", wrong.body);

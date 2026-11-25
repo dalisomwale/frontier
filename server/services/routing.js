@@ -337,15 +337,22 @@ async function osmSearch(q, { limit = 6 } = {}) {
 }
 
 // The backups in turn: Photon, then Nominatim. Never throws.
+// backupDown: both backups failed on the last search (not just found nothing),
+// so the looser searches below aren't tried against servers that are down.
+let backupDown = false;
 async function backup(q, opts = {}) {
+  let failed = 0;
   for (const [name, fn] of [["Photon", photon], ["OpenStreetMap search", osmSearch]]) {
     try {
       const out = await fn(q, opts);
+      backupDown = false;
       if (out.length) return out;
     } catch (error) {
+      failed += 1;
       warn(name, error, "backup");
     }
   }
+  backupDown = failed === 2;
   return [];
 }
 
@@ -367,9 +374,39 @@ async function mainGeocode(name, q) {
   return (Array.isArray(body) ? body : []).map((r) => ({ label: r.display_name, lat: Number(r.lat), lng: Number(r.lon) }));
 }
 
+// "Plot 123, Kabulonga Road", "Stand 45 Great East Rd", "House No. 7, ...",
+// "12 Chindo Road", "Kabulonga Road plot 5": the plot / house part, and the rest.
+// Maps rarely know plot numbers in Zambia, so when the whole address isn't
+// found the street is searched, and the pin goes on the street for the
+// person to drag to the plot.
+const DETAIL = "(?:plot|stand|house|flat|apartment|apt|shop|unit|farm|lot|block|subdivision|sub|erf)\\s*(?:no\\.?|number|#)?\\s*[a-z]?[\\d][\\w/-]*|(?:no\\.?|number|#)\\s*\\d[\\w/-]*|\\d+[a-z]?(?=\\s+[a-z])";
+const LEADING = new RegExp(`^\\s*(${DETAIL})\\s*[,;-]?\\s*(.+)$`, "i");
+const TRAILING = new RegExp(`^(.+?)\\s*[,;-]?\\s+((?:plot|stand|house|flat|apartment|apt|shop|unit|farm|lot|block)\\s*(?:no\\.?|number|#)?\\s*[a-z]?\\d[\\w/-]*)\\s*(,.*)?$`, "i");
+function splitDetail(q) {
+  let m = String(q).match(LEADING);
+  if (m && m[2].replace(/[^a-z]/gi, "").length >= 3) return { detail: m[1].trim(), rest: m[2].trim() };
+  m = String(q).match(TRAILING);
+  if (m && m[1].replace(/[^a-z]/gi, "").length >= 3) return { detail: m[2].trim(), rest: `${m[1].trim()}${m[3] || ""}` };
+  return null;
+}
+// Less and less of the address: without the plot number, then without its
+// first part ("Shop 3, Arcades, Great East Rd, Lusaka" -> "Great East Rd, Lusaka").
+function looser(q) {
+  const out = [];
+  const split = splitDetail(q);
+  let rest = split ? split.rest : q;
+  if (split) out.push(rest);
+  let parts = rest.split(",").map((x) => x.trim()).filter(Boolean);
+  while (parts.length > 2) {
+    parts = parts.slice(1);
+    out.push(parts.join(", "));
+  }
+  return { detail: split ? split.detail : null, tries: [...new Set(out)].filter((x) => x.toLowerCase() !== q.toLowerCase()) };
+}
+
 // Runs the main geocoder, then the backup when it failed or found nothing.
 // { strict: true } (the check script) throws the main geocoder's error instead.
-async function geocode(query, { strict = false } = {}) {
+async function geocode(query, { strict = false, loose = true } = {}) {
   const q = String(query || "").trim().slice(0, 120);
   const name = geocoderName();
   if (!q || !name) return [];
@@ -386,6 +423,16 @@ async function geocode(query, { strict = false } = {}) {
     }
   }
   if (!out.length && fallbackOn()) out = await backup(q);
+  // Not found as typed: the street without the plot number, and so on. These
+  // results are marked approx (with the plot part, to show the person).
+  if (!out.length && !strict && loose) {
+    const { detail, tries } = looser(q);
+    for (const t of tries) {
+      if (backupDown && name === "photon") break;
+      out = (await geocode(t, { loose: false })).map((r) => ({ ...r, approx: true, detail }));
+      if (out.length) break;
+    }
+  }
   if (out.length) remember(k, out);
   return out;
 }
@@ -425,8 +472,57 @@ async function suggest(query, focus = null) {
     warn(name, error);
   }
   if (!out.length && fallbackOn()) out = await backup(q, { limit: 7, focus });
+  // "Plot 5 Kabulonga Road": suggest the street, keeping the plot in the name
+  // so the address field keeps it.
+  if (!out.length && !(backupDown && name === "photon")) {
+    const split = splitDetail(q);
+    if (split) out = (await suggest(split.rest, focus)).map((r) => ({ ...r, name: `${split.detail}, ${r.name}`, approx: true, detail: split.detail }));
+  }
   if (out.length) remember(k, out);
   return out;
 }
 
-module.exports = { provider, enabled, problem, route, matrix, RoutingError, decodePolyline, validPoint, geocode, geocoderName, suggest, photon, osmSearch };
+// What is at a point (where the pin is): the road and area, for the line
+// under the map, and to fill an empty address after "Use My Current Location".
+// -> { label, road, area, district, province } or null. Never throws.
+async function reverse(point) {
+  if (!validPoint(point) || !fallbackOn()) return null;
+  const lat = Number(point.lat);
+  const lng = Number(point.lng);
+  const k = `rev:${lat.toFixed(4)},${lng.toFixed(4)}`;
+  const hit = cached(k);
+  if (hit !== undefined && hit !== null) return hit;
+  const tidy = ({ road, house, area, town, county, state }) => {
+    const province = provinceOfName(state);
+    const district = districtIn(province, county) || districtIn(province, town);
+    const parts = [house && road ? `${house} ${road}` : road, area && area !== road ? area : null, town && town !== area ? town : district].filter(Boolean);
+    return parts.length ? { label: [...new Set(parts)].join(", "), road: road || null, area: area || null, district, province } : null;
+  };
+  let out = null;
+  try {
+    const base = String(process.env.PHOTON_URL || "https://photon.komoot.io").replace(/\/+$/, "");
+    const body = await requestOnce(`${base}/reverse?${new URLSearchParams({ lat: String(lat), lon: String(lng), lang: "en", limit: "1" })}`, { timeout: BACKUP_TIMEOUT_MS, headers: { "User-Agent": UA, Accept: "application/json" } });
+    const f = body && body.features && body.features[0];
+    if (f) {
+      const pr = f.properties || {};
+      const road = pr.street || (pr.osm_key === "highway" ? pr.name : null);
+      out = tidy({ road, house: pr.housenumber, area: pr.district || pr.locality || (road ? null : pr.name), town: pr.city, county: pr.county, state: pr.state });
+    }
+  } catch (error) {
+    warn("Photon reverse", error, "backup");
+  }
+  if (!out) {
+    try {
+      const base = String(process.env.OSM_SEARCH_URL || "https://nominatim.openstreetmap.org").replace(/\/+$/, "");
+      const body = await requestOnce(`${base}/reverse?${new URLSearchParams({ lat: String(lat), lon: String(lng), format: "jsonv2", zoom: "18", addressdetails: "1" })}`, { timeout: BACKUP_TIMEOUT_MS, headers: { "User-Agent": UA, Accept: "application/json" } });
+      const a = (body && body.address) || {};
+      out = tidy({ road: a.road, house: a.house_number, area: a.suburb || a.neighbourhood || a.quarter || a.village || a.hamlet, town: a.city || a.town, county: a.county || a.state_district, state: a.state || a.province });
+    } catch (error) {
+      warn("OpenStreetMap reverse", error, "backup");
+    }
+  }
+  if (out) remember(k, out);
+  return out;
+}
+
+module.exports = { provider, enabled, problem, route, matrix, RoutingError, decodePolyline, validPoint, geocode, geocoderName, suggest, photon, osmSearch, reverse, splitDetail };

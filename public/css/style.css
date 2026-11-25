@@ -7398,3 +7398,14 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 /* Admin: one document per row (what it is, and the file). */
 .tp-doc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .tp-doc-row input[type="file"] { flex: 1 1 200px; min-width: 0; }
+
+/* Map picker: the current-location button and what is under the pin. */
+.tr-picker-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 8px; }
+.tr-locate-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 9999px; border: 1px solid #bbd7c2; background: #f0f7f1; color: #14532d; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.tr-locate-btn:hover { background: #e2f0e5; }
+.tr-locate-btn:disabled { cursor: wait; opacity: .8; }
+.tr-locate-btn svg { width: 16px; height: 16px; }
+.tr-locate-btn .btn-spinner { width: 14px; height: 14px; border-color: #166534; border-right-color: transparent; }
+.tr-picker-near { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #374151; min-width: 0; }
+.tr-picker-near svg { width: 15px; height: 15px; flex: none; color: #c2410c; }
+.tr-picker-near b { font-weight: 600; color: #111827; }
