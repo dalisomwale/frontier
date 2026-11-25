@@ -19,9 +19,12 @@ const matching = require("../../lib/transport/matching");
 const routing = require("../../services/routing");
 const notifications = require("../../services/notifications");
 const { sendEmail, appUrl } = require("../../services/mailer");
-const { uploadTransportPhotos } = require("../../middleware/upload");
+const { uploadTransportPhotos, uploadDocuments, uploadVehicleFiles, deletePrivateDocuments, deleteImageFiles } = require("../../middleware/upload");
+const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const { positiveInt, text, badRequest, notFound, HttpError, PROVINCES } = require("../../lib/validate");
-const { sendPrivate, vehiclesOf, DOC_TYPES } = require("../transport");
+const providerSide = require("../transport");
+const { sendPrivate, vehiclesOf, DOC_TYPES } = providerSide;
 const zambia = require("../../../public/js/zambia-districts");
 
 const router = express.Router();
@@ -283,7 +286,7 @@ router.get("/providers", async (req, res, next) => {
     }
     const [rows] = await pool.query(`${PROVIDER_LIST} ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY p.status = 'pending' DESC, p.name LIMIT 500`, params);
     const [[counts]] = await pool.query("SELECT COUNT(*) AS all_, SUM(status = 'pending') AS pending, SUM(status = 'approved') AS approved, SUM(status = 'suspended') AS suspended, SUM(status = 'rejected') AS rejected FROM transport_providers");
-    res.json({ success: true, data: rows.map(providerRow), counts: { all: n(counts.all_) || 0, pending: n(counts.pending) || 0, approved: n(counts.approved) || 0, suspended: n(counts.suspended) || 0, rejected: n(counts.rejected) || 0 } });
+    res.json({ success: true, meta: { sizes: core.SIZES, doc_types: DOC_TYPES, cargo_types: await core.cargoLabels() }, data: rows.map(providerRow), counts: { all: n(counts.all_) || 0, pending: n(counts.pending) || 0, approved: n(counts.approved) || 0, suspended: n(counts.suspended) || 0, rejected: n(counts.rejected) || 0 } });
   } catch (error) {
     next(error);
   }
@@ -320,7 +323,7 @@ async function loadProviderFull(id) {
 
 router.get("/providers/:id", async (req, res, next) => {
   try {
-    res.json({ success: true, data: await loadProviderFull(positiveInt(req.params.id) || 0), cargo_types: await core.cargoLabels() });
+    res.json({ success: true, data: await loadProviderFull(positiveInt(req.params.id) || 0), cargo_types: await core.cargoLabels(), sizes: core.SIZES, doc_types: DOC_TYPES });
   } catch (error) {
     next(error);
   }
@@ -427,6 +430,199 @@ router.put("/providers/:id", async (req, res, next) => {
     res.json({ success: true, message: "Saved.", data: await loadProviderFull(id) });
   } catch (error) {
     next(error);
+  }
+});
+
+// ------------------------------------------ admin adds and edits providers
+// Frontier can add a provider itself (approved straight away, with its
+// coverage), keep their details and papers up to date, and add or change
+// their vehicles. The provider gets a link to choose their own password.
+
+// Details the admin sets beyond what a provider gives when registering.
+function adminExtras(body) {
+  const errors = {};
+  const reg = text(body.registration_number, 80);
+  const lic = text(body.licence_number, 80);
+  if (reg === undefined) errors.registration_number = "Must be 80 characters or fewer.";
+  if (lic === undefined) errors.licence_number = "Must be 80 characters or fewer.";
+  const raw = body.coverage_km;
+  let km = null;
+  if (raw !== undefined && raw !== null && String(raw).trim() !== "") {
+    km = Number(raw);
+    if (!Number.isFinite(km) || km < 1 || km > 3000) errors.coverage_km = "From 1 to 3000 km.";
+  }
+  return { errors, extras: { registration_number: reg || null, licence_number: lic || null, coverage_km: km } };
+}
+
+async function sendSetupEmail(p, link, { first = true } = {}) {
+  return sendEmail({
+    to: p.email,
+    subject: first ? "Your Frontier transport account" : "Choose your Frontier transport password",
+    heading: first ? "Frontier has set up your transport account" : "Choose your password",
+    paragraphs: [
+      `Hi ${String(p.contact_person || p.name).split(/\s+/)[0]},`,
+      first
+        ? "Frontier Farms & Consult has registered you as a transport provider on Frontier Marketplace. Choose your password with the button below, then sign in to see delivery requests and manage your vehicles."
+        : "Use the button below to choose your password for your Frontier transport dashboard.",
+      "The link works for 3 days.",
+    ],
+    button: { label: "Choose my password", url: link },
+    log: true,
+  });
+}
+
+router.post("/providers", uploadDocuments, async (req, res, next) => {
+  const conn = await pool.getConnection();
+  let saved = [];
+  try {
+    const { errors, data } = providerSide.registrationPayload(req.body);
+    const { errors: more, extras } = adminExtras(req.body);
+    // The admin sets the coverage itself, so the provider's "preferred" distance isn't asked.
+    delete errors.preferred_coverage_km;
+    Object.assign(errors, more);
+    if (!core.point(data.base_lat, data.base_lng)) errors.base_point = "Mark the operating location on the map.";
+    if (!errors.email && (await providerSide.emailTaken(data.email))) errors.email = "A transport provider with this email already exists.";
+    if (Object.keys(errors).length) throw validationError(errors);
+    // Nobody can sign in with this until the provider chooses a password.
+    const unusable = await bcrypt.hash(crypto.randomBytes(24).toString("hex"), 12);
+    await conn.beginTransaction();
+    const [r] = await conn.query(
+      `INSERT INTO transport_providers (kind, name, contact_person, phone, email, province, district, address, base_label, base_lat, base_lng,
+         registration_number, licence_number, password_hash, status, is_active, is_available, coverage_km, coverage_active, approved_at, admin_note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', 1, 1, ?, ?, NOW(), ?)`,
+      [data.kind, data.name, data.contact_person, data.phone, data.email, data.province, data.district, data.address, data.address, data.base_lat, data.base_lng,
+        extras.registration_number, extras.licence_number, unusable, extras.coverage_km, extras.coverage_km ? 1 : 0, `Added by ${req.admin.name}`.slice(0, 500)],
+    );
+    saved = await providerSide.storeDocuments(conn, r.insertId, req.files || [], providerSide.docTypesOf(req.body));
+    await conn.commit();
+    const link = await providerSide.passwordLink(r.insertId);
+    const mail = await sendSetupEmail(data, link);
+    notifications.broadcastAdmin("transport", { change: "provider_added", provider_id: r.insertId });
+    res.status(201).json({
+      success: true,
+      message: mail.sent
+        ? `${data.name} added and approved. We've emailed them a link to choose their password.`
+        : `${data.name} added and approved. The email didn't go (${mail.error}): share the password link with them yourself.`,
+      data: await loadProviderFull(r.insertId),
+      setup_link: link,
+      emailed: Boolean(mail.sent),
+    });
+  } catch (error) {
+    await conn.rollback().catch(() => {});
+    deletePrivateDocuments(...saved);
+    next(error);
+  } finally {
+    conn.release();
+  }
+});
+
+// A new link to choose a password (email, and shown to the admin to share).
+router.post("/providers/:id/password-link", async (req, res, next) => {
+  try {
+    const [[p]] = await pool.query("SELECT id, name, contact_person, email FROM transport_providers WHERE id = ?", [positiveInt(req.params.id) || 0]);
+    if (!p) throw notFound("Transport provider not found.");
+    const link = await providerSide.passwordLink(p.id);
+    const mail = await sendSetupEmail(p, link, { first: false });
+    res.json({ success: true, message: mail.sent ? `Emailed ${p.email} a link to choose a password.` : `The email didn't go (${mail.error}): share the link yourself.`, setup_link: link, emailed: Boolean(mail.sent) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// The provider's details (not their location or coverage, which have their own forms).
+router.put("/providers/:id/details", async (req, res, next) => {
+  try {
+    const id = positiveInt(req.params.id) || 0;
+    const [[p]] = await pool.query("SELECT * FROM transport_providers WHERE id = ?", [id]);
+    if (!p) throw notFound("Transport provider not found.");
+    // Location fields are checked with the rest, using what is on record.
+    const { errors, data } = providerSide.registrationPayload({ province: p.province, district: p.district, address: p.address, ...req.body, base_lat: p.base_lat, base_lng: p.base_lng });
+    const { errors: more, extras } = adminExtras(req.body);
+    Object.assign(errors, more);
+    delete errors.preferred_coverage_km;
+    if (!errors.email && (await providerSide.emailTaken(data.email, id))) errors.email = "Another transport provider uses this email.";
+    if (Object.keys(errors).length) throw validationError(errors);
+    await pool.query(
+      "UPDATE transport_providers SET kind = ?, name = ?, contact_person = ?, phone = ?, email = ?, registration_number = ?, licence_number = ? WHERE id = ?",
+      [data.kind, data.name, data.contact_person, data.phone, data.email, extras.registration_number, extras.licence_number, id],
+    );
+    res.json({ success: true, message: "Details saved.", data: await loadProviderFull(id) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Papers added by the admin (NRC, licence, permit ...).
+router.post("/providers/:id/documents", uploadDocuments, async (req, res, next) => {
+  const conn = await pool.getConnection();
+  let saved = [];
+  try {
+    const id = positiveInt(req.params.id) || 0;
+    const [[p]] = await pool.query("SELECT id FROM transport_providers WHERE id = ?", [id]);
+    if (!p) throw notFound("Transport provider not found.");
+    if (!(req.files || []).length) throw validationError({ documents: "Choose at least one file." });
+    await conn.beginTransaction();
+    saved = await providerSide.storeDocuments(conn, id, req.files, providerSide.docTypesOf(req.body));
+    await conn.commit();
+    res.status(201).json({ success: true, message: `${req.files.length === 1 ? "Document" : "Documents"} added.`, data: await loadProviderFull(id) });
+  } catch (error) {
+    await conn.rollback().catch(() => {});
+    deletePrivateDocuments(...saved);
+    next(error);
+  } finally {
+    conn.release();
+  }
+});
+
+// Vehicles: the admin adds or changes them for the provider (photos optional here).
+router.post("/providers/:id/vehicles", uploadVehicleFiles, async (req, res, next) => {
+  const conn = await pool.getConnection();
+  try {
+    const id = positiveInt(req.params.id) || 0;
+    const [[p]] = await pool.query("SELECT id FROM transport_providers WHERE id = ?", [id]);
+    if (!p) throw notFound("Transport provider not found.");
+    const { errors, data, cargo } = await providerSide.vehiclePayload(req.body, id);
+    if (Object.keys(errors).length) throw validationError(errors);
+    await conn.beginTransaction();
+    const [r] = await conn.query(
+      "INSERT INTO transport_vehicles (provider_id, registration, vehicle_type, size_class, capacity_note) VALUES (?, ?, ?, ?, ?)",
+      [id, data.registration, data.vehicle_type, data.size_class, data.capacity_note],
+    );
+    for (const c of cargo) await conn.query("INSERT INTO transport_vehicle_cargo (vehicle_id, cargo_key, max_quantity) VALUES (?, ?, ?)", [r.insertId, c.key, c.max]);
+    await providerSide.saveVehicleFiles(conn, r.insertId, req.files);
+    await conn.commit();
+    notifications.notifyProvider(id, { type: "transport", title: `Frontier added your vehicle ${data.registration}`, body: `${core.sizeLabel(data.size_class)} · ${data.vehicle_type}`, link: "/transport/?tab=vehicles" });
+    res.status(201).json({ success: true, message: "Vehicle added.", data: await loadProviderFull(id) });
+  } catch (error) {
+    await conn.rollback().catch(() => {});
+    if (error.code === "ER_DUP_ENTRY") return next(validationError({ registration: "This vehicle is already registered." }));
+    next(error);
+  } finally {
+    conn.release();
+  }
+});
+
+router.put("/vehicles/:id", uploadVehicleFiles, async (req, res, next) => {
+  const conn = await pool.getConnection();
+  try {
+    const [[v]] = await pool.query("SELECT * FROM transport_vehicles WHERE id = ?", [positiveInt(req.params.id) || 0]);
+    if (!v) throw notFound("Vehicle not found.");
+    const { errors, data, cargo } = await providerSide.vehiclePayload(req.body, v.provider_id, v.id);
+    if (Object.keys(errors).length) throw validationError(errors);
+    if (await providerSide.vehicleBusy(v.id)) throw new HttpError(409, "This vehicle is on a delivery. It can be changed once the delivery is done.");
+    await conn.beginTransaction();
+    await conn.query("UPDATE transport_vehicles SET registration = ?, vehicle_type = ?, size_class = ?, capacity_note = ? WHERE id = ?", [data.registration, data.vehicle_type, data.size_class, data.capacity_note, v.id]);
+    await conn.query("DELETE FROM transport_vehicle_cargo WHERE vehicle_id = ?", [v.id]);
+    for (const c of cargo) await conn.query("INSERT INTO transport_vehicle_cargo (vehicle_id, cargo_key, max_quantity) VALUES (?, ?, ?)", [v.id, c.key, c.max]);
+    await providerSide.saveVehicleFiles(conn, v.id, req.files);
+    await conn.commit();
+    res.json({ success: true, message: "Vehicle saved.", data: await loadProviderFull(v.provider_id) });
+  } catch (error) {
+    await conn.rollback().catch(() => {});
+    if (error.code === "ER_DUP_ENTRY") return next(validationError({ registration: "This vehicle is already registered." }));
+    next(error);
+  } finally {
+    conn.release();
   }
 });
 

@@ -824,7 +824,24 @@ router.post("/notifications/read", requireProvider, async (req, res, next) => {
 
 router.get("/events", requireProvider, (req, res) => notifications.subscribeProvider(req.provider.id, req, res));
 
+// A one-time link to choose a password: for providers an admin adds (D: admin adds providers).
+async function passwordLink(providerId, hours = 72) {
+  const token = crypto.randomBytes(32).toString("hex");
+  const hash = crypto.createHash("sha256").update(token).digest("hex");
+  await pool.query("DELETE FROM transport_provider_resets WHERE provider_id = ? OR expires_at < NOW()", [providerId]);
+  await pool.query("INSERT INTO transport_provider_resets (provider_id, token_hash, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? HOUR))", [providerId, hash, hours]);
+  return appUrl(`/transport/reset?token=${token}`);
+}
+
 module.exports = router;
 module.exports.DOC_TYPES = DOC_TYPES;
+module.exports.registrationPayload = registrationPayload;
+module.exports.emailTaken = emailTaken;
+module.exports.storeDocuments = storeDocuments;
+module.exports.docTypesOf = docTypesOf;
+module.exports.vehiclePayload = vehiclePayload;
+module.exports.saveVehicleFiles = saveVehicleFiles;
+module.exports.vehicleBusy = vehicleBusy;
+module.exports.passwordLink = passwordLink;
 module.exports.sendPrivate = sendPrivate;
 module.exports.vehiclesOf = vehiclesOf;

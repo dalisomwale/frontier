@@ -30,6 +30,7 @@
           <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transport providers</h1>
           <p class="text-sm text-gray-500 mt-1">Approve providers and set how far each one covers. Only approved, active providers with coverage switched on receive requests.</p>
         </div>
+        <button type="button" id="add-provider" class="acc-btn" style="width:auto">Add Transport Provider</button>
       </div>
       <div class="bg-white rounded-xl border border-gray-100">
         <div class="tx-filters">
@@ -67,6 +68,7 @@
         const list = document.getElementById("list");
         try {
           const res = await adminApi(`/api/admin/transport/providers?${params}`);
+          if (res.meta) meta = res.meta;
           state.rows = res.data;
           state.counts = res.counts;
         } catch (error) {
@@ -93,6 +95,8 @@
           const res = await adminApi(`/api/admin/transport/providers/${id}`);
           p = res.data;
           cargoTypes = res.cargo_types;
+          if (res.sizes) meta.sizes = res.sizes;
+          if (res.doc_types) meta.doc_types = res.doc_types;
         } catch (error) { return showNotification(error.message, "error"); }
         if (!(replace && view)) view = openAdminView({ title: p.name, params: { id: p.id }, onClose: () => { view = null; } });
         paint(p);
@@ -127,14 +131,14 @@
                 <div class="mt-4" data-map></div>
                 <p class="text-xs text-gray-500 mt-2">The circle shows the coverage distance in a straight line, as a guide. Eligibility is always checked by road.</p>
               </form>
-              <div class="acc-card"><h2 class="txd-card-title">Vehicles</h2>${p.vehicle_list.length ? `<div class="tp-vehicles">${p.vehicle_list.map((v) => `
+              <div class="acc-card"><div class="flex items-center justify-between gap-2 mb-2"><h2 class="txd-card-title !mb-0">Vehicles</h2><button type="button" class="acc-mini-btn" data-add-vehicle>Add Vehicle</button></div>${p.vehicle_list.length ? `<div class="tp-vehicles">${p.vehicle_list.map((v) => `
                 <div class="tp-vehicle">${v.photos[0] ? `<a href="${escapeHtml(v.photos[0].image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(v.photos[0].thumb_path)}" alt=""></a>` : ""}
                   <div class="tp-vehicle-body"><div class="flex justify-between gap-2"><b>${escapeHtml(v.registration)}</b><span class="so-pill ${v.status === "active" ? "so-done" : "so-off"}">${v.status === "active" ? (v.busy_booking ? `On ${escapeHtml(v.busy_booking.reference)}` : "Active") : "Inactive"}</span></div>
                   <p class="text-sm text-gray-600">${v.size_label ? `<span class="tp-size">${escapeHtml(v.size_label)}</span> ` : `<span class="text-amber-700">No size set · </span>`}${escapeHtml(v.vehicle_type)}${v.capacity_note ? ` · ${escapeHtml(v.capacity_note)}` : ""}</p>
                   <p class="text-sm text-gray-700 mt-1">${v.cargo.map((c) => `${escapeHtml(cargoLabel(c.key))}: ${c.max}`).join(" · ")}</p>
                   ${v.photos.length > 1 ? `<div class="acc-photos mt-2">${v.photos.slice(1).map((ph) => `<a href="${escapeHtml(ph.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(ph.thumb_path)}" alt=""></a>`).join("")}</div>` : ""}
                   ${v.documents.length ? `<p class="text-sm mt-2">${v.documents.map((f) => `<a class="acc-link" href="/api/admin/transport/vehicle-files/${f.id}" target="_blank" rel="noopener">${escapeHtml(f.original_name || "Document")}</a>`).join(" · ")}</p>` : ""}
-                  <button type="button" class="acc-mini-btn mt-2" data-vehicle="${v.id}" data-to="${v.status === "active" ? "inactive" : "active"}">${v.status === "active" ? "Deactivate" : "Activate"}</button></div></div>`).join("")}</div>` : `<p class="text-sm text-gray-600">No vehicles registered.</p>`}</div>
+                  <div class="tr-actions mt-2"><button type="button" class="acc-mini-btn" data-edit-vehicle="${v.id}">Edit</button><button type="button" class="acc-mini-btn" data-vehicle="${v.id}" data-to="${v.status === "active" ? "inactive" : "active"}">${v.status === "active" ? "Deactivate" : "Activate"}</button></div></div></div>`).join("")}</div>` : `<p class="text-sm text-gray-600">No vehicles registered. Add one so this provider can receive requests.</p>`}</div>
               <div class="acc-card"><h2 class="txd-card-title">Delivery history</h2>${p.history.length ? `<table class="admin-table"><tbody>${p.history.map((b) => `<tr class="cursor-pointer" data-booking="${b.id}"><td class="font-semibold">${escapeHtml(b.reference)}</td><td>${escapeHtml(b.from)} → ${escapeHtml(b.to)}</td><td>${trPill(b)}</td><td class="whitespace-nowrap">${kwacha(b.provider_earning)}</td></tr>`).join("")}</tbody></table>` : `<p class="text-sm text-gray-600">No deliveries yet.</p>`}</div>
             </div>
             <div class="space-y-4 min-w-0">
@@ -150,8 +154,8 @@
               </dl>
               ${p.base_lat === null ? `<p class="tr-warn-box mt-3">The address couldn't be found on the map, so this provider has no operating location and can't receive requests. Set it before approving.</p>`
                 : p.base_label && p.base_label.startsWith("Approximate") ? `<p class="tr-warn-box mt-3">The operating location is only approximate: the exact address wasn't found on the map (${escapeHtml(p.base_label.replace(/^Approximate:\s*/, ""))} was used). Check it before approving.</p>` : ""}
-              <button type="button" class="acc-mini-btn mt-3" data-edit-base>Change operating location</button></div>
-              <div class="acc-card"><h2 class="txd-card-title">Documents</h2>${p.documents.length ? `<ul class="tr-qty">${p.documents.map((d) => `<li><a class="acc-link" href="/api/admin/transport/documents/${d.id}" target="_blank" rel="noopener">${escapeHtml(d.original_name || d.type_label)}</a><span class="text-gray-500">${escapeHtml(d.type_label)} · ${escapeHtml(formatDateShort(d.created_at))}</span></li>`).join("")}</ul>` : `<p class="text-sm text-gray-600">No documents uploaded.</p>`}</div>
+              <div class="tr-actions mt-3"><button type="button" class="acc-mini-btn" data-edit-details>Edit Details</button><button type="button" class="acc-mini-btn" data-edit-base>Change Operating Location</button><button type="button" class="acc-mini-btn" data-password-link>Send Password Link</button></div></div>
+              <div class="acc-card"><div class="flex items-center justify-between gap-2 mb-2"><h2 class="txd-card-title !mb-0">Documents</h2><button type="button" class="acc-mini-btn" data-add-docs>Add Documents</button></div>${p.documents.length ? `<ul class="tr-qty">${p.documents.map((d) => `<li><a class="acc-link" href="/api/admin/transport/documents/${d.id}" target="_blank" rel="noopener">${escapeHtml(d.original_name || d.type_label)}</a><span class="text-gray-500">${escapeHtml(d.type_label)} · ${escapeHtml(formatDateShort(d.created_at))}</span></li>`).join("")}</ul>` : `<p class="text-sm text-gray-600">No documents uploaded.</p>`}</div>
               <div class="acc-card"><h2 class="txd-card-title">Performance</h2><dl class="sv-facts">
                 <div><dt>Rating</dt><dd>${trStarsHtml(p.rating, p.ratings)}</dd></div>
                 <div><dt>Requests received</dt><dd>${perf.offered}</dd></div>
@@ -233,6 +237,11 @@
         }));
         view.body.querySelectorAll("[data-booking]").forEach((tr) => tr.addEventListener("click", () => { location.href = `/admin/transport?id=${tr.dataset.booking}`; }));
         view.body.querySelector("[data-edit-base]").addEventListener("click", () => editBase(p));
+        view.body.querySelector("[data-edit-details]").addEventListener("click", () => editDetails(p));
+        view.body.querySelector("[data-password-link]").addEventListener("click", () => passwordLink(p));
+        view.body.querySelector("[data-add-docs]").addEventListener("click", () => addDocuments(p));
+        view.body.querySelector("[data-add-vehicle]").addEventListener("click", () => editVehicle(p, null));
+        view.body.querySelectorAll("[data-edit-vehicle]").forEach((b) => b.addEventListener("click", () => editVehicle(p, p.vehicle_list.find((v) => String(v.id) === b.dataset.editVehicle))));
       }
 
       function editBase(p) {
@@ -259,6 +268,194 @@
         });
       }
 
+      // ----------------------------------------- the admin adds and edits providers
+      let meta = { sizes: [], doc_types: {}, cargo_types: [] };
+      const opt = (value, label, current) => `<option value="${escapeHtml(value)}" ${value === current ? "selected" : ""}>${escapeHtml(label)}</option>`;
+      const errFor = (name) => `<p class="field-error hidden" data-error-for="${name}"></p>`;
+      const input = (name, label, value = "", attrs = "", help = "") => `<div><label class="field-label" for="f-${name}">${label}</label><input id="f-${name}" name="${name}" class="field-input" value="${escapeHtml(value ?? "")}" ${attrs}>${help ? `<p class="text-xs text-gray-500 mt-1">${help}</p>` : ""}${errFor(name)}</div>`;
+      const docTypeSelect = (current = "nrc") => `<select name="doc_types" class="field-input !w-auto">${Object.entries(meta.doc_types).map(([k, l]) => opt(k, l, current)).join("")}</select>`;
+      // One row per document: what it is, and the file.
+      function documentRows(holder) {
+        const add = (type) => {
+          const row = document.createElement("div");
+          row.className = "tp-doc-row";
+          row.innerHTML = `${docTypeSelect(type)}<input type="file" name="documents" accept="application/pdf,image/jpeg,image/png,image/webp" class="text-sm"><button type="button" class="acc-mini-btn" data-rm-row aria-label="Remove this document">×</button>`;
+          row.querySelector("[data-rm-row]").addEventListener("click", () => row.remove());
+          holder.querySelector("[data-doc-list]").appendChild(row);
+        };
+        holder.innerHTML = `<div data-doc-list class="space-y-2"></div><button type="button" class="acc-mini-btn mt-2" data-add-doc>Add Another Document</button>${errFor("documents")}`;
+        holder.querySelector("[data-add-doc]").addEventListener("click", () => add("other"));
+        add("nrc");
+        add("drivers_licence");
+      }
+      function appendDocuments(form, fd) {
+        form.querySelectorAll(".tp-doc-row").forEach((row) => {
+          const file = row.querySelector('input[type="file"]').files[0];
+          if (!file) return;
+          fd.append("documents", file);
+          fd.append("doc_types", row.querySelector("select").value);
+        });
+      }
+      // The link to choose a password, shown so the admin can also send it by WhatsApp or SMS.
+      function showLink(name, link) {
+        confirmAction({
+          title: `Password link for ${name}`,
+          message: `Send this link to ${name} if the email doesn't reach them. It works once, for 3 days:\n\n${link}`,
+          confirmText: "Copy Link",
+          cancelText: "Close",
+        }).then(async (copy) => {
+          if (!copy) return;
+          try { await navigator.clipboard.writeText(link); showNotification("Link copied.", "success"); }
+          catch { window.prompt("Copy the link:", link); }
+        });
+      }
+
+      function openAddProvider() {
+        let picker = null;
+        openFormModal({
+          title: "Add Transport Provider",
+          wide: true,
+          submitText: "Add Provider",
+          body: `
+            <p class="text-sm text-gray-600 -mt-2 mb-2">The provider is approved straight away and emailed a link to choose their password.</p>
+            <div class="ho-choice"><label><input type="radio" name="kind" value="individual" checked><span>Individual</span></label><label><input type="radio" name="kind" value="company"><span>Company</span></label></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              ${input("name", "Name (person or company)", "", 'maxlength="150"')}
+              ${input("contact_person", "Contact person <span class=\"text-gray-400 font-normal\">(companies)</span>", "", 'maxlength="120"')}
+              ${input("phone", "Phone", "", 'type="tel" maxlength="30" placeholder="0977 123 456"')}
+              ${input("email", "Email", "", 'type="email" maxlength="255"')}
+              ${input("licence_number", "Driving / transport licence number <span class=\"text-gray-400 font-normal\">(optional)</span>", "", 'maxlength="80"')}
+              ${input("registration_number", "Business registration number <span class=\"text-gray-400 font-normal\">(optional)</span>", "", 'maxlength="80"')}
+            </div>
+            <p class="field-label mt-2">Operating location</p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div><label class="field-label" for="f-province">Province</label><select id="f-province" name="province" class="field-input"><option value="">Choose…</option>${ZAMBIA_PROVINCES.map((x) => opt(x, x)).join("")}</select>${errFor("province")}</div>
+              ${input("district", "District", "", 'maxlength="80"')}
+              ${input("address", "Physical address", "", 'maxlength="255"')}
+            </div>
+            <div data-map class="mt-2"></div>${errFor("base_point")}
+            ${input("coverage_km", "Coverage (km by road)", "", 'type="number" min="1" max="3000" step="1" style="max-width:180px"', "Requests come when both the pickup and the destination are within this distance. Leave empty to set it later.")}
+            <p class="field-label mt-2">Documents <span class="text-gray-400 font-normal">(optional: NRC, licence, permit …)</span></p>
+            <div data-docs></div>`,
+          onOpen: async (form) => {
+            documentRows(form.querySelector("[data-docs]"));
+            trPlaceFields({ province: form.province, district: form.district, address: form.address, picker: () => picker });
+            picker = await trPointPicker(form.querySelector("[data-map]"), { kind: "base", label: "Operating location" });
+          },
+          onSubmit: async (form) => {
+            const fd = new FormData();
+            const pt = picker && picker.get();
+            ["name", "contact_person", "phone", "email", "licence_number", "registration_number", "province", "district", "address", "coverage_km"].forEach((k) => fd.append(k, form[k].value.trim()));
+            fd.append("kind", form.kind.value);
+            fd.append("base_lat", pt ? pt.lat : "");
+            fd.append("base_lng", pt ? pt.lng : "");
+            appendDocuments(form, fd);
+            const res = await adminApi("/api/admin/transport/providers", { method: "POST", body: fd });
+            showNotification(res.message, res.emailed ? "success" : "warning");
+            await load();
+            setTimeout(() => {
+              openProvider(res.data.id);
+              if (!res.emailed) showLink(res.data.name, res.setup_link);
+            }, 50);
+          },
+        });
+      }
+
+      function editDetails(p) {
+        openFormModal({
+          title: `Details of ${p.name}`,
+          wide: true,
+          submitText: "Save Details",
+          body: `
+            <div class="ho-choice"><label><input type="radio" name="kind" value="individual" ${p.kind !== "company" ? "checked" : ""}><span>Individual</span></label><label><input type="radio" name="kind" value="company" ${p.kind === "company" ? "checked" : ""}><span>Company</span></label></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              ${input("name", "Name (person or company)", p.name, 'maxlength="150"')}
+              ${input("contact_person", "Contact person", p.contact_person, 'maxlength="120"')}
+              ${input("phone", "Phone", p.phone, 'type="tel" maxlength="30"')}
+              ${input("email", "Email", p.email, 'type="email" maxlength="255"')}
+              ${input("licence_number", "Driving / transport licence number", p.licence_number, 'maxlength="80"')}
+              ${input("registration_number", "Business registration number", p.registration_number, 'maxlength="80"')}
+            </div>`,
+          onSubmit: async (form) => {
+            const body = Object.fromEntries(["name", "contact_person", "phone", "email", "licence_number", "registration_number"].map((k) => [k, form[k].value.trim()]));
+            body.kind = form.kind.value;
+            const res = await adminApi(`/api/admin/transport/providers/${p.id}/details`, { method: "PUT", body });
+            showNotification(res.message, "success");
+            load();
+            setTimeout(() => openProvider(p.id, { replace: true }), 50);
+          },
+        });
+      }
+
+      async function passwordLink(p) {
+        if (!(await confirmAction({ title: `Send ${p.name} a password link?`, message: `We'll email ${p.email} a link to choose a new password (it works for 3 days). Their current password stops working once they choose a new one.`, confirmText: "Send Link" }))) return;
+        try {
+          const res = await adminApi(`/api/admin/transport/providers/${p.id}/password-link`, { method: "POST", body: {} });
+          showNotification(res.message, res.emailed ? "success" : "warning");
+          showLink(p.name, res.setup_link);
+        } catch (error) { showNotification(error.message, "error"); }
+      }
+
+      function addDocuments(p) {
+        openFormModal({
+          title: `Documents for ${p.name}`,
+          submitText: "Upload",
+          body: `<p class="text-sm text-gray-600 -mt-2 mb-2">PDF or photos, up to 12 MB each.</p><div data-docs></div>`,
+          onOpen: (form) => documentRows(form.querySelector("[data-docs]")),
+          onSubmit: async (form) => {
+            const fd = new FormData();
+            appendDocuments(form, fd);
+            if (!fd.has("documents")) {
+              const e = new Error("Choose at least one file.");
+              e.errors = { documents: "Choose at least one file." };
+              throw e;
+            }
+            const res = await adminApi(`/api/admin/transport/providers/${p.id}/documents`, { method: "POST", body: fd });
+            showNotification(res.message, "success");
+            setTimeout(() => openProvider(p.id, { replace: true }), 50);
+          },
+        });
+      }
+
+      function editVehicle(p, v) {
+        const cargoOf = (k) => (v ? (v.cargo.find((c) => c.key === k) || {}).max || "" : "");
+        openFormModal({
+          title: v ? `Vehicle ${v.registration}` : `Add a vehicle for ${p.name}`,
+          wide: true,
+          submitText: v ? "Save Vehicle" : "Add Vehicle",
+          body: `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              ${input("registration", "Registration number", v ? v.registration : "", 'maxlength="30" placeholder="e.g. ABC 1234"')}
+              ${input("vehicle_type", "Vehicle type", v ? v.vehicle_type : "", 'maxlength="60" placeholder="e.g. 7-tonne truck with crate"')}
+            </div>
+            <div>
+              <p class="field-label">Size <span class="text-gray-400 font-normal">(buyers choose a size when they order)</span></p>
+              <div class="tp-sizes" role="radiogroup" aria-label="Vehicle size">${meta.sizes.map((x) => `<label class="tp-size-opt"><input type="radio" name="size_class" value="${x.key}" ${v && v.size_class === x.key ? "checked" : ""}><span><b>${escapeHtml(x.label)}</b><small>${escapeHtml(x.hint)}</small></span></label>`).join("")}</div>
+              ${errFor("size_class")}
+            </div>
+            ${input("capacity_note", "Capacity notes <span class=\"text-gray-400 font-normal\">(optional)</span>", v ? v.capacity_note : "", 'maxlength="255" placeholder="e.g. Double-deck crate, ventilated"')}
+            <p class="field-label mt-2">What it can carry at once <span class="text-gray-400 font-normal">(leave empty what it doesn't carry)</span></p>
+            <div class="tp-cargo-grid">${(cargoTypes.length ? cargoTypes : meta.cargo_types).map((c) => `<div><label class="field-label !text-xs" for="cg-${c.key}">${escapeHtml(c.label)} (${escapeHtml(c.unit)})</label><input id="cg-${c.key}" name="cargo_${c.key}" type="number" min="1" step="1" class="field-input" value="${cargoOf(c.key)}">${errFor(`cargo_${c.key}`)}</div>`).join("")}</div>
+            ${errFor("cargo")}
+            <p class="field-label mt-2">Photos <span class="text-gray-400 font-normal">(optional, up to 4)</span></p>
+            <input type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp" class="text-sm">
+            <p class="field-label mt-2">Vehicle papers <span class="text-gray-400 font-normal">(optional: registration book, fitness, insurance)</span></p>
+            <input type="file" name="documents" multiple accept="application/pdf,image/jpeg,image/png,image/webp" class="text-sm">`,
+          onSubmit: async (form) => {
+            const fd = new FormData();
+            ["registration", "vehicle_type", "capacity_note"].forEach((k) => fd.append(k, form[k].value.trim()));
+            fd.append("size_class", form.size_class.value || "");
+            (cargoTypes.length ? cargoTypes : meta.cargo_types).forEach((c) => fd.append(`cargo_${c.key}`, form[`cargo_${c.key}`].value.trim()));
+            [...form.photos.files].slice(0, 4).forEach((f) => fd.append("photos", f));
+            [...form.documents.files].forEach((f) => fd.append("documents", f));
+            const res = await adminApi(v ? `/api/admin/transport/vehicles/${v.id}` : `/api/admin/transport/providers/${p.id}/vehicles`, { method: v ? "PUT" : "POST", body: fd });
+            showNotification(res.message, "success");
+            load();
+            setTimeout(() => openProvider(p.id, { replace: true }), 50);
+          },
+        });
+      }
+
       function exportExcel() {
         const header = ["Provider", "Type", "Phone", "Email", "District", "Province", "Status", "Active", "Coverage km", "Coverage on", "Vehicles", "Completed", "Rating"];
         const lines = state.rows.map((p) => [p.name, p.kind, p.phone, p.email, p.district, p.province, p.status, p.is_active ? "Yes" : "No", p.coverage_km ?? "", p.coverage_active ? "Yes" : "No", p.vehicles, p.completed, p.rating ?? ""]);
@@ -272,6 +469,7 @@
         let timer;
         document.getElementById("search").addEventListener("input", (e) => { clearTimeout(timer); timer = setTimeout(() => { state.q = e.target.value.trim(); load(); }, 300); });
         document.getElementById("export").addEventListener("click", exportExcel);
+        document.getElementById("add-provider").addEventListener("click", openAddProvider);
         await load();
         if (q.id) openProvider(q.id);
         window.addEventListener("admin:change", (e) => {
