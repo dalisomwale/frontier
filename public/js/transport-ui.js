@@ -82,17 +82,15 @@ async function trPointPicker(holder, opts = {}) {
     <div class="tr-picker">
       ${opts.search ? `<div class="tr-picker-tools"><div class="tr-search"><input type="search" class="field-input !py-2 !text-sm" placeholder="Search a place, e.g. Kabulonga, Lusaka" data-search aria-label="Search a place"><ul class="tr-search-list" data-results hidden></ul></div></div>` : ""}
       <div class="tr-map" data-map></div>
-      <div class="tr-picker-bar">
-        <button type="button" class="tr-locate-btn" data-locate-btn>${uiIcon("location")}<span>Use My Current Location</span></button>
-        <span class="tr-picker-near" data-near hidden></span>
-      </div>
-      <p class="tr-picker-hint" data-hint>${escapeHtml(opts.hint || "Tap the map to place the pin, then drag it to the exact spot. Zoom in to see the streets.")}</p>
+      <p class="tr-picker-hint" data-hint hidden></p>
     </div>`;
   const map = await trBaseMap(holder.querySelector("[data-map]"), { center: opts.lat ? [opts.lat, opts.lng] : ZAMBIA_CENTER, zoom: opts.lat ? 15 : 6 });
   let marker = null;
   let point = opts.lat ? { lat: Number(opts.lat), lng: Number(opts.lng) } : null;
+  // The line under the map: only for something to act on (address not
+  // found, location only rough, plot not on the map); otherwise hidden.
   const hint = holder.querySelector("[data-hint]");
-  const near = holder.querySelector("[data-near]");
+  const say = (text, warn = false) => { hint.textContent = text; hint.classList.toggle("tr-hint-warn", warn); hint.hidden = !warn; };
   // What is under the pin (road and area), looked up once the pin settles.
   // Tells everyone on the page (the address fields fill an empty address
   // from it after "Use My Current Location").
@@ -106,8 +104,6 @@ async function trPointPicker(holder, opts = {}) {
       let place = null;
       try { place = (await apiRequest(`/api/geocode/reverse?${new URLSearchParams({ lat: at.lat, lng: at.lng })}`)).data; } catch { place = null; }
       if (mine !== nearSeq || point !== at) return;
-      near.hidden = !place;
-      near.innerHTML = place ? `${uiIcon("location")}<span>Pin is at <b>${escapeHtml(place.label)}</b></span>` : "";
       if (place) holder.dispatchEvent(new CustomEvent("tr-pin-near", { bubbles: true, detail: { place, source } }));
     }, 500);
   };
@@ -119,8 +115,8 @@ async function trPointPicker(holder, opts = {}) {
       marker.on("dragend", () => { const p = marker.getLatLng(); clearAccuracy(); set(p.lat, p.lng, { pan: false, source: "drag" }); });
     } else marker.setLatLng([point.lat, point.lng]);
     if (pan) map.setView([point.lat, point.lng], zoom || Math.max(map.getZoom(), 15));
-    if (!quiet) hint.textContent = `Pin at ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}. Drag it to the exact spot; zoom in to see streets and buildings.`;
-    hint.classList.remove("tr-hint-warn");
+    if (!quiet) say(`Pin at ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}.`);
+    else hint.hidden = !hint.classList.contains("tr-hint-warn");
     lookNear(source);
     if (opts.onChange) opts.onChange(point);
   };
@@ -147,7 +143,7 @@ async function trPointPicker(holder, opts = {}) {
   // accurate fix (phones improve as GPS locks on), shows how accurate it is,
   // and explains what to do when it fails or is only approximate.
   let accuracyCircle = null;
-  const clearAccuracy = () => { if (accuracyCircle) { accuracyCircle.remove(); accuracyCircle = null; } hint.classList.remove("tr-hint-warn"); };
+  const clearAccuracy = () => { if (accuracyCircle) { accuracyCircle.remove(); accuracyCircle = null; } say(hint.textContent); };
   if (map) map.on("click", clearAccuracy);
   const describe = (m) => (m < 1000 ? `about ${Math.max(5, Math.round(m / 5) * 5)} m` : `about ${(m / 1000).toFixed(m < 10000 ? 1 : 0)} km`);
   const showFix = (pos, final) => {
@@ -159,10 +155,9 @@ async function trPointPicker(holder, opts = {}) {
       else accuracyCircle = L.circle([c.latitude, c.longitude], { radius: acc, color: "#2563eb", weight: 1, fillOpacity: 0.08, interactive: false }).addTo(map);
     }
     const rough = acc > 300;
-    hint.classList.toggle("tr-hint-warn", rough);
-    hint.textContent = rough
+    say(rough
       ? `Your device only knows roughly where you are (within ${describe(acc)}): computers without GPS estimate it from the internet connection. Drag the pin to the exact spot.`
-      : `Pin placed at your location (accurate to ${describe(acc)})${final ? "" : ", improving…"}. Drag it if needed.`;
+      : `Pin placed at your location (accurate to ${describe(acc)})${final ? "" : ", improving…"}. Drag it if needed.`, rough);
   };
   const locate = (btn) => {
     if (!window.isSecureContext) return showNotification("Your location can only be used on the secure (https) address of the site. Place the pin on the map instead.", "error");
@@ -210,7 +205,6 @@ async function trPointPicker(holder, opts = {}) {
     }, 12000);
   };
   holder.querySelector("[data-locate]")?.addEventListener("click", (e) => locate(e.currentTarget));
-  holder.querySelector("[data-locate-btn]").addEventListener("click", (e) => locate(e.currentTarget));
   const search = holder.querySelector("[data-search]");
   if (search) {
     const list = holder.querySelector("[data-results]");
@@ -242,7 +236,7 @@ async function trPointPicker(holder, opts = {}) {
     set: (lat, lng, o = {}) => set(lat, lng, { ...o, quiet: Boolean(o.quiet) }),
     map,
     // A note under the map (e.g. where the pin came from); warn: highlighted.
-    note(text, warn = false) { hint.textContent = text; hint.classList.toggle("tr-hint-warn", warn); },
+    note(text, warn = false) { say(text, warn); },
   };
 }
 

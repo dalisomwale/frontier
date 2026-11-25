@@ -74,15 +74,17 @@
                 <p class="field-error hidden" data-error-for="district"></p>
               </div>
             </div>
-            <div>
-              <label for="preferred_coverage_km" class="field-label">How Far You'll Travel</label>
-              <div class="tr-km-row"><input id="preferred_coverage_km" name="preferred_coverage_km" type="number" min="5" max="1000" step="1" inputmode="numeric" class="field-input" placeholder="e.g. 100" required /><span>km by road</span></div>
-              <p class="field-error hidden" data-error-for="preferred_coverage_km"></p>
-            </div>
-            <div>
-              <label for="address" class="field-label" data-address-label>Physical Address</label>
-              <input id="address" name="address" class="field-input" maxlength="255" placeholder="Start typing for suggestions" required />
-              <p class="field-error hidden" data-error-for="address"></p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label for="preferred_coverage_km" class="field-label">How Far You'll Travel</label>
+                <div class="tr-km-row"><input id="preferred_coverage_km" name="preferred_coverage_km" type="number" min="5" max="1000" step="1" inputmode="numeric" class="field-input" placeholder="e.g. 100" required /><span>km</span></div>
+                <p class="field-error hidden" data-error-for="preferred_coverage_km"></p>
+              </div>
+              <div>
+                <label for="address" class="field-label" data-address-label>Physical Address</label>
+                <input id="address" name="address" class="field-input" maxlength="255" placeholder="Start typing for suggestions" required />
+                <p class="field-error hidden" data-error-for="address"></p>
+              </div>
             </div>
             <div>
               <div id="base-map"></div>
