@@ -19,19 +19,20 @@
   </head>
   <body class="bg-gray-50 min-h-screen">
     <div id="account-header"></div>
-    <main class="max-w-md mx-auto px-4 py-8 sm:py-12">
+    <main class="max-w-lg mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
       <div class="ob-card">
         <div class="ob-head">
+          <span class="ob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
           <h1 class="ob-title">Create Your Account</h1>
-          <p class="ob-sub">Order, pay and track your deliveries.</p>
+          <p class="ob-sub">Your customer account: order, pay and track deliveries.</p>
         </div>
         <form id="register-form" novalidate>
           <div id="checkout-note" class="alert alert-info text-sm mb-4" hidden>Create an account to check out. Your cart is kept.</div>
           <div id="form-alert" class="hidden alert text-sm mb-4" role="alert"></div>
           <div data-ob-progress></div>
 
-          <section class="ob-step" data-title="Your Details">
+          <section class="ob-step" data-title="About You">
             <div>
               <label for="full_name" class="field-label">Full Name</label>
               <input id="full_name" name="full_name" class="field-input" autocomplete="name" maxlength="120" required />
@@ -42,14 +43,14 @@
               <input id="phone" name="phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" placeholder="0977 123 456" required />
               <p class="field-error hidden" data-error-for="phone"></p>
             </div>
-          </section>
-
-          <section class="ob-step" data-title="Sign-In Details" hidden>
             <div>
               <label for="email" class="field-label">Email</label>
               <input id="email" name="email" type="email" class="field-input" autocomplete="email" inputmode="email" required />
               <p class="field-error hidden" data-error-for="email"></p>
             </div>
+          </section>
+
+          <section class="ob-step" data-title="Password" hidden>
             <div>
               <label for="password" class="field-label">Password</label>
               <div class="relative">
@@ -79,17 +80,15 @@
             <button id="submit-btn" type="submit" class="ob-btn" data-ob-submit hidden>Create Account</button>
           </div>
         </form>
-        <p class="ob-foot">Already have an account? <a id="login-link2" href="/account/login">Log In</a></p>
+        <p class="ob-foot">Already have an account? <a id="login-link2" href="/account/login">Sign In</a></p>
         <p class="ob-foot !mt-2">Start selling with us? <a href="/seller/register">Register as a Seller</a></p>
       </div>
     </main>
-    <footer id="site-footer"></footer>
 
     <script src="/js/app-shell.js"></script>
     <script>
-      document.getElementById("account-header").innerHTML = accountHeader(null);
+      document.getElementById("account-header").innerHTML = authPageHeader();
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
-      if (typeof renderBottomNav === "function") renderBottomNav("public");
       bindPasswordToggles();
       const alertBox = document.getElementById("form-alert");
       const showAlert = (message, kind = "error") => {
@@ -107,9 +106,9 @@
           if (i === 0) {
             if (form.full_name.value.trim().length < 2) e.full_name = "Please enter your full name.";
             if (!obPhoneOk(form.phone.value)) e.phone = "Please enter your phone number, e.g. 0977 123 456.";
+            if (!OB_EMAIL.test(form.email.value.trim())) e.email = "Please enter a valid email address.";
           }
           if (i === 1) {
-            if (!OB_EMAIL.test(form.email.value.trim())) e.email = "Please enter a valid email address.";
             if (meter && meter.problem()) e.password = meter.problem();
             else if (!form.password.value) e.password = "Please choose a password.";
             if (form.password.value && form.confirm_password.value !== form.password.value) e.confirm_password = form.confirm_password.value ? "The passwords don't match." : "Please type your password again.";
@@ -141,6 +140,5 @@
         }
       });
     </script>
-    <div id="app-bottom-nav"></div>
   </body>
 </html>

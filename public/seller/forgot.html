@@ -15,9 +15,9 @@
   <body class="bg-gray-50 min-h-screen">
     <div id="seller-header"></div>
 
-    <main class="max-w-md mx-auto px-4 py-8 sm:py-12">
+    <main class="max-w-lg mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
-      <div class="ob-card ob-auth ob-blue">
+      <div class="ob-card ob-auth">
         <div class="ob-head">
           <span class="ob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg></span>
           <h1 class="ob-title">Forgot Your Password?</h1>
@@ -37,7 +37,7 @@
     </main>
 
     <script>
-      document.getElementById("seller-header").innerHTML = sellerPageHeader(null);
+      document.getElementById("seller-header").innerHTML = authPageHeader();
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
       bindPasswordToggles();
       const form = document.getElementById("forgot-form");

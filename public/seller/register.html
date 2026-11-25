@@ -23,10 +23,11 @@
 
     <main class="max-w-lg mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
-      <div class="ob-card ob-blue">
+      <div class="ob-card">
         <div class="ob-head">
-          <h1 class="ob-title">Sell on Frontier</h1>
-          <p class="ob-sub">List your livestock and feed in three quick steps.</p>
+          <span class="ob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0V9z"/><path d="M5 13v8h14v-8"/><path d="M10 21v-5h4v5"/></svg></span>
+          <h1 class="ob-title">Create Your Account</h1>
+          <p class="ob-sub">Your seller account: list your livestock and feed.</p>
         </div>
         <form id="register-form" novalidate>
           <div id="form-alert" class="hidden alert alert-error text-sm mb-4" role="alert"></div>
@@ -98,7 +99,7 @@
             </div>
             <label class="co-terms-box">
               <input id="agree" name="agree" type="checkbox" />
-              <span>I accept the <a href="/terms" target="_blank" class="text-blue-700 hover:underline">Terms</a> and <a href="/privacy" target="_blank" class="text-blue-700 hover:underline">Privacy Policy</a>.</span>
+              <span>I accept the <a href="/terms" target="_blank" class="acc-link">Terms</a> and <a href="/privacy" target="_blank" class="acc-link">Privacy Policy</a>.</span>
             </label>
             <p class="field-error hidden" data-error-for="agree"></p>
           </section>
@@ -114,7 +115,7 @@
     </main>
 
     <script>
-      document.getElementById("seller-header").innerHTML = sellerPageHeader(null);
+      document.getElementById("seller-header").innerHTML = authPageHeader();
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
       bindPasswordToggles();
       const form = document.getElementById("register-form");

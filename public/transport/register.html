@@ -24,10 +24,11 @@
 
     <main class="max-w-lg mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
-      <div class="ob-card ob-blue">
+      <div class="ob-card">
         <div class="ob-head">
-          <h1 class="ob-title">Drive for Frontier</h1>
-          <p class="ob-sub">Carry livestock and feed for Frontier's buyers.</p>
+          <span class="ob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
+          <h1 class="ob-title">Create Your Account</h1>
+          <p class="ob-sub">Your transport account: carry livestock and feed for Frontier's buyers.</p>
         </div>
         <form id="register-form" novalidate>
           <div id="form-alert" class="hidden alert alert-error text-sm mb-4" role="alert"></div>
@@ -145,7 +146,7 @@
               </div>
               <p class="field-error hidden" data-error-for="confirm_password"></p>
             </div>
-            <label class="co-terms-box"><input type="checkbox" name="accept_terms" value="1"><span>I accept the <a href="/terms" target="_blank" rel="noopener">Terms</a> and confirm my details and documents are true.</span></label>
+            <label class="co-terms-box"><input type="checkbox" name="accept_terms" value="1"><span>I accept the <a href="/terms" target="_blank" rel="noopener" class="acc-link">Terms</a> and confirm my details and documents are true.</span></label>
             <p class="field-error hidden" data-error-for="accept_terms"></p>
             <p class="text-xs text-gray-500">Frontier checks your documents, then approves your account.</p>
           </section>
@@ -153,7 +154,7 @@
           <div class="ob-nav">
             <button type="button" class="ob-btn ob-btn-back" data-ob-back>Back</button>
             <button type="button" class="ob-btn" data-ob-next>Continue</button>
-            <button id="submit-btn" type="submit" class="ob-btn" data-ob-submit hidden>Register</button>
+            <button id="submit-btn" type="submit" class="ob-btn" data-ob-submit hidden>Create Account</button>
           </div>
         </form>
         <p class="ob-foot">Already have an account? <a href="/transport/login">Sign In</a></p>
@@ -161,7 +162,7 @@
     </main>
 
     <script>
-      document.getElementById("page-header").innerHTML = transportPageHeader();
+      document.getElementById("page-header").innerHTML = authPageHeader();
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
       bindPasswordToggles();
       const form = document.getElementById("register-form");
@@ -261,7 +262,7 @@
           return;
         }
         const r = km() * 1000;
-        if (!circle) circle = L.circle([pt.lat, pt.lng], { radius: r, color: "#2563eb", weight: 2, fillColor: "#3b82f6", fillOpacity: 0.1, interactive: false }).addTo(map);
+        if (!circle) circle = L.circle([pt.lat, pt.lng], { radius: r, color: "#166534", weight: 2, fillColor: "#22c55e", fillOpacity: 0.1, interactive: false }).addTo(map);
         else circle.setLatLng([pt.lat, pt.lng]).setRadius(r);
         // "120 km" on the circle's top edge.
         const top = [pt.lat + km() / 111.32, pt.lng];
@@ -420,7 +421,7 @@
           Object.entries(docs).forEach(([type, file]) => { fd.append("documents", file); fd.append("doc_types", type); });
         }
         try {
-          await withBusy(document.getElementById("submit-btn"), "Registering…", () => transportApi("/api/transport/auth/register", { method: "POST", body: fd }));
+          await withBusy(document.getElementById("submit-btn"), "Creating account…", () => transportApi("/api/transport/auth/register", { method: "POST", body: fd }));
           window.location.href = "/transport/?welcome=1";
         } catch (error) {
           const errs = error.errors || {};

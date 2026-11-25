@@ -39,6 +39,21 @@ function sellerState(l) {
   return { key: "unpublished", label: "Hidden" };
 }
 
+// The header on every sign-up, sign-in and password page: customers,
+// sellers and transport providers all see the same one.
+function authPageHeader() {
+  return `
+    <nav class="site-topnav sticky top-0 z-50">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-3">
+        <a href="/" class="flex items-center gap-3 flex-shrink-0" aria-label="Frontier Marketplace home">
+          <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div>
+          <span class="font-bold site-topnav-name">Frontier Marketplace</span>
+        </a>
+        <div class="ml-auto"><a href="/" class="site-topnav-back px-3 py-2">Marketplace</a></div>
+      </div>
+    </nav>`;
+}
+
 function sellerPageHeader(seller) {
   return `
     <nav class="${seller ? "site-header" : "site-topnav"} sticky top-0 z-50">

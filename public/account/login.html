@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
-    <title>Log in - Frontier Marketplace</title>
+    <title>Sign In - Frontier Marketplace</title>
     <link rel="icon" href="/images/logo-icon.jpg" />
     <link rel="stylesheet" href="/css/tailwind.css" />
     <link rel="stylesheet" href="/css/style.css" />
@@ -19,16 +19,16 @@
   <body class="bg-gray-50 min-h-screen">
     <div id="account-header"></div>
 
-    <main class="max-w-md mx-auto px-4 py-8 sm:py-12">
+    <main class="max-w-lg mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
       <div class="ob-card ob-auth">
         <div class="ob-head">
           <span class="ob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
           <h1 class="ob-title">Welcome Back</h1>
-          <p class="ob-sub">Log in to order and track your deliveries.</p>
+          <p class="ob-sub">Sign in to your customer account.</p>
         </div>
         <form id="login-form" class="space-y-4" novalidate>
-          <div id="checkout-note" class="alert alert-info text-sm mb-0" hidden>Log in to check out. Your cart is kept.</div>
+          <div id="checkout-note" class="alert alert-info text-sm mb-0" hidden>Sign in to check out. Your cart is kept.</div>
           <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
           <div>
             <label for="email" class="field-label">Email</label>
@@ -44,21 +44,19 @@
             <p class="field-error hidden" data-error-for="password"></p>
           </div>
           <div class="ob-auth-row">
-            <label><input id="remember" name="remember" type="checkbox" checked /> Keep me logged in</label>
+            <label><input id="remember" name="remember" type="checkbox" checked /> Keep me signed in</label>
             <a href="/account/forgot">Forgot Password?</a>
           </div>
-          <button id="submit-btn" type="submit" class="ob-btn w-full">Log In</button>
+          <button id="submit-btn" type="submit" class="ob-btn w-full">Sign In</button>
         </form>
         <p class="ob-foot">Don't have an account? <a id="register-link" href="/account/register">Create One</a></p>
       </div>
     </main>
-    <footer id="site-footer"></footer>
 
     <script src="/js/app-shell.js"></script>
     <script>
-      document.getElementById("account-header").innerHTML = accountHeader(null);
+      document.getElementById("account-header").innerHTML = authPageHeader();
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
-      if (typeof renderBottomNav === "function") renderBottomNav("public");
       bindPasswordToggles();
       const alertBox = document.getElementById("form-alert");
       const showAlert = (message, kind = "error") => {
@@ -69,7 +67,7 @@
       const next = buyerNext();
       if (next.startsWith("/checkout")) document.getElementById("checkout-note").hidden = false;
       document.getElementById("register-link").href = `/account/register${location.search}`;
-      if (getQueryParams().reset) showAlert("Password updated. You can now log in.", "success");
+      if (getQueryParams().reset) showAlert("Password updated. You can now sign in.", "success");
       buyerApi("/api/buyer/auth/me").then(() => { setBuyerHint(true); window.location.href = next; }).catch(() => form.email.focus());
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -77,7 +75,7 @@
         const password = form.password.value;
         if (!email || !password) return showAlert("Please enter your email and password.");
         try {
-          await withBusy(document.getElementById("submit-btn"), "Logging in…", () =>
+          await withBusy(document.getElementById("submit-btn"), "Signing in…", () =>
             buyerApi("/api/buyer/auth/login", { method: "POST", body: { email, password, remember: form.elements.remember.checked } }));
           setBuyerHint(true);
           window.location.href = next;
@@ -88,6 +86,5 @@
         }
       });
     </script>
-    <div id="app-bottom-nav"></div>
   </body>
 </html>

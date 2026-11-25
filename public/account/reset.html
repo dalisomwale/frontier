@@ -19,7 +19,7 @@
   <body class="bg-gray-50 min-h-screen">
     <div id="account-header"></div>
 
-    <main class="max-w-md mx-auto px-4 py-8 sm:py-12">
+    <main class="max-w-lg mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
       <div class="ob-card ob-auth">
         <div class="ob-head">
@@ -39,16 +39,14 @@
           </div>
           <button id="submit-btn" type="submit" class="ob-btn w-full">Save Password</button>
         </form>
-        <p class="ob-foot"><a href="/account/login">Back to Log In</a></p>
+        <p class="ob-foot"><a href="/account/login">Back to Sign In</a></p>
       </div>
     </main>
-    <footer id="site-footer"></footer>
 
     <script src="/js/app-shell.js"></script>
     <script>
-      document.getElementById("account-header").innerHTML = accountHeader(null);
+      document.getElementById("account-header").innerHTML = authPageHeader();
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
-      if (typeof renderBottomNav === "function") renderBottomNav("public");
       bindPasswordToggles();
       const alertBox = document.getElementById("form-alert");
       const showAlert = (message, kind = "error") => {
@@ -71,6 +69,5 @@
         }
       });
     </script>
-    <div id="app-bottom-nav"></div>
   </body>
 </html>

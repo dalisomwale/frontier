@@ -16,12 +16,13 @@
   <body class="bg-gray-50 min-h-screen">
     <div id="page-header"></div>
 
-    <main class="max-w-md mx-auto px-4 py-8 sm:py-12">
+    <main class="max-w-lg mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
-      <div class="ob-card ob-auth ob-blue">
+      <div class="ob-card ob-auth">
         <div class="ob-head">
           <span class="ob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
-          <h1 class="ob-title">Transport Sign In</h1>
+          <h1 class="ob-title">Welcome Back</h1>
+          <p class="ob-sub">Sign in to your transport account.</p>
         </div>
         <div class="ob-tabs" role="tablist" aria-label="Sign in as">
           <button type="button" role="tab" aria-selected="true" data-as="owner">Provider</button>
@@ -51,13 +52,13 @@
           </div>
           <button id="submit-btn" type="submit" class="ob-btn w-full">Sign In</button>
         </form>
-        <p class="ob-foot" data-owner>Don't have an account? <a href="/transport/register">Register</a></p>
+        <p class="ob-foot" data-owner>Don't have an account? <a href="/transport/register">Create One</a></p>
         <p class="ob-foot" data-driver hidden>No code yet? Ask your company for one.</p>
       </div>
     </main>
 
     <script>
-      document.getElementById("page-header").innerHTML = transportPageHeader();
+      document.getElementById("page-header").innerHTML = authPageHeader();
       bindPasswordToggles();
       const form = document.getElementById("login-form");
       const alertBox = document.getElementById("form-alert");

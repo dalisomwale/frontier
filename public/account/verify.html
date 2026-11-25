@@ -25,21 +25,23 @@
       </div>
     </header>
 
-    <main class="max-w-md mx-auto px-4 py-8 sm:py-10">
+    <main class="max-w-lg mx-auto px-4 py-8 sm:py-12">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
-      <div class="acc-card text-center">
+      <div class="ob-card ob-auth text-center">
+        <div class="ob-head">
+          <span class="ob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></span>
+          <h1 class="ob-title">Confirm Your Email</h1>
+        </div>
         <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
         <p id="verify-wait" class="text-gray-600 text-sm">Confirming…</p>
-        <a href="/account/" class="acc-btn mt-4">Go to my account</a>
+        <a href="/account/" class="ob-btn w-full mt-5">Go to My Account</a>
       </div>
     </main>
-    <footer id="site-footer"></footer>
 
     <script src="/js/app-shell.js"></script>
     <script>
-      document.getElementById("account-header").innerHTML = accountHeader(null);
+      document.getElementById("account-header").innerHTML = authPageHeader();
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
-      if (typeof renderBottomNav === "function") renderBottomNav("public");
       bindPasswordToggles();
       const alertBox = document.getElementById("form-alert");
       const showAlert = (message, kind = "error") => {
@@ -58,6 +60,5 @@
           showAlert(error.message);
         });
     </script>
-    <div id="app-bottom-nav"></div>
   </body>
 </html>
