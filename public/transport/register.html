@@ -60,7 +60,7 @@
             </div>
           </section>
 
-          <section class="ob-step" data-key="work" data-title="Where You Work" hidden>
+          <section class="ob-step" data-key="work" data-title="Work Coverage" hidden>
             <p class="ob-step-lead" data-company-only hidden>Your Offices</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -205,7 +205,7 @@
         form.querySelectorAll("[data-company-only]").forEach((el) => { el.hidden = !company(); });
         form.querySelector("[data-name-label]").textContent = company() ? "Company Name" : "Full Name";
         form.querySelector("[data-address-label]").textContent = company() ? "Office Address" : "Physical Address";
-        workStep.dataset.title = company() ? "Your Offices" : "Where You Work";
+        workStep.dataset.title = company() ? "Your Offices" : "Work Coverage";
         fleetStep.dataset.title = company() ? "Drivers & Vehicles" : "Your Vehicle";
         form.querySelector("[data-vehicles-title]").textContent = company() ? "Your Vehicles" : "Your Vehicle";
         form.querySelector("[data-vehicles-help]").textContent = company() ? "Your drivers can only use these. Add photos later in your dashboard." : "Have more than one? Add them all. Add photos later in your dashboard.";
@@ -213,7 +213,7 @@
       };
       form.querySelectorAll('input[name="kind"]').forEach((r) => r.addEventListener("change", paintKind));
 
-      // Where you work: the address places the pin, which can be moved; the
+      // Work coverage: the address places the pin, which can be moved; the
       // circle shows roughly how far "How Far You'll Travel" reaches.
       let picker = null;
       let circle = null;
