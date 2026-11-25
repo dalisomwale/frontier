@@ -55,6 +55,10 @@
         <div class="flex justify-end mb-4"><button type="button" class="acc-btn" id="add-vehicle" style="width:auto">Add a vehicle</button></div>
         <div id="vehicles-list" class="tp-vehicles"></div>
       </section>
+      <section id="tab-drivers" hidden>
+        <div class="flex justify-end mb-4"><button type="button" class="acc-btn" id="add-driver" style="width:auto">Add a Driver</button></div>
+        <div id="drivers-list" class="tp-drivers"></div>
+      </section>
       <section id="tab-ratings" hidden><div id="ratings-list"></div></section>
       <section id="tab-notifications" hidden><div class="sl-card"><div id="notifications-list"></div></div></section>
       <section id="tab-profile" hidden><div id="profile-box" class="tr-two"></div></section>
@@ -68,33 +72,40 @@
       let vehicles = [];
       let deliveries = [];
       const state = { tab: "requests", dtab: "active" };
-      const TITLES = { requests: "Requests", deliveries: "My deliveries", vehicles: "Vehicles", ratings: "Ratings", notifications: "Notifications", profile: "Profile" };
+      const TITLES = { requests: "Requests", deliveries: "My deliveries", vehicles: "Vehicles", drivers: "Drivers", ratings: "Ratings", notifications: "Notifications", profile: "Profile" };
       const SUBS = {
         requests: "Paid deliveries in your area that you can accept. The first provider to accept gets the job.",
         deliveries: "Deliveries you've accepted.",
         vehicles: "The vehicles you use. When you accept a request you choose which one goes.",
+        drivers: "Your drivers sign in with their phone number and the sign-in code you give them.",
         ratings: "What buyers said about your deliveries.",
         notifications: "",
         profile: "Your details. Your coverage area is set by Frontier.",
       };
       const ACTIVE = ["provider_accepted", "vehicle_selected", "awaiting_collection", "collection_submitted", "collection_confirmed", "in_transit", "arrived", "delivery_submitted", "awaiting_confirmation", "disputed"];
       const approved = () => me && me.status === "approved" && me.is_active;
+      // A company's driver (D: drivers): their own deliveries, no vehicles,
+      // drivers, documents or money.
+      const isDriver = () => me && me.role === "driver";
+      const allowedTabs = () => transportNavFor(me).map((i) => i.key);
 
       // --------------------------------------------------------------- shell
       function setTab(name) {
-        if (!TITLES[name]) name = "requests";
+        if (!TITLES[name] || !allowedTabs().includes(name)) name = "requests";
         state.tab = name;
         closeAllAdminViews();
         Object.keys(TITLES).forEach((t) => (document.getElementById(`tab-${t}`).hidden = t !== name));
         document.querySelectorAll("[data-tab-link]").forEach((a) => a.classList.toggle("active", a.dataset.tabLink === name));
         document.getElementById("page-title").textContent = TITLES[name];
-        document.getElementById("page-sub").textContent = SUBS[name];
+        document.getElementById("page-sub").textContent = isDriver()
+          ? ({ requests: `Paid deliveries for ${me.name}. The first to accept gets the job.`, deliveries: "Deliveries given to you.", profile: "" }[name] ?? SUBS[name])
+          : SUBS[name];
         document.getElementById("tp-stats").hidden = !["requests", "deliveries"].includes(name);
         const url = new URL(location.href);
         url.searchParams.set("tab", name);
         ["booking", "welcome"].forEach((k) => url.searchParams.delete(k));
         history.replaceState(null, "", url.pathname + url.search);
-        ({ requests: loadRequests, deliveries: loadDeliveries, vehicles: loadVehicles, ratings: loadRatings, notifications: loadNotifications, profile: renderProfile })[name]();
+        ({ requests: loadRequests, deliveries: loadDeliveries, vehicles: loadVehicles, drivers: loadDrivers, ratings: loadRatings, notifications: loadNotifications, profile: renderProfile })[name]();
       }
       document.addEventListener("click", (e) => {
         const a = e.target.closest("[data-tab-link]");
@@ -106,7 +117,12 @@
       function renderBanner() {
         const box = document.getElementById("tp-banner");
         let html = "";
-        if (me.status === "pending") html = `<div class="tr-warn-box"><b>Waiting for Frontier's approval.</b> We're reviewing your details and documents. Add your vehicles in the meantime: you'll start receiving requests once you're approved and your coverage is set.</div>`;
+        document.querySelector(".tp-switch").hidden = isDriver();
+        if (isDriver()) {
+          box.innerHTML = me.status !== "approved" || !me.is_active ? `<div class="tr-warn-box"><b>${escapeHtml(me.name)} isn't taking deliveries yet.</b> Please check with your company.</div>` : "";
+          return;
+        }
+        if (me.status === "pending") html = `<div class="tr-warn-box"><b>Waiting for Frontier's approval.</b> We're reviewing your details and documents. ${me.kind === "company" ? "In the meantime, give your drivers their sign-in codes (Drivers) and add photos of your vehicles" : "Add your vehicles in the meantime"}: you'll start receiving requests once you're approved and your coverage is set.</div>`;
         else if (me.status === "rejected") html = `<div class="tr-warn-box"><b>Your registration was not approved.</b>${me.admin_note ? ` ${escapeHtml(me.admin_note)}` : ""} Please contact Frontier.</div>`;
         else if (me.status === "suspended") html = `<div class="tr-warn-box"><b>Your account is suspended.</b>${me.admin_note ? ` ${escapeHtml(me.admin_note)}` : ""} You won't receive requests. Please contact Frontier.</div>`;
         else if (!me.is_active) html = `<div class="tr-warn-box"><b>Your account has been deactivated by Frontier.</b> Please contact us.</div>`;
@@ -127,7 +143,7 @@
             <div class="tx-total"><span>Open requests</span><b>${s.requests}</b></div>
             <div class="tx-total"><span>Active deliveries</span><b>${s.active}</b></div>
             <div class="tx-total"><span>Completed</span><b>${s.completed}</b></div>
-            <div class="tx-total"><span>Owed to you</span><b>${kwacha(s.owed)}</b></div>`;
+            ${s.owed === null ? "" : `<div class="tx-total"><span>Owed to you</span><b>${kwacha(s.owed)}</b></div>`}`;
         } catch {
         }
       }
@@ -136,6 +152,7 @@
       const jobCard = (b, attr) => `<button type="button" class="tp-job" ${attr}="${b.id}">
           <span class="tp-job-top"><span class="text-sm text-gray-500">${escapeHtml(b.reference)}${b.offered_at ? ` · ${escapeHtml(timeAgo(b.offered_at))}` : ""}</span>${trPill(b)}</span>
           <span class="tp-job-route block">${escapeHtml(b.from)} → ${escapeHtml(b.to)}</span>
+          ${b.driver_name && !isDriver() ? `<span class="tp-job-meta block">Driver <b>${escapeHtml(b.driver_name)}</b></span>` : ""}
           <span class="tp-job-meta block">${trKm(b.distance_km)} by road${b.vehicle_size_label ? ` · <b>${escapeHtml(b.vehicle_size_label)} vehicle</b>` : ""} · ${escapeHtml(b.cargo_summary || "")}${b.provider_earning !== undefined ? ` · <b>${kwacha(b.provider_earning)}</b>` : ""}</span>
         </button>`;
 
@@ -239,7 +256,10 @@
                 ${vs.length ? `<div class="tp-choice">${vs.map((v) => `<label class="${v.fits && !v.busy ? "" : "is-off"}"><input type="radio" name="vehicle_id" value="${v.id}" ${v.fits && !v.busy ? "" : "disabled"}><span><b>${escapeHtml(v.registration)}</b> · ${v.size_label ? `${escapeHtml(v.size_label)} · ` : ""}${escapeHtml(v.vehicle_type)}${v.busy ? " · on another delivery" : v.wrong_size ? " · not the size the buyer chose" : !v.fits ? " · can't carry this load" : ""}</span></label>`).join("")}</div>`
                   : `<p class="text-sm text-gray-600">You have no active vehicles.</p>`}
                 <p class="field-error hidden" data-error-for="vehicle_id"></p>
-                <div class="tr-actions mt-4"><button type="submit" class="acc-btn">Accept delivery</button><button type="button" class="acc-mini-btn" data-decline>Decline</button></div>
+                ${d.drivers ? `<label class="field-label mt-4" for="acc-driver">Driver</label>
+                  <select id="acc-driver" name="driver_id" class="field-input"><option value="">Choose later</option>${d.drivers.map((x) => `<option value="${x.id}" ${x.busy ? "disabled" : ""}>${escapeHtml(x.name)}${x.busy ? " · on another delivery" : ""}</option>`).join("")}</select>
+                  <p class="field-error hidden" data-error-for="driver_id"></p>` : ""}
+                <div class="tr-actions mt-4"><button type="submit" class="acc-btn">Accept delivery</button>${isDriver() ? "" : `<button type="button" class="acc-mini-btn" data-decline>Decline</button>`}</div>
               </form>` : `<div class="acc-card"><p class="text-sm text-gray-700">${d.offer.status === "declined" ? "You declined this request." : "This request is no longer open."}</p></div>`}
             </div>
           </div>`;
@@ -252,7 +272,7 @@
           const v = form.querySelector('input[name="vehicle_id"]:checked');
           if (!v) return showFieldErrors(form, { errors: { vehicle_id: "Choose the vehicle you'll use." } });
           try {
-            const res = await withBusy(form.querySelector("button[type=submit]"), "Accepting…", () => transportApi(`/api/transport/bookings/${d.id}/accept`, { method: "POST", body: { vehicle_id: Number(v.value) } }));
+            const res = await withBusy(form.querySelector("button[type=submit]"), "Accepting…", () => transportApi(`/api/transport/bookings/${d.id}/accept`, { method: "POST", body: { vehicle_id: Number(v.value), driver_id: form.driver_id ? Number(form.driver_id.value) || null : null } }));
             showNotification(res.message, "success");
             openBooking(d.id, { replace: true });
             loadStats();
@@ -262,7 +282,7 @@
             if (error.status === 409) openBooking(d.id, { replace: true });
           }
         });
-        form.querySelector("[data-decline]").addEventListener("click", async () => {
+        form.querySelector("[data-decline]")?.addEventListener("click", async () => {
           const reason = await trPrompt({ title: "Decline this request?", label: "Reason", placeholder: "e.g. Vehicle not available that day", confirmText: "Decline" });
           if (reason === null) return;
           try {
@@ -324,8 +344,14 @@
               ${can.share_location ? `<div data-gps></div>` : ""}
               ${showMap ? `<div class="acc-card"><h2 class="txd-card-title">${onWay ? "To the pickup" : TR_MOVING.includes(d.status) ? "To the buyer" : "Route"}</h2><div data-track></div>
                 ${TR_MOVING.includes(d.status) && goTo.lat ? `<p class="text-sm mt-2"><a class="acc-link" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${goTo.lat},${goTo.lng}">Turn-by-turn directions in your maps app</a></p>` : ""}</div>` : ""}
+              ${d.can && d.can.assign_driver ? `<form class="acc-card" data-assign novalidate><h2 class="txd-card-title">Driver</h2>
+                ${d.drivers.length ? `<div class="flex flex-wrap gap-2 items-end"><select name="driver_id" class="field-input flex-1 min-w-[180px]" aria-label="Driver"><option value="">No driver yet</option>${d.drivers.map((x) => `<option value="${x.id}" ${d.driver && d.driver.id === x.id ? "selected" : ""} ${x.busy && !(d.driver && d.driver.id === x.id) ? "disabled" : ""}>${escapeHtml(x.name)}${x.busy && !(d.driver && d.driver.id === x.id) ? " · on another delivery" : ""}</option>`).join("")}</select><button type="submit" class="acc-mini-btn">Save</button></div>
+                  ${d.driver ? `<p class="text-sm text-gray-600 mt-2">${escapeHtml(d.driver.name)} · <a class="acc-link" href="tel:${escapeHtml(String(d.driver.phone).replace(/[^\d+]/g, ""))}">${escapeHtml(d.driver.phone)}</a></p>` : `<p class="text-sm text-gray-600 mt-2">Choose who drives. They see it when they sign in.</p>`}`
+                  : `<p class="text-sm text-gray-600">Add drivers in the Drivers tab to give them deliveries.</p>`}
+                <p class="field-error hidden" data-error-for="driver_id"></p></form>` : ""}
               ${action}
               <div class="acc-card"><h2 class="txd-card-title">Delivery details</h2>${trFactsHtml(d, { role: "provider" })}
+                ${d.driver && !(d.can && d.can.assign_driver) && !isDriver() ? `<p class="text-sm text-gray-700 mt-3">Driver <b>${escapeHtml(d.driver.name)}</b> · ${escapeHtml(d.driver.phone)}</p>` : ""}
                 ${d.vehicle ? `<p class="text-sm text-gray-700 mt-3 tr-inline-icon">${uiIcon("truck")} Vehicle <b>${escapeHtml(d.vehicle.registration)}</b> · ${escapeHtml(d.vehicle.type)}</p>` : ""}
                 <ul class="tr-qty mt-3">${d.orders.filter((o) => !o.cancelled).map((o) => `<li><span>${escapeHtml(o.reference)} · ${escapeHtml(o.title)}</span><b>${escapeHtml(o.units)}</b></li>`).join("")}</ul>
               </div>
@@ -340,6 +366,15 @@
           sel.form.querySelector("[data-details]").hidden = !sel.value || sel.value === "ok";
         }));
         const reopen = () => openBooking(d.id, { replace: true });
+        const assign = view.body.querySelector("[data-assign]");
+        assign?.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          try {
+            const res = await withBusy(assign.querySelector("button[type=submit]"), "Saving…", () => transportApi(`/api/transport/bookings/${d.id}/driver`, { method: "PATCH", body: { driver_id: Number(assign.driver_id.value) || null } }));
+            showNotification(res.message, "success");
+            reopen();
+          } catch (error) { showFieldErrors(assign, error); showNotification(error.message, "error"); }
+        });
         const bindForm = (sel, url, label) => {
           const form = view.body.querySelector(sel);
           if (!form) return;
@@ -440,6 +475,7 @@
               <div class="flex items-center justify-between gap-2"><b>${escapeHtml(v.registration)}</b><span class="so-pill ${v.status === "active" ? (v.busy_booking ? "so-act" : "so-done") : "so-off"}">${v.status === "active" ? (v.busy_booking ? `On ${escapeHtml(v.busy_booking.reference)}` : "Active") : "Inactive"}</span></div>
               <p class="text-sm text-gray-600 mt-1">${v.size_label ? `<span class="tp-size">${escapeHtml(v.size_label)}</span> ` : ""}${escapeHtml(v.vehicle_type)}${v.capacity_note ? ` · ${escapeHtml(v.capacity_note)}` : ""}</p>
               ${v.size_label ? "" : `<p class="tr-warn-box mt-2">Choose this vehicle's size (Edit), so it can get delivery requests.</p>`}
+              ${v.photos.length ? "" : `<p class="tr-note-box mt-2">Add a photo of this vehicle (Edit).</p>`}
               <p class="text-sm text-gray-700 mt-2">${v.cargo.map((c) => `${escapeHtml(label(c.key))}: up to ${c.max}`).join(" · ")}</p>
               <div class="tr-actions mt-3"><button type="button" class="acc-mini-btn" data-edit="${v.id}">Edit</button>
                 <button type="button" class="acc-mini-btn" data-toggle="${v.id}">${v.status === "active" ? "Deactivate" : "Activate"}</button></div>
@@ -518,6 +554,97 @@
         });
       }
 
+      // ------------------------------------------------------------- drivers
+      let driverList = [];
+      async function loadDrivers() {
+        const list = document.getElementById("drivers-list");
+        try { driverList = (await transportApi("/api/transport/drivers")).data; } catch (error) { list.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(error.message)}</p>`; return; }
+        list.innerHTML = driverList.length ? driverList.map((x) => `
+          <div class="tp-driver">
+            <div class="tp-driver-top">
+              <span class="acc-av">${escapeHtml(x.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase())}</span>
+              <div class="min-w-0 flex-1"><b class="block text-gray-900 truncate">${escapeHtml(x.name)}</b><a class="text-sm acc-link" href="tel:${escapeHtml(x.phone.replace(/[^\d+]/g, ""))}">${escapeHtml(x.phone)}</a></div>
+              <span class="so-pill ${!x.is_active ? "so-off" : x.busy_booking ? "so-act" : "so-done"}">${!x.is_active ? "Off" : x.busy_booking ? `On ${escapeHtml(x.busy_booking.reference)}` : "Free"}</span>
+            </div>
+            <p class="text-sm text-gray-600 mt-3">${!x.has_code ? `<span class="text-amber-700 font-semibold">No sign-in code yet</span>` : x.last_login_at ? `Last signed in ${escapeHtml(timeAgo(x.last_login_at))}` : "Hasn't signed in yet"} · ${x.completed} completed</p>
+            <div class="tr-actions mt-3">
+              <button type="button" class="acc-mini-btn" data-code="${x.id}">${x.has_code ? "New Sign-In Code" : "Get Sign-In Code"}</button>
+              <button type="button" class="acc-mini-btn" data-edit-driver="${x.id}">Edit</button>
+              <button type="button" class="acc-mini-btn" data-driver-toggle="${x.id}">${x.is_active ? "Switch Off" : "Switch On"}</button>
+            </div>
+          </div>`).join("")
+          : `<div class="empty-state"><p class="font-semibold text-gray-800">No drivers yet</p><p class="text-sm mt-1">Add your drivers. Each signs in with their phone number and a code you give them.</p></div>`;
+        const find = (id) => driverList.find((x) => String(x.id) === String(id));
+        list.querySelectorAll("[data-code]").forEach((b) => b.addEventListener("click", async () => {
+          const x = find(b.dataset.code);
+          if (x.has_code && !(await confirmAction({ title: `New sign-in code for ${x.name}?`, message: "Their current code stops working. They'll need the new one to sign in.", confirmText: "Make New Code" }))) return;
+          try {
+            const res = await transportApi(`/api/transport/drivers/${x.id}/code`, { method: "POST" });
+            showDriverCode(res.data, res.code);
+            loadDrivers();
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+        list.querySelectorAll("[data-edit-driver]").forEach((b) => b.addEventListener("click", () => openDriver(find(b.dataset.editDriver))));
+        list.querySelectorAll("[data-driver-toggle]").forEach((b) => b.addEventListener("click", async () => {
+          const x = find(b.dataset.driverToggle);
+          if (x.is_active && !(await confirmAction({ title: `Switch off ${x.name}?`, message: "They're signed out and can't sign in until you switch them on again.", confirmText: "Switch Off", variant: "danger" }))) return;
+          try {
+            const res = await transportApi(`/api/transport/drivers/${x.id}/status`, { method: "PATCH", body: { active: !x.is_active } });
+            showNotification(res.message, "success");
+            loadDrivers();
+          } catch (error) { showNotification(error.message, "error"); }
+        }));
+      }
+      document.getElementById("add-driver").addEventListener("click", () => openDriver(null));
+
+      // The sign-in code, shown once, to send to the driver.
+      function showDriverCode(x, code) {
+        const link = `${location.origin}/transport/login?as=driver`;
+        const message = `Hi ${x.name.split(/\s+/)[0]}, sign in to Frontier Transport at ${link} with your phone number ${x.phone} and the code ${code}.`;
+        const digits = x.phone.replace(/\D/g, "");
+        // Zambian numbers in any form (0977…, 260977…, +260 977…) -> 260 and the last 9 digits.
+        const wa = `https://wa.me/${digits.length >= 9 ? `260${digits.slice(-9)}` : digits}?text=${encodeURIComponent(message)}`;
+        const view = openAdminView({ title: `${x.name}'s sign-in code`, params: {} });
+        view.body.innerHTML = `
+          <div class="acc-card max-w-md">
+            <h1 class="admin-view-title">Sign-In Code for ${escapeHtml(x.name)}</h1>
+            <p class="text-sm text-gray-600">Send it to ${escapeHtml(x.name)}. They sign in with their phone number <b>${escapeHtml(x.phone)}</b> and this code. It's shown only now.</p>
+            <div class="tp-code" data-code-text>${escapeHtml(code)}</div>
+            <div class="tr-actions"><a class="acc-btn" href="${escapeHtml(wa)}" target="_blank" rel="noopener" style="width:auto">Send by WhatsApp</a><button type="button" class="acc-mini-btn" data-copy>Copy Message</button><button type="button" class="acc-mini-btn" data-done>Done</button></div>
+          </div>`;
+        view.body.querySelector("[data-copy]").addEventListener("click", async () => {
+          try { await navigator.clipboard.writeText(message); showNotification("Copied. Paste it in a message to the driver.", "success"); }
+          catch { window.prompt("Copy the message:", message); }
+        });
+        view.body.querySelector("[data-done]").addEventListener("click", () => view.close(true));
+      }
+
+      function openDriver(x) {
+        const view = openAdminView({ title: x ? x.name : "Add a driver", params: {} });
+        view.body.innerHTML = `
+          <form class="acc-card max-w-xl" novalidate>
+            <h1 class="admin-view-title">${x ? `Edit ${escapeHtml(x.name)}` : "Add a Driver"}</h1>
+            <div class="space-y-4">
+              <div><label class="field-label" for="d-name">Full Name</label><input id="d-name" name="name" class="field-input" maxlength="120" value="${escapeHtml(x ? x.name : "")}"><p class="field-error hidden" data-error-for="name"></p></div>
+              <div><label class="field-label" for="d-phone">Phone Number</label><input id="d-phone" name="phone" type="tel" inputmode="tel" class="field-input" maxlength="30" placeholder="0977 123 456" value="${escapeHtml(x ? x.phone : "")}"><p class="text-xs text-gray-500 mt-1">They sign in with this number.</p><p class="field-error hidden" data-error-for="phone"></p></div>
+              <div><label class="field-label" for="d-lic">Driving Licence No. <span class="ob-opt">(optional)</span></label><input id="d-lic" name="licence_number" class="field-input" maxlength="80" value="${escapeHtml(x && x.licence_number ? x.licence_number : "")}"><p class="field-error hidden" data-error-for="licence_number"></p></div>
+            </div>
+            <div class="acc-actionbar"><button type="submit" class="acc-btn">${x ? "Save Driver" : "Add Driver"}</button></div>
+          </form>`;
+        const form = view.body.querySelector("form");
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          try {
+            const body = Object.fromEntries(new FormData(form));
+            const res = await withBusy(form.querySelector("button[type=submit]"), "Saving…", () => transportApi(x ? `/api/transport/drivers/${x.id}` : "/api/transport/drivers", { method: x ? "PUT" : "POST", body }));
+            showNotification(res.message, "success");
+            await view.close(true);
+            loadDrivers();
+            if (res.code) showDriverCode(res.data, res.code);
+          } catch (error) { showFieldErrors(form, error); showNotification(error.message, "error"); }
+        });
+      }
+
       // ------------------------------------------------------------- ratings
       async function loadRatings() {
         const [rows, s] = await Promise.all([transportApi("/api/transport/ratings").then((r) => r.data), transportApi("/api/transport/summary").then((r) => r.data)]);
@@ -550,7 +677,45 @@
       }
 
       // ------------------------------------------------------------- profile
+      function renderDriverProfile() {
+        const box = document.getElementById("profile-box");
+        box.innerHTML = `
+          <div class="space-y-4 min-w-0">
+            <div class="acc-card"><h2 class="txd-card-title">You</h2>
+              <dl class="sv-facts">
+                <div><dt>Name</dt><dd>${escapeHtml(me.driver.name)}</dd></div>
+                <div><dt>Phone (you sign in with it)</dt><dd>${escapeHtml(me.driver.phone)}</dd></div>
+                <div><dt>Company</dt><dd>${escapeHtml(me.name)}</dd></div>
+                <div><dt>Company phone</dt><dd><a class="acc-link" href="tel:${escapeHtml(me.phone.replace(/[^\d+]/g, ""))}">${escapeHtml(me.phone)}</a></dd></div>
+              </dl>
+              <p class="text-sm text-gray-500 mt-3">To change your name or number, ask your company.</p>
+            </div>
+          </div>
+          <div class="space-y-4 min-w-0">
+            <form class="acc-card" data-password novalidate><h2 class="txd-card-title">Choose Your Own Password</h2>
+              <div class="space-y-4">
+                <div><label class="field-label" for="p-cur">Current sign-in code or password</label><input id="p-cur" name="current_password" type="password" class="field-input" autocomplete="current-password"><p class="field-error hidden" data-error-for="current_password"></p></div>
+                <div><label class="field-label" for="p-new">New password</label><input id="p-new" name="new_password" type="password" class="field-input" autocomplete="new-password"><p class="field-error hidden" data-error-for="new_password"></p></div>
+              </div>
+              <button type="submit" class="acc-btn mt-4">Save Password</button>
+            </form>
+            <button type="button" class="acc-btn lg:hidden" data-transport-logout>Log out</button>
+          </div>`;
+        box.querySelector("[data-transport-logout]").addEventListener("click", transportLogout);
+        const pw = box.querySelector("[data-password]");
+        bindPasswordMeter(pw.new_password, () => ({ phone: me.driver.phone }));
+        pw.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          try {
+            const res = await withBusy(pw.querySelector("button[type=submit]"), "Saving…", () => transportApi("/api/transport/me/password", { method: "PATCH", body: { current_password: pw.current_password.value, new_password: pw.new_password.value } }));
+            pw.reset();
+            showNotification(res.message, "success");
+          } catch (error) { showFieldErrors(pw, error); showNotification(error.message, "error"); }
+        });
+      }
+
       async function renderProfile() {
+        if (isDriver()) return renderDriverProfile();
         const docs = await transportApi("/api/transport/me/documents");
         const box = document.getElementById("profile-box");
         const statusText = { pending: "Waiting for approval", approved: "Approved", rejected: "Not approved", suspended: "Suspended" }[me.status];
@@ -699,7 +864,7 @@
         try { vehicles = (await transportApi("/api/transport/vehicles")).data; } catch {}
         renderBanner();
         const q = getQueryParams();
-        if (q.welcome) showNotification("Thank you for registering. Frontier will review your details.", "success");
+        if (q.welcome) showNotification(me.kind === "company" ? "Thank you for registering. Frontier will review your details. Give your drivers their sign-in codes in the Drivers tab." : "Thank you for registering. Frontier will review your details.", "success");
         await goTo(q);
         listen();
       })().catch((error) => showNotification(error.message, "error"));

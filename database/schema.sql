@@ -595,6 +595,29 @@ CREATE TABLE IF NOT EXISTS transport_vehicle_cargo (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Vehicle photos (public uploads) and papers (private, file_name only).
+-- A company's drivers. They sign in with their phone number and the sign-in
+-- code the company gives them (password_hash: NULL until it makes one), and
+-- work the company's requests in its area with the company's vehicles.
+-- phone_key: the number's last 9 digits, so 0977…, +260977… are the same.
+CREATE TABLE IF NOT EXISTS transport_drivers (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  provider_id     INT UNSIGNED NOT NULL,
+  name            VARCHAR(120) NOT NULL,
+  phone           VARCHAR(30) NOT NULL,
+  phone_key       VARCHAR(12) NOT NULL,
+  licence_number  VARCHAR(80) NULL,
+  password_hash   VARCHAR(255) NULL,
+  is_active       TINYINT(1) NOT NULL DEFAULT 1,
+  code_made_at    DATETIME NULL,
+  last_login_at   DATETIME NULL,
+  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_td_provider FOREIGN KEY (provider_id)
+    REFERENCES transport_providers(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_td_phone (phone_key),
+  INDEX idx_td_provider (provider_id, is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS transport_vehicle_files (
   id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   vehicle_id     INT UNSIGNED NOT NULL,
@@ -675,6 +698,8 @@ CREATE TABLE IF NOT EXISTS transport_bookings (
   status                   VARCHAR(30) NOT NULL DEFAULT 'pending_payment',
   provider_id              INT UNSIGNED NULL,
   vehicle_id               INT UNSIGNED NULL,
+  -- The company driver doing it (companies only; NULL for owner-drivers).
+  driver_id                INT UNSIGNED NULL,
   paid_at                  DATETIME NULL,
   offers_sent_at           DATETIME NULL,
   accepted_at              DATETIME NULL,
@@ -710,6 +735,7 @@ CREATE TABLE IF NOT EXISTS transport_bookings (
   INDEX idx_tb_status (status, created_at),
   INDEX idx_tb_provider (provider_id, status),
   INDEX idx_tb_vehicle (vehicle_id, status),
+  INDEX idx_tb_driver (driver_id, status),
   INDEX idx_tb_seller (seller_id),
   INDEX idx_tb_buyer (buyer_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

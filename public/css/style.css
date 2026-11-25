@@ -7455,3 +7455,22 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .ob-skip b { font-size: 14px; color: #111827; }
 .ob-skip small { display: block; font-size: 12.5px; color: #6b7280; font-weight: 500; }
 .ob-opt { color: #9ca3af; font-weight: 400; }
+.ob-rows { display: flex; flex-direction: column; gap: 12px; }
+.ob-row { border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px; background: #fcfcfd; }
+.ob-row-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.ob-row-head b { font-size: 14px; color: #111827; }
+.ob-row-rm { font-size: 13px; font-weight: 600; color: #b91c1c; background: none; border: 0; padding: 2px 4px; cursor: pointer; }
+.ob-row-rm[hidden] { display: none; }
+.ob-add { margin-top: 10px; font-size: 14px; font-weight: 700; color: var(--ob, #166534); background: none; border: 1px dashed currentColor; border-radius: 12px; padding: 10px 14px; width: 100%; cursor: pointer; }
+.ob-add:hover { background: var(--ob-soft, #f0fdf4); }
+#base-map .tr-map { height: 260px; }
+/* Sign in as the company or as a driver. */
+.ob-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: #f3f4f6; border-radius: 12px; margin-bottom: 18px; }
+.ob-tabs button { padding: 9px 10px; border-radius: 9px; font-size: 14px; font-weight: 700; color: #4b5563; background: none; border: 0; cursor: pointer; }
+.ob-tabs button[aria-selected="true"] { background: #fff; color: #111827; box-shadow: 0 1px 3px rgba(16, 24, 40, .12); }
+/* Dashboard: drivers. */
+.tp-drivers { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.tp-driver { background: #fff; border: 1px solid #eef0f2; border-radius: 16px; padding: 16px; }
+.tp-driver-top { display: flex; align-items: center; gap: 12px; }
+.tp-driver-top .acc-av { flex: none; }
+.tp-code { display: flex; align-items: center; justify-content: center; gap: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 26px; font-weight: 800; letter-spacing: .12em; color: #111827; background: #f3f4f6; border-radius: 14px; padding: 16px; margin: 14px 0; }

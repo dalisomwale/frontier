@@ -48,14 +48,24 @@ async function transportLogout() {
 const TRANSPORT_NAV = [
   { key: "requests", icon: "inbox", label: "Requests", short: "Requests", badge: "requests" },
   { key: "deliveries", icon: "truck", label: "My deliveries", short: "Deliveries", badge: "active" },
-  { key: "vehicles", icon: "listings", label: "Vehicles", short: "Vehicles", section: "Setup" },
-  { key: "ratings", icon: "star", label: "Ratings", short: "Ratings" },
-  { key: "notifications", icon: "bell", label: "Notifications", short: "Alerts", badge: "notif", section: "Account" },
+  { key: "vehicles", icon: "listings", label: "Vehicles", short: "Vehicles", section: "Setup", owner: true },
+  { key: "drivers", icon: "users", label: "Drivers", short: "Drivers", owner: true, company: true },
+  { key: "ratings", icon: "star", label: "Ratings", short: "Ratings", section: "Account" },
+  { key: "notifications", icon: "bell", label: "Notifications", short: "Alerts", badge: "notif" },
   { key: "profile", icon: "users", label: "Profile", short: "Profile" },
 ];
+// What this account sees: a company's drivers don't manage vehicles or
+// drivers; only companies have drivers (D: drivers).
+function transportNavFor(p) {
+  const driver = p.role === "driver";
+  return TRANSPORT_NAV.filter((i) => !(i.owner && driver) && !(i.company && p.kind !== "company"));
+}
 
 function renderTransportShell(p) {
   const href = (k) => `/transport/?tab=${k}`;
+  const nav = transportNavFor(p);
+  // Phones: at most 6 buttons along the bottom (Ratings stays in the menu).
+  const bottomNav = nav.length > 6 ? nav.filter((i) => i.key !== "ratings") : nav;
   const sidebar = document.getElementById("app-sidebar");
   sidebar.classList.add("app-sidebar");
   sidebar.innerHTML = `
@@ -64,10 +74,10 @@ function renderTransportShell(p) {
       <div class="min-w-0"><p class="text-white font-semibold text-sm leading-tight">Frontier Marketplace</p><p class="text-xs" style="color: var(--sidebar-text)">Transport</p></div>
     </div>
     <nav class="app-sidebar-nav">
-      ${TRANSPORT_NAV.map((i) => `${i.section ? `<p class="app-sidebar-section">${i.section}</p>` : ""}<a href="${href(i.key)}" data-tab-link="${i.key}">${uiIcon(i.icon)}<span>${i.label}</span>${i.badge ? `<span data-${i.badge}-badge class="nav-badge hidden">0</span>` : ""}</a>`).join("")}
+      ${nav.map((i) => `${i.section ? `<p class="app-sidebar-section">${i.section}</p>` : ""}<a href="${href(i.key)}" data-tab-link="${i.key}">${uiIcon(i.icon)}<span>${i.label}</span>${i.badge ? `<span data-${i.badge}-badge class="nav-badge hidden">0</span>` : ""}</a>`).join("")}
     </nav>
     <div class="app-sidebar-footer">
-      <p class="text-xs px-3 pb-2 truncate" style="color: var(--sidebar-text)">Signed in as ${escapeHtml(p.name)}</p>
+      <p class="text-xs px-3 pb-2 truncate" style="color: var(--sidebar-text)">Signed in as ${escapeHtml(p.role === "driver" && p.driver ? `${p.driver.name} · ${p.name}` : p.name)}</p>
       <button type="button" data-transport-logout>${uiIcon("logout")}<span>Logout</span></button>
     </div>`;
   document.getElementById("transport-topbar").innerHTML = `
@@ -80,7 +90,7 @@ function renderTransportShell(p) {
   const bottom = document.getElementById("app-bottom-nav");
   bottom.classList.add("app-bottom-nav");
   bottom.dataset.variant = "admin";
-  bottom.innerHTML = TRANSPORT_NAV.map((i) => `<a href="${href(i.key)}" data-tab-link="${i.key}"><span class="relative inline-flex">${uiIcon(i.icon)}${i.badge ? `<span data-${i.badge}-badge class="hidden absolute -top-1.5 -right-2.5 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full items-center justify-center leading-none">0</span>` : ""}</span><span>${i.short}</span></a>`).join("");
+  bottom.innerHTML = bottomNav.map((i) => `<a href="${href(i.key)}" data-tab-link="${i.key}"><span class="relative inline-flex">${uiIcon(i.icon)}${i.badge ? `<span data-${i.badge}-badge class="hidden absolute -top-1.5 -right-2.5 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full items-center justify-center leading-none">0</span>` : ""}</span><span>${i.short}</span></a>`).join("");
   document.querySelectorAll("[data-transport-logout]").forEach((b) => b.addEventListener("click", transportLogout));
 }
 

@@ -12,6 +12,8 @@
     <script src="/js/icons.js"></script>
     <script src="/js/seller.js"></script>
     <script src="/js/password-rules.js"></script>
+    <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css" />
+    <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
     <script src="/js/zambia-districts.js"></script>
     <script src="/js/transport-ui.js"></script>
     <script src="/js/transport.js"></script>
@@ -31,7 +33,7 @@
           <div id="form-alert" class="hidden alert alert-error text-sm mb-4" role="alert"></div>
           <div data-ob-progress></div>
 
-          <section class="ob-step" data-title="About You">
+          <section class="ob-step" data-key="about" data-title="About You">
             <div class="ob-choice" role="radiogroup" aria-label="You are registering as">
               <label><input type="radio" name="kind" value="individual" checked><span>Individual<small>Owner-driver</small></span></label>
               <label><input type="radio" name="kind" value="company"><span>Company<small>With drivers</small></span></label>
@@ -58,7 +60,8 @@
             </div>
           </section>
 
-          <section class="ob-step" data-title="Where You Work" hidden>
+          <section class="ob-step" data-key="work" data-title="Where You Work" hidden>
+            <p class="ob-step-lead" data-company-only hidden>Your Offices</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label for="province" class="field-label">Province</label>
@@ -72,18 +75,39 @@
               </div>
             </div>
             <div>
-              <label for="address" class="field-label">Physical Address</label>
-              <input id="address" name="address" class="field-input" maxlength="255" placeholder="Start typing for suggestions" required />
-              <p class="field-error hidden" data-error-for="address"></p>
-            </div>
-            <div>
               <label for="preferred_coverage_km" class="field-label">How Far You'll Travel</label>
               <div class="tr-km-row"><input id="preferred_coverage_km" name="preferred_coverage_km" type="number" min="5" max="1000" step="1" inputmode="numeric" class="field-input" placeholder="e.g. 100" required /><span>km by road</span></div>
               <p class="field-error hidden" data-error-for="preferred_coverage_km"></p>
             </div>
+            <div>
+              <label for="address" class="field-label" data-address-label>Physical Address</label>
+              <input id="address" name="address" class="field-input" maxlength="255" placeholder="Start typing for suggestions" required />
+              <p class="field-error hidden" data-error-for="address"></p>
+            </div>
+            <div>
+              <div id="base-map"></div>
+              <p class="field-error hidden" data-error-for="base_point"></p>
+            </div>
           </section>
 
-          <section class="ob-step" data-title="Documents" hidden>
+          <section class="ob-step" data-key="fleet" data-title="Drivers & Vehicles" data-skip hidden>
+            <div>
+              <p class="ob-step-lead">Your Drivers</p>
+              <p class="text-xs text-gray-500 mt-1">They sign in with their phone number. You'll get their sign-in codes in your dashboard.</p>
+              <div data-drivers class="ob-rows mt-3"></div>
+              <button type="button" class="ob-add" data-add-driver>+ Add Another Driver</button>
+              <p class="field-error hidden" data-error-for="drivers"></p>
+            </div>
+            <div>
+              <p class="ob-step-lead">Your Vehicles</p>
+              <p class="text-xs text-gray-500 mt-1">Your drivers can only use these. Add photos later in your dashboard.</p>
+              <div data-vehicles class="ob-rows mt-3"></div>
+              <button type="button" class="ob-add" data-add-vehicle>+ Add Another Vehicle</button>
+              <p class="field-error hidden" data-error-for="vehicles"></p>
+            </div>
+          </section>
+
+          <section class="ob-step" data-key="docs" data-title="Documents" hidden>
             <p class="text-sm text-gray-600">A PDF or a clear photo of each, up to 12 MB.</p>
             <div class="tr-doc-slots">
               <div class="tr-doc-slot" data-slot="nrc">
@@ -105,7 +129,7 @@
             <p class="field-error hidden" data-error-for="documents"></p>
           </section>
 
-          <section class="ob-step" data-title="Password" hidden>
+          <section class="ob-step" data-key="password" data-title="Password" hidden>
             <div>
               <label for="password" class="field-label">Password</label>
               <div class="relative">
@@ -171,40 +195,142 @@
       });
 
       const kind = () => form.querySelector('input[name="kind"]:checked').value;
+      const company = () => kind() === "company";
+      const workStep = form.querySelector('[data-key="work"]');
+      const fleetStep = form.querySelector('[data-key="fleet"]');
+      let steps = null;
       const paintKind = () => {
-        const company = kind() === "company";
-        form.querySelector("[data-company-only]").hidden = !company;
-        form.querySelector("[data-name-label]").textContent = company ? "Company Name" : "Full Name";
+        form.querySelectorAll("[data-company-only]").forEach((el) => { el.hidden = !company(); });
+        form.querySelector("[data-name-label]").textContent = company() ? "Company Name" : "Full Name";
+        form.querySelector("[data-address-label]").textContent = company() ? "Office Address" : "Physical Address";
+        workStep.dataset.title = company() ? "Your Offices" : "Where You Work";
+        fleetStep.toggleAttribute("data-skip", !company());
+        if (steps) steps.refresh();
       };
       form.querySelectorAll('input[name="kind"]').forEach((r) => r.addEventListener("change", paintKind));
 
-      // The physical address places the provider on the map: a picked
-      // suggestion gives its exact point; otherwise the server looks it up.
-      let basePoint = null;
-      const addressPoint = { get: () => basePoint, set: (lat, lng) => { basePoint = { lat, lng }; } };
-      form.address.addEventListener("input", (e) => { if (e.isTrusted) basePoint = null; });
-      trPlaceFields({ province: form.province, district: form.district, address: form.address, picker: () => addressPoint });
+      // Where you work: the address places the pin, which can be moved; the
+      // circle shows roughly how far "How Far You'll Travel" reaches.
+      let picker = null;
+      let circle = null;
+      const km = () => Number(form.preferred_coverage_km.value) || 0;
+      const paintCircle = () => {
+        if (!picker || !picker.map) return;
+        const pt = picker.get();
+        if (!pt || !(km() >= 5 && km() <= 1000)) { if (circle) { circle.remove(); circle = null; } return; }
+        if (!circle) circle = L.circle([pt.lat, pt.lng], { radius: km() * 1000, color: "#2563eb", weight: 1.5, fillOpacity: 0.07, interactive: false }).addTo(picker.map);
+        else circle.setLatLng([pt.lat, pt.lng]).setRadius(km() * 1000);
+      };
+      trPlaceFields({ province: form.province, district: form.district, address: form.address, picker: () => picker });
+      form.preferred_coverage_km.addEventListener("input", paintCircle);
 
-      const steps = obSteps(form, {
-        check(i) {
+      // Drivers and vehicles (companies).
+      let options = { cargo_types: [], sizes: [] };
+      const driversBox = form.querySelector("[data-drivers]");
+      const vehiclesBox = form.querySelector("[data-vehicles]");
+      const rowHead = () => `<div class="ob-row-head"><b></b><button type="button" class="ob-row-rm" data-rm>Remove</button></div>`;
+      const renumber = () => {
+        driversBox.querySelectorAll("[data-driver-row]").forEach((r, i, all) => { r.querySelector(".ob-row-head b").textContent = `Driver ${i + 1}`; r.querySelector("[data-rm]").hidden = all.length < 2; });
+        vehiclesBox.querySelectorAll("[data-vehicle-row]").forEach((r, i, all) => { r.querySelector(".ob-row-head b").textContent = `Vehicle ${i + 1}`; r.querySelector("[data-rm]").hidden = all.length < 2; });
+      };
+      function addDriver() {
+        const row = document.createElement("div");
+        row.className = "ob-row";
+        row.dataset.driverRow = "1";
+        row.innerHTML = `${rowHead()}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label class="field-label">Full Name</label><input data-f="name" class="field-input" maxlength="120" autocomplete="off"></div>
+            <div><label class="field-label">Phone Number</label><input data-f="phone" type="tel" inputmode="tel" class="field-input" maxlength="30" placeholder="0977 123 456" autocomplete="off"></div>
+            <div class="sm:col-span-2"><label class="field-label">Driving Licence No. <span class="ob-opt">(optional)</span></label><input data-f="licence_number" class="field-input" maxlength="80" autocomplete="off"></div>
+          </div>`;
+        row.querySelector("[data-rm]").addEventListener("click", () => { row.remove(); renumber(); });
+        driversBox.appendChild(row);
+        renumber();
+        return row;
+      }
+      function fillVehicle(row) {
+        const sizes = row.querySelector("[data-sizes]");
+        if (!sizes.childElementCount && options.sizes.length) sizes.innerHTML = `<option value="">Choose…</option>${options.sizes.map((x) => `<option value="${x.key}">${escapeHtml(x.label)} · ${escapeHtml(x.hint)}</option>`).join("")}`;
+        const cargo = row.querySelector("[data-cargo]");
+        if (!cargo.childElementCount && options.cargo_types.length) cargo.innerHTML = options.cargo_types.map((c) => `<div><label class="field-label !text-xs">${escapeHtml(c.label)} (${escapeHtml(c.unit)})</label><input data-cargo-key="${c.key}" type="number" min="1" step="1" inputmode="numeric" class="field-input"></div>`).join("");
+      }
+      function addVehicle() {
+        const row = document.createElement("div");
+        row.className = "ob-row";
+        row.dataset.vehicleRow = "1";
+        row.innerHTML = `${rowHead()}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label class="field-label">Registration Number</label><input data-f="registration" class="field-input" maxlength="30" placeholder="e.g. ABC 1234" autocomplete="off"></div>
+            <div><label class="field-label">Vehicle Type</label><input data-f="vehicle_type" class="field-input" maxlength="60" placeholder="e.g. 7-tonne truck" autocomplete="off"></div>
+            <div class="sm:col-span-2"><label class="field-label">Size</label><select data-f="size_class" data-sizes class="field-input"></select></div>
+          </div>
+          <p class="field-label mt-3">What It Can Carry at Once <span class="ob-opt">(leave empty what it doesn't carry)</span></p>
+          <div class="tp-cargo-grid" data-cargo></div>`;
+        row.querySelector("[data-rm]").addEventListener("click", () => { row.remove(); renumber(); });
+        vehiclesBox.appendChild(row);
+        fillVehicle(row);
+        renumber();
+        return row;
+      }
+      form.querySelector("[data-add-driver]").addEventListener("click", () => addDriver().querySelector("input").focus());
+      form.querySelector("[data-add-vehicle]").addEventListener("click", () => addVehicle().querySelector("input").focus());
+      addDriver();
+      addVehicle();
+      transportApi("/api/transport/auth/options").then((r) => { options = r.data; form.querySelectorAll("[data-vehicle-row]").forEach(fillVehicle); }).catch(() => {});
+      const driverRows = () => [...driversBox.querySelectorAll("[data-driver-row]")].map((r) => Object.fromEntries([...r.querySelectorAll("[data-f]")].map((i) => [i.dataset.f, i.value.trim()])));
+      const vehicleRows = () => [...vehiclesBox.querySelectorAll("[data-vehicle-row]")].map((r) => ({
+        ...Object.fromEntries([...r.querySelectorAll("[data-f]")].map((i) => [i.dataset.f, i.value.trim()])),
+        ...Object.fromEntries([...r.querySelectorAll("[data-cargo-key]")].filter((i) => i.value.trim()).map((i) => [`cargo_${i.dataset.cargoKey}`, i.value.trim()])),
+      }));
+      const fleetErrors = () => {
+        const e = {};
+        const seen = new Set();
+        const ds = driverRows();
+        const vs = vehicleRows();
+        if (!ds.length) e.drivers = "Please add at least one driver.";
+        for (const [i, d] of ds.entries()) {
+          const key = d.phone.replace(/\D/g, "").slice(-9);
+          if (d.name.length < 2) { e.drivers = `Driver ${i + 1}: please enter their full name.`; break; }
+          if (!obPhoneOk(d.phone)) { e.drivers = `Driver ${i + 1}: please enter their phone number, e.g. 0977 123 456.`; break; }
+          if (seen.has(key)) { e.drivers = `Driver ${i + 1}: this phone number is listed twice.`; break; }
+          seen.add(key);
+        }
+        if (!vs.length) e.vehicles = "Please add at least one vehicle.";
+        for (const [i, v] of vs.entries()) {
+          if (v.registration.length < 3) { e.vehicles = `Vehicle ${i + 1}: please enter the registration number.`; break; }
+          if (v.vehicle_type.length < 2) { e.vehicles = `Vehicle ${i + 1}: please enter the vehicle type, e.g. 3-tonne truck.`; break; }
+          if (!v.size_class) { e.vehicles = `Vehicle ${i + 1}: please choose its size.`; break; }
+          if (!Object.keys(v).some((k) => k.startsWith("cargo_"))) { e.vehicles = `Vehicle ${i + 1}: please say what it can carry and how many at once.`; break; }
+        }
+        return e;
+      };
+      // Typing in a driver or vehicle row clears that list's message.
+      driversBox.addEventListener("input", () => steps && steps.clear("drivers"));
+      vehiclesBox.addEventListener("input", () => steps && steps.clear("vehicles"));
+      vehiclesBox.addEventListener("change", () => steps && steps.clear("vehicles"));
+
+      steps = obSteps(form, {
+        check(i, step) {
           const e = {};
-          if (i === 0) {
-            if (form.name.value.trim().length < 2) e.name = kind() === "company" ? "Please enter the company name." : "Please enter your full name.";
-            if (kind() === "company" && form.contact_person.value.trim().length < 2) e.contact_person = "Please enter the contact person.";
+          const key = step.dataset.key;
+          if (key === "about") {
+            if (form.name.value.trim().length < 2) e.name = company() ? "Please enter the company name." : "Please enter your full name.";
+            if (company() && form.contact_person.value.trim().length < 2) e.contact_person = "Please enter the contact person.";
             if (!obPhoneOk(form.phone.value)) e.phone = "Please enter your phone number, e.g. 0977 123 456.";
             if (!OB_EMAIL.test(form.email.value.trim())) e.email = "Please enter a valid email address.";
           }
-          if (i === 1) {
+          if (key === "work") {
             if (!form.province.value) e.province = "Please choose your province.";
             if (form.district.value.trim().length < 2) e.district = "Please choose your district.";
-            if (form.address.value.trim().length < 3) e.address = "Please enter your physical address.";
-            const km = Number(form.preferred_coverage_km.value);
-            if (!(km >= 5 && km <= 1000)) e.preferred_coverage_km = "Please enter a distance from 5 to 1000 km.";
+            if (!(km() >= 5 && km() <= 1000)) e.preferred_coverage_km = "Please enter a distance from 5 to 1000 km.";
+            if (form.address.value.trim().length < 3) e.address = company() ? "Please enter your office address." : "Please enter your physical address.";
+            if (!(picker && picker.get())) e.base_point = company() ? "Please mark your offices on the map." : "Please mark where you're based on the map.";
           }
-          if (i === 2 && (!docs.nrc || !docs.drivers_licence)) {
+          if (key === "fleet") Object.assign(e, fleetErrors());
+          if (key === "docs" && (!docs.nrc || !docs.drivers_licence)) {
             e.documents = `Please upload your ${[!docs.nrc && "NRC", !docs.drivers_licence && "driver's licence"].filter(Boolean).join(" and ")}.`;
           }
-          if (i === 3) {
+          if (key === "password") {
             if (meter && meter.problem()) e.password = meter.problem();
             else if (!form.password.value) e.password = "Please choose a password.";
             if (form.password.value !== form.confirm_password.value) e.confirm_password = "The passwords don't match.";
@@ -212,8 +338,15 @@
           }
           return e;
         },
-        onStep: () => alertBox.classList.add("hidden"),
+        async onStep(i, step) {
+          alertBox.classList.add("hidden");
+          if (step.dataset.key !== "work") return;
+          if (!picker) {
+            picker = await trPointPicker(document.getElementById("base-map"), { kind: "base", label: "Your base", onChange: () => { steps.clear("base_point"); paintCircle(); } });
+          } else if (picker.map) setTimeout(() => picker.map.invalidateSize(), 50);
+        },
       });
+      paintKind();
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -221,7 +354,9 @@
         const fd = new FormData();
         ["name", "contact_person", "phone", "email", "province", "district", "address", "preferred_coverage_km", "password", "confirm_password"].forEach((k) => fd.append(k, form[k].value.trim()));
         fd.append("kind", kind());
-        if (basePoint) { fd.append("base_lat", basePoint.lat); fd.append("base_lng", basePoint.lng); }
+        const pt = picker && picker.get();
+        if (pt) { fd.append("base_lat", pt.lat); fd.append("base_lng", pt.lng); }
+        if (company()) { fd.append("drivers", JSON.stringify(driverRows())); fd.append("vehicles", JSON.stringify(vehicleRows())); }
         if (form.accept_terms.checked) fd.append("accept_terms", "1");
         Object.entries(docs).forEach(([type, file]) => { fd.append("documents", file); fd.append("doc_types", type); });
         try {

@@ -22,6 +22,7 @@ const {
 const core = require("../lib/transport/core");
 const bookings = require("../lib/transport/bookings");
 const views = require("../lib/transport/views");
+const drivers = require("../lib/transport/drivers");
 const passwordRules = require("../../public/js/password-rules");
 const zambiaDistricts = require("../../public/js/zambia-districts");
 
@@ -77,7 +78,7 @@ async function loadProvider(id) {
 
 async function requireProvider(req, res, next) {
   const id = req.session && req.session.providerId;
-  const out = () => res.status(401).json({ success: false, message: "Please sign in to continue." });
+  const out = (message = "Please sign in to continue.") => res.status(401).json({ success: false, message });
   if (!id) return out();
   try {
     const p = await loadProvider(id);
@@ -87,10 +88,27 @@ async function requireProvider(req, res, next) {
     }
     req.provider = p;
     req.who = { party: "provider", id: p.id, name: p.name };
+    // A company driver (D: drivers): signed in to their company's account,
+    // as themselves. Deactivated by the company: signed out.
+    if (req.session.driverId) {
+      const d = await drivers.load(req.session.driverId);
+      if (!d || Number(d.provider_id) !== Number(p.id) || !d.is_active) {
+        req.session.destroy(() => {});
+        return out("Your driver account is switched off. Please contact your company.");
+      }
+      req.driver = { id: d.id, name: d.name, phone: d.phone };
+      req.who = { party: "provider", id: p.id, name: `${d.name} (${p.name})` };
+    }
     return next();
   } catch (error) {
     return next(error);
   }
+}
+
+// What only the company (or owner-driver) does, not its drivers.
+function ownerOnly(req, res, next) {
+  if (!req.driver) return next();
+  return res.status(403).json({ success: false, message: "Only your company's account can do this." });
 }
 
 // Only approved, active providers take part in deliveries.
@@ -104,11 +122,12 @@ function requireApproved(req, res, next) {
   return res.status(403).json({ success: false, message });
 }
 
-function startSession(req, id, { remember = true } = {}) {
+function startSession(req, id, { remember = true, driverId = null } = {}) {
   return new Promise((resolve, reject) => {
     req.session.regenerate((error) => {
       if (error) return reject(error);
       req.session.providerId = id;
+      if (driverId) req.session.driverId = driverId;
       req.session.cookie.maxAge = remember ? REMEMBER_MS : null;
       return req.session.save((e) => (e ? reject(e) : resolve()));
     });
@@ -172,6 +191,45 @@ async function storeDocuments(conn, providerId, files, types) {
 
 const docTypesOf = (body) => [].concat(body.doc_types || []).flatMap((v) => String(v).split(","));
 
+// A company's drivers and vehicles at registration (D: drivers): sent as JSON
+// lists. Each is checked like the dashboard checks it; a problem is reported
+// as "Driver 2: …" / "Vehicle 1: …".
+const MAX_FLEET = 30;
+function jsonList(raw) {
+  if (Array.isArray(raw)) return raw;
+  try {
+    const v = JSON.parse(String(raw || "[]"));
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+async function fleetPayload(body) {
+  const errors = {};
+  const driverRows = jsonList(body.drivers).slice(0, MAX_FLEET);
+  const vehicleRows = jsonList(body.vehicles).slice(0, MAX_FLEET);
+  const outDrivers = [];
+  const outVehicles = [];
+  const phones = new Set();
+  if (!driverRows.length) errors.drivers = "Please add at least one driver.";
+  for (const [i, row] of driverRows.entries()) {
+    const { errors: e, data } = await drivers.driverPayload(row || {}, { taken: phones });
+    if (Object.keys(e).length) { errors.drivers = `Driver ${i + 1}: ${Object.values(e)[0]}`; break; }
+    phones.add(data.phone_key);
+    outDrivers.push(data);
+  }
+  if (!vehicleRows.length) errors.vehicles = "Please add at least one vehicle.";
+  const regs = new Set();
+  for (const [i, row] of vehicleRows.entries()) {
+    const { errors: e, data, cargo } = await vehiclePayload(row || {}, 0);
+    if (data.registration && regs.has(data.registration)) e.registration = "This registration number is listed twice.";
+    if (Object.keys(e).length) { errors.vehicles = `Vehicle ${i + 1}: ${Object.values(e)[0]}`; break; }
+    regs.add(data.registration);
+    outVehicles.push({ data, cargo });
+  }
+  return { errors, drivers: outDrivers, vehicles: outVehicles };
+}
+
 router.post("/auth/register", uploadDocuments, async (req, res, next) => {
   const conn = await pool.getConnection();
   let saved = [];
@@ -186,6 +244,8 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
     const missing = Object.keys(REQUIRED_DOCS).filter((t) => !types.slice(0, (req.files || []).length).includes(t));
     if (missing.length) errors.documents = `Please upload your ${missing.map((t) => REQUIRED_DOCS[t]).join(" and ")}.`;
     if (!errors.email && (await emailTaken(data.email))) errors.email = "A transport account with this email already exists. Sign in instead.";
+    const fleet = data.kind === "company" ? await fleetPayload(req.body) : { errors: {}, drivers: [], vehicles: [] };
+    Object.assign(errors, fleet.errors);
     if (Object.keys(errors).length) throw validationError(errors);
     // No suggestion picked: find the physical address on the map (the
     // address, else the district). If it can't be found, Frontier sets the
@@ -217,6 +277,13 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
         data.registration_number, data.licence_number, data.preferred_coverage_km, await bcrypt.hash(password, 12)],
     );
     saved = await storeDocuments(conn, r.insertId, req.files, docTypesOf(req.body));
+    for (const d of fleet.drivers) {
+      await conn.query("INSERT INTO transport_drivers (provider_id, name, phone, phone_key, licence_number) VALUES (?, ?, ?, ?, ?)", [r.insertId, d.name, d.phone, d.phone_key, d.licence_number]);
+    }
+    for (const v of fleet.vehicles) {
+      const [vr] = await conn.query("INSERT INTO transport_vehicles (provider_id, registration, vehicle_type, size_class, capacity_note) VALUES (?, ?, ?, ?, ?)", [r.insertId, v.data.registration, v.data.vehicle_type, v.data.size_class, v.data.capacity_note]);
+      for (const c of v.cargo) await conn.query("INSERT INTO transport_vehicle_cargo (vehicle_id, cargo_key, max_quantity) VALUES (?, ?, ?)", [vr.insertId, c.key, c.max]);
+    }
     await conn.commit();
     await startSession(req, r.insertId);
     sendEmail({
@@ -231,7 +298,7 @@ router.post("/auth/register", uploadDocuments, async (req, res, next) => {
       subject: `New transport provider registration: ${data.name}`,
       heading: "A transport provider is waiting for approval",
       paragraphs: ["Please review their details and documents, then approve or reject them and set their coverage."],
-      rows: [["Name", data.name], ["Type", data.kind === "company" ? "Company" : "Individual"], ["Phone", data.phone], ["Email", data.email], ["Area", `${data.district}, ${data.province}`], ["Address", data.address], ["Preferred coverage", `${data.preferred_coverage_km} km`], ["Documents", req.files.map((f, i) => DOC_TYPES[docTypesOf(req.body)[i]] || "Other").join(", ")],
+      rows: [["Name", data.name], ["Type", data.kind === "company" ? "Company" : "Individual"], ["Phone", data.phone], ["Email", data.email], ["Area", `${data.district}, ${data.province}`], ["Address", data.address], ["Preferred coverage", `${data.preferred_coverage_km} km`], ...(data.kind === "company" ? [["Drivers", String(fleet.drivers.length)], ["Vehicles", fleet.vehicles.map((v) => v.data.registration).join(", ")]] : []), ["Documents", req.files.map((f, i) => DOC_TYPES[docTypesOf(req.body)[i]] || "Other").join(", ")],
         ["Operating location", data.base_lat === null || data.base_lat === undefined ? "Not found on the map: set it before approving" : data.base_label && data.base_label.startsWith("Approximate") ? "Approximate (the address wasn't found exactly): check it before approving" : "From the address"]],
       button: { label: "Review the provider", url: appUrl(`/admin/transport-providers?id=${r.insertId}`) },
     });
@@ -257,6 +324,34 @@ router.post("/auth/login", async (req, res, next) => {
     await startSession(req, row.id, { remember: req.body.remember !== false && req.body.remember !== "false" });
     await pool.query("UPDATE transport_providers SET last_login_at = NOW() WHERE id = ?", [row.id]);
     res.json({ success: true, data: await loadProvider(row.id) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// A company driver signs in with their phone number and the sign-in code
+// their company gave them (or the password they chose).
+router.post("/auth/driver-login", async (req, res, next) => {
+  try {
+    const phone = text(req.body.phone, 30);
+    const password = typeof req.body.password === "string" ? req.body.password.trim() : "";
+    if (!phone || !password) throw badRequest("Please enter your phone number and sign-in code.");
+    const [[d]] = await pool.query("SELECT d.*, p.is_active AS company_active FROM transport_drivers d JOIN transport_providers p ON p.id = d.provider_id WHERE d.phone_key = ?", [drivers.phoneKey(phone)]);
+    const valid = d && d.password_hash ? await drivers.passwordMatches(password, d.password_hash) : await bcrypt.compare(password, DUMMY_HASH);
+    if (!d || !valid) return res.status(401).json({ success: false, message: d && !d.password_hash ? "Your company hasn't given you a sign-in code yet. Please ask them for one." : "Incorrect phone number or sign-in code." });
+    if (!d.is_active) return res.status(403).json({ success: false, message: "Your driver account is switched off. Please contact your company." });
+    await startSession(req, d.provider_id, { driverId: d.id, remember: req.body.remember !== false && req.body.remember !== "false" });
+    await pool.query("UPDATE transport_drivers SET last_login_at = NOW() WHERE id = ?", [d.id]);
+    res.json({ success: true, data: { ...(await loadProvider(d.provider_id)), role: "driver", driver: { id: d.id, name: d.name, phone: d.phone } } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// What a vehicle can carry and the sizes: for the registration form.
+router.get("/auth/options", async (req, res, next) => {
+  try {
+    res.json({ success: true, data: { cargo_types: await core.cargoLabels(), sizes: core.SIZES } });
   } catch (error) {
     next(error);
   }
@@ -315,12 +410,12 @@ router.post("/auth/reset", async (req, res, next) => {
 });
 
 router.get("/auth/me", requireProvider, async (req, res) => {
-  res.json({ success: true, data: { ...req.provider, unread: await notifications.providerUnreadCount(req.provider.id) } });
+  res.json({ success: true, data: { ...req.provider, role: req.driver ? "driver" : "owner", driver: req.driver || null, unread: await notifications.providerUnreadCount(req.provider.id) } });
 });
 
 // The provider can change how to reach them. Their operating location, area
 // and coverage are Frontier's to change (Admin > Transport providers).
-router.put("/me", requireProvider, async (req, res, next) => {
+router.put("/me", requireProvider, ownerOnly, async (req, res, next) => {
   try {
     const contactPerson = text(req.body.contact_person, 120);
     const phone = text(req.body.phone, 30);
@@ -344,6 +439,14 @@ router.patch("/me/password", requireProvider, async (req, res, next) => {
   try {
     const current = String(req.body.current_password || "");
     const fresh = String(req.body.new_password || "");
+    if (req.driver) {
+      const problem = passwordRules.problem(fresh, { phone: req.driver.phone });
+      if (problem) throw validationError({ new_password: problem });
+      const d = await drivers.load(req.driver.id);
+      if (!(await drivers.passwordMatches(current, d.password_hash))) throw validationError({ current_password: "Your current sign-in code or password is incorrect." });
+      await pool.query("UPDATE transport_drivers SET password_hash = ? WHERE id = ?", [await bcrypt.hash(fresh, 12), d.id]);
+      return res.json({ success: true, message: "Password updated. Sign in with it from now on." });
+    }
     const problem = passwordRules.problem(fresh, { email: req.provider.email, phone: req.provider.phone });
     if (problem) throw validationError({ new_password: problem });
     const [[row]] = await pool.query("SELECT password_hash FROM transport_providers WHERE id = ?", [req.provider.id]);
@@ -356,7 +459,7 @@ router.patch("/me/password", requireProvider, async (req, res, next) => {
 });
 
 // The provider's own on/off switch for new requests.
-router.patch("/me/availability", requireProvider, async (req, res, next) => {
+router.patch("/me/availability", requireProvider, ownerOnly, async (req, res, next) => {
   try {
     const on = req.body.available === true || req.body.available === "1" || req.body.available === "true";
     await pool.query("UPDATE transport_providers SET is_available = ? WHERE id = ?", [on ? 1 : 0, req.provider.id]);
@@ -368,7 +471,7 @@ router.patch("/me/availability", requireProvider, async (req, res, next) => {
 
 // The provider changes how far they'd like to travel. Frontier is told and
 // decides whether to change their coverage (Admin > Transport providers).
-router.patch("/me/coverage", requireProvider, async (req, res, next) => {
+router.patch("/me/coverage", requireProvider, ownerOnly, async (req, res, next) => {
   try {
     const pref = preferredKm(req.body.preferred_coverage_km);
     if (pref.error) throw validationError({ preferred_coverage_km: pref.error });
@@ -391,7 +494,7 @@ router.patch("/me/coverage", requireProvider, async (req, res, next) => {
 });
 
 // ------------------------------------------------------------- documents
-router.get("/me/documents", requireProvider, async (req, res, next) => {
+router.get("/me/documents", requireProvider, ownerOnly, async (req, res, next) => {
   try {
     const [rows] = await pool.query("SELECT id, doc_type, original_name, mime, size_bytes, created_at FROM transport_provider_documents WHERE provider_id = ? ORDER BY id", [req.provider.id]);
     res.json({ success: true, data: rows.map((d) => ({ ...d, type_label: DOC_TYPES[d.doc_type] || d.doc_type })), types: DOC_TYPES });
@@ -400,7 +503,7 @@ router.get("/me/documents", requireProvider, async (req, res, next) => {
   }
 });
 
-router.post("/me/documents", requireProvider, uploadDocuments, async (req, res, next) => {
+router.post("/me/documents", requireProvider, ownerOnly, uploadDocuments, async (req, res, next) => {
   const conn = await pool.getConnection();
   try {
     if (!(req.files || []).length) throw validationError({ documents: "Please choose a file." });
@@ -424,7 +527,7 @@ function sendPrivate(res, row) {
   res.sendFile(file);
 }
 
-router.get("/me/documents/:id", requireProvider, async (req, res, next) => {
+router.get("/me/documents/:id", requireProvider, ownerOnly, async (req, res, next) => {
   try {
     const [[row]] = await pool.query("SELECT * FROM transport_provider_documents WHERE id = ? AND provider_id = ?", [positiveInt(req.params.id) || 0, req.provider.id]);
     sendPrivate(res, row);
@@ -518,7 +621,7 @@ router.get("/vehicles", requireProvider, async (req, res, next) => {
   }
 });
 
-router.post("/vehicles", requireProvider, uploadVehicleFiles, async (req, res, next) => {
+router.post("/vehicles", requireProvider, ownerOnly, uploadVehicleFiles, async (req, res, next) => {
   const conn = await pool.getConnection();
   try {
     const { errors, data, cargo } = await vehiclePayload(req.body, req.provider.id);
@@ -551,7 +654,7 @@ async function vehicleBusy(id) {
   return b || null;
 }
 
-router.put("/vehicles/:id", requireProvider, uploadVehicleFiles, async (req, res, next) => {
+router.put("/vehicles/:id", requireProvider, ownerOnly, uploadVehicleFiles, async (req, res, next) => {
   const conn = await pool.getConnection();
   try {
     const v = await ownVehicle(req.provider.id, positiveInt(req.params.id));
@@ -573,7 +676,7 @@ router.put("/vehicles/:id", requireProvider, uploadVehicleFiles, async (req, res
   }
 });
 
-router.patch("/vehicles/:id/status", requireProvider, async (req, res, next) => {
+router.patch("/vehicles/:id/status", requireProvider, ownerOnly, async (req, res, next) => {
   try {
     const v = await ownVehicle(req.provider.id, positiveInt(req.params.id));
     const status = req.body.status === "inactive" ? "inactive" : "active";
@@ -585,7 +688,7 @@ router.patch("/vehicles/:id/status", requireProvider, async (req, res, next) => 
   }
 });
 
-router.delete("/vehicles/:id/files/:fileId", requireProvider, async (req, res, next) => {
+router.delete("/vehicles/:id/files/:fileId", requireProvider, ownerOnly, async (req, res, next) => {
   try {
     const v = await ownVehicle(req.provider.id, positiveInt(req.params.id));
     const [[f]] = await pool.query("SELECT * FROM transport_vehicle_files WHERE id = ? AND vehicle_id = ?", [positiveInt(req.params.fileId) || 0, v.id]);
@@ -603,11 +706,85 @@ router.delete("/vehicles/:id/files/:fileId", requireProvider, async (req, res, n
   }
 });
 
-router.get("/vehicles/:id/files/:fileId", requireProvider, async (req, res, next) => {
+router.get("/vehicles/:id/files/:fileId", requireProvider, ownerOnly, async (req, res, next) => {
   try {
     const v = await ownVehicle(req.provider.id, positiveInt(req.params.id));
     const [[f]] = await pool.query("SELECT * FROM transport_vehicle_files WHERE id = ? AND vehicle_id = ? AND kind = 'document'", [positiveInt(req.params.fileId) || 0, v.id]);
     sendPrivate(res, f);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// --------------------------------------------------------------- drivers
+// A company's drivers (D: drivers). Only companies have them.
+function companyOnly(req, res, next) {
+  if (req.provider.kind === "company") return next();
+  return res.status(403).json({ success: false, message: "Drivers are for transport companies." });
+}
+async function ownDriver(providerId, id) {
+  const d = await drivers.load(id);
+  if (!d || Number(d.provider_id) !== Number(providerId)) throw notFound("Driver not found.");
+  return d;
+}
+
+router.get("/drivers", requireProvider, ownerOnly, companyOnly, async (req, res, next) => {
+  try {
+    res.json({ success: true, data: await drivers.listOf(req.provider.id) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Adds a driver and makes their sign-in code, shown once to share with them.
+router.post("/drivers", requireProvider, ownerOnly, companyOnly, async (req, res, next) => {
+  try {
+    const { errors, data } = await drivers.driverPayload(req.body);
+    if (Object.keys(errors).length) throw validationError(errors);
+    const [r] = await pool.query("INSERT INTO transport_drivers (provider_id, name, phone, phone_key, licence_number) VALUES (?, ?, ?, ?, ?)", [req.provider.id, data.name, data.phone, data.phone_key, data.licence_number]);
+    const code = await drivers.setCode(r.insertId);
+    res.status(201).json({ success: true, message: "Driver added.", data: (await drivers.listOf(req.provider.id, r.insertId))[0], code });
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") return next(validationError({ phone: "This phone number is already registered as a driver." }));
+    next(error);
+  }
+});
+
+router.put("/drivers/:id", requireProvider, ownerOnly, companyOnly, async (req, res, next) => {
+  try {
+    const d = await ownDriver(req.provider.id, positiveInt(req.params.id));
+    const { errors, data } = await drivers.driverPayload(req.body, { exceptId: d.id });
+    if (Object.keys(errors).length) throw validationError(errors);
+    await pool.query("UPDATE transport_drivers SET name = ?, phone = ?, phone_key = ?, licence_number = ? WHERE id = ?", [data.name, data.phone, data.phone_key, data.licence_number, d.id]);
+    res.json({ success: true, message: "Driver saved.", data: (await drivers.listOf(req.provider.id, d.id))[0] });
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") return next(validationError({ phone: "This phone number is already registered as a driver." }));
+    next(error);
+  }
+});
+
+// A new sign-in code: the old one stops working (also signs nobody out by itself).
+router.post("/drivers/:id/code", requireProvider, ownerOnly, companyOnly, async (req, res, next) => {
+  try {
+    const d = await ownDriver(req.provider.id, positiveInt(req.params.id));
+    const code = await drivers.setCode(d.id);
+    res.json({ success: true, message: "New sign-in code made. The old one no longer works.", data: (await drivers.listOf(req.provider.id, d.id))[0], code });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Switched off: the driver is signed out and can't sign in.
+router.patch("/drivers/:id/status", requireProvider, ownerOnly, companyOnly, async (req, res, next) => {
+  try {
+    const d = await ownDriver(req.provider.id, positiveInt(req.params.id));
+    const active = req.body.active === true || req.body.active === "1" || req.body.active === "true";
+    if (!active) {
+      const [[busy]] = await pool.query("SELECT id FROM transport_bookings WHERE driver_id = ? AND status IN (?) LIMIT 1", [d.id, core.VEHICLE_BUSY]);
+      if (busy) throw new HttpError(409, `${d.name} is on delivery ${core.bookingRef(busy.id)}. Give it to another driver first, or wait until it's done.`);
+    }
+    await pool.query("UPDATE transport_drivers SET is_active = ? WHERE id = ?", [active ? 1 : 0, d.id]);
+    res.json({ success: true, message: active ? `${d.name} can sign in again.` : `${d.name} is switched off and can't sign in.`, data: (await drivers.listOf(req.provider.id, d.id))[0] });
   } catch (error) {
     next(error);
   }
@@ -629,7 +806,15 @@ router.get("/summary", requireProvider, async (req, res, next) => {
          (SELECT COUNT(*) FROM transport_vehicles WHERE provider_id = ? AND status = 'active') AS vehicles`,
       [id, bookings.ACCEPTABLE, id, [...core.GROUPS.accepted, ...core.GROUPS.active, "disputed"], id, id, id, id, id, id],
     );
-    res.json({ success: true, data: { ...Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v === null ? null : Number(v)])) } });
+    const data = Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v === null ? null : Number(v)]));
+    if (req.driver) {
+      const [[mine]] = await pool.query(
+        "SELECT SUM(status IN (?)) AS active, SUM(status = 'completed') AS completed FROM transport_bookings WHERE provider_id = ? AND driver_id = ?",
+        [[...core.GROUPS.accepted, ...core.GROUPS.active, "disputed"], id, req.driver.id],
+      );
+      Object.assign(data, { active: Number(mine.active) || 0, completed: Number(mine.completed) || 0, owed: null, paid: null });
+    }
+    res.json({ success: true, data });
   } catch (error) {
     next(error);
   }
@@ -653,8 +838,12 @@ router.get("/requests", requireProvider, requireApproved, async (req, res, next)
 
 router.get("/bookings", requireProvider, async (req, res, next) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM transport_bookings WHERE provider_id = ? ORDER BY COALESCE(completed_at, updated_at) DESC, id DESC LIMIT 300", [req.provider.id]);
-    res.json({ success: true, data: rows.map((b) => views.row(b, "provider")) });
+    const [rows] = await pool.query(
+      `SELECT b.*, d.name AS driver_name FROM transport_bookings b LEFT JOIN transport_drivers d ON d.id = b.driver_id
+       WHERE b.provider_id = ? ${req.driver ? "AND b.driver_id = ?" : ""} ORDER BY COALESCE(b.completed_at, b.updated_at) DESC, b.id DESC LIMIT 300`,
+      [req.provider.id, ...(req.driver ? [req.driver.id] : [])],
+    );
+    res.json({ success: true, data: rows.map((b) => ({ ...views.row(b, "provider"), driver_name: b.driver_name || null })) });
   } catch (error) {
     next(error);
   }
@@ -665,7 +854,10 @@ async function forProvider(req) {
   const id = positiveInt(req.params.id);
   const b = id ? await bookings.loadBooking(id) : null;
   if (!b) throw notFound("Delivery not found.");
-  if (Number(b.provider_id) === Number(req.provider.id)) return { b, offer: null };
+  if (Number(b.provider_id) === Number(req.provider.id)) {
+    if (req.driver && Number(b.driver_id) !== Number(req.driver.id)) throw notFound("This delivery is with another of your company's drivers.");
+    return { b, offer: null };
+  }
   const [[offer]] = await pool.query("SELECT * FROM transport_offers WHERE booking_id = ? AND provider_id = ?", [b.id, req.provider.id]);
   if (!offer) throw notFound("Delivery not found.");
   return { b, offer };
@@ -681,6 +873,12 @@ router.get("/bookings/:id", requireProvider, async (req, res, next) => {
     data.comments = { collection: bookings.COLLECTION_NOTES, delivery: bookings.DELIVERY_NOTES };
     // Which of their vehicles could take it.
     if (data.can.accept) data.vehicles = await vehicleChoices(req.provider.id, b);
+    // Companies: their drivers, to choose who does it (D: drivers).
+    data.role = req.driver ? "driver" : "owner";
+    if (!req.driver && req.provider.kind === "company") {
+      data.drivers = (await drivers.listOf(req.provider.id)).filter((x) => x.is_active).map((x) => ({ id: x.id, name: x.name, phone: x.phone, busy: Boolean(x.busy_booking && x.busy_booking.id !== b.id) }));
+      data.can.assign_driver = !offer && !["completed", "cancelled", "refund_pending", "refunded"].includes(b.status);
+    }
     res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -712,14 +910,47 @@ router.post("/bookings/:id/accept", requireProvider, requireApproved, async (req
   try {
     const vehicleId = positiveInt(req.body.vehicle_id);
     if (!vehicleId) throw validationError({ vehicle_id: "Please choose the vehicle you'll use." });
-    await bookings.accept(req.provider.id, positiveInt(req.params.id), vehicleId);
+    const bookingId = positiveInt(req.params.id);
+    // Who drives: the driver who accepts, or the one the company chooses.
+    let driver = null;
+    if (req.driver) driver = req.driver;
+    else if (positiveInt(req.body.driver_id)) {
+      const d = await ownDriver(req.provider.id, positiveInt(req.body.driver_id));
+      if (!d.is_active) throw validationError({ driver_id: "This driver is switched off." });
+      driver = d;
+    }
+    await bookings.accept(req.provider.id, bookingId, vehicleId);
+    if (driver) await setDriver(bookingId, driver, req.who);
     res.json({ success: true, message: "Accepted. The seller and buyer have been told." });
   } catch (error) {
     next(error);
   }
 });
 
-router.post("/bookings/:id/decline", requireProvider, async (req, res, next) => {
+// The company gives a delivery to one of its drivers (or takes it back: null).
+async function setDriver(bookingId, driver, who) {
+  await pool.query("UPDATE transport_bookings SET driver_id = ? WHERE id = ?", [driver ? driver.id : null, bookingId]);
+  await core.logEvent(pool, bookingId, { event: "driver_assigned", actor: "provider", actorName: who.name, detail: driver ? `Driver: ${driver.name} (${driver.phone}).` : "No driver assigned." });
+}
+router.patch("/bookings/:id/driver", requireProvider, ownerOnly, companyOnly, async (req, res, next) => {
+  try {
+    const b = await bookings.loadBooking(positiveInt(req.params.id));
+    if (!b || Number(b.provider_id) !== Number(req.provider.id)) throw notFound("Delivery not found.");
+    if (["completed", "cancelled", "refund_pending", "refunded"].includes(b.status)) throw new HttpError(409, "This delivery is finished.");
+    let d = null;
+    if (positiveInt(req.body.driver_id)) {
+      d = await ownDriver(req.provider.id, positiveInt(req.body.driver_id));
+      if (!d.is_active) throw validationError({ driver_id: "This driver is switched off." });
+    }
+    await setDriver(b.id, d, req.who);
+    notifications.notifyProvider(req.provider.id, { type: "delivery", title: d ? `${core.bookingRef(b.id)} is with ${d.name}` : `${core.bookingRef(b.id)} has no driver`, link: `/transport/?booking=${b.id}` });
+    res.json({ success: true, message: d ? `${core.bookingRef(b.id)} is now with ${d.name}.` : "Driver removed from this delivery." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/bookings/:id/decline", requireProvider, ownerOnly, async (req, res, next) => {
   try {
     await bookings.decline(req.provider.id, positiveInt(req.params.id), req.body.reason);
     res.json({ success: true, message: "Declined." });
@@ -728,7 +959,19 @@ router.post("/bookings/:id/decline", requireProvider, async (req, res, next) => 
   }
 });
 
-router.post("/bookings/:id/collection", requireProvider, requireApproved, uploadTransportPhotos, async (req, res, next) => {
+// Delivery steps: a company's driver only on the deliveries given to them.
+async function onlyAssigned(req, res, next) {
+  if (!req.driver) return next();
+  try {
+    const [[b]] = await pool.query("SELECT provider_id, driver_id FROM transport_bookings WHERE id = ?", [positiveInt(req.params.id) || 0]);
+    if (b && Number(b.provider_id) === Number(req.provider.id) && Number(b.driver_id) === Number(req.driver.id)) return next();
+    return res.status(403).json({ success: false, message: "This delivery is with another of your company's drivers." });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+router.post("/bookings/:id/collection", requireProvider, requireApproved, onlyAssigned, uploadTransportPhotos, async (req, res, next) => {
   try {
     await bookings.providerCollected(req.who, positiveInt(req.params.id), req.files, req.body);
     res.json({ success: true, message: "Collected. Tap Start delivery when you leave." });
@@ -737,7 +980,7 @@ router.post("/bookings/:id/collection", requireProvider, requireApproved, upload
   }
 });
 
-router.post("/bookings/:id/start", requireProvider, requireApproved, async (req, res, next) => {
+router.post("/bookings/:id/start", requireProvider, requireApproved, onlyAssigned, async (req, res, next) => {
   try {
     await bookings.start(req.who, positiveInt(req.params.id), req.body);
     res.json({ success: true, message: "Delivery started. Keep this page open so your location is shared." });
@@ -746,7 +989,7 @@ router.post("/bookings/:id/start", requireProvider, requireApproved, async (req,
   }
 });
 
-router.post("/bookings/:id/location", requireProvider, async (req, res, next) => {
+router.post("/bookings/:id/location", requireProvider, onlyAssigned, async (req, res, next) => {
   try {
     const r = await bookings.recordLocation(req.who, positiveInt(req.params.id), req.body);
     res.json({ success: true, data: r });
@@ -755,7 +998,7 @@ router.post("/bookings/:id/location", requireProvider, async (req, res, next) =>
   }
 });
 
-router.post("/bookings/:id/arrive", requireProvider, requireApproved, async (req, res, next) => {
+router.post("/bookings/:id/arrive", requireProvider, requireApproved, onlyAssigned, async (req, res, next) => {
   try {
     await bookings.arrive(req.who, positiveInt(req.params.id), req.body);
     res.json({ success: true, message: "Arrival recorded. Tap Delivered once you've handed the goods over." });
@@ -764,7 +1007,7 @@ router.post("/bookings/:id/arrive", requireProvider, requireApproved, async (req
   }
 });
 
-router.post("/bookings/:id/delivery", requireProvider, requireApproved, uploadTransportPhotos, async (req, res, next) => {
+router.post("/bookings/:id/delivery", requireProvider, requireApproved, onlyAssigned, uploadTransportPhotos, async (req, res, next) => {
   try {
     await bookings.providerDelivered(req.who, positiveInt(req.params.id), req.files, req.body);
     res.json({ success: true, message: "Delivered. The buyer has been told." });

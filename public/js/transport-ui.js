@@ -455,6 +455,7 @@ function trProviderHtml(d) {
       <p class="font-bold text-gray-900">${escapeHtml(p.name)}</p>
       <p class="text-sm text-gray-600">${trStarsHtml(p.rating, p.ratings)} · ${p.completed} deliver${p.completed === 1 ? "y" : "ies"}</p>
       ${d.vehicle ? `<p class="text-sm text-gray-700 mt-1">${uiIcon("truck")} ${escapeHtml(d.vehicle.registration)} · ${escapeHtml(d.vehicle.type)}</p>` : ""}
+      ${d.driver ? `<p class="text-sm text-gray-700 mt-1">Driver <b>${escapeHtml(d.driver.name)}</b> · <a class="acc-link" href="tel:${escapeHtml(String(d.driver.phone).replace(/[^\d+]/g, ""))}">${escapeHtml(d.driver.phone)}</a></p>` : ""}
     </div>
     ${p.phone ? `<a class="tbl-icon" href="tel:${escapeHtml(p.phone.replace(/[^\d+]/g, ""))}" title="Call ${escapeHtml(p.phone)}" aria-label="Call the provider">${uiIcon("phone")}</a>` : ""}
   </div>`;

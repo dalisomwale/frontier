@@ -22,6 +22,7 @@ function groupOf(status) {
 
 // What each kind of party is called in the history.
 const EVENT_LABELS = {
+  driver_assigned: "Driver assigned",
   created: "Transport booked at checkout",
   payment_confirmed: "Payment confirmed",
   offers_sent: "Request sent to transport providers",
@@ -64,7 +65,7 @@ const EVENT_LABELS = {
   rating_reminder: "Buyer reminded to rate",
 };
 // Shown to the buyer, seller and provider (the rest is for Frontier).
-const SHARED_EVENTS = new Set(["created", "payment_confirmed", "accepted", "assigned", "vehicle_selected", "seller_ready", "seller_collection", "provider_collection",
+const SHARED_EVENTS = new Set(["created", "payment_confirmed", "accepted", "assigned", "driver_assigned", "vehicle_selected", "seller_ready", "seller_collection", "provider_collection",
   "heading_to_pickup", "near_pickup", "near_destination", "auto_completed",
   "collection_confirmed", "in_transit", "arrived", "delivery_submitted", "completed", "disputed", "dispute_resolved", "released", "cancelled", "refund_pending", "refunded"]);
 
@@ -214,6 +215,8 @@ async function detail(b, role, { offer = null, conn = pool } = {}) {
     ...base,
     provider: role === "provider" ? null : await providerSummary(b.provider_id, conn),
     vehicle: b.vehicle_registration ? { id: b.vehicle_id, registration: b.vehicle_registration, type: b.vehicle_type, size: core.sizeLabel(b.vehicle_size) } : null,
+    // A company's driver doing it (D: drivers): name and phone for everyone involved.
+    driver: b.driver_id ? await driverOf(b.driver_id, conn) : null,
     on_hold: Boolean(b.on_hold),
     submissions: subs.map((s) => ({
       stage: s.stage, party: s.party, actor_name: s.actor_name, note: s.note, discrepancy: Boolean(s.discrepancy), created_at: s.created_at,
@@ -260,6 +263,11 @@ async function detail(b, role, { offer = null, conn = pool } = {}) {
     out.alerts = { unaccepted_alert_at: b.unaccepted_alert_at, delay_alert_at: b.delay_alert_at };
   }
   return out;
+}
+
+async function driverOf(id, conn = pool) {
+  const [[d]] = await conn.query("SELECT id, name, phone FROM transport_drivers WHERE id = ?", [id]);
+  return d ? { id: d.id, name: d.name, phone: d.phone } : null;
 }
 
 // GPS positions after `afterId` (oldest first), for the tracking map.

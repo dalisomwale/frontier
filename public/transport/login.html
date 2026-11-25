@@ -19,27 +19,37 @@
     <main class="max-w-sm mx-auto px-4 py-10 sm:py-16">
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
       <div class="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
-        <h1 class="text-xl font-bold text-gray-900">Transport provider sign in</h1>
-        <form id="login-form" class="space-y-4 mt-6" novalidate>
+        <h1 class="text-xl font-bold text-gray-900">Transport Sign In</h1>
+        <div class="ob-tabs mt-5" role="tablist" aria-label="Sign in as">
+          <button type="button" role="tab" aria-selected="true" data-as="owner">Provider</button>
+          <button type="button" role="tab" aria-selected="false" data-as="driver">Company Driver</button>
+        </div>
+        <form id="login-form" class="space-y-4" novalidate>
           <div id="form-alert" class="hidden alert text-sm mb-0" role="alert"></div>
-          <div>
+          <div data-owner>
             <label for="email" class="field-label">Email</label>
-            <input id="email" name="email" type="email" class="field-input" autocomplete="username" required />
+            <input id="email" name="email" type="email" class="field-input" autocomplete="username" />
+          </div>
+          <div data-driver hidden>
+            <label for="phone" class="field-label">Phone Number</label>
+            <input id="phone" name="phone" type="tel" inputmode="tel" class="field-input" autocomplete="tel" placeholder="0977 123 456" />
           </div>
           <div>
-            <label for="password" class="field-label">Password</label>
+            <label for="password" class="field-label" data-password-label>Password</label>
             <div class="relative">
-              <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="current-password" required />
+              <input id="password" name="password" type="password" class="field-input pr-12" autocomplete="current-password" />
               <button type="button" data-toggle-password="password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
             </div>
+            <p class="text-xs text-gray-500 mt-1" data-driver hidden>The code your company gave you, e.g. ABCD-2345.</p>
           </div>
           <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 -mt-1 text-sm">
             <label class="inline-flex items-center gap-2 text-gray-700 whitespace-nowrap"><input id="remember" name="remember" type="checkbox" checked /> Keep me signed in for 30 days</label>
-            <a href="/transport/forgot" class="text-blue-700 hover:underline whitespace-nowrap">Forgot password?</a>
+            <a href="/transport/forgot" class="text-blue-700 hover:underline whitespace-nowrap" data-owner>Forgot password?</a>
           </div>
-          <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Sign in</button>
+          <button id="submit-btn" type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-70">Sign In</button>
         </form>
-        <p class="text-sm text-gray-600 text-center mt-6">Don't have an account? <a href="/transport/register" class="text-blue-700 font-medium hover:underline">Register</a></p>
+        <p class="text-sm text-gray-600 text-center mt-6" data-owner>Don't have an account? <a href="/transport/register" class="text-blue-700 font-medium hover:underline">Register</a></p>
+        <p class="text-sm text-gray-600 text-center mt-6" data-driver hidden>No code yet? Ask your company for one.</p>
       </div>
     </main>
 
@@ -50,15 +60,28 @@
       const alertBox = document.getElementById("form-alert");
       const showAlert = (message, kind = "error") => { alertBox.className = `alert alert-${kind} text-sm mb-0`; alertBox.textContent = message; };
       if (getQueryParams().reset) showAlert("Password updated. You can now sign in.", "success");
-      transportApi("/api/transport/auth/me").then(() => (window.location.href = transportNext())).catch(() => form.email.focus());
+      // Sign in as the company / owner-driver (email), or as a company's driver (phone and code).
+      let as = getQueryParams().as === "driver" ? "driver" : "owner";
+      const paintAs = () => {
+        document.querySelectorAll("[data-as]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.as === as)));
+        document.querySelectorAll("[data-owner]").forEach((el) => { el.hidden = as !== "owner"; });
+        document.querySelectorAll("[data-driver]").forEach((el) => { el.hidden = as !== "driver"; });
+        document.querySelector("[data-password-label]").textContent = as === "driver" ? "Sign-In Code or Password" : "Password";
+        alertBox.className = "hidden";
+      };
+      document.querySelectorAll("[data-as]").forEach((b) => b.addEventListener("click", () => { as = b.dataset.as; paintAs(); (as === "driver" ? form.phone : form.email).focus(); }));
+      paintAs();
+      transportApi("/api/transport/auth/me").then(() => (window.location.href = transportNext())).catch(() => {});
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const email = form.email.value.trim();
         const password = form.password.value;
-        if (!email || !password) return showAlert("Please enter your email and password.");
+        const remember = form.elements.remember.checked;
+        const who = as === "driver" ? form.phone.value.trim() : form.email.value.trim();
+        if (!who || !password) return showAlert(as === "driver" ? "Please enter your phone number and sign-in code." : "Please enter your email and password.");
         try {
-          await withBusy(document.getElementById("submit-btn"), "Signing in…", () =>
-            transportApi("/api/transport/auth/login", { method: "POST", body: { email, password, remember: form.elements.remember.checked } }));
+          await withBusy(document.getElementById("submit-btn"), "Signing in…", () => (as === "driver"
+            ? transportApi("/api/transport/auth/driver-login", { method: "POST", body: { phone: who, password, remember } })
+            : transportApi("/api/transport/auth/login", { method: "POST", body: { email: who, password, remember } })));
           window.location.href = transportNext();
         } catch (error) {
           showAlert(error.message);

@@ -361,6 +361,10 @@ async function main() {
     ["preferred_coverage_km", "DECIMAL(7,1) NULL AFTER coverage_active"],
     ["preferred_coverage_at", "DATETIME NULL AFTER preferred_coverage_km"],
   ], "transport providers can state a preferred coverage");
+  // Company drivers (D: drivers): the delivery records which one does it.
+  await addColumns("transport_bookings", [
+    ["driver_id", "INT UNSIGNED NULL AFTER vehicle_id, ADD INDEX idx_tb_driver (driver_id, status)"],
+  ], "deliveries record the company driver");
   const [[partyColumn]] = await conn.query(
     "SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = ? AND table_name = 'order_receipt_photos' AND column_name = 'party'",
     [DB_NAME],

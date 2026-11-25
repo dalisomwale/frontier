@@ -174,6 +174,27 @@ function client(base, header) {
     ok(docs.status === 201 && docs.body.data.documents.length === 2, "admin adds a document", docs.body);
     const link2 = await admin("POST", `/api/admin/transport/providers/${pid}/password-link`, {});
     ok(link2.status === 200 && /token=/.test(link2.body.setup_link), "admin sends a new password link", link2.body);
+    // A company registers with its drivers and vehicles (D: drivers).
+    const coReg = (extra) => client(base, "X-Frontier-Transport")("POST", "/api/transport/auth/register", pf({
+      kind: "company", name: "Kafue Haulage", contact_person: "Ben Tembo", phone: "0977222333", email: `kafue${stamp}@test.zm`, province: "Lusaka", district: "Kafue", address: "Plot 1, Kafue Rd", base_lat: -15.77, base_lng: 28.18, preferred_coverage_km: 200, password: "Truck#Pass123", confirm_password: "Truck#Pass123", accept_terms: "1", ...extra,
+    }, [["documents", pdf, "nrc.pdf", "application/pdf", "nrc"], ["documents", pdf, "lic.pdf", "application/pdf", "drivers_licence"]]), { form: true });
+    const noFleet = await coReg({});
+    ok(noFleet.status === 422 && noFleet.body.errors.drivers && noFleet.body.errors.vehicles, "a company must add drivers and vehicles", noFleet.body.errors);
+    const fleet = { drivers: JSON.stringify([{ name: "Alice Phiri", phone: `0977 ${tag.padStart(5, "0")}9` }, { name: "Bob Zulu", phone: `0977 ${tag.padStart(5, "0")}8`, licence_number: "DL-9" }]), vehicles: JSON.stringify([{ registration: `KFH ${tag}`, vehicle_type: "Truck", size_class: "large", cargo_a1: "20" }]) };
+    const twice = await coReg({ ...fleet, drivers: JSON.stringify([{ name: "Alice Phiri", phone: "0977111000" }, { name: "Al Phiri", phone: "+260977111000" }]) });
+    ok(twice.status === 422 && /Driver 2: This phone number is listed twice/.test(twice.body.errors.drivers), "the same driver number twice is caught", twice.body.errors);
+    const co = await coReg(fleet);
+    ok(co.status === 201, "the company registers with 2 drivers and 1 vehicle", co.body);
+    const [[coRow]] = [await q("SELECT id FROM transport_providers WHERE email = ?", [`kafue${stamp}@test.zm`])];
+    const coDrivers = await q("SELECT name, password_hash FROM transport_drivers WHERE provider_id = ?", [coRow.id]);
+    const coVeh = await q("SELECT v.registration, v.size_class, c.max_quantity FROM transport_vehicles v JOIN transport_vehicle_cargo c ON c.vehicle_id = v.id WHERE v.provider_id = ?", [coRow.id]);
+    ok(coDrivers.length === 2 && coDrivers.every((d) => d.password_hash === null), "its drivers are saved, waiting for sign-in codes", coDrivers);
+    ok(coVeh.length === 1 && coVeh[0].size_class === "large" && coVeh[0].max_quantity === 20, "its vehicle is saved with size and load", coVeh);
+    const solo = await client(base, "X-Frontier-Transport")("POST", "/api/transport/auth/register", pf({
+      kind: "individual", name: "Solo Driver", phone: "0977222444", email: `solo${stamp}@test.zm`, province: "Lusaka", district: "Lusaka", address: "Plot 2", base_lat: -15.41, base_lng: 28.28, preferred_coverage_km: 50, password: "Truck#Pass123", confirm_password: "Truck#Pass123", accept_terms: "1",
+    }, [["documents", pdf, "nrc.pdf", "application/pdf", "nrc"], ["documents", pdf, "lic.pdf", "application/pdf", "drivers_licence"]]), { form: true });
+    ok(solo.status === 201, "an owner-driver registers without drivers or vehicles", solo.body);
+
     // Vehicles, added by the admin (photos optional here).
     const vf = (reg2, size) => pf({ registration: reg2, vehicle_type: "Truck with crate", ...(size ? { size_class: size } : {}), cargo_a1: "10" });
     const vNoSize = await admin("POST", `/api/admin/transport/providers/${pid}/vehicles`, vf(`NS ${tag}`, null), { form: true });
@@ -237,10 +258,52 @@ function client(base, header) {
       if (!offer) await new Promise((r) => setTimeout(r, 200));
     }
     ok(offer && offer.status === "offered", "the request went to the provider with a free Medium vehicle", offer);
-    const wrong = await provider("POST", `/api/transport/bookings/${bk.id}/accept`, { vehicle_id: small.body.data.id });
+    // ------------------------------------------- a company's drivers (D: drivers)
+    console.log("Company drivers");
+    const addDrv = await provider("POST", "/api/transport/drivers", { name: "Moses Daka", phone: `0955 ${tag.padStart(5, "0").slice(0, 3)} ${tag.padStart(5, "0").slice(3)}1` });
+    ok(addDrv.status === 201 && /^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(addDrv.body.code), "the company adds a driver and gets a sign-in code", addDrv.body);
+    const drvPhone = addDrv.body.data.phone;
+    const dup2 = await provider("POST", "/api/transport/drivers", { name: "Copy", phone: `+260 ${drvPhone.replace(/\D/g, "").slice(1)}` });
+    ok(dup2.status === 422 && dup2.body.errors.phone, "the same number (written another way) can't be added twice", dup2.body);
+    const driver = client(base, "X-Frontier-Transport");
+    const badLogin = await driver("POST", "/api/transport/auth/driver-login", { phone: drvPhone, password: "WRONG-CODE" });
+    ok(badLogin.status === 401, "a wrong code is refused");
+    const dLogin = await driver("POST", "/api/transport/auth/driver-login", { phone: `+260${drvPhone.replace(/\D/g, "").slice(1)}`, password: addDrv.body.code.toLowerCase().replace("-", "") });
+    ok(dLogin.status === 200 && dLogin.body.data.role === "driver", "the driver signs in with their phone number and code (any format)", dLogin.body);
+    ok((await driver("GET", "/api/transport/drivers")).status === 403, "a driver can't manage drivers");
+    ok((await driver("POST", "/api/transport/vehicles", pf({ registration: "XX 1", vehicle_type: "Van", size_class: "small", cargo_a1: "1" }), { form: true })).status === 403, "a driver can't add vehicles");
+    ok((await driver("GET", "/api/transport/me/documents")).status === 403, "a driver can't see the company's documents");
+    ok((await driver("POST", `/api/transport/bookings/${bk.id}/decline`, { reason: "x" })).status === 403, "a driver can't decline for the company");
+    const dReq = await driver("GET", "/api/transport/requests");
+    ok(dReq.status === 200 && dReq.body.data.some((r) => r.id === bk.id), "the driver sees the company's request", dReq.body);
+    const wrong = await driver("POST", `/api/transport/bookings/${bk.id}/accept`, { vehicle_id: small.body.data.id });
     ok([400, 409, 422].includes(wrong.status), "accepting with the Small vehicle is refused", wrong.body);
-    const right = await provider("POST", `/api/transport/bookings/${bk.id}/accept`, { vehicle_id: medId });
-    ok(right.status === 200, "accepting with the Medium vehicle works", right.body);
+    const right = await driver("POST", `/api/transport/bookings/${bk.id}/accept`, { vehicle_id: medId });
+    ok(right.status === 200, "the driver accepts with the company's Medium vehicle", right.body);
+    const [bd] = await q("SELECT driver_id FROM transport_bookings WHERE id = ?", [bk.id]);
+    ok(Number(bd.driver_id) === Number(addDrv.body.data.id), "the delivery is with that driver", bd);
+    const mine = await driver("GET", "/api/transport/bookings");
+    ok(mine.body.data.length === 1 && mine.body.data[0].id === bk.id, "the driver's deliveries: only theirs", mine.body.data.map((x) => x.id));
+    const coList = await provider("GET", "/api/transport/bookings");
+    ok(coList.body.data.find((x) => x.id === bk.id).driver_name === "Moses Daka", "the company sees who drives it");
+    const add2 = await provider("POST", "/api/transport/drivers", { name: "Ruth Mbewe", phone: `0966 ${tag.padStart(5, "0")}2` });
+    const driver2 = client(base, "X-Frontier-Transport");
+    await driver2("POST", "/api/transport/auth/driver-login", { phone: add2.body.data.phone, password: add2.body.code });
+    ok((await driver2("GET", `/api/transport/bookings/${bk.id}`)).status === 404, "another driver can't open it");
+    ok((await driver2("POST", `/api/transport/bookings/${bk.id}/location`, { lat: -15.4, lng: 28.3 })).status === 403, "another driver can't act on it");
+    const busyOff = await provider("PATCH", `/api/transport/drivers/${addDrv.body.data.id}/status`, { active: false });
+    ok(busyOff.status === 409, "a driver on a delivery can't be switched off", busyOff.body);
+    const reassigned = await provider("PATCH", `/api/transport/bookings/${bk.id}/driver`, { driver_id: add2.body.data.id });
+    ok(reassigned.status === 200, "the company gives the delivery to another driver", reassigned.body);
+    ok((await driver2("GET", `/api/transport/bookings/${bk.id}`)).status === 200 && (await driver("GET", `/api/transport/bookings/${bk.id}`)).status === 404, "now only the new driver sees it");
+    const detail = (await buyer("GET", `/api/checkout/${cid}?token=${placed.body.data.token}`)).body.data;
+    ok(detail.status === "paid", "buyer's order still paid");
+    const off = await provider("PATCH", `/api/transport/drivers/${addDrv.body.data.id}/status`, { active: false });
+    ok(off.status === 200 && (await driver("GET", "/api/transport/auth/me")).status === 401, "a switched-off driver is signed out");
+    const newCode = await provider("POST", `/api/transport/drivers/${add2.body.data.id}/code`, {});
+    const relog = client(base, "X-Frontier-Transport");
+    ok((await relog("POST", "/api/transport/auth/driver-login", { phone: add2.body.data.phone, password: add2.body.code })).status === 401
+      && (await relog("POST", "/api/transport/auth/driver-login", { phone: add2.body.data.phone, password: newCode.body.code })).status === 200, "a new code replaces the old one");
     const after = (await buyer("GET", `/api/checkout/${cid}?token=${placed.body.data.token}`)).body.data.transport[0];
     ok(after.step.n === 2, "tracker moves to Driver Assigned", after.step);
   } catch (error) {

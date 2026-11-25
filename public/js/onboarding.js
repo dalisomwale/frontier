@@ -11,27 +11,35 @@
 const OB_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const obPhoneOk = (v) => String(v || "").replace(/\D/g, "").length >= 9;
 
+// A step with data-skip is left out (e.g. a step only companies have); call
+// steps.refresh() after adding or removing data-skip. check(i) and onStep(i)
+// get the step's index among the steps shown, and its section as 2nd argument.
 function obSteps(form, { check = () => ({}), onStep = () => {} } = {}) {
-  const steps = [...form.querySelectorAll(".ob-step")];
+  const all = [...form.querySelectorAll(".ob-step")];
+  let steps = all.filter((s) => !s.hasAttribute("data-skip"));
   const back = form.querySelector("[data-ob-back]");
   const next = form.querySelector("[data-ob-next]");
   const submit = form.querySelector("[data-ob-submit]");
   const progress = form.querySelector("[data-ob-progress]");
   let at = 0;
   let reached = 0;
+  let items = [];
 
-  progress.innerHTML = `
-    <ol class="ob-progress" aria-label="Sign-up steps">${steps.map((s, i) => `
-      <li data-i="${i}"><button type="button" tabindex="-1"><span class="ob-dot">${i + 1}</span><span class="ob-name">${escapeHtml(s.dataset.title)}</span></button></li>`).join("")}
-    </ol>
-    <p class="ob-count" aria-live="polite"></p>`;
-  const items = [...progress.querySelectorAll("li")];
-  items.forEach((li, i) => li.querySelector("button").addEventListener("click", () => { if (i <= reached) show(i); }));
+  function paintProgress() {
+    progress.innerHTML = `
+      <ol class="ob-progress" aria-label="Sign-up steps">${steps.map((s, i) => `
+        <li data-i="${i}"><button type="button" tabindex="-1"><span class="ob-dot">${i + 1}</span><span class="ob-name">${escapeHtml(s.dataset.title)}</span></button></li>`).join("")}
+      </ol>
+      <p class="ob-count" aria-live="polite"></p>`;
+    items = [...progress.querySelectorAll("li")];
+    items.forEach((li, i) => li.querySelector("button").addEventListener("click", () => { if (i <= reached) show(i); }));
+  }
+  paintProgress();
 
   function show(i, { focus = true } = {}) {
     at = Math.max(0, Math.min(steps.length - 1, i));
     reached = Math.max(reached, at);
-    steps.forEach((s, n) => { s.hidden = n !== at; });
+    all.forEach((s) => { s.hidden = s !== steps[at]; });
     items.forEach((li, n) => {
       li.className = n < at ? "is-done" : n === at ? "is-now" : "";
       li.querySelector(".ob-dot").innerHTML = n < at ? "✓" : String(n + 1);
@@ -44,7 +52,7 @@ function obSteps(form, { check = () => ({}), onStep = () => {} } = {}) {
     back.hidden = at === 0;
     next.hidden = last;
     submit.hidden = !last;
-    onStep(at);
+    onStep(at, steps[at]);
     const top = form.getBoundingClientRect().top;
     if (top < 0) form.scrollIntoView({ behavior: "smooth", block: "start" });
     if (focus) {
@@ -57,7 +65,7 @@ function obSteps(form, { check = () => ({}), onStep = () => {} } = {}) {
   const stepOf = (name) => steps.findIndex((s) => s.querySelector(`[name="${name}"], [data-error-for="${name}"]`));
 
   function goNext() {
-    const errors = check(at) || {};
+    const errors = check(at, steps[at]) || {};
     showFieldErrors(form, { errors });
     if (Object.keys(errors).length) {
       const first = steps[at].querySelector(".has-error") || steps[at].querySelector(".field-error:not(.hidden)");
@@ -84,7 +92,7 @@ function obSteps(form, { check = () => ({}), onStep = () => {} } = {}) {
   // Every step checked again before sending (in case one was skipped back to).
   form.addEventListener("submit", (e) => {
     for (let i = 0; i < steps.length; i++) {
-      const errors = check(i) || {};
+      const errors = check(i, steps[i]) || {};
       if (Object.keys(errors).length) {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -100,6 +108,15 @@ function obSteps(form, { check = () => ({}), onStep = () => {} } = {}) {
     show,
     clear,
     current: () => at,
+    // After a step was added or left out (data-skip): the same step stays open.
+    refresh() {
+      const now = steps[at];
+      steps = all.filter((s) => !s.hasAttribute("data-skip"));
+      reached = Math.min(reached, steps.length - 1);
+      paintProgress();
+      const idx = steps.indexOf(now);
+      show(idx >= 0 ? idx : Math.min(at, steps.length - 1), { focus: false });
+    },
     // Server errors: show them and open the step with the first one.
     showErrors(errors = {}) {
       const names = Object.keys(errors);

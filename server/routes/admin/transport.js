@@ -315,6 +315,7 @@ async function loadProviderFull(id) {
     ...providerRow(p),
     documents: docs.map((d) => ({ ...d, type_label: DOC_TYPES[d.doc_type] || d.doc_type })),
     vehicle_list: await vehiclesOf(id),
+    drivers: await require("../../lib/transport/drivers").listOf(id),
     history: history.map((b) => views.row(b, "admin")),
     rating_list: ratings.map((r) => ({ ...r, hidden: Boolean(r.hidden), reference: core.bookingRef(r.booking_id) })),
     performance: Object.fromEntries(Object.entries(perf).map(([k, v]) => [k, v === null ? null : Number(v)])),

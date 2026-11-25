@@ -95,6 +95,7 @@ const isLocation = (req) => /^\/api\/transport\/bookings\/\d+\/location$/.test(r
 app.use("/api", rateLimit({ windowMs: 15 * 60 * 1000, max: 300, handler: limitHandler, standardHeaders: true, legacyHeaders: false, skip: (req) => !isProduction || isLocation(req) }));
 app.use("/api/transport/bookings", rateLimit({ windowMs: 15 * 60 * 1000, max: 600, handler: limitHandler, standardHeaders: true, legacyHeaders: false, skip: (req) => !isProduction || !isLocation(req) }));
 app.use("/api/transport/auth/login", limiter(10));
+app.use("/api/transport/auth/driver-login", limiter(10));
 app.use("/api/transport/auth/register", limiter(5, 60));
 app.use("/api/transport/auth/forgot", limiter(5, 60));
 app.use("/api/transport/auth/reset", limiter(10, 60));
@@ -401,7 +402,7 @@ app.use((err, req, res, next) => {
 // need db:setup.
 const LATE_TABLES = ["seller_password_resets", "seller_sessions", "seller_notifications", "inquiry_messages", "orders", "app_state", "checkouts", "transaction_events", "buyers", "buyer_tokens", "buyer_notifications", "order_receipt_photos",
   "transport_providers", "transport_provider_documents", "transport_provider_sessions", "transport_provider_resets", "transport_provider_notifications",
-  "transport_vehicles", "transport_vehicle_cargo", "transport_vehicle_files", "transport_price_bands", "transport_settings", "transport_bookings",
+  "transport_vehicles", "transport_vehicle_cargo", "transport_vehicle_files", "transport_drivers", "transport_price_bands", "transport_settings", "transport_bookings",
   "transport_booking_orders", "transport_offers", "transport_quantities", "transport_submissions", "transport_photos", "transport_disputes",
   "transport_events", "transport_locations", "transport_ratings", "platform_ratings",
   "newsletter_subscribers", "newsletter_campaigns", "newsletter_sends"];
@@ -465,6 +466,7 @@ const LATE_COLUMNS = [
   ["transport_bookings", "vehicle_size", "ENUM('small', 'medium', 'large', 'extra_large') NULL AFTER cargo_summary"],
   ["transport_providers", "preferred_coverage_km", "DECIMAL(7,1) NULL AFTER coverage_active"],
   ["transport_providers", "preferred_coverage_at", "DATETIME NULL AFTER preferred_coverage_km"],
+  ["transport_bookings", "driver_id", "INT UNSIGNED NULL AFTER vehicle_id, ADD INDEX idx_tb_driver (driver_id, status)"],
 ];
 async function ensureLateTables() {
   const schema = require("fs").readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");
