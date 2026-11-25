@@ -208,7 +208,8 @@ function jsonList(raw) {
 async function fleetPayload(body, { withDrivers = true } = {}) {
   const errors = {};
   const driverRows = withDrivers ? jsonList(body.drivers).slice(0, MAX_FLEET) : [];
-  const vehicleRows = jsonList(body.vehicles).slice(0, MAX_FLEET);
+  // Owner-drivers have one vehicle; companies can have many.
+  const vehicleRows = jsonList(body.vehicles).slice(0, withDrivers ? MAX_FLEET : 1);
   const outDrivers = [];
   const outVehicles = [];
   const phones = new Set();
@@ -224,7 +225,7 @@ async function fleetPayload(body, { withDrivers = true } = {}) {
   for (const [i, row] of vehicleRows.entries()) {
     const { errors: e, data, cargo } = await vehiclePayload(row || {}, 0);
     if (data.registration && regs.has(data.registration)) e.registration = "This registration number is listed twice.";
-    if (Object.keys(e).length) { errors.vehicles = `Vehicle ${i + 1}: ${Object.values(e)[0]}`; break; }
+    if (Object.keys(e).length) { errors.vehicles = vehicleRows.length > 1 ? `Vehicle ${i + 1}: ${Object.values(e)[0]}` : Object.values(e)[0]; break; }
     regs.add(data.registration);
     outVehicles.push({ data, cargo });
   }
@@ -577,8 +578,8 @@ async function vehiclePayload(body, providerId, exceptId = 0) {
     const [[taken]] = await pool.query("SELECT provider_id FROM transport_vehicles WHERE registration = ? AND id <> ?", [reg, exceptId]);
     if (taken) errors.registration = Number(taken.provider_id) === Number(providerId) ? "You've already registered this vehicle." : "This vehicle is registered by another provider. Please contact Frontier.";
   }
-  if (!type || type.length < 2) errors.vehicle_type = "Please enter the vehicle type, e.g. 3-tonne truck.";
-  if (!size) errors.size_class = "Please choose the vehicle's size: Small, Medium, Large or Extra Large.";
+  if (!type || type.length < 2) errors.vehicle_type = "Please enter the vehicle name, e.g. Toyota Hilux.";
+  if (!size) errors.size_class = "Please choose the vehicle size.";
   if (note === undefined) errors.capacity_note = "Must be 255 characters or fewer.";
   const cargo = [];
   for (const l of labels) {
@@ -588,7 +589,6 @@ async function vehiclePayload(body, providerId, exceptId = 0) {
     if (!Number.isInteger(n) || n < 1 || n > 100000) errors[`cargo_${l.key}`] = "Enter a number from 1.";
     else cargo.push({ key: l.key, max: n });
   }
-  if (!cargo.length) errors.cargo = "Please say what this vehicle can carry and how many at once.";
   return { errors, data: { registration: reg, vehicle_type: type, size_class: size, capacity_note: note || null }, cargo };
 }
 
@@ -627,6 +627,11 @@ router.post("/vehicles", requireProvider, ownerOnly, uploadVehicleFiles, async (
   try {
     const { errors, data, cargo } = await vehiclePayload(req.body, req.provider.id);
     if (!((req.files && req.files.photos) || []).length) errors.photos = "Please add at least one photo of the vehicle.";
+    // Owner-drivers have one vehicle; more vehicles means registering as a company.
+    if (req.provider.kind !== "company") {
+      const [[n]] = await pool.query("SELECT COUNT(*) AS n FROM transport_vehicles WHERE provider_id = ?", [req.provider.id]);
+      if (Number(n.n) >= 1) throw new HttpError(409, "Owner-drivers have one vehicle. Edit it, or ask Frontier to register you as a company to add more.");
+    }
     if (Object.keys(errors).length) throw validationError(errors);
     await conn.beginTransaction();
     const [r] = await conn.query("INSERT INTO transport_vehicles (provider_id, registration, vehicle_type, size_class, capacity_note) VALUES (?, ?, ?, ?, ?)", [req.provider.id, data.registration, data.vehicle_type, data.size_class, data.capacity_note]);

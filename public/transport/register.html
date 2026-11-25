@@ -208,7 +208,11 @@
         workStep.dataset.title = company() ? "Your Offices" : "Work Coverage";
         fleetStep.dataset.title = company() ? "Drivers & Vehicles" : "Your Vehicle";
         form.querySelector("[data-vehicles-title]").textContent = company() ? "Your Vehicles" : "Your Vehicle";
-        form.querySelector("[data-vehicles-help]").textContent = company() ? "Your drivers can only use these. Add photos later in your dashboard." : "Have more than one? Add them all. Add photos later in your dashboard.";
+        form.querySelector("[data-vehicles-help]").textContent = company() ? "Your drivers can only use these. Add photos later in your dashboard." : "Add photos later in your dashboard.";
+        // Several vehicles: companies only. An owner-driver keeps the first one.
+        form.querySelector("[data-add-vehicle]").hidden = !company();
+        if (!company()) [...vehiclesBox.querySelectorAll("[data-vehicle-row]")].slice(1).forEach((r) => r.remove());
+        renumber();
         if (steps) steps.refresh();
       };
       form.querySelectorAll('input[name="kind"]').forEach((r) => r.addEventListener("change", paintKind));
@@ -270,7 +274,7 @@
       const rowHead = () => `<div class="ob-row-head"><b></b><button type="button" class="ob-row-rm" data-rm>Remove</button></div>`;
       const renumber = () => {
         driversBox.querySelectorAll("[data-driver-row]").forEach((r, i, all) => { r.querySelector(".ob-row-head b").textContent = `Driver ${i + 1}`; r.querySelector("[data-rm]").hidden = all.length < 2; });
-        vehiclesBox.querySelectorAll("[data-vehicle-row]").forEach((r, i, all) => { r.querySelector(".ob-row-head b").textContent = `Vehicle ${i + 1}`; r.querySelector("[data-rm]").hidden = all.length < 2; });
+        vehiclesBox.querySelectorAll("[data-vehicle-row]").forEach((r, i, all) => { r.querySelector("[data-rm]").hidden = all.length < 2; r.querySelector(".ob-row-head").hidden = all.length < 2; });
       };
       function addDriver() {
         const row = document.createElement("div");
@@ -289,22 +293,18 @@
       }
       function fillVehicle(row) {
         const sizes = row.querySelector("[data-sizes]");
-        if (!sizes.childElementCount && options.sizes.length) sizes.innerHTML = `<option value="">Choose…</option>${options.sizes.map((x) => `<option value="${x.key}">${escapeHtml(x.label)} · ${escapeHtml(x.hint)}</option>`).join("")}`;
-        const cargo = row.querySelector("[data-cargo]");
-        if (!cargo.childElementCount && options.cargo_types.length) cargo.innerHTML = options.cargo_types.map((c) => `<div><label class="field-label !text-xs">${escapeHtml(c.label)} (${escapeHtml(c.unit)})</label><input data-cargo-key="${c.key}" type="number" min="1" step="1" inputmode="numeric" class="field-input"></div>`).join("");
+        if (!sizes.childElementCount && options.sizes.length) sizes.innerHTML = `<option value="">Choose…</option>${options.sizes.map((x) => `<option value="${x.key}">${escapeHtml(x.label)}: ${escapeHtml(x.hint)}</option>`).join("")}`;
       }
       function addVehicle() {
         const row = document.createElement("div");
         row.className = "ob-row";
         row.dataset.vehicleRow = "1";
-        row.innerHTML = `${rowHead()}
+        row.innerHTML = `<div class="ob-row-head"><span></span><button type="button" class="ob-row-rm" data-rm>Remove</button></div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label class="field-label">Vehicle Name</label><input data-f="vehicle_type" class="field-input" maxlength="60" placeholder="e.g. Toyota Hilux" autocomplete="off"></div>
             <div><label class="field-label">Registration Number</label><input data-f="registration" class="field-input" maxlength="30" placeholder="e.g. ABC 1234" autocomplete="off"></div>
-            <div><label class="field-label">Vehicle Type</label><input data-f="vehicle_type" class="field-input" maxlength="60" placeholder="e.g. 7-tonne truck" autocomplete="off"></div>
-            <div class="sm:col-span-2"><label class="field-label">Size</label><select data-f="size_class" data-sizes class="field-input"></select></div>
-          </div>
-          <p class="field-label mt-3">What It Can Carry at Once <span class="ob-opt">(leave empty what it doesn't carry)</span></p>
-          <div class="tp-cargo-grid" data-cargo></div>`;
+            <div class="sm:col-span-2"><label class="field-label">Vehicle Size</label><select data-f="size_class" data-sizes class="field-input"></select></div>
+          </div>`;
         row.querySelector("[data-rm]").addEventListener("click", () => { row.remove(); renumber(); });
         vehiclesBox.appendChild(row);
         fillVehicle(row);
@@ -317,10 +317,7 @@
       addVehicle();
       transportApi("/api/transport/auth/options").then((r) => { options = r.data; form.querySelectorAll("[data-vehicle-row]").forEach(fillVehicle); }).catch(() => {});
       const driverRows = () => [...driversBox.querySelectorAll("[data-driver-row]")].map((r) => Object.fromEntries([...r.querySelectorAll("[data-f]")].map((i) => [i.dataset.f, i.value.trim()])));
-      const vehicleRows = () => [...vehiclesBox.querySelectorAll("[data-vehicle-row]")].map((r) => ({
-        ...Object.fromEntries([...r.querySelectorAll("[data-f]")].map((i) => [i.dataset.f, i.value.trim()])),
-        ...Object.fromEntries([...r.querySelectorAll("[data-cargo-key]")].filter((i) => i.value.trim()).map((i) => [`cargo_${i.dataset.cargoKey}`, i.value.trim()])),
-      }));
+      const vehicleRows = () => [...vehiclesBox.querySelectorAll("[data-vehicle-row]")].map((r) => Object.fromEntries([...r.querySelectorAll("[data-f]")].map((i) => [i.dataset.f, i.value.trim()])));
       const fleetErrors = () => {
         const e = {};
         const seen = new Set();
@@ -335,11 +332,11 @@
           seen.add(key);
         }
         if (!vs.length) e.vehicles = "Please add at least one vehicle.";
+        const which = (i) => (vs.length > 1 ? `Vehicle ${i + 1}: p` : "P");
         for (const [i, v] of vs.entries()) {
-          if (v.registration.length < 3) { e.vehicles = `Vehicle ${i + 1}: please enter the registration number.`; break; }
-          if (v.vehicle_type.length < 2) { e.vehicles = `Vehicle ${i + 1}: please enter the vehicle type, e.g. 3-tonne truck.`; break; }
-          if (!v.size_class) { e.vehicles = `Vehicle ${i + 1}: please choose its size.`; break; }
-          if (!Object.keys(v).some((k) => k.startsWith("cargo_"))) { e.vehicles = `Vehicle ${i + 1}: please say what it can carry and how many at once.`; break; }
+          if (v.vehicle_type.length < 2) { e.vehicles = `${which(i)}lease enter the vehicle name, e.g. Toyota Hilux.`; break; }
+          if (v.registration.length < 3) { e.vehicles = `${which(i)}lease enter the registration number.`; break; }
+          if (!v.size_class) { e.vehicles = `${which(i)}lease choose the vehicle size.`; break; }
         }
         return e;
       };

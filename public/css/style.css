@@ -7338,7 +7338,7 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 
 /* Vehicle sizes: the provider's choice on a vehicle, and the size tag. */
 .tp-sizes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-@media (min-width: 640px) { .tp-sizes { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 640px) { .tp-sizes { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
 .tp-size-opt { position: relative; display: block; cursor: pointer; }
 .tp-size-opt input { position: absolute; opacity: 0; pointer-events: none; }
 .tp-size-opt span {
@@ -7356,7 +7356,7 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 
 /* Checkout: choosing the vehicle size. */
 .co-sizes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-@media (min-width: 640px) { .co-sizes { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 640px) { .co-sizes { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
 .co-size { position: relative; display: block; cursor: pointer; }
 .co-size input { position: absolute; opacity: 0; pointer-events: none; }
 .co-size span {
@@ -7475,3 +7475,4 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .tp-driver-top .acc-av { flex: none; }
 .tp-code { display: flex; align-items: center; justify-content: center; gap: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 26px; font-weight: 800; letter-spacing: .12em; color: #111827; background: #f3f4f6; border-radius: 14px; padding: 16px; margin: 14px 0; }
 .tr-km-tag { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; background: #2563eb; color: #fff; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 9999px; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); }
+.ob-row-head[hidden] { display: none; }

@@ -190,15 +190,18 @@ function client(base, header) {
     const coVeh = await q("SELECT v.registration, v.size_class, c.max_quantity FROM transport_vehicles v JOIN transport_vehicle_cargo c ON c.vehicle_id = v.id WHERE v.provider_id = ?", [coRow.id]);
     ok(coDrivers.length === 2 && coDrivers.every((d) => d.password_hash === null), "its drivers are saved, waiting for sign-in codes", coDrivers);
     ok(coVeh.length === 1 && coVeh[0].size_class === "large" && coVeh[0].max_quantity === 20, "its vehicle is saved with size and load", coVeh);
-    const soloReg = (extra) => client(base, "X-Frontier-Transport")("POST", "/api/transport/auth/register", pf({
+    const soloReg = (extra, c = client(base, "X-Frontier-Transport")) => c("POST", "/api/transport/auth/register", pf({
       kind: "individual", name: "Solo Driver", phone: "0977222444", email: `solo${stamp}@test.zm`, province: "Lusaka", district: "Lusaka", address: "Plot 2", base_lat: -15.41, base_lng: 28.28, preferred_coverage_km: 50, password: "Truck#Pass123", confirm_password: "Truck#Pass123", accept_terms: "1", ...extra,
     }, [["documents", pdf, "nrc.pdf", "application/pdf", "nrc"], ["documents", pdf, "lic.pdf", "application/pdf", "drivers_licence"]]), { form: true });
     const soloNoVeh = await soloReg({});
     ok(soloNoVeh.status === 422 && soloNoVeh.body.errors.vehicles && !soloNoVeh.body.errors.drivers, "an owner-driver must add their vehicle (no drivers asked)", soloNoVeh.body.errors);
-    const solo = await soloReg({ vehicles: JSON.stringify([{ registration: `SOLO ${tag}`, vehicle_type: "Pickup", size_class: "small", cargo_a1: "4" }]) });
+    const soloClient = client(base, "X-Frontier-Transport");
+    const solo = await soloReg({ vehicles: JSON.stringify([{ registration: `SOLO ${tag}`, vehicle_type: "Honda Motorbike", size_class: "bike" }, { registration: `SOLO2 ${tag}`, vehicle_type: "Second", size_class: "small" }]) }, soloClient);
     ok(solo.status === 201, "an owner-driver registers with their vehicle", solo.body);
     const soloVeh = await q("SELECT v.size_class FROM transport_vehicles v JOIN transport_providers p ON p.id = v.provider_id WHERE p.email = ?", [`solo${stamp}@test.zm`]);
-    ok(soloVeh.length === 1 && soloVeh[0].size_class === "small", "the owner-driver's vehicle is saved", soloVeh);
+    ok(soloVeh.length === 1 && soloVeh[0].size_class === "bike", "the owner-driver's one vehicle is saved (a Bike, no load limits needed; a 2nd is ignored)", soloVeh);
+    const solo2 = await soloClient("POST", "/api/transport/vehicles", pf({ registration: `SOLO3 ${tag}`, vehicle_type: "Van", size_class: "small" }, [["photos", await sharp({ create: { width: 20, height: 20, channels: 3, background: "#777" } }).png().toBuffer(), "v.png", "image/png"]]), { form: true });
+    ok(solo2.status === 409, "an owner-driver can't add a second vehicle", solo2.body);
 
     // Vehicles, added by the admin (photos optional here).
     const vf = (reg2, size) => pf({ registration: reg2, vehicle_type: "Truck with crate", ...(size ? { size_class: size } : {}), cargo_a1: "10" });
@@ -234,6 +237,7 @@ function client(base, header) {
     const d = (await buyer("POST", "/api/checkout/transport-quote", { items, ...dest })).body.data || {};
     const byKey = Object.fromEntries((d.size_options || []).map((o) => [o.key, o]));
     ok(d.available && byKey.small.available && byKey.medium.available && !byKey.large.available && !byKey.extra_large.available, "only sizes with a free vehicle can be chosen (Small, Medium)", d.size_options);
+    ok(byKey.bike && !byKey.bike.available, "Bike is one of the sizes (none free here)", byKey.bike);
     ok(d.vehicle_size === "small", "the smallest free size is chosen first", d.vehicle_size);
     const baseFee = d.journeys[0].fee;
     ok(Math.abs(byKey.medium.fee_total - Math.round(baseFee * 1.3 * 100) / 100) < 0.02, "Medium costs 130% of the distance price", { baseFee, medium: byKey.medium.fee_total });

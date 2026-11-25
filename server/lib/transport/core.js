@@ -24,18 +24,21 @@ const DEFAULT_SETTINGS = {
   frontier_pickup_lat: "",
   frontier_pickup_lng: "",
   // Price of each vehicle size, as a percentage of the distance price (100 = the band price).
+  size_pct_bike: "100",
   size_pct_small: "100",
   size_pct_medium: "100",
   size_pct_large: "100",
   size_pct_extra_large: "100",
 };
 
-// Vehicle sizes: providers give each vehicle one; buyers choose one at checkout.
+// Vehicle sizes: providers give each vehicle one; buyers choose one at
+// checkout. hint: example vehicles of that size.
 const SIZES = [
-  { key: "small", label: "Small", hint: "Pickup or small van" },
-  { key: "medium", label: "Medium", hint: "Light truck" },
-  { key: "large", label: "Large", hint: "Truck" },
-  { key: "extra_large", label: "Extra Large", hint: "Heavy truck or trailer" },
+  { key: "bike", label: "Bike", hint: "Motorbike, Cargo Tricycle, Bicycle with Carrier" },
+  { key: "small", label: "Small", hint: "Pickup, Panel Van, Minibus" },
+  { key: "medium", label: "Medium", hint: "Mitsubishi Canter, Toyota Dyna, Isuzu NPR" },
+  { key: "large", label: "Large", hint: "Isuzu FTR, UD Truck, Hino 500" },
+  { key: "extra_large", label: "Extra Large", hint: "Horse and Trailer, Interlink, Flatbed Trailer" },
 ];
 const SIZE_KEYS = SIZES.map((x) => x.key);
 const sizeLabel = (k) => (SIZES.find((x) => x.key === k) || {}).label || null;
@@ -273,9 +276,12 @@ function loadOf(items) {
 // A vehicle fits when it can carry every kind in the load and the load,
 // shared out over its limits, fills it no more than once:
 // sum(quantity / max for each kind) <= 1.
+// A vehicle with no load limits entered takes any load its size allows (the
+// buyer chose the size). With limits, it only takes those kinds, up to them.
 function vehicleFits(cargo, load) {
   const keys = Object.keys(load);
   if (!keys.length) return false;
+  if (!cargo || !Object.keys(cargo).length) return true;
   let fill = 0;
   for (const k of keys) {
     const max = Number(cargo[k] || 0);

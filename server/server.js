@@ -462,8 +462,8 @@ const LATE_COLUMNS = [
   ["transport_bookings", "vehicle_registration", "VARCHAR(30) NULL AFTER provider_paid_by"],
   ["transport_bookings", "vehicle_type", "VARCHAR(60) NULL AFTER vehicle_registration"],
   ["transport_bookings", "on_hold", "TINYINT(1) NOT NULL DEFAULT 0 AFTER vehicle_type"],
-  ["transport_vehicles", "size_class", "ENUM('small', 'medium', 'large', 'extra_large') NULL AFTER vehicle_type"],
-  ["transport_bookings", "vehicle_size", "ENUM('small', 'medium', 'large', 'extra_large') NULL AFTER cargo_summary"],
+  ["transport_vehicles", "size_class", "ENUM('bike', 'small', 'medium', 'large', 'extra_large') NULL AFTER vehicle_type"],
+  ["transport_bookings", "vehicle_size", "ENUM('bike', 'small', 'medium', 'large', 'extra_large') NULL AFTER cargo_summary"],
   ["transport_providers", "preferred_coverage_km", "DECIMAL(7,1) NULL AFTER coverage_active"],
   ["transport_providers", "preferred_coverage_at", "DATETIME NULL AFTER preferred_coverage_km"],
   ["transport_bookings", "driver_id", "INT UNSIGNED NULL AFTER vehicle_id, ADD INDEX idx_tb_driver (driver_id, status)"],
@@ -488,6 +488,15 @@ async function ensureLateTables() {
       if (!found.length) await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
     } catch (error) {
       console.error(`Could not add ${table}.${column}: ${error.message}. Run: npm run db:setup`);
+    }
+  }
+  // The Bike vehicle size was added later.
+  for (const [table, column] of [["transport_vehicles", "size_class"], ["transport_bookings", "vehicle_size"]]) {
+    try {
+      const [[col]] = await pool.query("SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?", [table, column]);
+      if (col && !col.type.includes("'bike'")) await pool.query(`ALTER TABLE ${table} MODIFY ${column} ENUM('bike', 'small', 'medium', 'large', 'extra_large') NULL`);
+    } catch (error) {
+      console.error(`Could not add the Bike size to ${table}.${column}: ${error.message}. Run: npm run db:setup`);
     }
   }
   // Listings published before went_live_at existed count as having gone live.

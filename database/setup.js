@@ -351,16 +351,24 @@ async function main() {
   ], "transport bookings record the vehicle used");
   // Vehicle sizes (Small to Extra Large): providers set them, buyers choose one.
   await addColumns("transport_vehicles", [
-    ["size_class", "ENUM('small', 'medium', 'large', 'extra_large') NULL AFTER vehicle_type"],
+    ["size_class", "ENUM('bike', 'small', 'medium', 'large', 'extra_large') NULL AFTER vehicle_type"],
   ], "vehicles have a size");
   await addColumns("transport_bookings", [
-    ["vehicle_size", "ENUM('small', 'medium', 'large', 'extra_large') NULL AFTER cargo_summary"],
+    ["vehicle_size", "ENUM('bike', 'small', 'medium', 'large', 'extra_large') NULL AFTER cargo_summary"],
   ], "deliveries record the vehicle size the buyer chose");
   // Providers state how far they'd like to travel; Frontier sets the coverage.
   await addColumns("transport_providers", [
     ["preferred_coverage_km", "DECIMAL(7,1) NULL AFTER coverage_active"],
     ["preferred_coverage_at", "DATETIME NULL AFTER preferred_coverage_km"],
   ], "transport providers can state a preferred coverage");
+  // The Bike size was added to the vehicle sizes later.
+  for (const [table, column] of [["transport_vehicles", "size_class"], ["transport_bookings", "vehicle_size"]]) {
+    const [[col]] = await conn.query("SELECT COLUMN_TYPE AS type FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?", [DB_NAME, table, column]);
+    if (col && !col.type.includes("'bike'")) {
+      await conn.query(`ALTER TABLE ${table} MODIFY ${column} ENUM('bike', 'small', 'medium', 'large', 'extra_large') NULL`);
+      console.log(`  ${table}.${column} can be Bike`);
+    }
+  }
   // Company drivers (D: drivers): the delivery records which one does it.
   await addColumns("transport_bookings", [
     ["driver_id", "INT UNSIGNED NULL AFTER vehicle_id, ADD INDEX idx_tb_driver (driver_id, status)"],

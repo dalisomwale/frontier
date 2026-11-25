@@ -430,16 +430,16 @@
           submitText: v ? "Save Vehicle" : "Add Vehicle",
           body: `
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              ${input("registration", "Registration number", v ? v.registration : "", 'maxlength="30" placeholder="e.g. ABC 1234"')}
-              ${input("vehicle_type", "Vehicle type", v ? v.vehicle_type : "", 'maxlength="60" placeholder="e.g. 7-tonne truck with crate"')}
+              ${input("vehicle_type", "Vehicle Name", v ? v.vehicle_type : "", 'maxlength="60" placeholder="e.g. Toyota Hilux"')}
+              ${input("registration", "Registration Number", v ? v.registration : "", 'maxlength="30" placeholder="e.g. ABC 1234"')}
             </div>
             <div>
-              <p class="field-label">Size <span class="text-gray-400 font-normal">(buyers choose a size when they order)</span></p>
+              <p class="field-label">Vehicle Size <span class="text-gray-400 font-normal">(buyers choose a size when they order)</span></p>
               <div class="tp-sizes" role="radiogroup" aria-label="Vehicle size">${meta.sizes.map((x) => `<label class="tp-size-opt"><input type="radio" name="size_class" value="${x.key}" ${v && v.size_class === x.key ? "checked" : ""}><span><b>${escapeHtml(x.label)}</b><small>${escapeHtml(x.hint)}</small></span></label>`).join("")}</div>
               ${errFor("size_class")}
             </div>
             ${input("capacity_note", "Capacity notes <span class=\"text-gray-400 font-normal\">(optional)</span>", v ? v.capacity_note : "", 'maxlength="255" placeholder="e.g. Double-deck crate, ventilated"')}
-            <p class="field-label mt-2">What it can carry at once <span class="text-gray-400 font-normal">(leave empty what it doesn't carry)</span></p>
+            <p class="field-label mt-2">Load Limits <span class="text-gray-400 font-normal">(optional: leave empty to take any load that fits its size)</span></p>
             <div class="tp-cargo-grid">${(cargoTypes.length ? cargoTypes : meta.cargo_types).map((c) => `<div><label class="field-label !text-xs" for="cg-${c.key}">${escapeHtml(c.label)} (${escapeHtml(c.unit)})</label><input id="cg-${c.key}" name="cargo_${c.key}" type="number" min="1" step="1" class="field-input" value="${cargoOf(c.key)}">${errFor(`cargo_${c.key}`)}</div>`).join("")}</div>
             ${errFor("cargo")}
             <p class="field-label mt-2">Photos <span class="text-gray-400 font-normal">(optional, up to 4)</span></p>

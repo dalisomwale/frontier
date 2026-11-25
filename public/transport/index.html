@@ -491,6 +491,8 @@
             loadVehicles();
           } catch (error) { showNotification(error.message, "error"); }
         }));
+        // Owner-drivers have one vehicle; companies can add more.
+        document.getElementById("add-vehicle").hidden = me.kind !== "company" && vehicles.length >= 1;
         renderBanner();
       }
       document.getElementById("add-vehicle").addEventListener("click", () => openVehicle(null));
@@ -502,16 +504,16 @@
           <form class="acc-card max-w-2xl" novalidate>
             <h1 class="admin-view-title">${v ? `Edit ${escapeHtml(v.registration)}` : "Add a vehicle"}</h1>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div><label class="field-label" for="v-reg">Registration number</label><input id="v-reg" name="registration" class="field-input" maxlength="30" value="${escapeHtml(v ? v.registration : "")}" placeholder="e.g. ABC 1234"><p class="field-error hidden" data-error-for="registration"></p></div>
-              <div><label class="field-label" for="v-type">Vehicle type</label><input id="v-type" name="vehicle_type" class="field-input" maxlength="60" value="${escapeHtml(v ? v.vehicle_type : "")}" placeholder="e.g. 7-tonne truck with crate"><p class="field-error hidden" data-error-for="vehicle_type"></p></div>
+              <div><label class="field-label" for="v-type">Vehicle Name</label><input id="v-type" name="vehicle_type" class="field-input" maxlength="60" value="${escapeHtml(v ? v.vehicle_type : "")}" placeholder="e.g. Toyota Hilux"><p class="field-error hidden" data-error-for="vehicle_type"></p></div>
+              <div><label class="field-label" for="v-reg">Registration Number</label><input id="v-reg" name="registration" class="field-input" maxlength="30" value="${escapeHtml(v ? v.registration : "")}" placeholder="e.g. ABC 1234"><p class="field-error hidden" data-error-for="registration"></p></div>
               <div class="sm:col-span-2">
-                <p class="field-label">Size <span class="text-gray-400 font-normal">(buyers choose a size when they order)</span></p>
+                <p class="field-label">Vehicle Size <span class="text-gray-400 font-normal">(buyers choose a size when they order)</span></p>
                 <div class="tp-sizes" role="radiogroup" aria-label="Vehicle size">${meta.sizes.map((x) => `<label class="tp-size-opt"><input type="radio" name="size_class" value="${x.key}" ${v && v.size_class === x.key ? "checked" : ""}><span><b>${escapeHtml(x.label)}</b><small>${escapeHtml(x.hint)}</small></span></label>`).join("")}</div>
                 <p class="field-error hidden" data-error-for="size_class"></p>
               </div>
               <div class="sm:col-span-2"><label class="field-label" for="v-cap">Capacity notes <span class="text-gray-400 font-normal">(optional)</span></label><input id="v-cap" name="capacity_note" class="field-input" maxlength="255" value="${escapeHtml(v && v.capacity_note ? v.capacity_note : "")}" placeholder="e.g. Double-deck crate, ventilated"></div>
             </div>
-            <p class="field-label mt-5">What it can carry at once <span class="text-gray-400 font-normal">(leave empty what it doesn't carry)</span></p>
+            <p class="field-label mt-5">Load Limits <span class="text-gray-400 font-normal">(optional: leave empty to take any load that fits its size)</span></p>
             <div class="tp-cargo-grid">${meta.cargo_types.map((c) => `<div><label class="field-label !text-xs" for="cg-${c.key}">${escapeHtml(c.label)} (${escapeHtml(c.unit)})</label><input id="cg-${c.key}" name="cargo_${c.key}" type="number" min="1" step="1" class="field-input" value="${cargoOf(c.key)}"><p class="field-error hidden" data-error-for="cargo_${c.key}"></p></div>`).join("")}</div>
             <p class="field-error hidden" data-error-for="cargo"></p>
             <p class="field-label mt-5">Photos <span class="text-gray-400 font-normal">(${v ? "add more, up to 4 at a time" : "1 to 4"})</span></p>
