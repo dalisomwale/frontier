@@ -59,6 +59,14 @@
               </div>
               <p class="field-error hidden" data-error-for="password"></p>
             </div>
+            <div>
+              <label for="confirm_password" class="field-label">Confirm Password</label>
+              <div class="relative">
+                <input id="confirm_password" name="confirm_password" type="password" class="field-input pr-12" autocomplete="new-password" required />
+                <button type="button" data-toggle-password="confirm_password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+              </div>
+              <p class="field-error hidden" data-error-for="confirm_password"></p>
+            </div>
             <label class="co-terms-box">
               <input type="checkbox" name="accept_terms" />
               <span>I accept the <a href="/terms" target="_blank" class="acc-link">Terms</a> and the <a href="/refund-policy" target="_blank" class="acc-link">Refund</a>, <a href="/return-policy" target="_blank" class="acc-link">Return</a> and <a href="/cancellation-policy" target="_blank" class="acc-link">Cancellation</a> policies.</span>
@@ -105,6 +113,7 @@
             if (!OB_EMAIL.test(form.email.value.trim())) e.email = "Please enter a valid email address.";
             if (meter && meter.problem()) e.password = meter.problem();
             else if (!form.password.value) e.password = "Please choose a password.";
+            if (form.password.value && form.confirm_password.value !== form.password.value) e.confirm_password = form.confirm_password.value ? "The passwords don't match." : "Please type your password again.";
             if (!form.accept_terms.checked) e.accept_terms = "Please accept the terms to continue.";
           }
           return e;
@@ -118,6 +127,7 @@
           email: form.email.value.trim(),
           phone: form.phone.value.trim(),
           password: form.password.value,
+          confirm_password: form.confirm_password.value,
           accept_terms: form.accept_terms.checked,
         };
         try {

@@ -157,6 +157,7 @@ router.post("/auth/register", async (req, res, next) => {
     const password = typeof req.body.password === "string" ? req.body.password : "";
     const passwordProblem = passwordRules.problem(password, { email: data.email, phone: data.phone });
     if (passwordProblem) errors.password = passwordProblem;
+    if (req.body.confirm_password !== undefined && req.body.confirm_password !== password) errors.confirm_password = "The passwords don't match.";
     if (!errors.email && (await emailTaken(data.email))) {
       errors.email = "An account with this email already exists. Sign in instead.";
     }

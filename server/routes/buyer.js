@@ -152,6 +152,7 @@ router.post("/auth/register", async (req, res, next) => {
     const password = typeof req.body.password === "string" ? req.body.password : "";
     const problem = passwordRules.problem(password, { email: data.email, phone: data.phone });
     if (problem) errors.password = problem;
+    if (req.body.confirm_password !== undefined && req.body.confirm_password !== password) errors.confirm_password = "The passwords don't match.";
     const accepted = req.body.accept_terms === true || req.body.accept_terms === "1" || req.body.accept_terms === "on";
     if (!accepted) errors.accept_terms = "Please tick the box to accept the terms and policies.";
     if (!errors.email && (await emailTaken(data.email))) {

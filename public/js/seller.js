@@ -87,7 +87,7 @@ function bindPasswordMeter(input, context = () => ({})) {
   box.setAttribute("aria-live", "polite");
   const wrapper = input.closest(".relative") || input;
   wrapper.insertAdjacentElement("afterend", box);
-  const hint = `At least ${PasswordRules.MIN} characters, no spaces. Letters and numbers both work, e.g. <i>bandafarm22</i>.`;
+  const hint = `At least ${PasswordRules.MIN} characters, no spaces. Letters and numbers both work.`;
   const render = () => {
     const value = input.value;
     if (!value) {

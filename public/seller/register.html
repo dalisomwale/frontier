@@ -88,6 +88,14 @@
               </div>
               <p class="field-error hidden" data-error-for="password"></p>
             </div>
+            <div>
+              <label for="confirm_password" class="field-label">Confirm Password</label>
+              <div class="relative">
+                <input id="confirm_password" name="confirm_password" type="password" class="field-input pr-12" autocomplete="new-password" required />
+                <button type="button" data-toggle-password="confirm_password" class="absolute inset-y-0 right-0 px-3 text-gray-400 hover:text-gray-600" aria-label="Show password"></button>
+              </div>
+              <p class="field-error hidden" data-error-for="confirm_password"></p>
+            </div>
             <label class="co-terms-box">
               <input id="agree" name="agree" type="checkbox" />
               <span>I accept the <a href="/terms" target="_blank" class="text-blue-700 hover:underline">Terms</a> and <a href="/privacy" target="_blank" class="text-blue-700 hover:underline">Privacy Policy</a>.</span>
@@ -137,6 +145,7 @@
           if (i === 2) {
             if (meter && meter.problem()) e.password = meter.problem();
             else if (!form.password.value) e.password = "Please choose a password.";
+            if (form.password.value && form.confirm_password.value !== form.password.value) e.confirm_password = form.confirm_password.value ? "The passwords don't match." : "Please type your password again.";
             if (!form.agree.checked) e.agree = "Please accept the Terms and Privacy Policy.";
           }
           return e;
