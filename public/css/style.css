@@ -7493,3 +7493,8 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .ob-auth-row a:hover { text-decoration: underline; }
 .ob-auth .ob-btn { margin-top: 6px; padding-top: 13px; padding-bottom: 13px; }
 .ob-auth .ob-tabs { margin-top: -4px; }
+/* Admin forms in steps (Add Customer, Seller, Transport Provider). */
+.admin-steps .admin-form-actions [hidden] { display: none !important; }
+.admin-steps .ob-step { padding-top: 14px; }
+.admin-steps .ob-step > * + * { margin-top: 16px; }
+.admin-steps [data-ob-progress] { max-width: 640px; margin: 0 auto; }

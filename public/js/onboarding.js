@@ -9,6 +9,18 @@
 //   const steps = obSteps(form, { check(i) { return { field: "message" } }, onStep(i) {} });
 //   steps.showErrors(errors)  // after the server answers: opens the step with the first problem
 const OB_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+// Field messages: seller.js's showFieldErrors where it's loaded (the sign-up
+// pages), the same thing here otherwise (the admin pages).
+function obFieldErrors(form, error) {
+  if (typeof showFieldErrors === "function") return showFieldErrors(form, error);
+  form.querySelectorAll(".field-error").forEach((el) => el.classList.add("hidden"));
+  form.querySelectorAll(".has-error").forEach((el) => el.classList.remove("has-error"));
+  for (const [name, message] of Object.entries((error && error.errors) || {})) {
+    form.elements[name]?.classList?.add("has-error");
+    const holder = form.querySelector(`[data-error-for="${name}"]`);
+    if (holder) { holder.textContent = message; holder.classList.remove("hidden"); }
+  }
+}
 const obPhoneOk = (v) => String(v || "").replace(/\D/g, "").length >= 9;
 
 // A step with data-skip is left out (e.g. a step only companies have); call
@@ -66,7 +78,7 @@ function obSteps(form, { check = () => ({}), onStep = () => {} } = {}) {
 
   function goNext() {
     const errors = check(at, steps[at]) || {};
-    showFieldErrors(form, { errors });
+    obFieldErrors(form, { errors });
     if (Object.keys(errors).length) {
       const first = steps[at].querySelector(".has-error") || steps[at].querySelector(".field-error:not(.hidden)");
       if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -83,7 +95,7 @@ function obSteps(form, { check = () => ({}), onStep = () => {} } = {}) {
   };
   ["input", "change"].forEach((type) => form.addEventListener(type, (e) => { if (e.target.name) clear(e.target.name); }));
   next.addEventListener("click", goNext);
-  back.addEventListener("click", () => { showFieldErrors(form, {}); show(at - 1); });
+  back.addEventListener("click", () => { obFieldErrors(form, {}); show(at - 1); });
   // Enter (a phone keyboard's Go key) moves on instead of sending the form early.
   form.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" || e.target.tagName !== "INPUT" || ["checkbox", "radio", "file"].includes(e.target.type)) return;
@@ -97,7 +109,7 @@ function obSteps(form, { check = () => ({}), onStep = () => {} } = {}) {
         e.preventDefault();
         e.stopImmediatePropagation();
         show(i);
-        showFieldErrors(form, { errors });
+        obFieldErrors(form, { errors });
         return;
       }
     }
@@ -123,7 +135,7 @@ function obSteps(form, { check = () => ({}), onStep = () => {} } = {}) {
       const names = Object.keys(errors);
       const idx = names.map(stepOf).filter((n) => n >= 0);
       if (idx.length) show(Math.min(...idx), { focus: false });
-      showFieldErrors(form, { errors });
+      obFieldErrors(form, { errors });
     },
   };
 }

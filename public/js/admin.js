@@ -237,14 +237,17 @@ window.addEventListener("popstate", async (e) => {
 });
 
 // A form shown as its own page (Section / Title), with Cancel and Save.
-function openFormModal({ title, crumb, body, submitText = "Save", wide = false, onSubmit, onOpen, params }) {
+// steps: true for a form in steps, like the sign-up pages (onboarding.js):
+// the body holds <div data-ob-progress></div> and <section class="ob-step"
+// data-title="…">s, and onOpen calls form._obSteps = obSteps(form, { check }).
+function openFormModal({ title, crumb, body, submitText = "Save", wide = false, onSubmit, onOpen, params, steps = false }) {
   let dirty = false;
   const view = openAdminView({
     title: crumb || title,
     params,
     canLeave: async () => !dirty || confirmAction({ title: "Discard changes?", message: "Your unsaved changes will be lost.", confirmText: "Discard", variant: "danger" }),
     html: `
-      <form novalidate class="admin-form-page ${wide ? "admin-form-wide" : ""}">
+      <form novalidate class="admin-form-page ${wide ? "admin-form-wide" : ""} ${steps ? "ob-blue admin-steps" : ""}">
         <h1 class="admin-view-title">${escapeHtml(title)}</h1>
         <div class="admin-form-card">
           <div class="space-y-4">
@@ -254,7 +257,9 @@ function openFormModal({ title, crumb, body, submitText = "Save", wide = false, 
         </div>
         <div class="admin-form-actions">
           <button type="button" data-close class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium bg-white">Cancel</button>
-          <button type="submit" data-submit class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-70">${escapeHtml(submitText)}</button>
+          ${steps ? `<button type="button" data-ob-back class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium bg-white">Back</button>
+          <button type="button" data-ob-next class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Continue</button>` : ""}
+          <button type="submit" data-submit ${steps ? "data-ob-submit" : ""} class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-70">${escapeHtml(submitText)}</button>
         </div>
       </form>`,
   });
@@ -279,6 +284,8 @@ function openFormModal({ title, crumb, body, submitText = "Save", wide = false, 
       await onSubmit(form);
       await close(true);
     } catch (error) {
+      // In steps: open the step with the first problem.
+      if (error.errors && form._obSteps) form._obSteps.showErrors(error.errors);
       if (error.errors) {
         for (const [field, message] of Object.entries(error.errors)) {
           const input = form.elements[field];

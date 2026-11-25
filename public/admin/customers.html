@@ -12,6 +12,7 @@
     <script src="/js/icons.js"></script>
     <script src="/js/app-shell.js"></script>
     <script src="/js/admin.js"></script>
+    <script src="/js/onboarding.js"></script>
     <script src="/js/livestock.js"></script>
     <script src="/js/xlsx-lite.js"></script>
   </head>
@@ -110,16 +111,39 @@
 
       // Add or edit: the same details a customer gives when signing up.
       function openEditor(c = {}, after) {
-        openFormModal({
-          title: c.id ? "Edit Customer" : "Add Customer",
-          submitText: c.id ? "Save Changes" : "Add Customer",
-          body: `
+        const adding = !c.id;
+        const about = `
             ${field({ name: "full_name", label: "Full Name", value: c.full_name, required: true, attrs: 'maxlength="120" autocomplete="off"' })}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               ${field({ name: "phone", label: "Phone Number", type: "tel", value: c.phone, required: true, placeholder: "0977 123 456", attrs: 'maxlength="30" inputmode="tel"' })}
               ${field({ name: "email", label: "Email", type: "email", value: c.email, required: true, attrs: 'maxlength="255" inputmode="email"' })}
-            </div>
-            ${c.id ? "" : `<label class="co-terms-box"><input type="checkbox" name="send_link" value="1" checked><span>Email them a link to choose a password and sign in, as if they'd signed up.</span></label>`}`,
+            </div>`;
+        openFormModal({
+          title: adding ? "Add Customer" : "Edit Customer",
+          submitText: adding ? "Add Customer" : "Save Changes",
+          // Adding: in steps, like a customer signing up (About You, then signing in).
+          steps: adding,
+          body: adding ? `
+            <div data-ob-progress></div>
+            <section class="ob-step" data-title="About You">${about}</section>
+            <section class="ob-step" data-title="Sign-In" hidden>
+              <label class="co-terms-box"><input type="checkbox" name="send_link" value="1" checked><span>Email them a link to choose a password and sign in, as if they'd signed up.</span></label>
+              <p class="text-sm text-gray-600">If the email doesn't reach them, you'll get the link to send by WhatsApp or SMS.</p>
+            </section>` : about,
+          onOpen(form) {
+            if (!adding) return;
+            form._obSteps = obSteps(form, {
+              check(i) {
+                const e = {};
+                if (i === 0) {
+                  if (form.full_name.value.trim().length < 2) e.full_name = "Please enter their full name.";
+                  if (!obPhoneOk(form.phone.value)) e.phone = "Please enter their phone number, e.g. 0977 123 456.";
+                  if (!OB_EMAIL.test(form.email.value.trim())) e.email = "Please enter a valid email address.";
+                }
+                return e;
+              },
+            });
+          },
           async onSubmit(form) {
             const v = formValues(form);
             if (form.send_link) v.send_link = form.send_link.checked ? "1" : "0";

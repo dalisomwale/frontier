@@ -14,6 +14,7 @@
     <script src="/js/app-shell.js"></script>
     <script src="/js/seller.js"></script>
     <script src="/js/admin.js"></script>
+    <script src="/js/onboarding.js"></script>
     <script src="/js/xlsx-lite.js"></script>
     <script src="/js/livestock.js"></script>
     <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
@@ -376,53 +377,94 @@
         });
       }
 
+      // Adding a provider in steps, like signing up:
+      //   owner-driver: About You, Documents, Work Coverage, Your Vehicle
+      //   company:      About You, Your Offices, Drivers & Vehicles
       function openAddProvider() {
         let picker = null;
         openFormModal({
           title: "Add Transport Provider",
           wide: true,
           submitText: "Add Provider",
+          steps: true,
           body: `
-            <p class="text-sm text-gray-600 -mt-2 mb-2">The provider is approved straight away and emailed a link to choose their password.</p>
-            <div class="ho-choice"><label><input type="radio" name="kind" value="individual" checked><span>Individual</span></label><label><input type="radio" name="kind" value="company"><span>Company</span></label></div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              ${input("name", "Name (person or company)", "", 'maxlength="150"')}
-              ${input("contact_person", "Contact person <span class=\"text-gray-400 font-normal\">(companies)</span>", "", 'maxlength="120"')}
-              ${input("phone", "Phone", "", 'type="tel" maxlength="30" placeholder="0977 123 456"')}
-              ${input("email", "Email", "", 'type="email" maxlength="255"')}
-              ${input("licence_number", "Driving / transport licence number <span class=\"text-gray-400 font-normal\">(optional)</span>", "", 'maxlength="80"')}
-              ${input("registration_number", "Business registration number <span class=\"text-gray-400 font-normal\">(optional)</span>", "", 'maxlength="80"')}
-            </div>
-            <p class="field-label mt-2">Operating location</p>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div><label class="field-label" for="f-province">Province</label><select id="f-province" name="province" class="field-input"><option value="">Choose…</option>${ZAMBIA_PROVINCES.map((x) => opt(x, x)).join("")}</select>${errFor("province")}</div>
-              ${input("district", "District", "", 'maxlength="80"')}
-              ${input("address", "Physical address", "", 'maxlength="255"')}
-            </div>
-            <div data-map class="mt-2"></div>${errFor("base_point")}
-            ${input("coverage_km", "Coverage (km by road)", "", 'type="number" min="1" max="3000" step="1" style="max-width:180px"', "Requests come when both the pickup and the destination are within this distance. Leave empty to set it later.")}
-            <div data-for="individual">
-              <p class="field-label mt-2">Vehicle <span class="text-gray-400 font-normal">(optional: can be added later)</span></p>
-              <div class="ob-row" data-solo-vehicle>${vehicleFieldsHtml()}</div>${errFor("vehicles")}
-            </div>
-            <div data-for="company" hidden>
-              <p class="field-label mt-2">Drivers &amp; Vehicles <span class="text-gray-400 font-normal">(each driver with their own vehicle; can be added later)</span></p>
-              <div data-drivers></div>
-            </div>
-            <p class="field-label mt-2" data-docs-label>Documents <span class="text-gray-400 font-normal">(optional: NRC, licence, permit …)</span></p>
-            <div data-docs></div>`,
+            <div data-ob-progress></div>
+            <section class="ob-step" data-key="about" data-title="About You">
+              <p class="text-sm text-gray-600">The provider is approved straight away and emailed a link to choose their password.</p>
+              <div class="ob-choice" role="radiogroup" aria-label="Type"><label><input type="radio" name="kind" value="individual" checked><span>Individual<small>Owner-driver</small></span></label><label><input type="radio" name="kind" value="company"><span>Company<small>With drivers</small></span></label></div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                ${input("name", "<span data-name-label>Full Name</span>", "", 'maxlength="150"')}
+                <div data-company-only hidden>${input("contact_person", "Contact Person", "", 'maxlength="120"')}</div>
+                ${input("phone", "Phone / WhatsApp", "", 'type="tel" maxlength="30" placeholder="0977 123 456"')}
+                ${input("email", "Email", "", 'type="email" maxlength="255"')}
+                ${input("licence_number", "Driving / Transport Licence No. <span class=\"text-gray-400 font-normal\">(optional)</span>", "", 'maxlength="80"')}
+                ${input("registration_number", "Business Registration No. <span class=\"text-gray-400 font-normal\">(optional)</span>", "", 'maxlength="80"')}
+              </div>
+            </section>
+            <section class="ob-step" data-key="docs" data-title="Documents" hidden>
+              <p class="text-sm text-gray-600">A PDF or a clear photo of each, up to 12 MB. Optional here: they can be added later.</p>
+              ${driverDocInputs("doc_")}
+            </section>
+            <section class="ob-step" data-key="work" data-title="Work Coverage" hidden>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><label class="field-label" for="f-province">Province</label><select id="f-province" name="province" class="field-input"><option value="">Choose…</option>${ZAMBIA_PROVINCES.map((x) => opt(x, x)).join("")}</select>${errFor("province")}</div>
+                ${input("district", "District", "", 'maxlength="80"')}
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                ${input("coverage_km", "Coverage (km by road)", "", 'type="number" min="1" max="3000" step="1"', "Leave empty to set it later.")}
+                ${input("address", "<span data-address-label>Physical Address</span>", "", 'maxlength="255" placeholder="e.g. Plot 5, Cairo Road"')}
+              </div>
+              <div data-map></div>${errFor("base_point")}
+            </section>
+            <section class="ob-step" data-key="fleet" data-title="Your Vehicle" hidden>
+              <div data-for="individual">
+                <p class="text-sm text-gray-600 mb-3">Optional here: it can be added later.</p>
+                <div class="ob-row" data-solo-vehicle>${vehicleFieldsHtml()}</div>${errFor("vehicles")}
+              </div>
+              <div data-for="company" hidden>
+                <p class="text-sm text-gray-600 mb-3">Each driver with their own vehicle and papers. Optional here: drivers can be added later.</p>
+                <div data-drivers></div>
+              </div>
+            </section>`,
           onOpen: async (form) => {
-            documentRows(form.querySelector("[data-docs]"));
             driverCardsBox(form.querySelector("[data-drivers]"));
+            const company = () => form.kind.value === "company";
+            const step = (k) => form.querySelector(`[data-key="${k}"]`);
             const paintKind = () => {
-              const company = form.kind.value === "company";
-              form.querySelector('[data-for="company"]').hidden = !company;
-              form.querySelector('[data-for="individual"]').hidden = company;
-              form.querySelector("[data-docs-label]").innerHTML = company ? `Company Documents <span class="text-gray-400 font-normal">(optional: business registration, permit …)</span>` : `Documents <span class="text-gray-400 font-normal">(optional: NRC, licence, permit …)</span>`;
+              form.querySelectorAll("[data-company-only]").forEach((el) => { el.hidden = !company(); });
+              form.querySelector('[data-for="company"]').hidden = !company();
+              form.querySelector('[data-for="individual"]').hidden = company();
+              form.querySelector("[data-name-label]").textContent = company() ? "Company Name" : "Full Name";
+              form.querySelector("[data-address-label]").textContent = company() ? "Office Address" : "Physical Address";
+              step("work").dataset.title = company() ? "Your Offices" : "Work Coverage";
+              step("fleet").dataset.title = company() ? "Drivers & Vehicles" : "Your Vehicle";
+              step("docs").toggleAttribute("data-skip", company());
+              if (form._obSteps) form._obSteps.refresh();
             };
             form.querySelectorAll('input[name="kind"]').forEach((r) => r.addEventListener("change", paintKind));
+            paintKind();
+            form._obSteps = obSteps(form, {
+              check(i, sec) {
+                const e = {};
+                if (sec.dataset.key === "about") {
+                  if (form.name.value.trim().length < 2) e.name = company() ? "Please enter the company name." : "Please enter their full name.";
+                  if (company() && form.contact_person.value.trim().length < 2) e.contact_person = "Please enter the contact person.";
+                  if (!obPhoneOk(form.phone.value)) e.phone = "Please enter their phone number, e.g. 0977 123 456.";
+                  if (!OB_EMAIL.test(form.email.value.trim())) e.email = "Please enter a valid email address.";
+                }
+                if (sec.dataset.key === "work") {
+                  if (!form.province.value) e.province = "Please choose the province.";
+                  if (form.district.value.trim().length < 2) e.district = "Please choose the district.";
+                  if (form.address.value.trim().length < 3) e.address = "Please enter the address.";
+                  if (!(picker && picker.get())) e.base_point = "Mark the operating location on the map.";
+                }
+                return e;
+              },
+              // The map was drawn while its step was hidden: size it when it shows.
+              onStep: (i, sec) => { if (sec.dataset.key === "work" && picker && picker.map) setTimeout(() => { picker.map.invalidateSize(); circle(); }, 50); },
+            });
             trPlaceFields({ province: form.province, district: form.district, address: form.address, picker: () => picker });
-            picker = await trPointPicker(form.querySelector("[data-map]"), { kind: "base", label: "Operating location", onChange: () => circle() });
+            picker = await trPointPicker(form.querySelector("[data-map]"), { kind: "base", label: "Operating location", onChange: () => { form._obSteps.clear("base_point"); circle(); } });
             // The coverage, drawn around the operating location as it's typed.
             let ring = null;
             const circle = (fit = false) => {
@@ -443,7 +485,6 @@
             fd.append("kind", form.kind.value);
             fd.append("base_lat", pt ? pt.lat : "");
             fd.append("base_lng", pt ? pt.lng : "");
-            appendDocuments(form, fd);
             if (form.kind.value === "company") {
               const cards = filledCards(form);
               fd.append("drivers", JSON.stringify(cards.map(fieldsOf)));
@@ -454,6 +495,8 @@
                 fd.append("doc_owner", String(i));
               }));
             } else {
+              // Their own papers (Documents step) and their vehicle.
+              DRIVER_DOCS.forEach(([k]) => { const f = form[`doc_${k}`].files[0]; if (f) { fd.append("documents", f); fd.append("doc_types", k); fd.append("doc_owner", ""); } });
               const v = fieldsOf(form.querySelector("[data-solo-vehicle]"));
               fd.append("vehicles", JSON.stringify(Object.values(v).some(Boolean) ? [v] : []));
             }

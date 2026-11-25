@@ -12,6 +12,7 @@
     <script src="/js/icons.js"></script>
     <script src="/js/app-shell.js"></script>
     <script src="/js/admin.js"></script>
+    <script src="/js/onboarding.js"></script>
     <script src="/js/xlsx-lite.js"></script>
     <link rel="stylesheet" href="/vendor/leaflet-1.9.4/leaflet.css" />
     <script src="/vendor/leaflet-1.9.4/leaflet.js"></script>
@@ -356,13 +357,7 @@
 
       function openEditor(s = {}, after) {
         let pickupPicker = null;
-        openFormModal({
-          title: s.id ? "Edit Seller" : "Add Seller",
-          crumb: s.id && !document.querySelector(".seller-view") ? s.name : undefined,
-          params: s.id ? undefined : { new: 1 },
-          submitText: s.id ? "Save Changes" : "Add Seller",
-          wide: true,
-          body: `
+        const about = `
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               ${field({ name: "name", label: "Full Name", value: s.name, required: true, attrs: 'maxlength="120" autocomplete="off"' })}
               ${field({ name: "business_name", label: "Farm or Business Name (optional)", value: s.business_name, attrs: 'maxlength="150"' })}
@@ -370,7 +365,8 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               ${field({ name: "phone", label: "WhatsApp Number", type: "tel", value: s.phone, required: true, placeholder: "0977 123 456", attrs: 'maxlength="30" inputmode="tel"' })}
               ${field({ name: "email", label: "Email", type: "email", value: s.email, attrs: 'maxlength="255" inputmode="email"' })}
-            </div>
+            </div>`;
+        const business = `
             <div class="admin-pickup">
               <p class="field-label">Their Business <span class="text-gray-400 font-normal">(the pickup point: buyers can order transport once it's set)</span></p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -380,11 +376,43 @@
               ${field({ name: "pickup_address", label: "Pickup Address or Directions", value: s.pickup_address, placeholder: "e.g. Plot 9, off Great North Rd", attrs: 'maxlength="255"' })}
               <div data-pickup-map class="mt-3"></div>
               <p class="field-error hidden" data-error-for="pickup_point"></p>
-            </div>
-            ${s.id ? "" : `<label class="co-terms-box"><input type="checkbox" name="send_link" value="1" checked><span>Email them a link to choose a password and sign in, as if they'd signed up (needs their email).</span></label>`}
-            ${field({ name: "notes", label: "Notes", type: "textarea", value: s.notes, rows: 3, help: "Only visible to admins.", attrs: 'maxlength="2000"' })}
-            ${field({ name: "status", label: "Status", value: s.status || "active", options: [{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }] })}`,
+            </div>`;
+        const notes = field({ name: "notes", label: "Notes (optional)", type: "textarea", value: s.notes, rows: 3, help: "Only visible to admins.", attrs: 'maxlength="2000"' });
+        const status = field({ name: "status", label: "Status", value: s.status || "active", options: [{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }] });
+        openFormModal({
+          title: s.id ? "Edit Seller" : "Add Seller",
+          crumb: s.id && !document.querySelector(".seller-view") ? s.name : undefined,
+          params: s.id ? undefined : { new: 1 },
+          submitText: s.id ? "Save Changes" : "Add Seller",
+          wide: true,
+          // Adding: in steps, like a seller signing up (About You, Your Business, signing in).
+          steps: !s.id,
+          body: s.id ? `${about}${business}${notes}${status}` : `
+            <div data-ob-progress></div>
+            <section class="ob-step" data-title="About You">${about}${notes}</section>
+            <section class="ob-step" data-title="Your Business" hidden>${business}</section>
+            <section class="ob-step" data-title="Sign-In" hidden>
+              <label class="co-terms-box"><input type="checkbox" name="send_link" value="1" checked><span>Email them a link to choose a password and sign in, as if they'd signed up (needs their email).</span></label>
+              <p class="field-error hidden" data-error-for="send_link"></p>
+              <p class="text-sm text-gray-600">If the email doesn't reach them, you'll get the link to send by WhatsApp or SMS. Leave it unticked to manage their listings for them.</p>
+            </section>`,
           async onOpen(form) {
+            if (!s.id) {
+              form._obSteps = obSteps(form, {
+                check(i) {
+                  const e = {};
+                  if (i === 0) {
+                    if (form.name.value.trim().length < 2) e.name = "Please enter their full name.";
+                    if (!obPhoneOk(form.phone.value)) e.phone = "Please enter their WhatsApp number, e.g. 0977 123 456.";
+                    if (form.email.value.trim() && !OB_EMAIL.test(form.email.value.trim())) e.email = "Please enter a valid email address.";
+                  }
+                  if (i === 2 && form.send_link.checked && !form.email.value.trim()) e.send_link = "Add their email (About You) to send the link, or untick this.";
+                  return e;
+                },
+                // The map was drawn while its step was hidden: size it when it shows.
+                onStep: (i) => { if (i === 1 && pickupPicker && pickupPicker.map) setTimeout(() => pickupPicker.map.invalidateSize(), 50); },
+              });
+            }
             trPlaceFields({ province: form.province, district: form.pickup_district, address: form.pickup_address, picker: () => pickupPicker });
             pickupPicker = await trPointPicker(form.querySelector("[data-pickup-map]"), {
               kind: "pickup", label: "Pickup point", lat: s.pickup_lat ?? null, lng: s.pickup_lng ?? null,
@@ -396,6 +424,7 @@
             // The town is the pickup district, as at sign-up (kept when no district is given).
             Object.assign(v, { pickup_lat: pin ? pin.lat : "", pickup_lng: pin ? pin.lng : "", address: v.pickup_district || s.address || "" });
             if (form.send_link) v.send_link = form.send_link.checked ? "1" : "";
+            if (!s.id) v.status = "active";
             const errors = {};
             if (!v.name.trim()) errors.name = "Full name is required.";
             if (!v.phone.trim()) errors.phone = "Phone number is required.";
