@@ -207,6 +207,11 @@
         form.querySelector("[data-address-label]").textContent = company() ? "Office Address" : "Physical Address";
         workStep.dataset.title = company() ? "Your Offices" : "Work Coverage";
         fleetStep.dataset.title = company() ? "Drivers & Vehicles" : "Your Vehicle";
+        // Owner-drivers: About You, Documents, Work Coverage, Your Vehicle, Password.
+        // Companies: About You, Your Offices, Drivers & Vehicles, Documents, Password.
+        const docsStep = form.querySelector('[data-key="docs"]');
+        if (company()) form.querySelector('[data-key="password"]').before(docsStep);
+        else form.querySelector('[data-key="about"]').after(docsStep);
         form.querySelector("[data-vehicles-title]").textContent = company() ? "Your Vehicles" : "Your Vehicle";
         form.querySelector("[data-vehicles-help]").textContent = company() ? "Your drivers can only use these. Add photos later in your dashboard." : "Add photos later in your dashboard.";
         // Several vehicles: companies only. An owner-driver keeps the first one.

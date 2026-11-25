@@ -12,10 +12,10 @@ const OB_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const obPhoneOk = (v) => String(v || "").replace(/\D/g, "").length >= 9;
 
 // A step with data-skip is left out (e.g. a step only companies have); call
-// steps.refresh() after adding or removing data-skip. check(i) and onStep(i)
+// steps.refresh() after adding or removing data-skip, or moving steps. check(i) and onStep(i)
 // get the step's index among the steps shown, and its section as 2nd argument.
 function obSteps(form, { check = () => ({}), onStep = () => {} } = {}) {
-  const all = [...form.querySelectorAll(".ob-step")];
+  let all = [...form.querySelectorAll(".ob-step")];
   let steps = all.filter((s) => !s.hasAttribute("data-skip"));
   const back = form.querySelector("[data-ob-back]");
   const next = form.querySelector("[data-ob-next]");
@@ -111,6 +111,7 @@ function obSteps(form, { check = () => ({}), onStep = () => {} } = {}) {
     // After a step was added or left out (data-skip): the same step stays open.
     refresh() {
       const now = steps[at];
+      all = [...form.querySelectorAll(".ob-step")]; // the page may have moved steps around
       steps = all.filter((s) => !s.hasAttribute("data-skip"));
       reached = Math.min(reached, steps.length - 1);
       paintProgress();
