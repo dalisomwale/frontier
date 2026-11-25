@@ -82,7 +82,7 @@
               </div>
               <div>
                 <label for="address" class="field-label" data-address-label>Physical Address</label>
-                <input id="address" name="address" class="field-input" maxlength="255" placeholder="Start typing for suggestions" required />
+                <input id="address" name="address" class="field-input" maxlength="255" placeholder="e.g. Plot 5, Cairo Road" required />
                 <p class="field-error hidden" data-error-for="address"></p>
               </div>
             </div>
@@ -213,20 +213,55 @@
       };
       form.querySelectorAll('input[name="kind"]').forEach((r) => r.addEventListener("change", paintKind));
 
-      // Work coverage: the address places the pin, which can be moved; the
-      // circle shows roughly how far "How Far You'll Travel" reaches.
+      // Work coverage: the address places the pin, which can be moved. Typing
+      // "How Far You'll Travel" draws that distance around the pin (or around
+      // the district until there's a pin) and zooms the map out to show it.
       let picker = null;
       let circle = null;
+      let kmTag = null;
       const km = () => Number(form.preferred_coverage_km.value) || 0;
-      const paintCircle = () => {
+      let districtKey = "";
+      let districtPoint = null;
+      async function districtCentre() {
+        const d = form.district.value.trim();
+        if (!d || !form.province.value) return null;
+        const key = `${d}|${form.province.value}`.toLowerCase();
+        if (key !== districtKey) {
+          districtKey = key;
+          try {
+            const r = (await apiRequest(`/api/geocode?${new URLSearchParams({ q: `${d}, ${form.province.value} Province` })}`)).data || [];
+            districtPoint = r[0] ? { lat: r[0].lat, lng: r[0].lng } : null;
+          } catch { districtPoint = null; }
+        }
+        return districtPoint;
+      }
+      async function paintCircle({ fit = false } = {}) {
         if (!picker || !picker.map) return;
-        const pt = picker.get();
-        if (!pt || !(km() >= 5 && km() <= 1000)) { if (circle) { circle.remove(); circle = null; } return; }
-        if (!circle) circle = L.circle([pt.lat, pt.lng], { radius: km() * 1000, color: "#2563eb", weight: 1.5, fillOpacity: 0.07, interactive: false }).addTo(picker.map);
-        else circle.setLatLng([pt.lat, pt.lng]).setRadius(km() * 1000);
-      };
+        const map = picker.map;
+        const pt = picker.get() || (await districtCentre());
+        const valid = pt && km() >= 5 && km() <= 1000;
+        if (!valid) {
+          if (circle) { circle.remove(); circle = null; }
+          if (kmTag) { kmTag.remove(); kmTag = null; }
+          return;
+        }
+        const r = km() * 1000;
+        if (!circle) circle = L.circle([pt.lat, pt.lng], { radius: r, color: "#2563eb", weight: 2, fillColor: "#3b82f6", fillOpacity: 0.1, interactive: false }).addTo(map);
+        else circle.setLatLng([pt.lat, pt.lng]).setRadius(r);
+        // "120 km" on the circle's top edge.
+        const top = [pt.lat + km() / 111.32, pt.lng];
+        const icon = L.divIcon({ className: "", html: `<span class="tr-km-tag">${km()} km</span>`, iconSize: [0, 0] });
+        if (!kmTag) kmTag = L.marker(top, { icon, interactive: false, keyboard: false }).addTo(map);
+        else kmTag.setLatLng(top).setIcon(icon);
+        if (fit) map.fitBounds(circle.getBounds(), { padding: [24, 24], animate: true });
+      }
       trPlaceFields({ province: form.province, district: form.district, address: form.address, picker: () => picker });
-      form.preferred_coverage_km.addEventListener("input", paintCircle);
+      let kmTimer = null;
+      form.preferred_coverage_km.addEventListener("input", () => {
+        clearTimeout(kmTimer);
+        kmTimer = setTimeout(() => paintCircle({ fit: true }), 250);
+      });
+      form.district.addEventListener("change", () => { if (!(picker && picker.get())) paintCircle({ fit: true }); });
 
       // Drivers and vehicles (companies).
       let options = { cargo_types: [], sizes: [] };
@@ -347,6 +382,7 @@
           if (step.dataset.key !== "work") return;
           if (!picker) {
             picker = await trPointPicker(document.getElementById("base-map"), { kind: "base", label: "Your base", onChange: () => { steps.clear("base_point"); paintCircle(); } });
+            if (km()) paintCircle({ fit: !picker.get() });
           } else if (picker.map) setTimeout(() => picker.map.invalidateSize(), 50);
         },
       });

@@ -7474,3 +7474,4 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .tp-driver-top { display: flex; align-items: center; gap: 12px; }
 .tp-driver-top .acc-av { flex: none; }
 .tp-code { display: flex; align-items: center; justify-content: center; gap: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 26px; font-weight: 800; letter-spacing: .12em; color: #111827; background: #f3f4f6; border-radius: 14px; padding: 16px; margin: 14px 0; }
+.tr-km-tag { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; background: #2563eb; color: #fff; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 9999px; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); }
