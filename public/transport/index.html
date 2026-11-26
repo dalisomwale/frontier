@@ -484,12 +484,11 @@
               <p class="text-sm text-gray-600 mt-1">${v.size_label ? `<span class="tp-size">${escapeHtml(v.size_label)}</span> ` : ""}${escapeHtml(v.vehicle_type)}${v.capacity_note ? ` · ${escapeHtml(v.capacity_note)}` : ""}</p>
               ${v.size_label ? "" : `<p class="tr-warn-box mt-2">Choose this vehicle's size (Edit), so it can get delivery requests.</p>`}
               ${v.photos.length ? "" : `<p class="tr-note-box mt-2">Add a photo of this vehicle (Edit).</p>`}
-              <p class="text-sm text-gray-700 mt-2">${v.cargo.map((c) => `${escapeHtml(label(c.key))}: up to ${c.max}`).join(" · ")}</p>
               <div class="tr-actions mt-3"><button type="button" class="acc-mini-btn" data-edit="${v.id}">Edit</button>
                 <button type="button" class="acc-mini-btn" data-toggle="${v.id}">${v.status === "active" ? "Deactivate" : "Activate"}</button></div>
             </div>
           </div>`).join("")
-          : `<div class="empty-state"><p class="font-semibold text-gray-800">No vehicles yet</p><p class="text-sm mt-1">Add the vehicles you use, with what each can carry at once.</p></div>`;
+          : `<div class="empty-state"><p class="font-semibold text-gray-800">No vehicles yet</p><p class="text-sm mt-1">Add the vehicles you use.</p></div>`;
         list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openVehicle(vehicles.find((v) => String(v.id) === b.dataset.edit))));
         list.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", async () => {
           const v = vehicles.find((x) => String(x.id) === b.dataset.toggle);
@@ -506,11 +505,14 @@
       document.getElementById("add-vehicle").addEventListener("click", () => openVehicle(null));
 
       function openVehicle(v) {
-        const view = openAdminView({ title: v ? v.registration : "Add a vehicle", params: {} });
-        const cargoOf = (k) => (v ? (v.cargo.find((c) => c.key === k) || {}).max || "" : "");
+        const view = openAdminView({ title: v ? v.registration : "Add Vehicle", params: {} });
+        const capOptions = (sizeKey, current = "") => {
+          const list = ((meta.sizes.find((x) => x.key === sizeKey) || {}).capacities) || [];
+          return `<option value="">${list.length ? "Choose…" : "Choose the vehicle size first"}</option>${list.map((c) => `<option ${c === current ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}`;
+        };
         view.body.innerHTML = `
           <form class="acc-card max-w-2xl" novalidate>
-            <h1 class="admin-view-title">${v ? `Edit ${escapeHtml(v.registration)}` : "Add a vehicle"}</h1>
+            <h1 class="admin-view-title">${v ? `Edit ${escapeHtml(v.registration)}` : "Add Vehicle"}</h1>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div><label class="field-label" for="v-type">Vehicle Name</label><input id="v-type" name="vehicle_type" class="field-input" maxlength="60" value="${escapeHtml(v ? v.vehicle_type : "")}" placeholder="e.g. Toyota Hilux"><p class="field-error hidden" data-error-for="vehicle_type"></p></div>
               <div><label class="field-label" for="v-reg">Registration Number</label><input id="v-reg" name="registration" class="field-input" maxlength="30" value="${escapeHtml(v ? v.registration : "")}" placeholder="e.g. ABC 1234"><p class="field-error hidden" data-error-for="registration"></p></div>
@@ -519,22 +521,18 @@
                 <div class="tp-sizes" role="radiogroup" aria-label="Vehicle size">${meta.sizes.map((x) => `<label class="tp-size-opt"><input type="radio" name="size_class" value="${x.key}" ${v && v.size_class === x.key ? "checked" : ""}><span><b>${escapeHtml(x.label)}</b><small>${escapeHtml(x.hint)}</small></span></label>`).join("")}</div>
                 <p class="field-error hidden" data-error-for="size_class"></p>
               </div>
-              <div class="sm:col-span-2"><label class="field-label" for="v-cap">Capacity notes <span class="text-gray-400 font-normal">(optional)</span></label><input id="v-cap" name="capacity_note" class="field-input" maxlength="255" value="${escapeHtml(v && v.capacity_note ? v.capacity_note : "")}" placeholder="e.g. Double-deck crate, ventilated"></div>
+              <div class="sm:col-span-2"><label class="field-label" for="v-cap">Capacity <span class="text-gray-400 font-normal">(optional)</span></label><select id="v-cap" name="capacity_note" class="field-input" ${v && v.size_class ? "" : "disabled"}>${capOptions(v && v.size_class, v && v.capacity_note)}</select><p class="field-error hidden" data-error-for="capacity_note"></p></div>
             </div>
-            <p class="field-label mt-5">Load Limits <span class="text-gray-400 font-normal">(optional: leave empty to take any load that fits its size)</span></p>
-            <div class="tp-cargo-grid">${meta.cargo_types.map((c) => `<div><label class="field-label !text-xs" for="cg-${c.key}">${escapeHtml(c.label)} (${escapeHtml(c.unit)})</label><input id="cg-${c.key}" name="cargo_${c.key}" type="number" min="1" step="1" class="field-input" value="${cargoOf(c.key)}"><p class="field-error hidden" data-error-for="cargo_${c.key}"></p></div>`).join("")}</div>
-            <p class="field-error hidden" data-error-for="cargo"></p>
             <p class="field-label mt-5">Photos <span class="text-gray-400 font-normal">(${v ? "add more, up to 4 at a time" : "1 to 4"})</span></p>
             ${v && v.photos.length ? `<div class="acc-photos mb-2">${v.photos.map((p) => `<span class="relative inline-block"><a href="${escapeHtml(p.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(p.thumb_path)}" alt=""></a><button type="button" class="tr-rm" data-rm-file="${p.id}" aria-label="Remove photo">×</button></span>`).join("")}</div>` : ""}
             <div class="acc-ph-grid" data-photos></div>
             <p class="field-error hidden" data-error-for="photos"></p>
-            <p class="field-label mt-5">Vehicle papers <span class="text-gray-400 font-normal">(registration book, fitness, insurance: PDF or photo, optional)</span></p>
-            ${v && v.documents.length ? `<ul class="tr-qty mb-2">${v.documents.map((f) => `<li><a class="acc-link" href="/api/transport/vehicles/${v.id}/files/${f.id}" target="_blank" rel="noopener">${escapeHtml(f.original_name || "Document")}</a><button type="button" class="acc-mini-btn" data-rm-file="${f.id}">Remove</button></li>`).join("")}</ul>` : ""}
-            <input type="file" name="documents" multiple accept="application/pdf,image/jpeg,image/png,image/webp" class="text-sm">
-            <div class="acc-actionbar"><button type="submit" class="acc-btn">${v ? "Save vehicle" : "Add vehicle"}</button></div>
+            <div class="acc-actionbar"><button type="submit" class="acc-btn">${v ? "Save Vehicle" : "Add Vehicle"}</button></div>
           </form>`;
         const form = view.body.querySelector("form");
         const picker = bindPhotoPicker(form.querySelector("[data-photos]"), 4);
+        const capSel = form.querySelector("select[name=capacity_note]");
+        form.querySelectorAll("input[name=size_class]").forEach((r) => r.addEventListener("change", () => { capSel.innerHTML = capOptions(r.value); capSel.disabled = false; }));
         form.querySelectorAll("[data-rm-file]").forEach((b) => b.addEventListener("click", async () => {
           if (!(await confirmAction({ title: "Remove this file?", confirmText: "Remove", variant: "danger" }))) return;
           try {
@@ -549,9 +547,7 @@
           const fd = new FormData();
           ["registration", "vehicle_type", "capacity_note"].forEach((k) => fd.append(k, form[k].value.trim()));
           fd.append("size_class", form.size_class.value || "");
-          meta.cargo_types.forEach((c) => fd.append(`cargo_${c.key}`, form[`cargo_${c.key}`].value.trim()));
           picker.files().forEach((f) => fd.append("photos", f));
-          [...form.documents.files].forEach((f) => fd.append("documents", f));
           try {
             const res = await withBusy(form.querySelector("button[type=submit]"), "Saving…", () => transportApi(v ? `/api/transport/vehicles/${v.id}` : "/api/transport/vehicles", { method: v ? "PUT" : "POST", body: fd }));
             showNotification(res.message, "success");

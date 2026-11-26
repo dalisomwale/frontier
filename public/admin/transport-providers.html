@@ -55,7 +55,6 @@
       const TABS = [{ value: "", label: "All", key: "all" }, { value: "pending", label: "Waiting for approval", key: "pending" }, { value: "approved", label: "Approved", key: "approved" }, { value: "suspended", label: "Suspended", key: "suspended" }, { value: "rejected", label: "Rejected", key: "rejected" }];
       const STATUS = { pending: ["Waiting for approval", "so-open"], approved: ["Approved", "so-done"], suspended: ["Suspended", "tr-pill-alert"], rejected: ["Rejected", "so-off"] };
       const pill = (p) => `<span class="so-pill ${STATUS[p.status][1]}">${STATUS[p.status][0]}</span>${p.is_active ? "" : ` <span class="so-pill so-off">Deactivated</span>`}`;
-      let cargoTypes = [];
 
       function renderTabs() {
         document.getElementById("tabs").innerHTML = TABS.map((t) => `<button type="button" data-tab="${t.value}" class="${state.status === t.value ? "active" : ""}">${t.label}${state.counts[t.key] ? `<span class="count">${state.counts[t.key]}</span>` : ""}</button>`).join("");
@@ -95,7 +94,6 @@
         try {
           const res = await adminApi(`/api/admin/transport/providers/${id}`);
           p = res.data;
-          cargoTypes = res.cargo_types;
           if (res.sizes) meta.sizes = res.sizes;
           if (res.doc_types) meta.doc_types = res.doc_types;
         } catch (error) { return showNotification(error.message, "error"); }
@@ -105,7 +103,6 @@
 
       function paint(p) {
         const perf = p.performance;
-        const cargoLabel = (k) => (cargoTypes.find((c) => c.key === k) || { label: k }).label;
         const actions = [
           p.status === "pending" ? `<button type="button" class="acc-btn" data-status="approve">Approve</button><button type="button" class="acc-mini-btn text-red-700" data-status="reject">Reject</button>` : "",
           p.status === "rejected" ? `<button type="button" class="acc-btn" data-status="approve">Approve After All</button>` : "",
@@ -137,7 +134,6 @@
                   <div class="tp-vehicle-body"><div class="flex justify-between gap-2"><b>${escapeHtml(v.registration)}</b><span class="so-pill ${v.status === "active" ? "so-done" : "so-off"}">${v.status === "active" ? (v.busy_booking ? `On ${escapeHtml(v.busy_booking.reference)}` : "Active") : "Inactive"}</span></div>
                   <p class="text-sm text-gray-600">${v.size_label ? `<span class="tp-size">${escapeHtml(v.size_label)}</span> ` : `<span class="text-amber-700">No size set · </span>`}${escapeHtml(v.vehicle_type)}${v.capacity_note ? ` · ${escapeHtml(v.capacity_note)}` : ""}</p>
                   ${p.kind === "company" ? `<p class="text-sm ${v.driver_name ? "text-gray-700" : "text-amber-700"}">${v.driver_name ? `Driver: ${escapeHtml(v.driver_name)}` : "No driver"}</p>` : ""}
-                  <p class="text-sm text-gray-700 mt-1">${v.cargo.map((c) => `${escapeHtml(cargoLabel(c.key))}: ${c.max}`).join(" · ")}</p>
                   ${v.photos.length > 1 ? `<div class="acc-photos mt-2">${v.photos.slice(1).map((ph) => `<a href="${escapeHtml(ph.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(ph.thumb_path)}" alt=""></a>`).join("")}</div>` : ""}
                   ${v.documents.length ? `<p class="text-sm mt-2">${v.documents.map((f) => `<a class="acc-link" href="/api/admin/transport/vehicle-files/${f.id}" target="_blank" rel="noopener">${escapeHtml(f.original_name || "Document")}</a>`).join(" · ")}</p>` : ""}
                   <div class="tr-actions mt-2"><button type="button" class="acc-mini-btn" data-edit-vehicle="${v.id}">Edit</button><button type="button" class="acc-mini-btn" data-vehicle="${v.id}" data-to="${v.status === "active" ? "inactive" : "active"}">${v.status === "active" ? "Deactivate" : "Activate"}</button></div></div></div>`).join("")}</div>` : `<p class="text-sm text-gray-600">No vehicles registered. Add one so this provider can receive requests.</p>`}</div>
@@ -614,11 +610,18 @@
       }
 
       function editVehicle(p, v) {
-        const cargoOf = (k) => (v ? (v.cargo.find((c) => c.key === k) || {}).max || "" : "");
+        const capOptions = (sizeKey, current = "") => {
+          const list = ((meta.sizes.find((x) => x.key === sizeKey) || {}).capacities) || [];
+          return `<option value="">${list.length ? "Choose…" : "Choose the vehicle size first"}</option>${list.map((c) => `<option ${c === current ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}`;
+        };
         openFormModal({
           title: v ? `Vehicle ${v.registration}` : `Add a vehicle for ${p.name}`,
           wide: true,
           submitText: v ? "Save Vehicle" : "Add Vehicle",
+          onOpen: (form) => {
+            const capSel = form.querySelector("select[name=capacity_note]");
+            form.querySelectorAll("input[name=size_class]").forEach((r) => r.addEventListener("change", () => { capSel.innerHTML = capOptions(r.value); capSel.disabled = false; }));
+          },
           body: `
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               ${input("vehicle_type", "Vehicle Name", v ? v.vehicle_type : "", 'maxlength="60" placeholder="e.g. Toyota Hilux"')}
@@ -629,21 +632,15 @@
               <div class="tp-sizes" role="radiogroup" aria-label="Vehicle size">${meta.sizes.map((x) => `<label class="tp-size-opt"><input type="radio" name="size_class" value="${x.key}" ${v && v.size_class === x.key ? "checked" : ""}><span><b>${escapeHtml(x.label)}</b><small>${escapeHtml(x.hint)}</small></span></label>`).join("")}</div>
               ${errFor("size_class")}
             </div>
-            ${input("capacity_note", "Capacity notes <span class=\"text-gray-400 font-normal\">(optional)</span>", v ? v.capacity_note : "", 'maxlength="255" placeholder="e.g. Double-deck crate, ventilated"')}
-            <p class="field-label mt-2">Load Limits <span class="text-gray-400 font-normal">(optional: leave empty to take any load that fits its size)</span></p>
-            <div class="tp-cargo-grid">${(cargoTypes.length ? cargoTypes : meta.cargo_types).map((c) => `<div><label class="field-label !text-xs" for="cg-${c.key}">${escapeHtml(c.label)} (${escapeHtml(c.unit)})</label><input id="cg-${c.key}" name="cargo_${c.key}" type="number" min="1" step="1" class="field-input" value="${cargoOf(c.key)}">${errFor(`cargo_${c.key}`)}</div>`).join("")}</div>
-            ${errFor("cargo")}
+            <div><label class="field-label" for="f-capacity_note">Capacity <span class="text-gray-400 font-normal">(optional)</span></label><select id="f-capacity_note" name="capacity_note" class="field-input" ${v && v.size_class ? "" : "disabled"}>${capOptions(v && v.size_class, v && v.capacity_note)}</select>${errFor("capacity_note")}</div>
             <p class="field-label mt-2">Photos <span class="text-gray-400 font-normal">(optional, up to 4)</span></p>
             <input type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp" class="text-sm">
-            <p class="field-label mt-2">Vehicle papers <span class="text-gray-400 font-normal">(optional: registration book, fitness, insurance)</span></p>
-            <input type="file" name="documents" multiple accept="application/pdf,image/jpeg,image/png,image/webp" class="text-sm">`,
+`,
           onSubmit: async (form) => {
             const fd = new FormData();
             ["registration", "vehicle_type", "capacity_note"].forEach((k) => fd.append(k, form[k].value.trim()));
             fd.append("size_class", form.size_class.value || "");
-            (cargoTypes.length ? cargoTypes : meta.cargo_types).forEach((c) => fd.append(`cargo_${c.key}`, form[`cargo_${c.key}`].value.trim()));
             [...form.photos.files].slice(0, 4).forEach((f) => fd.append("photos", f));
-            [...form.documents.files].forEach((f) => fd.append("documents", f));
             const res = await adminApi(v ? `/api/admin/transport/vehicles/${v.id}` : `/api/admin/transport/providers/${p.id}/vehicles`, { method: v ? "PUT" : "POST", body: fd });
             showNotification(res.message, "success");
             load();

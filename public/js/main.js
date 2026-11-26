@@ -380,7 +380,7 @@ function bindPhotoPicker(grid, max = 4, onChange = () => {}, opts = {}) {
   const files = [];
   const paint = () => {
     grid.innerHTML = files.map((f, i) => `<div class="acc-ph${f.pdf ? " acc-ph-pdf" : ""}">${f.pdf ? `${uiIcon("receipt")}<span title="${escapeHtml(f.file.name)}">${escapeHtml(f.file.name)}</span>` : `<img src="${f.url}" alt="">`}<button type="button" data-rm="${i}" aria-label="Remove file">×</button></div>`).join("")
-      + (files.length < max ? `<button type="button" class="acc-ph-add">${uiIcon("camera")}<span>${opts.pdf ? "Add photo or PDF" : "Add photo"}</span></button>` : "");
+      + (files.length < max ? `<button type="button" class="acc-ph-add">${uiIcon("camera")}<span>${opts.pdf ? "Add Photo Or PDF" : "Add Photo"}</span></button>` : "");
     grid.querySelector(".acc-ph-add")?.addEventListener("click", () => input.click());
     grid.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => {
       const [gone] = files.splice(Number(b.dataset.rm), 1);

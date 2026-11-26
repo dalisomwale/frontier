@@ -604,8 +604,9 @@ async function vehiclePayload(body, providerId, exceptId = 0) {
   const registration = text(body.registration, 30);
   const type = text(body.vehicle_type, 60);
   const size = core.SIZE_KEYS.includes(body.size_class) ? body.size_class : null;
-  const note = text(body.capacity_note, 255);
-  const labels = await core.cargoLabels();
+  // Capacity (optional): one of the kg ranges listed for the chosen size.
+  const capacity = String(body.capacity_note ?? "").trim();
+  const sizeDef = core.SIZES.find((x) => x.key === size);
   const errors = {};
   const reg = registration ? registration.toUpperCase().replace(/\s+/g, " ") : null;
   if (!reg || reg.length < 3) errors.registration = "Please enter the registration number.";
@@ -615,16 +616,11 @@ async function vehiclePayload(body, providerId, exceptId = 0) {
   }
   if (!type || type.length < 2) errors.vehicle_type = "Please enter the vehicle name, e.g. Toyota Hilux.";
   if (!size) errors.size_class = "Please choose the vehicle size.";
-  if (note === undefined) errors.capacity_note = "Must be 255 characters or fewer.";
+  if (capacity && !(sizeDef && sizeDef.capacities.includes(capacity))) errors.capacity_note = "Please choose the capacity from the list.";
+  // Load limits per animal are gone: the vehicle's size decides what it takes.
+  // Saving clears any limits an older version stored.
   const cargo = [];
-  for (const l of labels) {
-    const raw = body[`cargo_${l.key}`];
-    if (raw === undefined || raw === "" || raw === null) continue;
-    const n = Number.parseInt(raw, 10);
-    if (!Number.isInteger(n) || n < 1 || n > 100000) errors[`cargo_${l.key}`] = "Enter a number from 1.";
-    else cargo.push({ key: l.key, max: n });
-  }
-  return { errors, data: { registration: reg, vehicle_type: type, size_class: size, capacity_note: note || null }, cargo };
+  return { errors, data: { registration: reg, vehicle_type: type, size_class: size, capacity_note: capacity && !errors.capacity_note ? capacity : null }, cargo };
 }
 
 async function saveVehicleFiles(conn, vehicleId, files) {

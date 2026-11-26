@@ -33,12 +33,13 @@ const DEFAULT_SETTINGS = {
 
 // Vehicle sizes: providers give each vehicle one; buyers choose one at
 // checkout. hint: example vehicles of that size.
+// capacities: the load ranges (kg) a provider picks from for that size.
 const SIZES = [
-  { key: "bike", label: "Bike", hint: "Motorbike, Cargo Tricycle, Bicycle with Carrier" },
-  { key: "small", label: "Small", hint: "Pickup, Panel Van, Minibus" },
-  { key: "medium", label: "Medium", hint: "Mitsubishi Canter, Toyota Dyna, Isuzu NPR" },
-  { key: "large", label: "Large", hint: "Isuzu FTR, UD Truck, Hino 500" },
-  { key: "extra_large", label: "Extra Large", hint: "Horse and Trailer, Interlink, Flatbed Trailer" },
+  { key: "bike", label: "Bike", hint: "Motorbike, Cargo Tricycle, Bicycle with Carrier", capacities: ["Up to 50 kg", "50–100 kg", "100–200 kg", "200–300 kg"] },
+  { key: "small", label: "Small", hint: "Pickup, Panel Van, Minibus", capacities: ["300–500 kg", "500–1,000 kg", "1,000–1,500 kg"] },
+  { key: "medium", label: "Medium", hint: "Mitsubishi Canter, Toyota Dyna, Isuzu NPR", capacities: ["1,500–3,000 kg", "3,000–5,000 kg", "5,000–8,000 kg"] },
+  { key: "large", label: "Large", hint: "Isuzu FTR, UD Truck, Hino 500", capacities: ["8,000–12,000 kg", "12,000–16,000 kg", "16,000–20,000 kg"] },
+  { key: "extra_large", label: "Extra Large", hint: "Horse and Trailer, Interlink, Flatbed Trailer", capacities: ["20,000–30,000 kg", "30,000–40,000 kg", "Over 40,000 kg"] },
 ];
 const SIZE_KEYS = SIZES.map((x) => x.key);
 const sizeLabel = (k) => (SIZES.find((x) => x.key === k) || {}).label || null;
@@ -273,22 +274,11 @@ function loadOf(items) {
   return load;
 }
 
-// A vehicle fits when it can carry every kind in the load and the load,
-// shared out over its limits, fills it no more than once:
-// sum(quantity / max for each kind) <= 1.
-// A vehicle with no load limits entered takes any load its size allows (the
-// buyer chose the size). With limits, it only takes those kinds, up to them.
+// A vehicle takes any load its size allows: the buyer chose the size, and
+// the size is matched separately. Per-animal load limits are no longer set,
+// so any an older version stored are ignored here.
 function vehicleFits(cargo, load) {
-  const keys = Object.keys(load);
-  if (!keys.length) return false;
-  if (!cargo || !Object.keys(cargo).length) return true;
-  let fill = 0;
-  for (const k of keys) {
-    const max = Number(cargo[k] || 0);
-    if (!max) return false;
-    fill += load[k] / max;
-  }
-  return fill <= 1 + 1e-9;
+  return Object.keys(load).length > 0;
 }
 
 async function cargoLabels(conn = pool) {
