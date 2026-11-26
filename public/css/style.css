@@ -7599,3 +7599,20 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
   .pm-choice.has-logos .pay-logo { height: 22px; max-width: 42px; }
   .pm-choice.has-logos .pay-logo[data-logo="mastercard"], .pm-choice.has-logos .pay-logo[data-logo="airtel"] { height: 24px; }
 }
+
+/* Checkout: one row of ways to pay (Airtel, MTN, card); headings; sizes with drawings. */
+.co-pay-grid .op-mark { gap: 6px; }
+.co-pay-grid.has-logos .op-card .op-logo { height: 26px; }
+#checkout-form .co-pay-grid.has-logos .operator-card { min-height: 60px; }
+#checkout-form .pm-panel { margin-top: 14px; padding-top: 0; border-top: 0; }
+#checkout-form .co-terms { margin: 14px 0 10px; }
+#checkout-form .co-terms-box, #checkout-form .co-terms-box:has(input:checked) { padding: 2px 0; border: 0; background: none; align-items: center; }
+#checkout-form .co-terms-box input { margin-top: 0; }
+.co-sizes .co-size span { align-items: center; text-align: center; }
+.co-size .tp-van { max-width: 96px; margin: 0 auto 4px; }
+.co-size em { margin-top: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .co-size input:checked + span .tp-van-wheel { animation: tp-van-spin 0.7s linear infinite; }
+  .co-size input:checked + span .tp-van-body { animation: tp-van-rock 0.35s ease-in-out infinite alternate; }
+  .co-size input:checked + span .tp-van-road { animation: tp-van-road 0.5s linear infinite; }
+}

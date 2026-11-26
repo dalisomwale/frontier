@@ -2,15 +2,15 @@
 //
 //   Airtel Money   097, 077, 057
 //   MTN MoMo       096, 076, 056
-//   Zamtel Kwacha  095, 075, 055
+//   Zamtel         095, 075, 055 (not taken: only Airtel and MTN are offered)
 //
 // Accepts 0977 123 456, 977123456, +260 977 123 456 or 260977123456.
 const PREFIXES = {
   airtel: ["097", "077", "057"],
   mtn: ["096", "076", "056"],
-  zamtel: ["095", "075", "055"],
 };
-const NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
+const ZAMTEL = ["095", "075", "055"];
+const NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo" };
 
 // "+260 977 123 456" -> "0977123456"; anything else -> null.
 function localNumber(phone) {
@@ -32,9 +32,10 @@ function checkNumber(phone, operator) {
   const local = localNumber(phone);
   if (!local) return "Please enter a 10-digit mobile money number, e.g. 0977 123 456.";
   const net = networkOf(local);
-  if (!net) return "That isn't a Zambian mobile money number. Numbers start with 097, 096, 095, 077, 076, 075, 057, 056 or 055.";
+  if (!net && ZAMTEL.includes(local.slice(0, 3))) return "Zamtel isn't available. Please use an Airtel or MTN number.";
+  if (!net) return "Please use an Airtel or MTN number (097, 077, 057, 096, 076 or 056).";
   if (operator && net !== operator) {
-    return `${NAMES[operator]} numbers start with ${PREFIXES[operator].join(", ")}. This number looks like ${NAMES[net]}: choose ${NAMES[net]} or enter a different number.`;
+    return `This number looks like ${NAMES[net]}. Choose ${NAMES[net]} or use another number.`;
   }
   return "";
 }

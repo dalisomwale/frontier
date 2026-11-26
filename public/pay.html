@@ -39,7 +39,7 @@
       try { if (window.top !== window.self && window.top.location.origin === location.origin) window.top.location.replace(location.href); } catch {}
       // "Try the payment again" from the reminder email: shows the order's
       // mobile money payment and lets the buyer send a new PIN prompt.
-      const OPERATORS = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
+      const OPERATORS = { airtel: "Airtel Money", mtn: "MTN MoMo" };
       const phoneIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>`;
       const tick = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>`;
       const root = document.getElementById("pay");

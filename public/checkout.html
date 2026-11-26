@@ -48,11 +48,14 @@
       let quote = null;
       let ops = [];
       let methods = [];
-      const METHOD_NAMES = { mobile_money: "Mobile Money", card: "Visa / Mastercard" };
       const lockSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>`;
-      const OP_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
-      const cardSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19M6.5 15h4"/></svg>`;
-      const phoneSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></svg>`;
+      const OP_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo" };
+      // The ways to pay, side by side: each mobile money network, then card.
+      // One radio group (mobile_operator); "card" means Visa / Mastercard.
+      const payTiles = () => [
+        ...(methods.includes("mobile_money") ? ops.map((v) => [v, OP_NAMES[v]]) : []),
+        ...(methods.includes("card") ? [["card", "Visa / Mastercard"]] : []),
+      ];
 
       function summaryLine(item) {
         const lot = item.price_unit === "lot";
@@ -117,21 +120,10 @@
                 <input type="hidden" name="email" value="${escapeHtml(buyer.email)}">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 co-fields">
                   <div data-phone-box ${buyer.phone ? "hidden" : ""}>
-                    <label for="co-phone" class="field-label">Phone number</label>
+                    <label for="co-phone" class="field-label">Phone Number</label>
                     <input id="co-phone" name="phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel" maxlength="25" required placeholder="0977 123 456">
                     <p class="field-error hidden" data-error-for="phone"></p>
                   </div>
-                  ${methods.includes("card") ? `
-                  <div data-card-only hidden>
-                    <label for="co-city" class="field-label">Town / city</label>
-                    <input id="co-city" name="city" type="text" class="field-input" autocomplete="address-level2" maxlength="60" placeholder="e.g. Lusaka">
-                    <p class="field-error hidden" data-error-for="city"></p>
-                  </div>
-                  <div class="sm:col-span-2" data-card-only hidden>
-                    <label for="co-address" class="field-label">Address</label>
-                    <input id="co-address" name="address" type="text" class="field-input" autocomplete="street-address" maxlength="120" placeholder="e.g. Plot 12, Kabulonga Road">
-                    <p class="field-error hidden" data-error-for="address"></p>
-                  </div>` : ""}
                 </div>
               </section>
 
@@ -149,7 +141,7 @@
                 </div>
                 <p class="field-error hidden" data-error-for="delivery_option"></p>
                 <div class="co-delivery-panel" data-transport-panel hidden>
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div class="grid grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label for="co-dprov" class="field-label">Province</label>
                       <select id="co-dprov" name="dest_province" class="field-input">
@@ -162,18 +154,18 @@
                       <input id="co-ddist" name="dest_district" class="field-input" maxlength="80" placeholder="Choose the province first">
                       <p class="field-error hidden" data-error-for="dest_district"></p>
                     </div>
-                    <div class="sm:col-span-2">
-                      <label for="co-daddr" class="field-label">Delivery address or directions</label>
-                      <input id="co-daddr" name="dest_address" class="field-input" maxlength="255" placeholder="Start typing for suggestions, e.g. Kabulonga Road">
+                    <div class="col-span-2">
+                      <label for="co-daddr" class="field-label">Address</label>
+                      <input id="co-daddr" name="dest_address" class="field-input" maxlength="255" placeholder="e.g. Kabulonga Road">
                       <p class="field-error hidden" data-error-for="dest_address"></p>
                     </div>
                     <div>
-                      <label for="co-cname" class="field-label">Person receiving it</label>
+                      <label for="co-cname" class="field-label">Receiver</label>
                       <input id="co-cname" name="contact_name" class="field-input" maxlength="120" autocomplete="name">
                       <p class="field-error hidden" data-error-for="contact_name"></p>
                     </div>
                     <div>
-                      <label for="co-cphone" class="field-label">Their phone number</label>
+                      <label for="co-cphone" class="field-label">Receiver's Phone</label>
                       <input id="co-cphone" name="contact_phone" type="tel" class="field-input" maxlength="25" inputmode="tel" placeholder="0977 123 456">
                       <p class="field-error hidden" data-error-for="contact_phone"></p>
                     </div>
@@ -187,41 +179,42 @@
               </section>
 
               <section class="checkout-section">
-                ${methods.length > 1 ? `
-                <div class="pm-choices" role="radiogroup" aria-label="How you'd like to pay">
-                  ${methods.map((m, n) => `<label class="pm-choice"><input type="radio" name="payment_method" value="${m}" ${n === 0 ? "checked" : ""}>
-                    <span class="pm-icon">${METHOD_ICONS[m]}</span>
-                    <span class="pm-text"><b class="pm-name">${METHOD_NAMES[m]}</b></span>
-                    <span class="pm-logos" data-logo-group hidden>${PAY_METHOD_LOGOS[m].map(([f, alt]) => payLogo(f, alt)).join("")}</span>
-                    <span class="pm-dot" aria-hidden="true"></span></label>`).join("")}
+                <h2>Payment</h2>
+                ${methods.length ? `
+                <div class="operator-grid co-pay-grid ${payTiles().length === 2 ? "co-ops" : ""}" data-logo-group role="radiogroup" aria-label="How you'd like to pay">
+                  ${payTiles().map(([key, name]) => payNetworkCard(key, name, false, key === "card" ? ["visa", "mastercard"] : [key])).join("")}
                 </div>
-                <p class="field-error hidden" data-error-for="payment_method"></p>` : ""}
+                <p class="field-error hidden" data-error-for="mobile_operator"></p>` : `<p class="text-sm text-gray-600">Our team will contact you to arrange payment.</p>`}
 
                 ${methods.includes("mobile_money") ? `
-                <div data-method-panel="mobile_money" class="pm-panel">
-                  <p class="sr-only" id="co-op-label">Your network</p>
-                  <div class="operator-grid ${ops.length === 2 ? "co-ops" : ""}" data-logo-group role="radiogroup" aria-labelledby="co-op-label">
-                    ${ops.map((v) => payNetworkCard(v, OP_NAMES[v])).join("")}
-                  </div>
-                  <p class="field-error hidden" data-error-for="mobile_operator"></p>
-                  <label for="co-pay-phone" class="field-label mt-4">Mobile money number</label>
+                <div data-method-panel="mobile_money" class="pm-panel" hidden>
+                  <label for="co-pay-phone" class="field-label">Mobile Money Number</label>
                   <input id="co-pay-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" autocomplete="tel" maxlength="25" placeholder="0977 123 456">
                   <p class="field-error hidden" data-error-for="payment_phone"></p>
                 </div>` : ""}
 
                 ${methods.includes("card") ? `
                 <div data-method-panel="card" class="pm-panel" hidden>
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="sm:col-span-2">
+                      <label for="co-address" class="field-label">Billing Address</label>
+                      <input id="co-address" name="address" type="text" class="field-input" autocomplete="street-address" maxlength="120" placeholder="e.g. Plot 12, Kabulonga Road">
+                      <p class="field-error hidden" data-error-for="address"></p>
+                    </div>
+                    <div>
+                      <label for="co-city" class="field-label">Town / City</label>
+                      <input id="co-city" name="city" type="text" class="field-input" autocomplete="address-level2" maxlength="60" placeholder="e.g. Lusaka">
+                      <p class="field-error hidden" data-error-for="city"></p>
+                    </div>
+                  </div>
                   <div data-card-slot></div>
                 </div>` : ""}
-
-
-                ${!methods.length ? `<p class="text-sm text-gray-600">Our team will contact you to arrange payment.</p>` : ""}
               </section>
 
               <div class="co-terms">
                 <label class="co-terms-box">
                   <input type="checkbox" name="accept_terms" value="1">
-                  <span>I accept the <a href="/terms" target="_blank" rel="noopener">terms and policies</a></span>
+                  <span>I accept the <a href="/terms" target="_blank" rel="noopener">Terms</a></span>
                 </label>
                 <p class="field-error hidden" data-error-for="accept_terms"></p>
               </div>
@@ -232,7 +225,7 @@
             <aside class="cart-summary">
               <div class="flex items-center justify-between mb-3">
                 <h2 class="!mb-0">Your Order</h2>
-                <a href="/cart" class="text-sm font-semibold text-green-800 hover:underline">Edit cart</a>
+                <a href="/cart" class="text-sm font-semibold text-green-800 hover:underline">Edit Cart</a>
               </div>
               <ul class="co-lines">${quote.items.map(summaryLine).join("")}</ul>
               <div class="co-breakdown" data-breakdown hidden></div>
@@ -242,11 +235,12 @@
           </form>`;
         const form = root.querySelector("#checkout-form");
         const submits = root.querySelectorAll("[data-submit]");
-        const method = () => (form.elements.payment_method ? form.elements.payment_method.value : methods[0]) || "";
+        const picked = () => (form.querySelector('input[name="mobile_operator"]:checked') || {}).value || "";
+        const method = () => (picked() === "card" ? "card" : methods.includes("mobile_money") ? "mobile_money" : methods[0] || "");
         const delivery = () => (form.elements.delivery_option.value || "collect");
         const payable = () => (delivery() === "transport" && tstate.quote && tstate.quote.available ? tstate.quote.grand_total : quote.total);
         const labelFor = (m) => {
-          if (delivery() === "transport" && !(tstate.quote && tstate.quote.available && tstate.sig === destSig(form))) return "Add the delivery details to see the total";
+          if (delivery() === "transport" && !(tstate.quote && tstate.quote.available && tstate.sig === destSig(form))) return "Add The Delivery Address";
           return {
             mobile_money: `Pay ${kwacha(payable())}`,
             card: "Enter card details",
@@ -280,22 +274,21 @@
           const box = form.querySelector("[data-journeys]");
           const tq = tstate.quote;
           if (msg) { box.innerHTML = `<p class="co-quote-state">${msg}</p>`; return; }
-          if (!tq) { box.innerHTML = `<p class="co-quote-state">Fill in the delivery details and mark the point on the map to see the transport charge.</p>`; return; }
-          box.innerHTML = `<p class="field-label">Transport</p><ul class="co-journeys">${tq.journeys.map((j) => `
-            <li class="co-journey${j.problem ? " is-problem" : ""}">
-              <span><b>${escapeHtml(j.seller)}</b><small>${escapeHtml(j.from || "")} → your delivery point${j.distance_km !== null ? ` · ${trKm(j.distance_km)} by road` : ""}${j.band ? ` · ${escapeHtml(j.band)} band` : ""}</small>${j.problem ? `<small>${escapeHtml(j.problem)}</small>` : ""}</span>
-              <b>${j.fee !== null ? kwacha(j.fee) : "-"}</b>
-            </li>`).join("")}</ul>
-            ${tq.journeys.length > 1 ? `<p class="co-quote-state">Your items come from ${tq.journeys.length} sellers, so each is delivered separately and charged for its own road distance.</p>` : ""}
+          if (!tq) { box.innerHTML = ""; return; }
+          box.innerHTML = `
             ${tq.available && (tq.size_options || []).length ? `
-              <p class="field-label mt-4">Vehicle size</p>
-              <div class="co-sizes" role="radiogroup" aria-label="Vehicle size">${tq.size_options.map((o) => `
-                <label class="co-size${o.available ? "" : " is-off"}">
+              <p class="field-label">Vehicle Size</p>
+              <div class="co-sizes" role="radiogroup" aria-label="Vehicle size">${tq.size_options.filter((o) => o.available).map((o) => `
+                <label class="co-size${o.available ? "" : " is-off"}" title="${escapeHtml(o.hint)}">
                   <input type="radio" name="vehicle_size" value="${o.key}" ${o.key === tq.vehicle_size ? "checked" : ""} ${o.available ? "" : "disabled"}>
-                  <span><b>${escapeHtml(o.label)}</b><small>${escapeHtml(o.hint)}</small><em>${o.available ? kwacha(o.fee_total) : "Not available now"}</em></span>
-                </label>`).join("")}</div>
-              <p class="co-quote-state">Pick the size that fits your order. Only sizes a provider has free for this journey can be chosen.</p>` : ""}
-            ${!tq.available ? `<p class="tr-warn-box mt-3">${escapeHtml(tq.reason || "Transport isn't available for this order.")} You can choose self-collection instead.</p>` : ""}`;
+                  <span>${trVehicleArt(o.key)}<b>${escapeHtml(o.label)}</b><em>${o.available ? kwacha(o.fee_total) : "Unavailable"}</em></span>
+                </label>`).join("")}</div>` : ""}
+            ${tq.journeys.length > 1 || tq.journeys.some((j) => j.problem) ? `<ul class="co-journeys">${tq.journeys.map((j) => `
+              <li class="co-journey${j.problem ? " is-problem" : ""}">
+                <span><b>${escapeHtml(j.seller)}</b>${j.distance_km !== null ? `<small>${trKm(j.distance_km)}</small>` : ""}${j.problem ? `<small>${escapeHtml(j.problem)}</small>` : ""}</span>
+                <b>${j.fee !== null ? kwacha(j.fee) : "-"}</b>
+              </li>`).join("")}</ul>` : ""}
+            ${!tq.available ? `<p class="tr-warn-box mt-3">${escapeHtml(tq.reason || "Transport isn't available for this order.")} Choose Self-Collection instead.</p>` : ""}`;
         };
         const requote = () => {
           clearTimeout(tstate.timer);
@@ -305,7 +298,7 @@
           if (!ready) { tstate.quote = null; tstate.sig = ""; paintJourneys(); return paintTotals(); }
           const sig = destSig(form);
           if (sig === tstate.sig && tstate.quote) return paintTotals();
-          paintJourneys(`<span class="btn-spinner"></span> Working out the road distance…`);
+          paintJourneys(`<span class="btn-spinner"></span> Getting the price…`);
           paintSubmit();
           tstate.timer = setTimeout(async () => {
             try {
@@ -339,7 +332,7 @@
             paintJourneys();
             tstate.picker = await trPointPicker(form.querySelector("[data-dest-map]"), {
               kind: "dest", label: "Delivery point",
-              hint: "The pin is placed from the address above. Drag it to the exact spot, or tap the location button on the map to use where you are now.",
+              hint: "Drag the pin to the exact spot.",
               onChange: () => { form.querySelector('[data-error-for="dest_point"]').classList.add("hidden"); requote(); },
             });
           }
@@ -362,14 +355,13 @@
         form.querySelectorAll('input[name="delivery_option"]').forEach((r) => r.addEventListener("change", showDelivery));
         ["dest_province", "dest_district", "dest_address"].forEach((n) => form.elements[n].addEventListener(n === "dest_province" ? "change" : "input", requote));
         // Show the fields for the chosen way to pay.
+        // The number shows once a network is picked; card shows the address.
         const showPanel = () => {
-          const m = method();
+          const m = picked() ? method() : "";
           form.querySelectorAll("[data-method-panel]").forEach((panel) => { panel.hidden = panel.dataset.methodPanel !== m; });
-          // Address and town: only card payments need them.
-          form.querySelectorAll("[data-card-only]").forEach((el) => { el.hidden = m !== "card"; });
           paintSubmit();
         };
-        form.querySelectorAll('input[name="payment_method"]').forEach((r) => r.addEventListener("change", showPanel));
+        form.querySelectorAll('input[name="mobile_operator"]').forEach((r) => r.addEventListener("change", showPanel));
         showPanel();
         showPayLogos(form);
         form.elements.accept_terms.addEventListener("change", () => {
@@ -407,6 +399,12 @@
         const phoneBox = form.querySelector("[data-phone-box]");
         form.querySelector("[data-change-phone]").addEventListener("click", () => { phoneBox.hidden = false; ph.focus(); });
         ph.addEventListener("input", () => { form.querySelector("[data-who-phone]").textContent = ph.value || buyer.email; });
+        // The terms tick sits right above whichever Pay button is showing.
+        const terms = form.querySelector(".co-terms");
+        const wide = window.matchMedia("(min-width: 1024px)");
+        const placeTerms = () => form.querySelector(wide.matches ? ".checkout-submit-desktop" : ".checkout-submit-mobile").before(terms);
+        placeTerms();
+        wide.addEventListener("change", placeTerms);
         paintTotals();
         form.addEventListener("submit", (e) => { e.preventDefault(); place(form, submits, labelFor(method()), method(), delivery()); });
       }
@@ -451,9 +449,9 @@
         if (v.full_name.length < 2) e.full_name = "Please enter your full name.";
         if (v.phone.replace(/\D/g, "").length < 9) e.phone = "Please enter your phone number, e.g. 0977 123 456.";
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) e.email = "Please enter a valid email address.";
-        if (!v.accept_terms) e.accept_terms = "Please tick the box to accept the terms and policies.";
+        if (!v.accept_terms) e.accept_terms = "Please accept the Terms.";
         if (v.payment_method === "mobile_money") {
-          if (!v.mobile_operator) e.mobile_operator = "Please choose your mobile money network.";
+          if (!v.mobile_operator) e.mobile_operator = "Please choose how you'll pay.";
           const numberProblem = mmCheck(v.payment_phone, v.mobile_operator);
           if (numberProblem) e.payment_phone = numberProblem;
         }
@@ -529,7 +527,6 @@
         watchCardPayment(d.id, d.token, () => { window.location.href = d.page_url; });
       }
 
-      const METHOD_ICONS = { mobile_money: phoneSvg, card: cardSvg };
 
       document.addEventListener("DOMContentLoaded", load);
     </script>

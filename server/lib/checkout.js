@@ -47,7 +47,7 @@ const ourPayPage = (checkout) => `/pay?checkout=${checkout.id}&token=${checkout.
 const payUrl = ourPayPage;
 const provider = () => (lipila.enabled() ? "lipila" : lenco.enabled() ? "lenco" : null);
 // Mobile money networks the buyer can choose.
-const operators = () => (provider() ? ["airtel", "mtn", "zamtel"] : []);
+const operators = () => (provider() ? ["airtel", "mtn"] : []);
 
 // How buyers can pay at checkout, in order.
 function methods() {

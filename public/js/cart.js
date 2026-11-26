@@ -149,11 +149,12 @@ function watchCardPayment(id, token, onPaid) {
 }
 
 // Zambian mobile money numbers by network (same rules as the server):
-//   Airtel 097, 077, 057 · MTN 096, 076, 056 · Zamtel 095, 075, 055
-const MM_PREFIXES = { airtel: ["097", "077", "057"], mtn: ["096", "076", "056"], zamtel: ["095", "075", "055"] };
-const MM_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
+//   Airtel 097, 077, 057 · MTN 096, 076, 056. Zamtel (095, 075, 055) isn't taken.
+const MM_PREFIXES = { airtel: ["097", "077", "057"], mtn: ["096", "076", "056"] };
+const MM_ZAMTEL = ["095", "075", "055"];
+const MM_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo" };
 // Example number shown in the empty field for each network.
-const MM_EXAMPLES = { airtel: "0977 123 456", mtn: "0966 123 456", zamtel: "0955 123 456" };
+const MM_EXAMPLES = { airtel: "0977 123 456", mtn: "0966 123 456" };
 function mmLocal(phone) {
   const d = String(phone || "").replace(/\D/g, "");
   if (d.length === 12 && d.startsWith("260")) return `0${d.slice(3)}`;
@@ -172,9 +173,10 @@ function mmCheck(phone, operator) {
   const local = mmLocal(phone);
   if (!local) return "Please enter a 10-digit mobile money number, e.g. 0977 123 456.";
   const net = mmNetworkOf(local);
-  if (!net) return "That isn't a Zambian mobile money number. Numbers start with 097, 096, 095, 077, 076, 075, 057, 056 or 055.";
+  if (!net && MM_ZAMTEL.includes(local.slice(0, 3))) return "Zamtel isn't available. Please use an Airtel or MTN number.";
+  if (!net) return "Please use an Airtel or MTN number (097, 077, 057, 096, 076 or 056).";
   if (operator && net !== operator) {
-    return `${MM_NAMES[operator]} numbers start with ${MM_PREFIXES[operator].join(", ")}. This number looks like ${MM_NAMES[net]}: choose ${MM_NAMES[net]} or enter a different number.`;
+    return `This number looks like ${MM_NAMES[net]}. Choose ${MM_NAMES[net]} or use another number.`;
   }
   return "";
 }
@@ -201,7 +203,7 @@ function linkNetworkAndNumber(form, showError) {
     const digits = phone.value.replace(/\D/g, "").length;
     const problem = chosen() && (final || digits >= 3) ? mmCheck(phone.value, chosen()) : "";
     // While typing, only a wrong network (not an unfinished number) is shown.
-    const show = final ? problem : (problem && /looks like|isn't a Zambian/.test(problem) && digits >= 3 ? problem : "");
+    const show = final ? problem : (problem && /looks like|isn't available|Please use an Airtel/.test(problem) && digits >= 3 ? problem : "");
     showError(show);
   };
   phone.addEventListener("input", () => update(false));
@@ -212,13 +214,13 @@ function linkNetworkAndNumber(form, showError) {
   if (phone.value) update(false);
 }
 
-// Payment logos: files in /images/pay/ (airtel, mtn, zamtel, visa,
-// mastercard; .svg or .png). A group of logos (the networks, or Visa and
+// Payment logos: files in /images/pay/ (airtel, mtn, visa, mastercard;
+// .svg or .png). A group of logos (the networks, or Visa and
 // Mastercard) shows only once every logo in it has loaded, so one brand never
 // stands in for all; the group then gets .has-logos and the names it replaces
 // are kept for screen readers only. Until then the names show as text.
 const PAY_METHOD_LOGOS = {
-  mobile_money: [["airtel", "Airtel Money"], ["mtn", "MTN MoMo"], ["zamtel", "Zamtel Kwacha"]],
+  mobile_money: [["airtel", "Airtel Money"], ["mtn", "MTN MoMo"]],
   card: [["visa", "Visa"], ["mastercard", "Mastercard"]],
 };
 const payLogo = (file, alt, cls = "pay-logo") => `<img class="${cls}" src="/images/pay/${file}.svg" data-logo="${file}" alt="${escapeHtml(alt)}">`;
@@ -245,5 +247,5 @@ function showPayLogos(scope) {
     });
   });
 }
-// One network tile: its logo, with the name as the fallback.
-const payNetworkCard = (key, name, checked = false) => `<label class="operator-card op-${key}" title="${escapeHtml(name)}"><input type="radio" name="mobile_operator" value="${key}" ${checked ? "checked" : ""}><span class="op-tick" aria-hidden="true"></span><span class="op-mark">${payLogo(key, "", "op-logo")}</span><span class="op-name">${escapeHtml(name.split(" ")[0])}</span></label>`;
+// One payment tile (a network, or card): its logo(s), with the name as the fallback.
+const payNetworkCard = (key, name, checked = false, logos = [key]) => `<label class="operator-card op-${key}" title="${escapeHtml(name)}"><input type="radio" name="mobile_operator" value="${key}" ${checked ? "checked" : ""}><span class="op-tick" aria-hidden="true"></span><span class="op-mark">${logos.map((l) => payLogo(l, "", "op-logo")).join("")}</span><span class="op-name">${escapeHtml(key === "card" ? name : name.split(" ")[0])}</span></label>`;

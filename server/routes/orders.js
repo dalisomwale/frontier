@@ -47,7 +47,7 @@ router.post("/:id/payment", async (req, res, next) => {
     }
     const changes = {};
     if (req.body.mobile_operator !== undefined || req.body.payment_phone !== undefined) {
-      const operator = oneOf(req.body.mobile_operator, ["airtel", "mtn", "zamtel"]);
+      const operator = oneOf(req.body.mobile_operator, ["airtel", "mtn"]);
       const phone = text(req.body.payment_phone, 30);
       const errors = {};
       if (!operator) errors.mobile_operator = "Please choose your mobile money operator.";
