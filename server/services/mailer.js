@@ -313,8 +313,32 @@ async function sendEmail({ to, subject, replyTo, log, headers, ...content }) {
   }
 }
 
+// "Forgot password": checks email is set up before looking anyone up (so the
+// answer says nothing about who has an account), and says so if the email
+// didn't go, instead of "we've sent a link" when nothing was sent.
+// The reason is written to the app log (pm2 logs).
+function resetEmailUnavailable() {
+  if (emailConfig().configured) return null;
+  console.error(`Password reset email not sent: email is not set up (${emailConfig().problems.join("; ")})`);
+  const e = new Error("We can't send emails right now. Please contact Frontier to reset your password.");
+  e.status = 503;
+  e.expose = true;
+  return e;
+}
+
+function resetEmailFailed(mail) {
+  if (mail && mail.sent) return null;
+  console.error("Password reset email failed:", (mail && mail.error) || "unknown error");
+  const e = new Error("We couldn't send the email just now. Please try again in a few minutes.");
+  e.status = 503;
+  e.expose = true;
+  return e;
+}
+
 module.exports = {
   sendEmail,
+  resetEmailUnavailable,
+  resetEmailFailed,
   renderEmail,
   contactSettings,
   appUrl,

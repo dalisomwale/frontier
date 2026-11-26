@@ -376,7 +376,8 @@ app.use((err, req, res, next) => {
   if (err.type === "entity.parse.failed") {
     return res.status(400).json({ success: false, message: "Invalid request body." });
   }
-  if (err.expose && err.status && err.status < 500) {
+  // 503: a service (e.g. email) is down; the message says what to do.
+  if (err.expose && err.status && (err.status < 500 || err.status === 503)) {
     return res.status(err.status).json({
       success: false,
       message: err.message,

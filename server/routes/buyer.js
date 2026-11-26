@@ -10,7 +10,7 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const pool = require("../db");
 const { uploadImages } = require("../middleware/upload");
-const { sendEmail, appUrl } = require("../services/mailer");
+const { sendEmail, appUrl, resetEmailUnavailable, resetEmailFailed } = require("../services/mailer");
 const { text, isEmail, isPhone, positiveInt, badRequest, notFound, HttpError } = require("../lib/validate");
 const { subscribeBuyer, buyerUnreadCount, broadcastAdmin } = require("../services/notifications");
 const { orderRef, headCount } = require("../lib/orders");
@@ -201,10 +201,12 @@ router.post("/auth/forgot", async (req, res, next) => {
   try {
     const email = text(req.body.email, 255);
     if (!email || !isEmail(email)) throw badRequest("Please enter a valid email address.");
+    const unavailable = resetEmailUnavailable();
+    if (unavailable) throw unavailable;
     const [[buyer]] = await pool.query("SELECT id, full_name, email FROM buyers WHERE email = ? AND status = 'active'", [email.toLowerCase()]);
     if (buyer) {
       const token = await newToken(buyer.id, "reset", RESET_HOURS);
-      await sendEmail({
+      const mail = await sendEmail({
         to: buyer.email,
         subject: "Reset your Frontier Marketplace password",
         heading: "Reset your password",
@@ -215,6 +217,8 @@ router.post("/auth/forgot", async (req, res, next) => {
         ],
         button: { label: "Choose a new password", url: appUrl(`/account/reset?token=${token}`) },
       });
+      const failed = resetEmailFailed(mail);
+      if (failed) throw failed;
     }
     res.json({ success: true, message: "If that email has an account, we've sent a link to reset the password." });
   } catch (error) {

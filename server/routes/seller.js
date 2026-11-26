@@ -8,7 +8,7 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const pool = require("../db");
 const { uploadImages, deleteImageFiles } = require("../middleware/upload");
-const { sendEmail, appUrl, recipients } = require("../services/mailer");
+const { sendEmail, appUrl, recipients, resetEmailUnavailable, resetEmailFailed } = require("../services/mailer");
 const emails = require("../lib/emails");
 const { positiveInt, text, isEmail, isPhone, badRequest, notFound, HttpError, PROVINCES } = require("../lib/validate");
 const { helpers } = require("./admin/livestock");
@@ -225,8 +225,13 @@ router.post("/auth/forgot", async (req, res, next) => {
   try {
     const email = text(req.body.email, 255);
     if (!email || !isEmail(email)) throw badRequest("Please enter a valid email address.");
+    const unavailable = resetEmailUnavailable();
+    if (unavailable) throw unavailable;
+    // Also a seller who hasn't chosen a password yet (signed up, or Frontier
+    // sent them a set-up link that has since expired): the link lets them
+    // choose one. Not a seller Frontier only lists (no account given).
     const [[seller]] = await pool.query(
-      "SELECT id, name, email FROM sellers WHERE LOWER(email) = ? AND password_hash IS NOT NULL AND status = 'active' ORDER BY id LIMIT 1",
+      "SELECT id, name, email FROM sellers WHERE LOWER(email) = ? AND status = 'active' AND (password_hash IS NOT NULL OR account_status IS NOT NULL) ORDER BY password_hash IS NULL, id LIMIT 1",
       [email.toLowerCase()],
     );
     if (seller) {
@@ -238,7 +243,7 @@ router.post("/auth/forgot", async (req, res, next) => {
          VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ${RESET_HOURS} HOUR))`,
         [seller.id, hash],
       );
-      await sendEmail({
+      const mail = await sendEmail({
         to: seller.email,
         subject: "Reset your Frontier Marketplace password",
         heading: "Reset your password",
@@ -249,6 +254,8 @@ router.post("/auth/forgot", async (req, res, next) => {
         ],
         button: { label: "Choose a new password", url: appUrl(`/seller/reset?token=${token}`) },
       });
+      const failed = resetEmailFailed(mail);
+      if (failed) throw failed;
     }
     res.json({ success: true, message: "If that email has a seller account, we've sent a link to reset the password." });
   } catch (error) {

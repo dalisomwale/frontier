@@ -12,7 +12,7 @@ const fs = require("fs");
 const express = require("express");
 const bcrypt = require("bcrypt");
 const pool = require("../db");
-const { sendEmail, appUrl, recipients } = require("../services/mailer");
+const { sendEmail, appUrl, recipients, resetEmailUnavailable, resetEmailFailed } = require("../services/mailer");
 const notifications = require("../services/notifications");
 const { positiveInt, text, isEmail, isPhone, badRequest, notFound, HttpError, PROVINCES } = require("../lib/validate");
 const {
@@ -400,19 +400,23 @@ router.post("/auth/forgot", async (req, res, next) => {
   try {
     const email = text(req.body.email, 255);
     if (!email || !isEmail(email)) throw badRequest("Please enter a valid email address.");
+    const unavailable = resetEmailUnavailable();
+    if (unavailable) throw unavailable;
     const [[p]] = await pool.query("SELECT id, name, contact_person, email FROM transport_providers WHERE email = ?", [email.toLowerCase()]);
     if (p) {
       const token = crypto.randomBytes(32).toString("hex");
       const hash = crypto.createHash("sha256").update(token).digest("hex");
       await pool.query("DELETE FROM transport_provider_resets WHERE provider_id = ? OR expires_at < NOW()", [p.id]);
       await pool.query("INSERT INTO transport_provider_resets (provider_id, token_hash, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? HOUR))", [p.id, hash, RESET_HOURS]);
-      await sendEmail({
+      const mail = await sendEmail({
         to: p.email,
         subject: "Reset your Frontier transport password",
         heading: "Reset your password",
         paragraphs: [`Hi ${String(p.contact_person || p.name).split(/\s+/)[0]},`, `Use the button below to choose a new password. The link works for ${RESET_HOURS} hour.`, "If you didn't ask for this, you can ignore this email."],
         button: { label: "Choose a new password", url: appUrl(`/transport/reset?token=${token}`) },
       });
+      const failed = resetEmailFailed(mail);
+      if (failed) throw failed;
     }
     res.json({ success: true, message: "If that email has a transport account, we've sent a link to reset the password." });
   } catch (error) {
