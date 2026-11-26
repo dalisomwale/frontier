@@ -7126,7 +7126,7 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .tr-stars-show small { color: #6b7280; }
 .tr-stars-off { color: #e5e7eb; }
 .tr-rate textarea { margin-top: 10px; }
-.tr-facts dd a { color: #1d4ed8; font-weight: 600; }
+.tr-facts dd a { color: #166534; font-weight: 600; }
 .tr-note-box { font-size: 13.5px; color: #374151; background: #f6faf4; border: 1px solid #e2eedc; border-radius: 12px; padding: 10px 12px; }
 .tr-warn-box { font-size: 13.5px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 10px 12px; }
 .tr-section-title { margin: 0 0 10px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; }
@@ -7347,11 +7347,11 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .tp-size-opt small { color: #6b7280; font-size: 0.75rem; line-height: 1.3; }
-.tp-size-opt input:checked + span { border-color: #2563eb; box-shadow: 0 0 0 2px #bfdbfe; }
-.tp-size-opt input:focus-visible + span { outline: 2px solid #2563eb; outline-offset: 2px; }
+.tp-size-opt input:checked + span { border-color: #166534; box-shadow: 0 0 0 2px #bbf7d0; }
+.tp-size-opt input:focus-visible + span { outline: 2px solid #166534; outline-offset: 2px; }
 .tp-size {
-  display: inline-block; font-size: 0.72rem; font-weight: 600; color: #1e40af;
-  background: #dbeafe; border-radius: 999px; padding: 1px 8px; margin-right: 4px;
+  display: inline-block; font-size: 0.72rem; font-weight: 600; color: #166534;
+  background: #dcfce7; border-radius: 999px; padding: 1px 8px; margin-right: 4px;
 }
 
 /* Checkout: choosing the vehicle size. */
@@ -7376,7 +7376,7 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .pay-track { margin-top: 20px; display: grid; gap: 12px; }
 .pay-track-card { border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; background: #fff; text-align: left; }
 .pay-track-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.pay-track-size { font-size: 0.75rem; font-weight: 600; color: #1e40af; background: #dbeafe; border-radius: 999px; padding: 2px 9px; }
+.pay-track-size { font-size: 0.75rem; font-weight: 600; color: #166534; background: #dcfce7; border-radius: 999px; padding: 2px 9px; }
 .pay-track-route { font-size: 0.85rem; color: #4b5563; margin-top: 2px; }
 .pay-steps { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
 .pay-steps li { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }

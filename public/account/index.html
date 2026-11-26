@@ -32,23 +32,23 @@
         </div>
         <nav class="acc-links">
           <p class="acc-section">Shopping</p>
-          <a href="/account/?tab=orders" data-tab-link="orders"><span data-icon="cart"></span><span>My orders</span><span class="acc-count" data-badge="orders" hidden></span></a>
-          <a href="/#listings" class="acc-shop-link"><span data-icon="listings"></span><span>Shop livestock</span></a>
-          <a href="/#feed" class="acc-shop-link"><span data-icon="feed"></span><span>Shop feed</span></a>
+          <a href="/account/?tab=orders" data-tab-link="orders"><span data-icon="cart"></span><span>My Orders</span><span class="acc-count" data-badge="orders" hidden></span></a>
+          <a href="/#listings" class="acc-shop-link"><span data-icon="listings"></span><span>Shop Livestock</span></a>
+          <a href="/#feed" class="acc-shop-link"><span data-icon="feed"></span><span>Shop Feed</span></a>
           <p class="acc-section">Account</p>
           <a href="/account/?tab=notifications" data-tab-link="notifications"><span data-icon="bell"></span><span>Notifications</span><span class="acc-count" data-badge="notifications" hidden></span></a>
           <a href="/account/?tab=profile" data-tab-link="profile"><span data-icon="users"></span><span>Profile</span></a>
-          <button type="button" data-logout class="acc-logout-desk"><span data-icon="logout"></span><span>Log out</span></button>
+          <button type="button" data-logout class="acc-logout-desk"><span data-icon="logout"></span><span>Sign Out</span></button>
         </nav>
       </aside>
 
       <main id="acc-main" class="acc-main">
         <div id="verify-banner" class="alert alert-warning text-sm mb-4 flex flex-wrap items-center justify-between gap-2" hidden>
           <span>Please confirm your email: check <b id="verify-email"></b>.</span>
-          <button type="button" id="resend-btn" class="acc-mini-btn">Send the link again</button>
+          <button type="button" id="resend-btn" class="acc-mini-btn">Send The Link Again</button>
         </div>
         <div class="acc-head">
-          <h1 class="admin-view-title !mb-0" id="page-title">My orders</h1>
+          <h1 class="admin-view-title !mb-0" id="page-title">My Orders</h1>
         </div>
 
         <section id="tab-orders">
@@ -71,7 +71,7 @@
         <section id="tab-profile" hidden>
           <div class="acc-profile">
             <div class="acc-card">
-              <h2 class="txd-card-title">Your details</h2>
+              <h2 class="txd-card-title">Your Details</h2>
               <form id="profile-form" class="space-y-4" novalidate>
                 <div id="profile-alert" class="hidden alert text-sm mb-0" role="alert"></div>
                 <div>
@@ -89,11 +89,11 @@
                   <input id="p_phone" name="phone" type="tel" class="field-input" autocomplete="tel" />
                   <p class="field-error hidden" data-error-for="phone"></p>
                 </div>
-                <button type="submit" id="profile-btn" class="acc-btn">Save details</button>
+                <button type="submit" id="profile-btn" class="acc-btn">Save Details</button>
               </form>
             </div>
             <div class="acc-card">
-              <h2 class="txd-card-title">Change password</h2>
+              <h2 class="txd-card-title">Change Password</h2>
               <form id="password-form" class="space-y-4" novalidate>
                 <div id="password-alert" class="hidden alert text-sm mb-0" role="alert"></div>
                 <div>
@@ -112,15 +112,15 @@
                   </div>
                   <p class="field-error hidden" data-error-for="new_password"></p>
                 </div>
-                <button type="submit" id="password-btn" class="acc-btn">Change password</button>
+                <button type="submit" id="password-btn" class="acc-btn">Change Password</button>
               </form>
             </div>
-            <button type="button" class="acc-btn acc-logout-phone" data-logout>Log out</button>
+            <button type="button" class="acc-btn acc-logout-phone" data-logout>Sign Out</button>
           </div>
         </section>
       </main>
-    <footer id="site-footer"></footer>
     </div>
+    <footer id="site-footer"></footer>
 
     <div id="app-bottom-nav"></div>
     <script src="/js/app-shell.js"></script>
@@ -205,7 +205,7 @@
         const rows = orders.filter((o) => tab.test(o) && (!q || `${o.reference} ${o.checkout_reference || ""} ${o.title}`.toLowerCase().includes(q)));
         const list = document.getElementById("orders-list");
         if (!orders.length) {
-          list.innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">No orders yet</p><p class="text-sm mt-1">When you buy livestock or feed, your orders appear here.</p><a href="/#listings" class="acc-btn mt-4" style="width:auto;display:inline-flex">Browse livestock</a></div>`;
+          list.innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">No orders yet</p><p class="text-sm mt-1">When you buy livestock or feed, your orders appear here.</p><a href="/#listings" class="acc-btn mt-4" style="width:auto;display:inline-flex">Browse Livestock</a></div>`;
           return;
         }
         list.innerHTML = rows.length
@@ -249,7 +249,7 @@
       }
 
       function actionHtml(o) {
-        if (o.stage === "sent") return `<button type="button" class="acc-btn" data-confirm>${uiIcon("camera")}<span>Confirm I've received it</span></button>`;
+        if (o.stage === "sent") return `<button type="button" class="acc-btn" data-confirm>${uiIcon("camera")}<span>Confirm I've Received It</span></button>`;
         if (o.stage === "unpaid" && o.pay_url) return `<a class="acc-btn" href="${escapeHtml(o.pay_url)}">Pay ${kwacha(o.total)}</a>`;
         return "";
       }
@@ -348,11 +348,11 @@
             ${trProgressHtml(d.status)}
             ${trProviderHtml(d)}
             ${d.status === "awaiting_confirmation" ? `<div class="acc-card-ok acc-card mt-4"><p class="text-sm text-gray-700">Your order has arrived. Please confirm if everything is okay, or report a problem if not. Thank you for purchasing with Frontier.</p>
-              <div class="tr-actions mt-3"><button type="button" class="acc-btn" data-d-confirm>Everything is fine</button><button type="button" class="acc-mini-btn" data-d-dispute>Report a delivery problem</button></div></div>` : ""}
+              <div class="tr-actions mt-3"><button type="button" class="acc-btn" data-d-confirm>Everything Is Fine</button><button type="button" class="acc-mini-btn" data-d-dispute>Report A Delivery Problem</button></div></div>` : ""}
             ${dispute ? `<div class="${dispute.status === "open" ? "tr-warn-box" : "tr-note-box"} mt-4"><b>${dispute.status === "open" ? "You reported a problem" : `Your report was resolved: ${dispute.resolution === "refund" ? "refund" : "delivered"}`}</b><p class="mt-1">${escapeHtml(dispute.description)}</p>${dispute.resolution_note ? `<p class="mt-1">Frontier: ${escapeHtml(dispute.resolution_note)}</p>` : ""}</div>` : ""}
           </div>
-          ${tracking || d.tracking.route ? `<div class="acc-card mt-4 acc-track-card"><h2 class="txd-card-title">Follow your delivery</h2><div data-track></div></div>` : ""}
-          <div class="acc-card mt-4" data-d-details><h2 class="txd-card-title">Delivery details</h2>${trFactsHtml(d, { role: "customer", brief: true })}</div>
+          ${tracking || d.tracking.route ? `<div class="acc-card mt-4 acc-track-card"><h2 class="txd-card-title">Follow Your Delivery</h2><div data-track></div></div>` : ""}
+          <div class="acc-card mt-4" data-d-details><h2 class="txd-card-title">Delivery Details</h2>${trFactsHtml(d, { role: "customer", brief: true })}</div>
           <div data-ratings></div>
           <details class="acc-card mt-4 acc-more"><summary>History</summary>${trTimelineHtml(d.events)}</details>`;
         detailsCard = { card: box.querySelector("[data-d-details]"), anchor: box.querySelector("[data-ratings]"), side: view.body.querySelector(".acc-order > div:last-child") };
@@ -438,8 +438,8 @@
             ${provider ? section("provider_stars", `Rate ${provider.name}`, "Reliability, communication, timeliness and care of your animals or feed.") : ""}
             ${platform ? section("platform_stars", "Rate Frontier Marketplace", "From finding your order to receiving it.") : ""}
             <div class="flex gap-3 justify-end mt-5">
-              <button type="button" data-later class="acc-mini-btn">Not now</button>
-              <button type="submit" class="acc-btn">Submit rating</button>
+              <button type="button" data-later class="acc-mini-btn">Not Now</button>
+              <button type="submit" class="acc-btn">Submit Rating</button>
             </div>
           </form>`;
         document.body.appendChild(overlay);
@@ -506,7 +506,7 @@
         const delivered = (x) => { const q = d.quantities.find((r) => r.stage === "provider_delivered" && Number(r.order_id) === Number(x.id)); return q ? `${q.quantity} of ${x.quantity}` : x.units; };
         view.body.innerHTML = `
           <form class="acc-confirm" novalidate>
-            <h1 class="admin-view-title">Report a delivery problem</h1>
+            <h1 class="admin-view-title">Report A Delivery Problem</h1>
             <div class="acc-card">
               <p class="text-sm text-gray-700">Your order:</p>
               <ul class="tr-qty">${live.map((x) => `<li><span>${escapeHtml(x.title)}</span><b>${escapeHtml(delivered(x))}</b></li>`).join("")}</ul>
@@ -524,7 +524,7 @@
               <div class="acc-ph-grid" data-photos></div>
               <p class="field-error hidden" data-error-for="images"></p>
             </div>
-            <div class="acc-actionbar"><button type="submit" class="acc-btn" data-submit>Send the report</button></div>
+            <div class="acc-actionbar"><button type="submit" class="acc-btn" data-submit>Send The Report</button></div>
           </form>`;
         const form = view.body.querySelector("form");
         const picker = bindPhotoPicker(form.querySelector("[data-photos]"), 6, (n) => { if (n) form.querySelector('[data-error-for="images"]').classList.add("hidden"); });
@@ -561,7 +561,7 @@
         const files = [];
         view.body.innerHTML = `
           <form class="acc-confirm" novalidate>
-            <h1 class="admin-view-title">Confirm receipt</h1>
+            <h1 class="admin-view-title">Confirm Receipt</h1>
             <div id="confirm-alert" class="hidden alert text-sm" role="alert"></div>
             <div class="acc-card">
               <p class="text-sm text-gray-700"><b>${escapeHtml(o.title)}</b> · ${escapeHtml(o.price_unit === "lot" ? `whole lot (${o.units})` : o.units)}</p>
@@ -587,7 +587,7 @@
               </label>
               <p class="field-error hidden" data-error-for="agree"></p>
             </div>
-            <div class="acc-actionbar"><button type="submit" class="acc-btn" id="confirm-btn">Confirm I've received it</button></div>
+            <div class="acc-actionbar"><button type="submit" class="acc-btn" id="confirm-btn">Confirm I've Received It</button></div>
           </form>`;
         const form = view.body.querySelector("form");
         const grid = view.body.querySelector("#ph-grid");
@@ -595,7 +595,7 @@
         const alertBox = view.body.querySelector("#confirm-alert");
         const paint = () => {
           grid.innerHTML = files.map((f, i) => `<div class="acc-ph"><img src="${f.url}" alt=""><button type="button" data-rm="${i}" aria-label="Remove photo">×</button></div>`).join("")
-            + (files.length < MAX_PHOTOS ? `<button type="button" class="acc-ph-add" id="ph-add">${uiIcon("camera")}<span>Add photo</span></button>` : "");
+            + (files.length < MAX_PHOTOS ? `<button type="button" class="acc-ph-add" id="ph-add">${uiIcon("camera")}<span>Add Photo</span></button>` : "");
           grid.querySelector("#ph-add")?.addEventListener("click", () => input.click());
           grid.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => {
             const [gone] = files.splice(Number(b.dataset.rm), 1);

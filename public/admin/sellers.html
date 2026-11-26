@@ -27,10 +27,10 @@
       <div class="sl-head">
         <div>
           <h1 class="admin-view-title !mb-0">Sellers</h1>
-          <p class="text-sm text-gray-500 mt-1">Farmers and suppliers whose livestock and feed you list.</p>
+          <p class="text-sm text-gray-500 mt-1">Farmers and suppliers who sell on Frontier.</p>
         </div>
         <div class="flex items-center gap-2">
-          <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 font-semibold">
+          <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-green-800 text-white px-4 py-2.5 rounded-lg hover:bg-green-900 font-semibold">
             <span class="w-5 h-5" data-icon="plus"></span> Add Seller
           </button>
         </div>
@@ -136,7 +136,7 @@
           return renderEmptyState(list, state.q || state.status
             ? { title: "No matching sellers", message: "Try a different search or filter.", icon: "search" }
             : { title: "No sellers yet", message: "Add the farmers and suppliers whose livestock you list.", icon: "users",
-                action: `<button type="button" onclick="openEditor()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold">Add Seller</button>` });
+                action: `<button type="button" onclick="openEditor()" class="mt-4 bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-900 text-sm font-semibold">Add Seller</button>` });
         }
 
         list.innerHTML = `
@@ -463,7 +463,7 @@
         const paint = () => {
           const listingRows = s.listings.map((l) => `
             <a href="/admin/livestock?edit=${l.id}" class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
-              <span class="w-14 h-10 rounded-md overflow-hidden bg-blue-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : livestockFallbackMedia("w-6 h-6")}</span>
+              <span class="w-14 h-10 rounded-md overflow-hidden bg-green-50 flex-shrink-0">${l.thumb_path ? `<img src="${escapeHtml(l.thumb_path)}" alt="" class="w-full h-full object-cover" loading="lazy">` : livestockFallbackMedia("w-6 h-6")}</span>
               <div class="min-w-0 flex-1">
                 <p class="font-semibold text-gray-900 truncate">${escapeHtml(l.title)}</p>
                 <p class="text-xs text-gray-500 truncate">${escapeHtml([l.breed_name, l.location].filter(Boolean).join(", "))}</p>
@@ -472,13 +472,13 @@
                 ${l.review_status === "pending" ? `<span class="status-pill st-pending">In review</span>`
                   : l.review_status === "rejected" ? `<span class="status-pill st-rejected">Changes requested</span>`
                   : `<span class="status-pill ${l.status === "published" ? "st-published" : "st-unpublished"}">${l.status === "published" ? "Published" : "Unpublished"}</span>`}
-                <span class="${l.verification === "verified" ? "text-blue-700" : "text-amber-700"} font-semibold">${l.verification === "verified" ? "Verified" : "Unverified"}</span>
+                <span class="${l.verification === "verified" ? "text-green-800" : "text-amber-700"} font-semibold">${l.verification === "verified" ? "Verified" : "Unverified"}</span>
               </div>
             </a>`).join("");
 
           const inquiryRows = s.inquiries.map((i) => `
             <a href="/admin/inquiries?id=${i.id}" class="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50">
-              <span class="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0">${escapeHtml(i.full_name.charAt(0).toUpperCase())}</span>
+              <span class="w-9 h-9 rounded-full bg-green-100 text-green-800 flex items-center justify-center font-bold flex-shrink-0">${escapeHtml(i.full_name.charAt(0).toUpperCase())}</span>
               <div class="min-w-0 flex-1">
                 <p class="font-semibold text-gray-900 truncate">${escapeHtml(i.full_name)}</p>
                 <p class="text-xs text-gray-500 truncate">${escapeHtml(i.livestock_title)}</p>
@@ -534,9 +534,9 @@
                 <div class="txd-card">
                   <h3 class="txd-card-title">Contact</h3>
                   <div class="grid ${s.email ? "grid-cols-3" : "grid-cols-2"} gap-2 mb-4">
-                    <a href="tel:${escapeHtml(s.phone.replace(/[^\d+]/g, ""))}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-blue-600">${uiIcon("phone")}</span>Call</a>
+                    <a href="tel:${escapeHtml(s.phone.replace(/[^\d+]/g, ""))}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-green-700 hover:bg-green-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-green-800">${uiIcon("phone")}</span>Call</a>
                     <a href="https://wa.me/${whatsappNumber(s.phone)}" target="_blank" rel="noopener" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-green-500 hover:bg-green-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-green-600">${uiIcon("inquire")}</span>WhatsApp</a>
-                    ${s.email ? `<a href="mailto:${escapeHtml(s.email)}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-blue-600">${uiIcon("mail")}</span>Email</a>` : ""}
+                    ${s.email ? `<a href="mailto:${escapeHtml(s.email)}" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-green-700 hover:bg-green-50 text-sm font-medium text-gray-700"><span class="w-5 h-5 text-green-800">${uiIcon("mail")}</span>Email</a>` : ""}
                   </div>
                   <dl class="sv-facts">
                     <div><dt>Phone</dt><dd>${escapeHtml(s.phone)}</dd></div>
@@ -566,8 +566,8 @@
                   <div class="flex items-center justify-between mb-2">
                     <h3 class="txd-card-title !mb-0">Listings</h3>
                     <div class="flex items-center gap-3 text-sm">
-                      ${s.listings.length ? `<a href="/admin/livestock?seller_id=${s.id}" class="font-medium text-blue-600 hover:text-blue-700">View all</a>` : ""}
-                      <a href="/admin/livestock?new=1&seller_id=${s.id}" class="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700"><span class="w-4 h-4">${uiIcon("plus")}</span>Add listing</a>
+                      ${s.listings.length ? `<a href="/admin/livestock?seller_id=${s.id}" class="font-medium text-green-800 hover:text-green-900">View all</a>` : ""}
+                      <a href="/admin/livestock?new=1&seller_id=${s.id}" class="inline-flex items-center gap-1 font-semibold text-green-800 hover:text-green-900"><span class="w-4 h-4">${uiIcon("plus")}</span>Add listing</a>
                     </div>
                   </div>
                   <div class="rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden">
@@ -578,7 +578,7 @@
                 <section class="txd-card">
                   <div class="flex items-center justify-between mb-2">
                     <h3 class="txd-card-title !mb-0">Inquiries</h3>
-                    ${s.inquiries.length ? `<a href="/admin/inquiries?seller_id=${s.id}" class="text-sm font-medium text-blue-600 hover:text-blue-700">View all</a>` : ""}
+                    ${s.inquiries.length ? `<a href="/admin/inquiries?seller_id=${s.id}" class="text-sm font-medium text-green-800 hover:text-green-900">View all</a>` : ""}
                   </div>
                   <div class="rounded-lg border border-gray-200 divide-y divide-gray-100 overflow-hidden">
                     ${inquiryRows || `<p class="px-3 py-4 text-sm text-gray-500">No inquiries about this seller's listings yet.</p>`}

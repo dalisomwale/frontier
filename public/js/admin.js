@@ -23,7 +23,7 @@ function confirmRemovePhoto() {
 }
 
 async function adminLogout() {
-  if (!(await confirmAction({ title: "Log out?", message: "You'll need to sign in again to use the admin.", confirmText: "Log out" }))) return;
+  if (!(await confirmAction({ title: "Sign out?", message: "You'll need to sign in again to use the admin.", confirmText: "Sign Out" }))) return;
   try {
     await adminApi("/api/admin/auth/logout", { method: "POST" });
   } finally {
@@ -46,7 +46,7 @@ async function initAdminPage(active) {
           </a>
           <div class="flex items-center gap-2">
             <a href="/" target="_blank" rel="noopener" class="hidden sm:inline-flex text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2">Shop Now</a>
-            <button type="button" data-logout class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium text-sm">Logout</button>
+            <button type="button" data-logout class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-medium text-sm">Sign Out</button>
           </div>
         </div>
       </nav>`;
@@ -247,7 +247,7 @@ function openFormModal({ title, crumb, body, submitText = "Save", wide = false, 
     params,
     canLeave: async () => !dirty || confirmAction({ title: "Discard changes?", message: "Your unsaved changes will be lost.", confirmText: "Discard", variant: "danger" }),
     html: `
-      <form novalidate class="admin-form-page ${wide ? "admin-form-wide" : ""} ${steps ? "ob-blue admin-steps" : ""}">
+      <form novalidate class="admin-form-page ${wide ? "admin-form-wide" : ""} ${steps ? "admin-steps" : ""}">
         <h1 class="admin-view-title">${escapeHtml(title)}</h1>
         <div class="admin-form-card">
           <div class="space-y-4">
@@ -258,8 +258,8 @@ function openFormModal({ title, crumb, body, submitText = "Save", wide = false, 
         <div class="admin-form-actions">
           <button type="button" data-close class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium bg-white">Cancel</button>
           ${steps ? `<button type="button" data-ob-back class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium bg-white">Back</button>
-          <button type="button" data-ob-next class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Continue</button>` : ""}
-          <button type="submit" data-submit ${steps ? "data-ob-submit" : ""} class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-70">${escapeHtml(submitText)}</button>
+          <button type="button" data-ob-next class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-green-800 hover:bg-green-900 text-white font-semibold">Continue</button>` : ""}
+          <button type="submit" data-submit ${steps ? "data-ob-submit" : ""} class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-green-800 hover:bg-green-900 text-white font-semibold disabled:opacity-70">${escapeHtml(submitText)}</button>
         </div>
       </form>`,
   });
@@ -551,12 +551,12 @@ function bindPhotosField(form, existing = []) {
           <img src="${escapeHtml(p.src)}" alt="Photo ${i + 1}">
           ${i === 0 ? '<span class="cover-badge">First</span>' : ""}
           <div class="photo-actions">
-            ${i === 0 ? "<span></span>" : `<button type="button" data-first="${i}">Make first</button>`}
+            ${i === 0 ? "<span></span>" : `<button type="button" data-first="${i}">Make First</button>`}
             <button type="button" data-remove="${i}" aria-label="Remove photo">Remove</button>
           </div>
         </div>`).join("") +
       (items.length < MAX_PURPOSE_PHOTOS
-        ? `<button type="button" class="photo-drop" data-add>${uiIcon("camera")}<span>Add photos</span></button>`
+        ? `<button type="button" class="photo-drop" data-add>${uiIcon("camera")}<span>Add Photos</span></button>`
         : "");
     grid.querySelectorAll("[data-first]").forEach((b) => b.addEventListener("click", () => {
       items.unshift(items.splice(Number(b.dataset.first), 1)[0]);
@@ -696,7 +696,7 @@ function mfOpen(seg, selects, refresh) {
       <div class="mf-opts">${tabsHtml()}</div>
       ${selects.map((s, i) => `<p class="mf-label">${escapeHtml(label(s))}</p>
         <select class="field-input mf-select" data-s="${i}">${s.innerHTML}</select>`).join("")}
-      <button type="button" class="mf-done">Show results</button>
+      <button type="button" class="mf-done">Show Results</button>
     </div>`;
   document.body.appendChild(wrap);
   wrap.querySelectorAll(".mf-select").forEach((c) => { c.value = selects[Number(c.dataset.s)].value; });

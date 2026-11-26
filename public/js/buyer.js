@@ -46,7 +46,7 @@ const buyerInitials = (name) => String(name || "?").trim().split(/\s+/).slice(0,
 const buyerFirst = (name) => String(name || "").trim().split(/\s+/)[0] || "Account";
 
 async function buyerLogout() {
-  if (!(await confirmAction({ title: "Log out?", message: "You'll need to log in again to see your orders or check out.", confirmText: "Log out" }))) return;
+  if (!(await confirmAction({ title: "Sign out?", message: "You'll need to sign in again to see your orders or check out.", confirmText: "Sign Out" }))) return;
   try {
     await buyerApi("/api/buyer/auth/logout", { method: "POST" });
   } finally {
@@ -73,7 +73,7 @@ function accountHeader(buyer) {
         </a>
         <div class="site-nav ml-4" data-site-nav aria-label="Categories"></div>
         <div class="flex items-center gap-2 sm:gap-3 header-auth-acc" data-cart-slot>
-          ${buyer ? buyerChip(buyer) : `<a href="/account/login" class="header-login-link">Log in</a>`}
+          ${buyer ? buyerChip(buyer) : `<a href="/account/login" class="header-login-link">Sign In</a>`}
         </div>
       </div>
     </nav>`;

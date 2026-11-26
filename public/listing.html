@@ -28,8 +28,8 @@
           </a>
           <div class="site-nav ml-4 mr-auto" data-site-nav aria-label="Categories"></div>
           <div class="header-auth">
-            <a id="login-link" href="/account/login" class="header-login-link">Log in</a>
-            <a id="seller-link" href="/account/register" class="header-seller-link">Register</a>
+            <a id="login-link" href="/account/login" class="header-login-link">Sign In</a>
+            <a id="seller-link" href="/account/register" class="header-seller-link">Create Account</a>
           </div>
         </div>
       </div>
@@ -37,7 +37,7 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       <nav class="text-sm mb-5 flex flex-wrap items-center gap-1 text-gray-500" aria-label="Breadcrumb">
-        <a href="/#listings" class="inline-flex items-center gap-1 font-medium text-blue-600 hover:text-blue-700"><span class="w-4 h-4" data-icon="chevronLeft"></span>All livestock</a>
+        <a href="/#listings" class="inline-flex items-center gap-1 font-medium text-green-800 hover:text-green-900"><span class="w-4 h-4" data-icon="chevronLeft"></span>All livestock</a>
       </nav>
 
       <div id="listing-error" class="hidden"></div>
@@ -82,7 +82,7 @@
               </div>
               <div id="buy-total" class="buy-total hidden"><span>Total</span><strong></strong></div>
               <div id="buy-actions" class="buy-row">
-                <button id="cart-btn" type="button" class="btn-cart btn-lg hidden">Add to cart</button>
+                <button id="cart-btn" type="button" class="btn-cart btn-lg hidden">Add To Cart</button>
                 <button id="buy-btn" type="button" class="btn-buy btn-lg hidden">Buy Now</button>
               </div>
               <button id="inquire-btn" type="button" disabled class="btn-contact btn-inquire btn-lg w-full mt-2">Contact Seller</button>
@@ -93,7 +93,7 @@
       </div>
 
       <section id="related-section" class="hidden mt-12 pt-8 border-t border-gray-200">
-        <h2 id="related-heading" class="text-xl sm:text-2xl font-bold text-gray-900 mb-4">More like this</h2>
+        <h2 id="related-heading" class="text-xl sm:text-2xl font-bold text-gray-900 mb-4">More Like This</h2>
         <div id="related-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6"></div>
       </section>
     </main>
@@ -102,7 +102,7 @@
 
     <div id="mobile-inquire" class="mobile-buy-bar hidden lg:hidden">
       <div class="buy-row">
-        <button type="button" data-mobile-cart class="btn-cart btn-lg hidden">Add to cart</button>
+        <button type="button" data-mobile-cart class="btn-cart btn-lg hidden">Add To Cart</button>
         <button type="button" data-mobile-buy class="btn-buy btn-lg hidden">Buy Now</button>
         <button type="button" data-mobile-contact class="btn-contact btn-inquire btn-lg">Contact Seller</button>
       </div>
@@ -336,7 +336,7 @@
           title: "Listing not available",
           message: message || "",
           icon: "cattle",
-          action: `<a href="/#listings" class="inline-block mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 font-medium">Browse all livestock</a>`,
+          action: `<a href="/#listings" class="inline-block mt-4 bg-green-800 text-white px-5 py-2.5 rounded-lg hover:bg-green-900 font-medium">Browse all livestock</a>`,
         });
       }
 

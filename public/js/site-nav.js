@@ -178,8 +178,8 @@
     // Log in / Register, or the account once signed in.
     const chip = header.querySelector(".buyer-chip");
     sheet.querySelector("[data-sheet-auth]").innerHTML = chip
-      ? `<a href="/account/" class="snav-auth-btn snav-auth-solid">My account</a>`
-      : `<a href="/account/login" class="snav-auth-btn">Log in</a><a href="/account/register" class="snav-auth-btn snav-auth-solid">Register</a>`;
+      ? `<a href="/account/" class="snav-auth-btn snav-auth-solid">My Account</a>`
+      : `<a href="/account/login" class="snav-auth-btn">Sign In</a><a href="/account/register" class="snav-auth-btn snav-auth-solid">Create Account</a>`;
     sheetBody("livestock");
     sheet.querySelector("[data-sheet-close]").focus();
   }

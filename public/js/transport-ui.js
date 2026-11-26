@@ -401,7 +401,7 @@ function trRatingForm(holder, { title, hint, name, onSubmit }) {
       ${trStarsInput(name)}
       <p class="field-error hidden" data-error-for="${name}"></p>
       <textarea name="feedback" rows="2" maxlength="1000" class="field-input" placeholder="Anything you'd like to tell us? (optional)"></textarea>
-      <button type="submit" class="acc-btn mt-3">Submit rating</button>
+      <button type="submit" class="acc-btn mt-3">Submit Rating</button>
     </form>`;
   const form = holder.querySelector("form");
   form.addEventListener("submit", async (e) => {
@@ -474,7 +474,7 @@ function trPrompt({ title, label, help = "", confirmText = "OK", required = fals
           ${help ? `<p class="text-sm text-gray-600 mb-2">${escapeHtml(help)}</p>` : ""}${field}<p class="field-error hidden" data-error-for="text"></p></div>
         <div class="admin-form-actions">
           <button type="button" data-cancel class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium bg-white">Cancel</button>
-          <button type="submit" class="inline-flex items-center gap-2 px-5 py-2 rounded-lg ${danger ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"} text-white font-semibold">${escapeHtml(confirmText)}</button>
+          <button type="submit" class="inline-flex items-center gap-2 px-5 py-2 rounded-lg ${danger ? "bg-red-600 hover:bg-red-700" : "bg-green-800 hover:bg-green-900"} text-white font-semibold">${escapeHtml(confirmText)}</button>
         </div></form>`,
     });
     const form = view.el.querySelector("form");

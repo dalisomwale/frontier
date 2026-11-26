@@ -18,7 +18,7 @@ async function sellerApi(url, options = {}) {
 }
 
 async function sellerLogout() {
-  if (!(await confirmAction({ title: "Log out?", message: "You'll need to sign in again to manage your listings.", confirmText: "Log out" }))) return;
+  if (!(await confirmAction({ title: "Sign out?", message: "You'll need to sign in again to manage your listings.", confirmText: "Sign Out" }))) return;
   try {
     await sellerApi("/api/seller/auth/logout", { method: "POST" });
   } finally {
@@ -66,7 +66,7 @@ function sellerPageHeader(seller) {
           ${seller ? `<span id="header-seller-name" class="hidden md:inline text-sm text-gray-500 mr-1">${escapeHtml(seller.business_name || seller.name)}</span>` : ""}
           <a href="/" class="hidden sm:inline-flex ${seller ? "text-sm font-medium text-gray-600 hover:text-gray-900" : "site-topnav-back"} px-3 py-2">Shop Now</a>
           ${seller ? notifBellHtml() : ""}
-          ${seller ? `<button type="button" data-seller-logout class="text-sm font-medium px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Logout</button>` : ""}
+          ${seller ? `<button type="button" data-seller-logout class="text-sm font-medium px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">Sign Out</button>` : ""}
         </div>
       </div>
     </nav>`;
@@ -315,7 +315,7 @@ function notifBellHtml() {
     <div id="notif-panel" class="notif-panel" hidden>
       <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <span class="font-semibold text-gray-900 text-sm">Notifications</span>
-        <button type="button" id="notif-read-all" class="text-xs font-medium text-blue-700 hover:underline">Mark all as read</button>
+        <button type="button" id="notif-read-all" class="text-xs font-medium text-green-800 hover:underline">Mark All As Read</button>
       </div>
       <div id="notif-list" class="notif-list"></div>
     </div>
@@ -355,7 +355,7 @@ function renderSellerShell(seller) {
     </nav>
     <div class="app-sidebar-footer">
       <p class="text-xs px-3 pb-2 truncate" style="color: var(--sidebar-text)">Signed in as ${escapeHtml(seller.business_name || seller.name)}</p>
-      <button type="button" data-seller-logout>${uiIcon("logout")}<span>Logout</span></button>
+      <button type="button" data-seller-logout>${uiIcon("logout")}<span>Sign Out</span></button>
     </div>`;
 
   document.getElementById("seller-topbar").innerHTML = `

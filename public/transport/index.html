@@ -43,7 +43,7 @@
         </div>
         <div class="sl-card mt-6" id="history-card" hidden>
           <div class="sl-toolbar tp-hist-bar">
-            <h2 class="txd-card-title !mb-0">Previous deliveries</h2>
+            <h2 class="txd-card-title !mb-0">Previous Deliveries</h2>
             <input type="search" id="history-q" class="field-input" placeholder="Search delivery, place or load" aria-label="Search previous deliveries">
             <button type="button" id="history-export" class="tx-export">Export Excel</button>
           </div>
@@ -52,11 +52,11 @@
         </div>
       </section>
       <section id="tab-vehicles" hidden>
-        <div class="flex justify-end mb-4"><button type="button" class="acc-btn" id="add-vehicle" style="width:auto">Add a vehicle</button></div>
+        <div class="flex justify-end mb-4"><button type="button" id="add-vehicle" class="inline-flex items-center gap-2 bg-green-800 text-white px-4 py-2.5 rounded-lg hover:bg-green-900 font-semibold"><span class="w-5 h-5" data-icon="plus"></span> Add Vehicle</button></div>
         <div id="vehicles-list" class="tp-vehicles"></div>
       </section>
       <section id="tab-drivers" hidden>
-        <div class="flex justify-end mb-4"><button type="button" class="acc-btn" id="add-driver" style="width:auto">Add a Driver</button></div>
+        <div class="flex justify-end mb-4"><button type="button" id="add-driver" class="inline-flex items-center gap-2 bg-green-800 text-white px-4 py-2.5 rounded-lg hover:bg-green-900 font-semibold"><span class="w-5 h-5" data-icon="plus"></span> Add Driver</button></div>
         <div id="drivers-list" class="tp-drivers"></div>
       </section>
       <section id="tab-ratings" hidden><div id="ratings-list"></div></section>
@@ -67,20 +67,21 @@
     <div id="app-bottom-nav"></div>
 
     <script>
+      document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
       let me = null;
       let meta = { cargo_types: [], doc_types: {} };
       let vehicles = [];
       let deliveries = [];
       const state = { tab: "requests", dtab: "active" };
-      const TITLES = { requests: "Requests", deliveries: "My deliveries", vehicles: "Vehicles", drivers: "Drivers", ratings: "Ratings", notifications: "Notifications", profile: "Profile" };
+      const TITLES = { requests: "Requests", deliveries: "My Deliveries", vehicles: "Vehicles", drivers: "Drivers", ratings: "Ratings", notifications: "Notifications", profile: "Profile" };
       const SUBS = {
-        requests: "Paid deliveries in your area that you can accept. The first provider to accept gets the job.",
+        requests: "Paid deliveries in your area. The first to accept gets the job.",
         deliveries: "Deliveries you've accepted.",
-        vehicles: "The vehicles you use. When you accept a request you choose which one goes.",
-        drivers: "Your drivers sign in with their phone number and the sign-in code you give them.",
+        vehicles: "The vehicles you deliver with.",
+        drivers: "They sign in with their phone number and the code you give them.",
         ratings: "What buyers said about your deliveries.",
         notifications: "",
-        profile: "Your details. Your coverage area is set by Frontier.",
+        profile: "",
       };
       const ACTIVE = ["provider_accepted", "vehicle_selected", "awaiting_collection", "collection_submitted", "collection_confirmed", "in_transit", "arrived", "delivery_submitted", "awaiting_confirmation", "disputed"];
       const approved = () => me && me.status === "approved" && me.is_active;
@@ -252,14 +253,14 @@
             </div>
             <div class="space-y-4 min-w-0">
               ${d.can.accept ? `<form class="acc-card" data-accept novalidate>
-                <h2 class="txd-card-title">Accept with a vehicle</h2>
+                <h2 class="txd-card-title">Accept With A Vehicle</h2>
                 ${vs.length ? `<div class="tp-choice">${vs.map((v) => `<label class="${v.fits && !v.busy ? "" : "is-off"}"><input type="radio" name="vehicle_id" value="${v.id}" ${v.fits && !v.busy ? "" : "disabled"}><span><b>${escapeHtml(v.registration)}</b> · ${v.size_label ? `${escapeHtml(v.size_label)} · ` : ""}${escapeHtml(v.vehicle_type)}${v.busy ? " · on another delivery" : v.wrong_size ? " · not the size the buyer chose" : !v.fits ? " · can't carry this load" : ""}</span></label>`).join("")}</div>`
                   : `<p class="text-sm text-gray-600">You have no active vehicles.</p>`}
                 <p class="field-error hidden" data-error-for="vehicle_id"></p>
                 ${d.drivers ? `<label class="field-label mt-4" for="acc-driver">Driver</label>
                   <select id="acc-driver" name="driver_id" class="field-input"><option value="">Choose later</option>${d.drivers.map((x) => `<option value="${x.id}" data-vehicle="${x.vehicle ? x.vehicle.id : ""}" ${x.busy ? "disabled" : ""}>${escapeHtml(x.name)}${x.vehicle ? ` · ${escapeHtml(x.vehicle.registration)}` : ""}${x.busy ? " · on another delivery" : ""}</option>`).join("")}</select>
                   <p class="field-error hidden" data-error-for="driver_id"></p>` : ""}
-                <div class="tr-actions mt-4"><button type="submit" class="acc-btn">Accept delivery</button>${isDriver() ? "" : `<button type="button" class="acc-mini-btn" data-decline>Decline</button>`}</div>
+                <div class="tr-actions mt-4"><button type="submit" class="acc-btn">Accept Delivery</button>${isDriver() ? "" : `<button type="button" class="acc-mini-btn" data-decline>Decline</button>`}</div>
               </form>` : `<div class="acc-card"><p class="text-sm text-gray-700">${d.offer.status === "declined" ? "You declined this request." : "This request is no longer open."}</p></div>`}
             </div>
           </div>`;
@@ -332,13 +333,13 @@
             `Drive to ${escapeHtml(d.pickup.place)}. Check the goods with the seller, then choose a comment, add photos and tap Collected. The buyer and seller are told.`,
             d.comments.collection, "Collected");
         } else if (can.start) {
-          action = `<div class="acc-card acc-card-ok"><b>Collected</b><p class="text-sm text-gray-700 mt-1">Tap Start delivery when you leave for ${escapeHtml(d.destination.place)}. The buyer and seller are told you're on the way.</p><button type="button" class="acc-btn mt-3" data-start>${uiIcon("truck")}<span>Start delivery</span></button></div>`;
+          action = `<div class="acc-card acc-card-ok"><b>Collected</b><p class="text-sm text-gray-700 mt-1">Tap Start delivery when you leave for ${escapeHtml(d.destination.place)}. The buyer and seller are told you're on the way.</p><button type="button" class="acc-btn mt-3" data-start>${uiIcon("truck")}<span>Start Delivery</span></button></div>`;
         } else if (can.deliver) {
-          action = `<div class="acc-card"><h2 class="txd-card-title">At the destination</h2><p class="text-sm text-gray-600">Drive to ${escapeHtml(d.destination.place)}. ${d.status === "arrived" ? "You've arrived. " : "Your arrival is noted automatically from your location. "}Hand the goods over to the buyer, then tap Delivered.</p><button type="button" class="acc-btn mt-4" data-delivered>${uiIcon("check")}<span>Delivered</span></button></div>`;
+          action = `<div class="acc-card"><h2 class="txd-card-title">At The Destination</h2><p class="text-sm text-gray-600">Drive to ${escapeHtml(d.destination.place)}. ${d.status === "arrived" ? "You've arrived. " : "Your arrival is noted automatically from your location. "}Hand the goods over to the buyer, then tap Delivered.</p><button type="button" class="acc-btn mt-4" data-delivered>${uiIcon("check")}<span>Delivered</span></button></div>`;
         } else if (d.status === "awaiting_confirmation") action = `<div class="acc-card acc-card-ok"><b>Delivered</b><p class="text-sm text-gray-600 mt-1">The buyer has been told. The delivery completes automatically unless they report a problem.</p></div>`;
         else if (d.status === "disputed") action = `<div class="tr-warn-box"><b>The buyer reported a problem.</b> Frontier is reviewing the records and may contact you.</div>`;
         const ratingCard = d.status === "completed"
-          ? `<div class="acc-card"><h2 class="txd-card-title">Buyer's rating</h2>${d.rating ? `<p>${trStarsHtml(d.rating.stars)}</p>${d.rating.feedback ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(d.rating.feedback)}"</p>` : ""}` : `<p class="text-sm text-gray-500">The buyer hasn't rated this delivery yet.</p>`}</div>`
+          ? `<div class="acc-card"><h2 class="txd-card-title">Buyer's Rating</h2>${d.rating ? `<p>${trStarsHtml(d.rating.stars)}</p>${d.rating.feedback ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(d.rating.feedback)}"</p>` : ""}` : `<p class="text-sm text-gray-500">The buyer hasn't rated this delivery yet.</p>`}</div>`
           : "";
         const showMap = TR_MOVING.includes(d.status) || ["delivery_submitted", "awaiting_confirmation"].includes(d.status);
         const goTo = onWay ? d.pickup : d.destination;
@@ -356,14 +357,14 @@
                   : `<p class="text-sm text-gray-600">Add drivers in the Drivers tab to give them deliveries.</p>`}
                 <p class="field-error hidden" data-error-for="driver_id"></p></form>` : ""}
               ${action}
-              <div class="acc-card"><h2 class="txd-card-title">Delivery details</h2>${trFactsHtml(d, { role: "provider" })}
+              <div class="acc-card"><h2 class="txd-card-title">Delivery Details</h2>${trFactsHtml(d, { role: "provider" })}
                 ${d.driver && !(d.can && d.can.assign_driver) && !isDriver() ? `<p class="text-sm text-gray-700 mt-3">Driver <b>${escapeHtml(d.driver.name)}</b> · ${escapeHtml(d.driver.phone)}</p>` : ""}
                 ${d.vehicle ? `<p class="text-sm text-gray-700 mt-3 tr-inline-icon">${uiIcon("truck")} Vehicle <b>${escapeHtml(d.vehicle.registration)}</b> · ${escapeHtml(d.vehicle.type)}</p>` : ""}
                 <ul class="tr-qty mt-3">${d.orders.filter((o) => !o.cancelled).map((o) => `<li><span>${escapeHtml(o.reference)} · ${escapeHtml(o.title)}</span><b>${escapeHtml(o.units)}</b></li>`).join("")}</ul>
               </div>
             </div>
             <div class="space-y-4 min-w-0">
-              <div class="acc-card"><h2 class="txd-card-title">Collection record</h2>${trEvidenceHtml(d)}</div>
+              <div class="acc-card"><h2 class="txd-card-title">Collection Record</h2>${trEvidenceHtml(d)}</div>
               ${ratingCard}
               <details class="acc-card acc-more"><summary>History</summary>${trTimelineHtml(d.events)}</details>
             </div>
@@ -453,7 +454,7 @@
             gpsBox.innerHTML = `<div class="tr-gps ${on ? "tr-gps-on" : "tr-gps-off"}"><span class="tr-gps-dot"></span><span>${on
               ? `Sharing your location${g.sentAt ? ` · last sent ${escapeHtml(g.sentAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }))}` : ""}. Keep this page open.`
               : escapeHtml(g.error || (g.status === "waiting" ? "Getting your location…" : "Location sharing is off."))}</span>
-              ${on ? "" : `<button type="button" class="acc-mini-btn ml-auto" data-gps-on>Share location</button>`}</div>`;
+              ${on ? "" : `<button type="button" class="acc-mini-btn ml-auto" data-gps-on>Share Location</button>`}</div>`;
             gpsBox.querySelector("[data-gps-on]")?.addEventListener("click", () => gps.start(d.id, paint));
           };
           gps.start(d.id, paint);
@@ -621,7 +622,7 @@
             <h1 class="admin-view-title">Sign-In Code for ${escapeHtml(x.name)}</h1>
             <p class="text-sm text-gray-600">Send it to ${escapeHtml(x.name)}. They sign in with their phone number <b>${escapeHtml(x.phone)}</b> and this code. It's shown only now.</p>
             <div class="tp-code" data-code-text>${escapeHtml(code)}</div>
-            <div class="tr-actions"><a class="acc-btn" href="${escapeHtml(wa)}" target="_blank" rel="noopener" style="width:auto">Send by WhatsApp</a><button type="button" class="acc-mini-btn" data-copy>Copy Message</button><button type="button" class="acc-mini-btn" data-done>Done</button></div>
+            <div class="tr-actions"><a class="acc-btn" href="${escapeHtml(wa)}" target="_blank" rel="noopener" style="width:auto">Send By WhatsApp</a><button type="button" class="acc-mini-btn" data-copy>Copy Message</button><button type="button" class="acc-mini-btn" data-done>Done</button></div>
           </div>`;
         view.body.querySelector("[data-copy]").addEventListener("click", async () => {
           try { await navigator.clipboard.writeText(message); showNotification("Copied. Paste it in a message to the driver.", "success"); }
@@ -726,7 +727,7 @@
               </div>
               <button type="submit" class="acc-btn mt-4">Save Password</button>
             </form>
-            <button type="button" class="acc-btn lg:hidden" data-transport-logout>Log out</button>
+            <button type="button" class="acc-btn lg:hidden" data-transport-logout>Sign Out</button>
           </div>`;
         box.querySelector("[data-transport-logout]").addEventListener("click", transportLogout);
         const pw = box.querySelector("[data-password]");
@@ -748,7 +749,7 @@
         const statusText = { pending: "Waiting for approval", approved: "Approved", rejected: "Not approved", suspended: "Suspended" }[me.status];
         box.innerHTML = `
           <div class="space-y-4 min-w-0">
-            <div class="acc-card"><h2 class="txd-card-title">Your account</h2>
+            <div class="acc-card"><h2 class="txd-card-title">Your Account</h2>
               <dl class="sv-facts">
                 <div><dt>Name</dt><dd>${escapeHtml(me.name)}${me.kind === "company" ? " (company)" : ""}</dd></div>
                 <div><dt>Status</dt><dd>${escapeHtml(statusText)}${me.is_active ? "" : " · deactivated"}</dd></div>
@@ -759,22 +760,22 @@
               </dl>
               <p class="text-sm text-gray-500 mt-3">Your coverage is measured from your physical address. To change your address or area, please contact Frontier.</p>
             </div>
-            <form class="acc-card" data-coverage novalidate><h2 class="txd-card-title">Coverage radius</h2>
+            <form class="acc-card" data-coverage novalidate><h2 class="txd-card-title">Coverage Radius</h2>
               <p class="text-sm text-gray-600">How far you're willing to travel, by road from your address. Frontier confirms a change before it applies to new requests.</p>
               <label class="field-label mt-3" for="p-km">Preferred coverage</label>
               <div class="tr-km-row"><input id="p-km" name="preferred_coverage_km" type="number" min="5" max="1000" step="1" inputmode="numeric" class="field-input" value="${me.preferred_coverage_km ?? me.coverage_km ?? ""}"><span>km</span></div>
               <p class="field-error hidden" data-error-for="preferred_coverage_km"></p>
               ${me.preferred_coverage_km !== null && me.preferred_coverage_km !== me.coverage_km ? `<p class="tr-note-box mt-3">You asked for <b>${me.preferred_coverage_km} km</b>. Waiting for Frontier to confirm${me.coverage_km ? `; until then your coverage stays ${me.coverage_km} km` : ""}.</p>` : ""}
-              <button type="submit" class="acc-btn mt-4">Send to Frontier</button>
+              <button type="submit" class="acc-btn mt-4">Send To Frontier</button>
             </form>
-            <form class="acc-card" data-contact novalidate><h2 class="txd-card-title">Contact details</h2>
+            <form class="acc-card" data-contact novalidate><h2 class="txd-card-title">Contact Details</h2>
               <div class="space-y-4">
                 ${me.kind === "company" ? `<div><label class="field-label" for="p-cp">Contact person</label><input id="p-cp" name="contact_person" class="field-input" maxlength="120" value="${escapeHtml(me.contact_person || "")}"></div>` : ""}
                 <div><label class="field-label" for="p-phone">Phone</label><input id="p-phone" name="phone" class="field-input" maxlength="30" value="${escapeHtml(me.phone)}"><p class="field-error hidden" data-error-for="phone"></p></div>
                 <div><label class="field-label" for="p-email">Email</label><input id="p-email" name="email" type="email" class="field-input" maxlength="255" value="${escapeHtml(me.email)}"><p class="field-error hidden" data-error-for="email"></p></div>
                 <div><label class="field-label" for="p-addr">Physical address</label><input id="p-addr" name="address" class="field-input" maxlength="255" value="${escapeHtml(me.address)}"><p class="field-error hidden" data-error-for="address"></p></div>
               </div>
-              <button type="submit" class="acc-btn mt-4">Save details</button>
+              <button type="submit" class="acc-btn mt-4">Save Details</button>
             </form>
           </div>
           <div class="space-y-4 min-w-0">
@@ -786,17 +787,17 @@
                   <input type="file" name="documents" accept="application/pdf,image/jpeg,image/png,image/webp" class="text-sm">
                 </div>
                 <p class="field-error hidden" data-error-for="documents"></p>
-                <button type="submit" class="acc-mini-btn mt-3">Upload document</button>
+                <button type="submit" class="acc-mini-btn mt-3">Upload Document</button>
               </form>
             </div>
-            <form class="acc-card" data-password novalidate><h2 class="txd-card-title">Change password</h2>
+            <form class="acc-card" data-password novalidate><h2 class="txd-card-title">Change Password</h2>
               <div class="space-y-4">
                 <div><label class="field-label" for="p-cur">Current password</label><input id="p-cur" name="current_password" type="password" class="field-input" autocomplete="current-password"><p class="field-error hidden" data-error-for="current_password"></p></div>
                 <div><label class="field-label" for="p-new">New password</label><input id="p-new" name="new_password" type="password" class="field-input" autocomplete="new-password"><p class="field-error hidden" data-error-for="new_password"></p></div>
               </div>
-              <button type="submit" class="acc-btn mt-4">Change password</button>
+              <button type="submit" class="acc-btn mt-4">Change Password</button>
             </form>
-            <button type="button" class="acc-btn lg:hidden" data-transport-logout>Log out</button>
+            <button type="button" class="acc-btn lg:hidden" data-transport-logout>Sign Out</button>
           </div>`;
         box.querySelector("[data-transport-logout]").addEventListener("click", transportLogout);
         const contact = box.querySelector("[data-contact]");

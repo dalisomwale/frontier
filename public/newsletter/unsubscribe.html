@@ -23,8 +23,8 @@
           </a>
           <div class="site-nav ml-4 mr-auto" data-site-nav aria-label="Categories"></div>
           <div class="header-auth">
-            <a id="login-link" href="/account/login" class="header-login-link">Log in</a>
-            <a id="seller-link" href="/account/register" class="header-seller-link">Register</a>
+            <a id="login-link" href="/account/login" class="header-login-link">Sign In</a>
+            <a id="seller-link" href="/account/register" class="header-seller-link">Create Account</a>
           </div>
         </div>
       </div>
@@ -39,27 +39,27 @@
       const box = document.getElementById("box");
       const token = new URLSearchParams(location.search).get("token") || "";
       const paint = (html) => { box.innerHTML = html; };
-      const home = `<a href="/" class="acc-mini-btn mt-4 inline-block">Back to the marketplace</a>`;
+      const home = `<a href="/" class="acc-mini-btn mt-4 inline-block">Back To The Marketplace</a>`;
 
       function askToLeave(email) {
         paint(`<h1 class="text-xl font-bold text-gray-900">Unsubscribe from our newsletter?</h1>
           <p class="text-gray-600 mt-2"><b>${escapeHtml(email)}</b> will stop getting Frontier Marketplace news and promotions. Emails about your orders and account still arrive as usual.</p>
-          <div class="flex flex-wrap justify-center gap-3 mt-5"><button type="button" class="acc-btn" data-go>Unsubscribe</button><a href="/" class="acc-mini-btn">Keep me subscribed</a></div>`);
+          <div class="flex flex-wrap justify-center gap-3 mt-5"><button type="button" class="acc-btn" data-go>Unsubscribe</button><a href="/" class="acc-mini-btn">Keep Me Subscribed</a></div>`);
         box.querySelector("[data-go]").addEventListener("click", (e) => act(e.currentTarget, "unsubscribe"));
       }
       function left(email) {
-        paint(`<h1 class="text-xl font-bold text-gray-900">You're unsubscribed</h1>
+        paint(`<h1 class="text-xl font-bold text-gray-900">You're Unsubscribed</h1>
           <p class="text-gray-600 mt-2">We won't send newsletters to <b>${escapeHtml(email)}</b> any more. Sorry to see you go.</p>
           <p class="text-sm text-gray-500 mt-4">Changed your mind?</p>
-          <div class="flex flex-wrap justify-center gap-3 mt-2"><button type="button" class="acc-btn" data-go>Subscribe again</button>${home}</div>`);
+          <div class="flex flex-wrap justify-center gap-3 mt-2"><button type="button" class="acc-btn" data-go>Subscribe Again</button>${home}</div>`);
         box.querySelector("[data-go]").addEventListener("click", (e) => act(e.currentTarget, "resubscribe"));
       }
       function back(email) {
-        paint(`<h1 class="text-xl font-bold text-gray-900">Welcome back</h1>
+        paint(`<h1 class="text-xl font-bold text-gray-900">Welcome Back</h1>
           <p class="text-gray-600 mt-2"><b>${escapeHtml(email)}</b> is subscribed to Frontier Marketplace news again.</p>${home}`);
       }
       function failed(message) {
-        paint(`<h1 class="text-xl font-bold text-gray-900">Link not recognised</h1><p class="text-gray-600 mt-2">${escapeHtml(message)}</p>${home}`);
+        paint(`<h1 class="text-xl font-bold text-gray-900">Link Not Recognised</h1><p class="text-gray-600 mt-2">${escapeHtml(message)}</p>${home}`);
       }
       async function act(button, what) {
         button.disabled = true;

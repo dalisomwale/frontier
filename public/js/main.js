@@ -73,7 +73,7 @@ function showNotification(message, type = "info") {
     success: "bg-green-600",
     error: "bg-red-600",
     warning: "bg-yellow-500",
-    info: "bg-blue-600",
+    info: "bg-green-800",
   };
   const note = document.createElement("div");
   note.setAttribute("role", type === "error" ? "alert" : "status");
@@ -141,7 +141,7 @@ function createPagination(currentPage, totalPages, onPageChange) {
     btn.textContent = label;
     btn.disabled = disabled;
     btn.className = `px-4 py-2 border rounded-lg disabled:opacity-50 ${
-      active ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 bg-white hover:bg-gray-50"
+      active ? "bg-green-800 text-white border-green-800" : "border-gray-300 bg-white hover:bg-gray-50"
     }`;
     if (active) btn.setAttribute("aria-current", "page");
     btn.addEventListener("click", () => onPageChange(page));
@@ -167,7 +167,7 @@ function confirmAction({
     const overlay = document.createElement("div");
     overlay.className = "fixed inset-0 z-[150] flex items-center justify-center bg-black bg-opacity-50 p-4";
     const confirmClass =
-      variant === "danger" ? "bg-red-600 hover:bg-red-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white";
+      variant === "danger" ? "bg-red-600 hover:bg-red-700 text-white" : "bg-green-800 hover:bg-green-900 text-white";
 
     overlay.innerHTML = `
       <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6" role="dialog" aria-modal="true" aria-labelledby="confirm-action-title">
@@ -239,7 +239,7 @@ function renderSiteFooter() {
     band.setAttribute("aria-labelledby", "news-title");
     band.innerHTML = `
       <div class="news-band-inner">
-        <h2 id="news-title">Subscribe to our newsletter</h2>
+        <h2 id="news-title">Subscribe To Our Newsletter</h2>
         <p class="news-band-sub">News, promotions and fresh livestock and feed, straight to your inbox.</p>
         <form class="news-band-form" data-news-form novalidate>
           <div class="news-band-row">
@@ -269,7 +269,7 @@ function renderSiteFooter() {
           ${link("/#feed", "Animal Feed")}
         </nav>
         <nav class="site-footer-col" aria-label="Work with us">
-          <h2>Work with us</h2>
+          <h2>Work With Us</h2>
           ${link("/seller/register", "Register as a seller")}
           ${link("/seller/login", "Seller sign in")}
           ${link("/transport/register", "Register as a transport provider")}
@@ -284,7 +284,7 @@ function renderSiteFooter() {
           ${link("/cancellation-policy", "Cancellation Policy")}
         </nav>
         <div class="site-footer-col site-footer-contact">
-          <h2>Contact us</h2>
+          <h2>Contact Us</h2>
           <a href="mailto:info@frontierfc.co.zm">info@frontierfc.co.zm</a>
           <a href="tel:+260974129569">+260 974 129 569</a>
           <a href="tel:+260974594174">+260 974 594 174</a>

@@ -256,7 +256,7 @@
             body: o.handed_over_at
               ? by(o.handed_over_by || "-", o.handed_over_at)
               : o.can_hand_over
-                ? `<form data-handover><p class="tl-body-line">${o.seller_id ? "Waiting for the seller. You can also do it here." : "Completes the order."}</p><button type="submit" class="acc-btn mt-2" style="width:auto">Mark as handed over</button></form>`
+                ? `<form data-handover><p class="tl-body-line">${o.seller_id ? "Waiting for the seller. You can also do it here." : "Completes the order."}</p><button type="submit" class="acc-btn mt-2" style="width:auto">Mark As Handed Over</button></form>`
                 : "" });
           if (o.seller_id) {
             steps.push({ name: "Seller paid", done: Boolean(o.seller_paid_at), date: o.seller_paid_at,
@@ -271,7 +271,7 @@
                        <p class="field-label mt-3">Proof of payment <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 4 photos or PDFs)</span></p>
                        <div class="acc-ph-grid" data-photos style="max-width:520px">${o.can_pay_seller ? "" : `<span class="acc-ph-add is-off">${uiIcon("camera")}<span>Add photo or PDF</span></span>`}</div>
                        <p class="field-error hidden" data-error-for="images"></p>
-                       <button type="submit" class="acc-btn mt-3" style="width:auto"${o.can_pay_seller ? "" : " disabled"}>Mark seller paid</button>
+                       <button type="submit" class="acc-btn mt-3" style="width:auto"${o.can_pay_seller ? "" : " disabled"}>Mark Seller Paid</button>
                      </form>`
                   : "" });
           }
@@ -553,7 +553,7 @@
         if (titleEl) titleEl.textContent = `${o.reference} · ${o.livestock_title}`;
         const lot = o.price_unit === "lot";
         const listingLink = o.livestock_id && o.listing_status === "published"
-          ? `<a href="/listing?id=${o.livestock_id}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">${escapeHtml(o.livestock_title)}</a>`
+          ? `<a href="/listing?id=${o.livestock_id}" target="_blank" rel="noopener" class="text-green-800 hover:underline">${escapeHtml(o.livestock_title)}</a>`
           : `${escapeHtml(o.livestock_title)} <span class="text-gray-400">${o.livestock_id ? "(not on the website)" : "(listing deleted)"}</span>`;
 
         const when = (v) => (v ? escapeHtml(formatDate(v)) : "");
@@ -565,7 +565,7 @@
         const rrow = (label, value) => (value ? `<div class="txd-row"><dt>${label}</dt><dd>${value}</dd></div>` : "");
         const checkPay = o.checkout_payment && o.checkout_payment.can_check && o.payment_status !== "paid" && o.status !== "cancelled"
           ? `<div class="order-check-pay">
-               <button type="button" data-check-pay class="btn-secondary" style="padding:.5rem .9rem;font-size:.85rem">Check payment with Lipila</button>
+               <button type="button" data-check-pay class="btn-secondary" style="padding:.5rem .9rem;font-size:.85rem">Check Payment With Lipila</button>
                <span>Asks Lipila now. If it was paid, the order is marked Paid and the buyer and seller are emailed.</span>
              </div>`
           : "";

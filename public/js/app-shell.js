@@ -84,7 +84,7 @@ function renderSidebar(active) {
     { key: "dashboard", href: "/admin/", icon: "dashboard", label: "Dashboard" },
     // What's for sale, and how it's sorted.
     { section: "Catalogue" },
-    { key: "livestock", href: "/admin/livestock", icon: "listings", label: "Manage Listing", crumb: "Livestock" },
+    { key: "livestock", href: "/admin/livestock", icon: "listings", label: "Manage Livestock", crumb: "Livestock" },
     { key: "feed", href: "/admin/livestock?kind=feed", icon: "feed", label: "Manage Feed", crumb: "Feed" },
     {
       key: "categories", href: "/admin/categories", icon: "layers", label: "Categories & Purposes",
@@ -140,7 +140,7 @@ function renderSidebar(active) {
     </nav>
     <div class="app-sidebar-footer">
       <p id="sidebar-admin-name" class="text-xs px-3 pb-2 truncate" style="color: var(--sidebar-text)"></p>
-      <button type="button" data-logout>${uiIcon("logout")}<span>Logout</span></button>
+      <button type="button" data-logout>${uiIcon("logout")}<span>Sign Out</span></button>
     </div>`;
 }
 

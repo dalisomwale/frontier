@@ -24,7 +24,7 @@
     <main class="app-content-shifted tx-page-wide mx-auto px-3 sm:px-4 py-6">
       <div class="mb-6">
         <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Feedback</h1>
-        <p class="text-sm text-gray-500 mt-1">Buyers' ratings of Frontier Marketplace (after self-collection or delivery) and of transport providers. Hidden ratings stay on record but don't count in the averages.</p>
+        <p class="text-sm text-gray-500 mt-1">Ratings from buyers, for Frontier and for transport providers.</p>
       </div>
       <div class="tx-totals" id="totals"></div>
       <div class="bg-white rounded-xl border border-gray-100">
@@ -40,7 +40,7 @@
     <script>
       const state = { type: "platform", rows: [], summary: {} };
       function renderTabs() {
-        document.getElementById("tabs").innerHTML = [["platform", "Frontier Marketplace"], ["provider", "Transport providers"]].map(([v, l]) => `<button type="button" data-tab="${v}" class="${state.type === v ? "active" : ""}">${l}</button>`).join("");
+        document.getElementById("tabs").innerHTML = [["platform", "Frontier Marketplace"], ["provider", "Transport Providers"]].map(([v, l]) => `<button type="button" data-tab="${v}" class="${state.type === v ? "active" : ""}">${l}</button>`).join("");
         document.querySelectorAll("#tabs [data-tab]").forEach((b) => b.addEventListener("click", () => { state.type = b.dataset.tab; renderTabs(); load(); }));
       }
       async function load() {

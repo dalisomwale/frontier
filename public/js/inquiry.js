@@ -39,11 +39,11 @@ function openInquiryModal(listing) {
     <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="inquiry-title">
       <div class="flex items-start justify-between gap-3 p-5 pb-4 border-b border-gray-100">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-14 h-14 rounded-lg overflow-hidden bg-blue-50 flex-shrink-0">
+          <div class="w-14 h-14 rounded-lg overflow-hidden bg-green-50 flex-shrink-0">
             ${thumb ? `<img src="${escapeHtml(thumb)}" alt="" class="w-full h-full object-cover">` : livestockFallbackMedia("w-9 h-9")}
           </div>
           <div class="min-w-0">
-            <p class="text-xs font-semibold uppercase tracking-wide text-blue-600">Inquiry About</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-green-800">Inquiry About</p>
             <h2 id="inquiry-title" class="text-base font-bold text-gray-900 leading-snug line-clamp-2">${escapeHtml(listing.title)}</h2>
             ${subtitle ? `<p class="text-xs text-gray-500 mt-0.5">${escapeHtml(subtitle)}</p>` : ""}
           </div>
@@ -185,7 +185,7 @@ function openInquiryModal(listing) {
         </div>
         <h2 class="text-lg font-bold text-gray-900 mb-2">Your inquiry has been sent successfully.</h2>
         <p class="text-sm text-gray-600 mb-6">We'll be in touch shortly.</p>
-        <button type="button" data-close class="w-full sm:w-auto bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 font-semibold">Done</button>
+        <button type="button" data-close class="w-full sm:w-auto bg-green-800 text-white px-8 py-3 rounded-lg hover:bg-green-900 font-semibold">Done</button>
       </div>`;
     const done = backdrop.querySelector("[data-close]");
     done.addEventListener("click", close);

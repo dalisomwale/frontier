@@ -51,5 +51,5 @@ function uiIcon(name) {
 }
 
 function livestockFallbackMedia(extraClass = "w-16 h-16") {
-  return `<div class="w-full h-full flex items-center justify-center bg-blue-50"><span class="species-icon ${extraClass}">${UI_ICON_SVG.cattle}</span></div>`;
+  return `<div class="w-full h-full flex items-center justify-center bg-green-50"><span class="species-icon ${extraClass}">${UI_ICON_SVG.cattle}</span></div>`;
 }

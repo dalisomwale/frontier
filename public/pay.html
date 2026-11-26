@@ -53,15 +53,15 @@
 
       function showPaid(p) {
         card(`<div class="order-done-icon" style="margin:0 auto">${tick}</div>
-          <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Payment received</h1>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Payment Received</h1>
           <p class="text-sm text-gray-600 mt-2">Order ${escapeHtml(p.reference)} (${escapeHtml(p.title)}) is paid. We'll contact you to arrange collection.</p>
-          <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-6">Back to listings</a>`);
+          <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-6">Back To Listings</a>`);
       }
 
       function showWaiting(p) {
         clearTimeout(timer);
         card(`<div class="pay-phone">${phoneIcon}</div>
-          <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Check your phone</h1>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Check Your Phone</h1>
           <p class="text-sm text-gray-600 mt-2">Enter your PIN on your phone to approve it.</p>
           <p class="pay-wait-status mt-5"><span class="btn-spinner"></span> <span>Waiting for your approval…</span></p>
           <p class="text-xs text-gray-500 mt-5">Please keep this page open.</p>`);
@@ -131,7 +131,7 @@
             title: "We couldn't find this payment",
             message: "The link may be incomplete. Reply to the email we sent you and we'll help.",
             icon: "alert",
-            action: `<a href="/#listings" class="inline-block mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 font-medium">Back to listings</a>`,
+            action: `<a href="/#listings" class="inline-block mt-4 bg-green-800 text-white px-5 py-2.5 rounded-lg hover:bg-green-900 font-medium">Back to listings</a>`,
           });
         }
       });
@@ -176,8 +176,8 @@
           if (!c.online) {
             return page(`${head(c, "Order placed")}${items(c)}
               <p class="pay-text">Thank you, ${escapeHtml(c.first_name)}. Your items are reserved. Our team will contact you on WhatsApp to complete the mobile money payment.</p>
-              ${c.delivery_option === "transport" ? `<a href="/account/?tab=orders" class="btn-checkout btn-lg w-full mt-5">Follow your delivery</a>` : ""}
-          <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to listings</a>`, 3);
+              ${c.delivery_option === "transport" ? `<a href="/account/?tab=orders" class="btn-checkout btn-lg w-full mt-5">Follow Your Delivery</a>` : ""}
+          <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back To Listings</a>`, 3);
           }
           if (c.closed) {
             return page(`${head(c, "This order is closed")}${items(c)}<p class="pay-text">There's nothing left to pay on this order. Questions? Email <a class="underline" href="mailto:info@frontierfc.co.zm">info@frontierfc.co.zm</a>.</p>`);
@@ -239,7 +239,7 @@
         function waiting(c) {
           page(`<div class="text-center">
             <div class="pay-phone" style="margin:0 auto">${phoneIcon}</div>
-            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Check your phone</h1>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Check Your Phone</h1>
             <p class="text-sm text-gray-600 mt-2">Enter your PIN on your phone to approve it.</p>
             <p class="pay-wait-status mt-5"><span class="btn-spinner"></span> <span data-wait-text>${c.checking ? "We're confirming your payment with the provider…" : "Waiting for your approval…"}</span></p>
             ${c.checking ? `<p class="text-sm text-gray-600 mt-4">If money has left your account, please don't pay again. We'll email you as soon as it's confirmed.</p>` : ""}
@@ -293,12 +293,12 @@
           const transport = c.delivery_option === "transport" && (c.transport || []).length;
           page(`<div class="text-center">
             <div class="order-done-icon" style="margin:0 auto">${tick}</div>
-            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Payment received</h1>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Payment Received</h1>
             <p class="text-sm text-gray-600 mt-2">${kwacha(c.total)} · ${escapeHtml(c.reference)}. ${transport ? "You can follow your delivery right here." : "We'll contact you to arrange collection."}</p>
           </div>
           ${transport ? `<div class="pay-track" data-tracker>${tracker(c)}</div>` : ""}
           ${transport ? `<details class="pay-details mt-4"><summary>${c.items.length} item${c.items.length === 1 ? "" : "s"} in this order</summary>${items(c)}</details>` : items(c)}
-          <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back to listings</a>`, 3);
+          <a href="/#listings" class="btn-contact btn-inquire btn-lg w-full mt-5">Back To Listings</a>`, 3);
           if (!transport) return;
           // Keep the tracker current while the page is open (every 15 seconds,
           // paused when the tab isn't visible), until every delivery is done.
@@ -321,8 +321,8 @@
         const lockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>`;
         const otherWays = (c, current) => {
           const links = [];
-          if (current !== "mobile_money" && c.methods.includes("mobile_money")) links.push(`<button type="button" class="pay-alt" data-switch="mobile_money">Pay with mobile money instead</button>`);
-          if (current !== "card" && c.methods.includes("card")) links.push(`<button type="button" class="pay-alt" data-switch="card">Pay by Visa / Mastercard instead</button>`);
+          if (current !== "mobile_money" && c.methods.includes("mobile_money")) links.push(`<button type="button" class="pay-alt" data-switch="mobile_money">Pay With Mobile Money Instead</button>`);
+          if (current !== "card" && c.methods.includes("card")) links.push(`<button type="button" class="pay-alt" data-switch="card">Pay By Visa / Mastercard Instead</button>`);
           return links.join("");
         };
         function bindSwitch(c) {
@@ -398,7 +398,7 @@
         function cardChecking(c) {
           page(`<div class="text-center">
             <div class="pay-phone" style="margin:0 auto">${lockIcon}</div>
-            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Checking your payment</h1>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mt-4">Checking Your Payment</h1>
             <p class="text-sm text-gray-600 mt-2">We're confirming your card payment of <b>${kwacha(c.total)}</b>.</p>
             <p class="pay-wait-status mt-5"><span class="btn-spinner"></span> <span>Checking…</span></p>
             <p class="text-xs text-gray-500 mt-5">Please keep this page open.</p>
@@ -438,7 +438,7 @@
                 ? "The link may be incomplete. Reply to the email we sent you and we'll help."
                 : error.status === 0 ? "Please check your internet connection and refresh this page." : `${error.message} Please refresh this page in a moment; your order has been saved.`,
               icon: "alert",
-              action: `<a href="/#listings" class="inline-block mt-4 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 font-medium">Back to listings</a>`,
+              action: `<a href="/#listings" class="inline-block mt-4 bg-green-800 text-white px-5 py-2.5 rounded-lg hover:bg-green-900 font-medium">Back to listings</a>`,
             });
           }
         });

@@ -28,10 +28,10 @@
     <main class="app-content-shifted tx-page-wide mx-auto px-3 sm:px-4 py-6">
       <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transport providers</h1>
-          <p class="text-sm text-gray-500 mt-1">Approve providers and set how far each one covers. Only approved, active providers with coverage switched on receive requests.</p>
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transport Providers</h1>
+          <p class="text-sm text-gray-500 mt-1">Approve providers and set how far each one covers.</p>
         </div>
-        <button type="button" id="add-provider" class="acc-btn" style="width:auto">Add Transport Provider</button>
+        <button type="button" id="add-provider" class="inline-flex items-center gap-2 bg-green-800 text-white px-4 py-2.5 rounded-lg hover:bg-green-900 font-semibold"><span class="w-5 h-5" data-icon="plus"></span> Add Transport Provider</button>
       </div>
       <div class="bg-white rounded-xl border border-gray-100">
         <div class="tx-filters">
@@ -108,7 +108,7 @@
         const cargoLabel = (k) => (cargoTypes.find((c) => c.key === k) || { label: k }).label;
         const actions = [
           p.status === "pending" ? `<button type="button" class="acc-btn" data-status="approve">Approve</button><button type="button" class="acc-mini-btn text-red-700" data-status="reject">Reject</button>` : "",
-          p.status === "rejected" ? `<button type="button" class="acc-btn" data-status="approve">Approve after all</button>` : "",
+          p.status === "rejected" ? `<button type="button" class="acc-btn" data-status="approve">Approve After All</button>` : "",
           p.status === "approved" ? `<button type="button" class="acc-mini-btn text-red-700" data-status="suspend">Suspend</button>` : "",
           p.status === "suspended" ? `<button type="button" class="acc-btn" data-status="reinstate">Reinstate</button>` : "",
           `<button type="button" class="acc-mini-btn" data-active>${p.is_active ? "Deactivate" : "Activate"}</button>`,
@@ -127,7 +127,7 @@
                 <div class="flex flex-wrap items-end gap-4 mt-3">
                   <div><label class="field-label" for="cv-km">Maximum distance (km by road)</label><input id="cv-km" name="coverage_km" type="number" min="1" max="3000" step="1" class="field-input" style="max-width:160px" value="${p.coverage_km ?? ""}"><p class="field-error hidden" data-error-for="coverage_km"></p></div>
                   <label class="tp-switch"><input type="checkbox" name="coverage_active" ${p.coverage_active ? "checked" : ""}><span>Coverage on</span></label>
-                  <button type="submit" class="acc-btn" style="width:auto">Save coverage</button>
+                  <button type="submit" class="acc-btn" style="width:auto">Save Coverage</button>
                 </div>
                 <div class="mt-4" data-map></div>
                 <p class="text-xs text-gray-500 mt-2">The circle shows the coverage distance in a straight line, as a guide. Eligibility is always checked by road.</p>
@@ -150,7 +150,7 @@
                   <p class="text-xs text-gray-500">${d.last_login_at ? `Signed in ${escapeHtml(formatDateShort(d.last_login_at))}` : d.has_code ? "Not signed in yet" : "No sign-in code yet"}</p>
                   <div class="tr-actions mt-2"><button type="button" class="acc-mini-btn" data-edit-driver="${d.id}">Edit</button><button type="button" class="acc-mini-btn" data-driver-code="${d.id}">${d.has_code ? "New Sign-In Code" : "Get Sign-In Code"}</button><button type="button" class="acc-mini-btn" data-driver-on="${d.id}">${d.is_active ? "Switch Off" : "Switch On"}</button></div>
                 </div></div>`).join("")}</div>` : `<p class="text-sm text-gray-600">No drivers yet.</p>`}</div>` : ""}
-              <div class="acc-card"><h2 class="txd-card-title">Delivery history</h2>${p.history.length ? `<table class="admin-table"><tbody>${p.history.map((b) => `<tr class="cursor-pointer" data-booking="${b.id}"><td class="font-semibold">${escapeHtml(b.reference)}</td><td>${escapeHtml(b.from)} → ${escapeHtml(b.to)}</td><td>${trPill(b)}</td><td class="whitespace-nowrap">${kwacha(b.provider_earning)}</td></tr>`).join("")}</tbody></table>` : `<p class="text-sm text-gray-600">No deliveries yet.</p>`}</div>
+              <div class="acc-card"><h2 class="txd-card-title">Delivery History</h2>${p.history.length ? `<table class="admin-table"><tbody>${p.history.map((b) => `<tr class="cursor-pointer" data-booking="${b.id}"><td class="font-semibold">${escapeHtml(b.reference)}</td><td>${escapeHtml(b.from)} → ${escapeHtml(b.to)}</td><td>${trPill(b)}</td><td class="whitespace-nowrap">${kwacha(b.provider_earning)}</td></tr>`).join("")}</tbody></table>` : `<p class="text-sm text-gray-600">No deliveries yet.</p>`}</div>
             </div>
             <div class="space-y-4 min-w-0">
               <div class="acc-card"><h2 class="txd-card-title">Details</h2><dl class="sv-facts">
@@ -176,7 +176,7 @@
                 <div><dt>Average trip</dt><dd>${perf.avg_trip_min !== null ? `${trDuration(perf.avg_trip_min)} (route estimate ${trDuration(perf.avg_route_min)})` : "-"}</dd></div>
                 <div><dt>Owed / paid</dt><dd>${kwacha(perf.owed)} / ${kwacha(perf.paid)}</dd></div>
               </dl></div>
-              <div class="acc-card"><h2 class="txd-card-title">Ratings from buyers</h2>${p.rating_list.length ? p.rating_list.map((r) => `<div class="tr-ev"><header><span>${trStarsHtml(r.stars)}</span><span>${escapeHtml(r.reference)} · ${escapeHtml(formatDateShort(r.created_at))}</span></header>${r.feedback ? `<p class="tr-ev-note">"${escapeHtml(r.feedback)}"</p>` : ""}<button type="button" class="acc-mini-btn mt-2" data-rating="${r.id}" data-hide="${r.hidden ? 0 : 1}">${r.hidden ? "Show again" : "Hide"}</button>${r.hidden ? ` <small class="text-gray-500">Hidden: not counted</small>` : ""}</div>`).join("") : `<p class="text-sm text-gray-600">No ratings yet.</p>`}</div>
+              <div class="acc-card"><h2 class="txd-card-title">Ratings From Buyers</h2>${p.rating_list.length ? p.rating_list.map((r) => `<div class="tr-ev"><header><span>${trStarsHtml(r.stars)}</span><span>${escapeHtml(r.reference)} · ${escapeHtml(formatDateShort(r.created_at))}</span></header>${r.feedback ? `<p class="tr-ev-note">"${escapeHtml(r.feedback)}"</p>` : ""}<button type="button" class="acc-mini-btn mt-2" data-rating="${r.id}" data-hide="${r.hidden ? 0 : 1}">${r.hidden ? "Show again" : "Hide"}</button>${r.hidden ? ` <small class="text-gray-500">Hidden: not counted</small>` : ""}</div>`).join("") : `<p class="text-sm text-gray-600">No ratings yet.</p>`}</div>
             </div>
           </div>`;
         const refresh = () => { openProvider(p.id, { replace: true }); load(); };

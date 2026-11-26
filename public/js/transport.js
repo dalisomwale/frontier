@@ -37,7 +37,7 @@ function transportPageHeader() {
 }
 
 async function transportLogout() {
-  if (!(await confirmAction({ title: "Log out?", message: "You'll need to sign in again to see your deliveries.", confirmText: "Log out" }))) return;
+  if (!(await confirmAction({ title: "Sign out?", message: "You'll need to sign in again to see your deliveries.", confirmText: "Sign Out" }))) return;
   try {
     await transportApi("/api/transport/auth/logout", { method: "POST" });
   } finally {
@@ -47,7 +47,7 @@ async function transportLogout() {
 
 const TRANSPORT_NAV = [
   { key: "requests", icon: "inbox", label: "Requests", short: "Requests", badge: "requests" },
-  { key: "deliveries", icon: "truck", label: "My deliveries", short: "Deliveries", badge: "active" },
+  { key: "deliveries", icon: "truck", label: "My Deliveries", short: "Deliveries", badge: "active" },
   { key: "vehicles", icon: "listings", label: "Vehicles", short: "Vehicles", section: "Setup", owner: true },
   { key: "drivers", icon: "users", label: "Drivers", short: "Drivers", owner: true, company: true },
   { key: "ratings", icon: "star", label: "Ratings", short: "Ratings", section: "Account" },
@@ -78,13 +78,13 @@ function renderTransportShell(p) {
     </nav>
     <div class="app-sidebar-footer">
       <p class="text-xs px-3 pb-2 truncate" style="color: var(--sidebar-text)">Signed in as ${escapeHtml(p.role === "driver" && p.driver ? `${p.driver.name} · ${p.name}` : p.name)}</p>
-      <button type="button" data-transport-logout>${uiIcon("logout")}<span>Logout</span></button>
+      <button type="button" data-transport-logout>${uiIcon("logout")}<span>Sign Out</span></button>
     </div>`;
   document.getElementById("transport-topbar").innerHTML = `
     <nav id="page-topnav" class="site-topnav sticky top-0 z-50">
       <div class="px-4 sm:px-6 h-16 flex justify-between items-center">
         <a href="/transport/" class="flex items-center gap-3"><div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div><span class="font-bold site-topnav-name">Transport</span></a>
-        <button type="button" data-transport-logout class="lg:hidden site-topnav-back px-3 py-2">Log out</button>
+        <button type="button" data-transport-logout class="lg:hidden site-topnav-back px-3 py-2">Sign Out</button>
       </div>
     </nav>`;
   const bottom = document.getElementById("app-bottom-nav");
