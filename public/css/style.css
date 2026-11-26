@@ -7575,24 +7575,30 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .co-size .tp-van { max-width: 96px; margin: 0 auto 4px; }
 .co-size em { margin-top: 2px; }
 
-/* Checkout: plain choices (no cards) under a heading: a radio dot, a small
-   still drawing or logo, and the name. */
-.co-opts { display: flex; flex-wrap: wrap; gap: 10px 28px; align-items: center; }
-.co-opt { position: relative; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; font-weight: 600; color: #374151; }
+/* Checkout: one card (the buyer, Mode Of Collection, Choose Payment Method)
+   split by lines. Each choice: its drawing or logo on top, then a radio dot
+   and the name. Nothing moves. */
+.co-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; }
+#checkout-form .co-card > .checkout-section { border: 0; border-radius: 0; background: none; }
+#checkout-form .co-card > .checkout-section + .checkout-section { border-top: 1px solid #eef0ec; }
+.co-opts { display: flex; flex-direction: column; }
+.co-opt { position: relative; display: flex; align-items: center; gap: 14px; padding: 10px 0; cursor: pointer; font-size: 14px; font-weight: 600; color: #374151; }
+.co-opt + .co-opt { border-top: 1px solid #f1f2ef; }
 .co-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.co-opt-name { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.3; }
 .co-opt-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #d1d5db; flex-shrink: 0; transition: border-color .15s; }
-.co-opt input:checked + .co-opt-dot { border-color: #166534; background: radial-gradient(circle, #166534 45%, transparent 50%); }
-.co-opt input:focus-visible + .co-opt-dot { outline: 2px solid #65a30d; outline-offset: 2px; }
-.co-opt:has(input:checked) { color: #111827; }
-.co-opt-art { display: block; width: 64px; flex-shrink: 0; }
+.co-opt:has(input:checked) .co-opt-dot { border-color: #166534; background: radial-gradient(circle, #166534 45%, transparent 50%); }
+.co-opt:has(input:focus-visible) .co-opt-dot { outline: 2px solid #65a30d; outline-offset: 2px; }
+.co-opt:has(input:checked) { color: #166534; }
+.co-opt-art, .co-pay-opts .op-mark { display: flex; align-items: center; justify-content: center; width: 64px; height: 32px; flex-shrink: 0; }
 .co-opt-art .tp-van { max-width: 64px; margin: 0; }
 .co-opt-art .tp-van-road { display: none; }
 .co-opt:not(:has(input:checked)) .co-opt-art { filter: grayscale(1); opacity: .55; }
-.co-opt-label { display: flex; flex-direction: column; line-height: 1.25; }
 .co-opt.is-off { cursor: not-allowed; opacity: .55; }
-.co-opt .co-off { font-weight: 400; }
-.co-pay-opts .op-mark { display: none; align-items: center; gap: 4px; }
-.co-pay-opts.has-logos .op-mark { display: inline-flex; }
-.co-pay-opts .op-logo { width: auto; height: 24px; max-width: 48px; border-radius: 3px; }
+.co-opt .co-off { font-size: 12px; font-weight: 400; color: #6b7280; }
+.co-pay-opts .op-mark { gap: 4px; visibility: hidden; }
+.co-pay-opts.has-logos .op-mark { visibility: visible; }
+.co-pay-opts .op-logo { width: auto; height: 26px; max-width: 40px; border-radius: 3px; }
 .co-pay-opts .op-logo.is-loaded { display: block; }
-.co-pay-opts.has-logos .op-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* The buyer: a plain row in the card, not a box of its own. */
+#checkout-form .co-card .co-who { padding: 0; border: 0; background: none; }

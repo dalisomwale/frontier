@@ -107,6 +107,7 @@
           <form id="checkout-form" class="checkout" novalidate>
             <div class="checkout-main">
               <div id="co-alert" class="hidden alert alert-error text-sm" role="alert"></div>
+              <div class="co-card">
               <section class="checkout-section">
                 <div class="co-who">
                   <span class="acc-av">${escapeHtml(buyerInitials(buyer.full_name))}</span>
@@ -130,10 +131,10 @@
               <section class="checkout-section co-delivery">
                 <h2>Mode Of Collection</h2>
                 <div class="co-opts" role="radiogroup" aria-label="Mode of collection">
-                  <label class="co-opt"><input type="radio" name="delivery_option" value="collect" checked><span class="co-opt-dot" aria-hidden="true"></span>
-                    <span class="co-opt-art">${trCollectArt()}</span><span class="co-opt-label">Self-Collection</span></label>
-                  <label class="co-opt${transportOn ? "" : " is-off"}"${transportOn ? "" : ` title="${escapeHtml(quote.transport.reason || "Not available right now")}"`}><input type="radio" name="delivery_option" value="transport" ${transportOn ? "" : "disabled"}><span class="co-opt-dot" aria-hidden="true"></span>
-                    <span class="co-opt-art">${trVehicleArt("small")}</span><span class="co-opt-label">Book Delivery${transportOn ? "" : `<small class="co-off">${escapeHtml(quote.transport.reason || "Not available right now")}</small>`}</span></label>
+                  <label class="co-opt"><input type="radio" name="delivery_option" value="collect" checked>
+                    <span class="co-opt-art">${trCollectArt()}</span><span class="co-opt-name">Self-Collection</span><span class="co-opt-dot" aria-hidden="true"></span></label>
+                  <label class="co-opt${transportOn ? "" : " is-off"}"${transportOn ? "" : ` title="${escapeHtml(quote.transport.reason || "Not available right now")}"`}><input type="radio" name="delivery_option" value="transport" ${transportOn ? "" : "disabled"}>
+                    <span class="co-opt-art">${trVehicleArt("small")}</span><span class="co-opt-name">Book Delivery${transportOn ? "" : `<small class="co-off">${escapeHtml(quote.transport.reason || "Not available right now")}</small>`}</span><span class="co-opt-dot" aria-hidden="true"></span></label>
                 </div>
                 <p class="field-error hidden" data-error-for="delivery_option"></p>
                 <div class="co-delivery-panel" data-transport-panel hidden>
@@ -178,8 +179,8 @@
                 <h2>Choose Payment Method</h2>
                 ${methods.length ? `
                 <div class="co-opts co-pay-opts" data-logo-group role="radiogroup" aria-label="Payment method">
-                  ${payTiles().map(([key, name]) => `<label class="co-opt op-${key}" title="${escapeHtml(name)}"><input type="radio" name="mobile_operator" value="${key}"><span class="co-opt-dot" aria-hidden="true"></span>
-                    <span class="op-mark">${(key === "card" ? ["visa", "mastercard"] : [key]).map((l) => payLogo(l, "", "op-logo")).join("")}</span><span class="op-name">${escapeHtml(key === "card" ? name : name.split(" ")[0])}</span></label>`).join("")}
+                  ${payTiles().map(([key, name]) => `<label class="co-opt op-${key}" title="${escapeHtml(name)}"><input type="radio" name="mobile_operator" value="${key}">
+                    <span class="op-mark">${(key === "card" ? ["visa", "mastercard"] : [key]).map((l) => payLogo(l, "", "op-logo")).join("")}</span><span class="co-opt-name">${escapeHtml(key === "card" ? "Visa / Mastercard" : name)}</span><span class="co-opt-dot" aria-hidden="true"></span></label>`).join("")}
                 </div>
                 <p class="field-error hidden" data-error-for="mobile_operator"></p>` : `<p class="text-sm text-gray-600">Our team will contact you to arrange payment.</p>`}
 
@@ -207,6 +208,7 @@
                   <div data-card-slot></div>
                 </div>` : ""}
               </section>
+              </div>
 
               <div class="co-terms">
                 <label class="co-terms-box">
