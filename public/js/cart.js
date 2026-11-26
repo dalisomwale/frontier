@@ -233,8 +233,6 @@ function showPayLogos(scope) {
       imgs.forEach((img) => img.classList.add("is-loaded"));
       group.hidden = false;
       group.classList.add("has-logos");
-      const choice = group.closest(".pm-choice");
-      if (choice) choice.classList.add("has-logos");
     };
     imgs.forEach((img) => {
       const missing = () => {

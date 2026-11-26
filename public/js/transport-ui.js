@@ -823,7 +823,7 @@ document.addEventListener("change", (e) => {
 });
 
 // Self-collection at checkout: a buyer carrying a crate away from the farm,
-// drawn like the vehicles (walks while chosen).
+// drawn like the vehicles.
 function trCollectArt() {
   const G = "#166534", G2 = "#15803d", GL = "#dcfce7", T = "#374151";
   return `<svg class="tp-van" viewBox="0 0 120 48" aria-hidden="true" focusable="false">

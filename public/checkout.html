@@ -128,16 +128,12 @@
               </section>
 
               <section class="checkout-section co-delivery">
-                <h2>Delivery</h2>
-                <div class="pm-choices" role="radiogroup" aria-label="How you'd like to receive your order">
-                  <label class="pm-choice"><input type="radio" name="delivery_option" value="collect" checked>
-                    <span class="co-art">${trCollectArt()}</span>
-                    <span class="pm-text"><b>Self-Collection</b></span>
-                    <span class="pm-dot" aria-hidden="true"></span></label>
-                  <label class="pm-choice${transportOn ? "" : " is-off"}"${transportOn ? "" : ' title="Not available right now"'}><input type="radio" name="delivery_option" value="transport" ${transportOn ? "" : "disabled"}>
-                    <span class="co-art">${trVehicleArt("small")}</span>
-                    <span class="pm-text"><b>Transport</b>${transportOn ? "" : `<small class="co-off">${escapeHtml(quote.transport.reason || "Not available right now")}</small>`}</span>
-                    <span class="pm-dot" aria-hidden="true"></span></label>
+                <h2>Mode Of Collection</h2>
+                <div class="co-opts" role="radiogroup" aria-label="Mode of collection">
+                  <label class="co-opt"><input type="radio" name="delivery_option" value="collect" checked><span class="co-opt-dot" aria-hidden="true"></span>
+                    <span class="co-opt-art">${trCollectArt()}</span><span class="co-opt-label">Self-Collection</span></label>
+                  <label class="co-opt${transportOn ? "" : " is-off"}"${transportOn ? "" : ` title="${escapeHtml(quote.transport.reason || "Not available right now")}"`}><input type="radio" name="delivery_option" value="transport" ${transportOn ? "" : "disabled"}><span class="co-opt-dot" aria-hidden="true"></span>
+                    <span class="co-opt-art">${trVehicleArt("small")}</span><span class="co-opt-label">Book Delivery${transportOn ? "" : `<small class="co-off">${escapeHtml(quote.transport.reason || "Not available right now")}</small>`}</span></label>
                 </div>
                 <p class="field-error hidden" data-error-for="delivery_option"></p>
                 <div class="co-delivery-panel" data-transport-panel hidden>
@@ -179,10 +175,11 @@
               </section>
 
               <section class="checkout-section">
-                <h2>Payment</h2>
+                <h2>Choose Payment Method</h2>
                 ${methods.length ? `
-                <div class="operator-grid co-pay-grid ${payTiles().length === 2 ? "co-ops" : ""}" data-logo-group role="radiogroup" aria-label="How you'd like to pay">
-                  ${payTiles().map(([key, name]) => payNetworkCard(key, name, false, key === "card" ? ["visa", "mastercard"] : [key])).join("")}
+                <div class="co-opts co-pay-opts" data-logo-group role="radiogroup" aria-label="Payment method">
+                  ${payTiles().map(([key, name]) => `<label class="co-opt op-${key}" title="${escapeHtml(name)}"><input type="radio" name="mobile_operator" value="${key}"><span class="co-opt-dot" aria-hidden="true"></span>
+                    <span class="op-mark">${(key === "card" ? ["visa", "mastercard"] : [key]).map((l) => payLogo(l, "", "op-logo")).join("")}</span><span class="op-name">${escapeHtml(key === "card" ? name : name.split(" ")[0])}</span></label>`).join("")}
                 </div>
                 <p class="field-error hidden" data-error-for="mobile_operator"></p>` : `<p class="text-sm text-gray-600">Our team will contact you to arrange payment.</p>`}
 
