@@ -288,11 +288,11 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><label class="field-label">Vehicle Name</label><input data-f="vehicle_type" class="field-input" maxlength="60" placeholder="e.g. Toyota Hilux" autocomplete="off"></div>
           <div><label class="field-label">Registration Number</label><input data-f="registration" class="field-input" maxlength="30" placeholder="e.g. ABC 1234" autocomplete="off"></div>
-          <div class="sm:col-span-2"><label class="field-label">Vehicle Size</label><select data-f="size_class" data-sizes class="field-input"></select></div>
+          <div class="sm:col-span-2" data-size-pick><p class="field-label">Vehicle Size</p><input type="hidden" data-f="size_class" data-size-value><div data-sizes></div></div>
         </div>`;
       function fillSizes(root) {
-        root.querySelectorAll("[data-sizes]").forEach((sel) => {
-          if (!sel.childElementCount && options.sizes.length) sel.innerHTML = `<option value="">Choose…</option>${options.sizes.map((x) => `<option value="${x.key}">${escapeHtml(x.label)}: ${escapeHtml(x.hint)}</option>`).join("")}`;
+        root.querySelectorAll("[data-sizes]").forEach((box) => {
+          if (!box.childElementCount && options.sizes.length) box.innerHTML = trSizeCards(options.sizes, { name: trSizeName() });
         });
       }
       const renumber = () => {

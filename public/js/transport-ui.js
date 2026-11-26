@@ -755,3 +755,69 @@ function trPlaceFields({ province, district, address, picker, provinceValue, aut
   });
   return { refresh: () => d && d.refresh() };
 }
+
+// ------------------------------------------------------------ vehicle sizes
+// A small side-on drawing of each vehicle size. The wheels turn and the body
+// rocks while the card is chosen or hovered (see .tp-van in style.css).
+function trVehicleArt(key) {
+  const G = "#166534", G2 = "#15803d", G3 = "#14532d", GL = "#dcfce7", GLASS = "#e0f2fe", T = "#1f2937", LAMP = "#fde047";
+  const wheel = (cx, r) => {
+    const cy = 44 - r, h = (r * 0.45).toFixed(1);
+    return `<g class="tp-van-wheel"><circle cx="${cx}" cy="${cy}" r="${r}" fill="${T}"/><circle cx="${cx}" cy="${cy}" r="${h}" fill="#d1d5db"/><path d="M${cx - h} ${cy}h${h * 2}M${cx} ${cy - h}v${h * 2}" stroke="#6b7280" stroke-width="1"/></g>`;
+  };
+  const art = {
+    bike: {
+      body: `<rect x="35" y="17" width="14" height="11" rx="1.5" fill="${GL}" stroke="${G}" stroke-width="1.5"/>
+        <path d="M44 38L52 30H66L74 38" fill="none" stroke="${G}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M57 30Q59 24 68 25.5L66 30Z" fill="${G2}"/><rect x="49" y="26" width="11" height="3" rx="1.5" fill="${T}"/>
+        <path d="M74 38L69 23L74 21" fill="none" stroke="${T}" stroke-width="2" stroke-linecap="round"/><circle cx="72" cy="26" r="1.6" fill="${LAMP}"/>`,
+      wheels: [[44, 6], [74, 6]],
+    },
+    small: {
+      body: `<rect x="22" y="24" width="40" height="10" rx="1" fill="${G}"/>
+        <path d="M60 34V16q0-2 2-2h16l10 9h8q2 0 2 2v9Z" fill="${G2}"/><path d="M64 17h13l7 6H64Z" fill="${GLASS}"/>
+        <rect x="22" y="31" width="76" height="5" rx="2" fill="${G3}"/><rect x="95" y="26" width="3" height="2" fill="${LAMP}"/>`,
+      wheels: [[36, 6.5], [84, 6.5]],
+    },
+    medium: {
+      body: `<rect x="14" y="9" width="62" height="23" rx="2" fill="${GL}" stroke="${G}" stroke-width="1.5"/><rect x="14" y="23" width="62" height="3" fill="${G}"/>
+        <path d="M78 32V12q0-2 2-2h12q4 0 6 6l4 8v8Z" fill="${G}"/><path d="M82 13h10q2 0 3 3l3 6H82Z" fill="${GLASS}"/>
+        <rect x="12" y="31" width="92" height="4" rx="1.5" fill="${T}"/><rect x="99" y="26" width="3" height="2" fill="${LAMP}"/>`,
+      wheels: [[30, 7], [90, 7]],
+    },
+    large: {
+      body: `<rect x="4" y="4" width="80" height="28" rx="2" fill="${GL}" stroke="${G}" stroke-width="1.5"/><rect x="4" y="23" width="80" height="3" fill="${G}"/>
+        <path d="M86 32V8q0-2 2-2h14q4 0 6 6l4 10v10Z" fill="${G}"/><path d="M90 9h12q2 0 3 3l3 8H90Z" fill="${GLASS}"/>
+        <rect x="2" y="31" width="112" height="4" rx="1.5" fill="${T}"/><rect x="109" y="25" width="3" height="2" fill="${LAMP}"/>`,
+      wheels: [[18, 7], [33, 7], [100, 7]],
+    },
+    extra_large: {
+      body: `<rect x="6" y="15" width="22" height="11" rx="1" fill="${GL}" stroke="${G}" stroke-width="1.5"/>
+        <rect x="30" y="10" width="26" height="16" rx="1" fill="${GL}" stroke="${G}" stroke-width="1.5"/>
+        <rect x="58" y="17" width="22" height="9" rx="1" fill="${GL}" stroke="${G}" stroke-width="1.5"/>
+        <rect x="2" y="26" width="84" height="5" rx="1" fill="${G}"/><rect x="8" y="31" width="36" height="3" fill="${T}"/>
+        <rect x="88" y="3" width="2" height="12" rx="1" fill="#6b7280"/>
+        <path d="M90 34V10q0-2 2-2h12q4 0 6 6l4 8v12Z" fill="${G2}"/><path d="M94 11h10q2 0 3 3l3 6H94Z" fill="${GLASS}"/>
+        <rect x="82" y="29" width="34" height="5" rx="1.5" fill="${T}"/><rect x="111" y="25" width="3" height="2" fill="${LAMP}"/>`,
+      wheels: [[13, 5.5], [25, 5.5], [37, 5.5], [93, 5.5], [106, 5.5]],
+    },
+  }[key];
+  if (!art) return "";
+  return `<svg class="tp-van" viewBox="0 0 120 48" aria-hidden="true" focusable="false">
+    <line class="tp-van-road" x1="0" y1="46" x2="120" y2="46"/>
+    <g class="tp-van-body">${art.body}</g>${art.wheels.map(([cx, r]) => wheel(cx, r)).join("")}</svg>`;
+}
+
+// The size cards: one radio per size with its drawing. `name` is the radio
+// group; the picked key is also copied into a [data-size-value] field inside
+// the nearest [data-size-pick] (for forms that read fields by data-f).
+function trSizeCards(sizes, { name = "size_class", current = "" } = {}) {
+  return `<div class="tp-sizes" role="radiogroup" aria-label="Vehicle size">${(sizes || []).map((x) => `<label class="tp-size-opt"><input type="radio" name="${name}" value="${x.key}" ${x.key === current ? "checked" : ""}><span>${trVehicleArt(x.key)}<b>${escapeHtml(x.label)}</b><small>${escapeHtml(x.hint)}</small></span></label>`).join("")}</div>`;
+}
+let trSizeSeq = 0;
+const trSizeName = () => `size_pick_${++trSizeSeq}`;
+document.addEventListener("change", (e) => {
+  const pick = e.target.type === "radio" && e.target.closest("[data-size-pick]");
+  const field = pick && pick.querySelector("[data-size-value]");
+  if (field) field.value = e.target.value;
+});

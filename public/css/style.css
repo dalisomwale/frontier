@@ -7337,7 +7337,7 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 
 /* Vehicle sizes: the provider's choice on a vehicle, and the size tag. */
 .tp-sizes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-@media (min-width: 640px) { .tp-sizes { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
+@media (min-width: 640px) { .tp-sizes { grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); } }
 .tp-size-opt { position: relative; display: block; cursor: pointer; }
 .tp-size-opt input { position: absolute; opacity: 0; pointer-events: none; }
 .tp-size-opt span {
@@ -7540,3 +7540,21 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .acc-btn:disabled { opacity: .5; cursor: not-allowed; }
 .tp-card-list { grid-template-columns: minmax(0, 1fr); }
 .tp-hist th:last-child { text-align: right; }
+
+/* Vehicle sizes: a small drawing of each vehicle; it drives while chosen or hovered. */
+.tp-van { display: block; width: 100%; max-width: 132px; height: auto; aspect-ratio: 120 / 48; margin: 0 auto 6px; overflow: visible; }
+.tp-van-road { stroke: #d1d5db; stroke-width: 1.5; stroke-dasharray: 6 5; }
+.tp-van-wheel { transform-box: fill-box; transform-origin: center; }
+.tp-van-body { transform-box: fill-box; }
+.tp-size-opt span { align-items: stretch; }
+.tp-size-opt input:checked + span .tp-van-road { stroke: #86efac; }
+@media (prefers-reduced-motion: no-preference) {
+  .tp-size-opt:hover .tp-van-wheel, .tp-size-opt input:checked + span .tp-van-wheel { animation: tp-van-spin 0.7s linear infinite; }
+  .tp-size-opt:hover .tp-van-body, .tp-size-opt input:checked + span .tp-van-body { animation: tp-van-rock 0.35s ease-in-out infinite alternate; }
+  .tp-size-opt:hover .tp-van-road, .tp-size-opt input:checked + span .tp-van-road { animation: tp-van-road 0.5s linear infinite; }
+  .tp-size-opt input:checked + span .tp-van { animation: tp-van-in 0.45s ease-out; }
+}
+@keyframes tp-van-spin { to { transform: rotate(360deg); } }
+@keyframes tp-van-rock { from { transform: translateY(0); } to { transform: translateY(-0.8px); } }
+@keyframes tp-van-road { to { stroke-dashoffset: 11; } }
+@keyframes tp-van-in { from { transform: translateX(-10px); opacity: 0.4; } to { transform: none; opacity: 1; } }

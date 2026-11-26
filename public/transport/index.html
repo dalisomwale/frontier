@@ -65,7 +65,7 @@
     <script>
       document.querySelectorAll("[data-icon]").forEach((el) => (el.innerHTML = uiIcon(el.dataset.icon)));
       let me = null;
-      let meta = { cargo_types: [], doc_types: {} };
+      let meta = { cargo_types: [], sizes: [], doc_types: {} };
       let vehicles = [];
       let deliveries = [];
       const state = { tab: "requests", dtab: "active" };
@@ -528,7 +528,7 @@
               <div><label class="field-label" for="v-reg">Registration Number</label><input id="v-reg" name="registration" class="field-input" maxlength="30" value="${escapeHtml(v ? v.registration : "")}" placeholder="e.g. ABC 1234"><p class="field-error hidden" data-error-for="registration"></p></div>
               <div class="sm:col-span-2">
                 <p class="field-label">Vehicle Size <span class="text-gray-400 font-normal">(buyers choose a size when they order)</span></p>
-                <div class="tp-sizes" role="radiogroup" aria-label="Vehicle size">${meta.sizes.map((x) => `<label class="tp-size-opt"><input type="radio" name="size_class" value="${x.key}" ${v && v.size_class === x.key ? "checked" : ""}><span><b>${escapeHtml(x.label)}</b><small>${escapeHtml(x.hint)}</small></span></label>`).join("")}</div>
+                ${trSizeCards(meta.sizes, { current: v ? v.size_class : "" })}
                 <p class="field-error hidden" data-error-for="size_class"></p>
               </div>
               <div class="sm:col-span-2"><label class="field-label" for="v-cap">Capacity <span class="text-gray-400 font-normal">(optional)</span></label><select id="v-cap" name="capacity_note" class="field-input" ${v && v.size_class ? "" : "disabled"}>${capOptions(v && v.size_class, v && v.capacity_note)}</select><p class="field-error hidden" data-error-for="capacity_note"></p></div>

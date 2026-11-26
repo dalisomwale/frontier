@@ -326,11 +326,10 @@
       }
 
       // ------------------------------------- drivers and vehicles (as at sign-up)
-      const sizeOptions = (current = "") => `<option value="">Choose…</option>${meta.sizes.map((x) => `<option value="${x.key}" ${x.key === current ? "selected" : ""}>${escapeHtml(x.label)}: ${escapeHtml(x.hint)}</option>`).join("")}`;
-      const vehicleFieldsHtml = () => `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      const vehicleFieldsHtml = () => `<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><label class="field-label">Vehicle Name</label><input data-f="vehicle_type" class="field-input" maxlength="60" placeholder="e.g. Toyota Hilux"></div>
           <div><label class="field-label">Registration Number</label><input data-f="registration" class="field-input" maxlength="30" placeholder="e.g. ABC 1234"></div>
-          <div><label class="field-label">Vehicle Size</label><select data-f="size_class" class="field-input">${sizeOptions()}</select></div>
+          <div class="sm:col-span-2" data-size-pick><p class="field-label">Vehicle Size</p><input type="hidden" data-f="size_class" data-size-value>${trSizeCards(meta.sizes, { name: trSizeName() })}</div>
         </div>`;
       const DRIVER_DOCS = [["nrc", "NRC"], ["drivers_licence", "Driver's Licence"], ["passport", "Passport"]];
       const driverDocInputs = (prefix = "") => `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">${DRIVER_DOCS.map(([k, l]) => `<div><label class="field-label !text-xs">${l} <span class="ob-opt">(optional)</span></label><input type="file" ${prefix ? `name="${prefix}${k}"` : `data-doc="${k}"`} accept="application/pdf,image/jpeg,image/png,image/webp" class="text-sm w-full"></div>`).join("")}</div>`;
@@ -629,7 +628,7 @@
             </div>
             <div>
               <p class="field-label">Vehicle Size <span class="text-gray-400 font-normal">(buyers choose a size when they order)</span></p>
-              <div class="tp-sizes" role="radiogroup" aria-label="Vehicle size">${meta.sizes.map((x) => `<label class="tp-size-opt"><input type="radio" name="size_class" value="${x.key}" ${v && v.size_class === x.key ? "checked" : ""}><span><b>${escapeHtml(x.label)}</b><small>${escapeHtml(x.hint)}</small></span></label>`).join("")}</div>
+              ${trSizeCards(meta.sizes, { current: v ? v.size_class : "" })}
               ${errFor("size_class")}
             </div>
             <div><label class="field-label" for="f-capacity_note">Capacity <span class="text-gray-400 font-normal">(optional)</span></label><select id="f-capacity_note" name="capacity_note" class="field-input" ${v && v.size_class ? "" : "disabled"}>${capOptions(v && v.size_class, v && v.capacity_note)}</select>${errFor("capacity_note")}</div>
