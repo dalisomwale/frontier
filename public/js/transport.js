@@ -115,7 +115,7 @@ const gps = {
       (pos) => this.fix(pos),
       (err) => {
         this.status = "error";
-        this.error = err.code === 1 ? "Location is blocked. Allow location for this site in your browser settings so the seller and buyer can follow you." : "Can't get your location right now. Keep the phone's location on.";
+        this.error = err.code === 1 ? "Location is blocked. Allow it in your browser settings." : "Can't get your location. Turn on your phone's location.";
         this.onChange(this);
       },
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 },

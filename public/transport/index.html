@@ -30,21 +30,17 @@
           <h1 id="page-title" class="text-xl sm:text-2xl font-bold text-gray-900">Requests</h1>
           <p id="page-sub" class="text-gray-500 mt-1 text-sm"></p>
         </div>
-        <label class="tp-switch" title="Switch off when you can't take new deliveries"><input type="checkbox" id="available"><span id="available-label">Available for new requests</span></label>
+        <label class="tp-switch" title="Switch off when you can't take new deliveries"><input type="checkbox" id="available"><span id="available-label">Available</span></label>
       </div>
       <div id="tp-banner" class="tp-status-banner"></div>
-      <div id="tp-stats" class="tp-stats"></div>
 
       <section id="tab-requests"><div id="requests-list" class="tp-card-list"></div></section>
       <section id="tab-deliveries" hidden>
-        <div class="sl-card">
-          <div class="sl-toolbar"><h2 class="txd-card-title !mb-0">Active</h2></div>
-          <div id="deliveries-list" class="p-3 tp-card-list"></div>
-        </div>
+        <div id="deliveries-list" class="tp-card-list"></div>
         <div class="sl-card mt-6" id="history-card" hidden>
           <div class="sl-toolbar tp-hist-bar">
-            <h2 class="txd-card-title !mb-0">Previous Deliveries</h2>
-            <input type="search" id="history-q" class="field-input" placeholder="Search delivery, place or load" aria-label="Search previous deliveries">
+            <h2 class="txd-card-title !mb-0">Previous</h2>
+            <input type="search" id="history-q" class="field-input" placeholder="Search" aria-label="Search previous deliveries">
             <button type="button" id="history-export" class="tx-export">Export Excel</button>
           </div>
           <div id="history-totals" class="tp-hist-totals"></div>
@@ -75,8 +71,8 @@
       const state = { tab: "requests", dtab: "active" };
       const TITLES = { requests: "Requests", deliveries: "My Deliveries", vehicles: "Vehicles", drivers: "Drivers", ratings: "Ratings", notifications: "Notifications", profile: "Profile" };
       const SUBS = {
-        requests: "Paid deliveries in your area. The first to accept gets the job.",
-        deliveries: "Deliveries you've accepted.",
+        requests: "",
+        deliveries: "",
         vehicles: "The vehicles you deliver with.",
         drivers: "They sign in with their phone number and the code you give them.",
         ratings: "What buyers said about your deliveries.",
@@ -98,10 +94,9 @@
         Object.keys(TITLES).forEach((t) => (document.getElementById(`tab-${t}`).hidden = t !== name));
         document.querySelectorAll("[data-tab-link]").forEach((a) => a.classList.toggle("active", a.dataset.tabLink === name));
         document.getElementById("page-title").textContent = TITLES[name];
-        document.getElementById("page-sub").textContent = isDriver()
-          ? ({ requests: `Paid deliveries for ${me.name}. The first to accept gets the job.`, deliveries: "Deliveries given to you.", profile: "" }[name] ?? SUBS[name])
-          : SUBS[name];
-        document.getElementById("tp-stats").hidden = !["requests", "deliveries"].includes(name);
+        const sub = document.getElementById("page-sub");
+        sub.textContent = isDriver() ? ({ requests: "", deliveries: "", profile: "" }[name] ?? SUBS[name]) : SUBS[name];
+        sub.hidden = !sub.textContent;
         const url = new URL(location.href);
         url.searchParams.set("tab", name);
         ["booking", "welcome"].forEach((k) => url.searchParams.delete(k));
@@ -123,50 +118,55 @@
           box.innerHTML = me.status !== "approved" || !me.is_active ? `<div class="tr-warn-box"><b>${escapeHtml(me.name)} isn't taking deliveries yet.</b> Please check with your company.</div>` : "";
           return;
         }
-        if (me.status === "pending") html = `<div class="tr-warn-box"><b>Waiting for Frontier's approval.</b> We're reviewing your details and documents. ${me.kind === "company" ? "In the meantime, give your drivers their sign-in codes (Drivers) and add photos of your vehicles" : "Add photos of your vehicle in the meantime"}: you'll start receiving requests once you're approved and your coverage is set.</div>`;
-        else if (me.status === "rejected") html = `<div class="tr-warn-box"><b>Your registration was not approved.</b>${me.admin_note ? ` ${escapeHtml(me.admin_note)}` : ""} Please contact Frontier.</div>`;
-        else if (me.status === "suspended") html = `<div class="tr-warn-box"><b>Your account is suspended.</b>${me.admin_note ? ` ${escapeHtml(me.admin_note)}` : ""} You won't receive requests. Please contact Frontier.</div>`;
-        else if (!me.is_active) html = `<div class="tr-warn-box"><b>Your account has been deactivated by Frontier.</b> Please contact us.</div>`;
-        else if (!me.coverage_active || !me.coverage_km) html = `<div class="tr-note-box">You're approved. Frontier hasn't switched on your coverage yet, so you won't receive requests until it does.</div>`;
-        else if (!vehicles.some((v) => v.status === "active")) html = `<div class="tr-note-box">Add a vehicle to start receiving requests.</div>`;
+        if (me.status === "pending") html = `<div class="tr-warn-box"><b>Waiting for approval.</b> We're checking your details.</div>`;
+        else if (me.status === "rejected") html = `<div class="tr-warn-box"><b>Not approved.</b>${me.admin_note ? ` ${escapeHtml(me.admin_note)}` : ""} Please contact Frontier.</div>`;
+        else if (me.status === "suspended") html = `<div class="tr-warn-box"><b>Account suspended.</b>${me.admin_note ? ` ${escapeHtml(me.admin_note)}` : ""} Please contact Frontier.</div>`;
+        else if (!me.is_active) html = `<div class="tr-warn-box"><b>Account switched off.</b> Please contact Frontier.</div>`;
+        else if (!me.coverage_active || !me.coverage_km) html = `<div class="tr-note-box">Approved. Frontier will switch on your area soon.</div>`;
+        else if (!vehicles.some((v) => v.status === "active")) html = `<div class="tr-note-box">Add a vehicle to get requests.</div>`;
         box.innerHTML = html;
         const sw = document.getElementById("available");
         sw.checked = me.is_available;
-        document.getElementById("available-label").textContent = me.is_available ? "Available for new requests" : "Not taking new requests";
+        document.getElementById("available-label").textContent = me.is_available ? "Available" : "Unavailable";
       }
 
+      let summary = null;
       async function loadStats() {
         try {
-          const s = (await transportApi("/api/transport/summary")).data;
-          setBadge("[data-requests-badge]", s.requests);
-          setBadge("[data-active-badge]", s.active);
-          document.getElementById("tp-stats").innerHTML = `
-            <div class="tx-total"><span>Open requests</span><b>${s.requests}</b></div>
-            <div class="tx-total"><span>Active deliveries</span><b>${s.active}</b></div>
-            <div class="tx-total"><span>Completed</span><b>${s.completed}</b></div>
-            ${s.owed === null ? "" : `<div class="tx-total"><span>Owed to you</span><b>${kwacha(s.owed)}</b></div>`}`;
+          summary = (await transportApi("/api/transport/summary")).data;
+          setBadge("[data-requests-badge]", summary.requests);
+          setBadge("[data-active-badge]", summary.active);
+          if (state.tab === "deliveries") renderTotals();
         } catch {
         }
       }
 
       // ------------------------------------------------------------ requests
-      const jobCard = (b, attr) => `<button type="button" class="tp-job" ${attr}="${b.id}">
-          <span class="tp-job-top"><span class="text-sm text-gray-500">${escapeHtml(b.reference)}${b.offered_at ? ` · ${escapeHtml(timeAgo(b.offered_at))}` : ""}</span>${trPill(b)}</span>
-          <span class="tp-job-route block">${escapeHtml(b.from)} → ${escapeHtml(b.to)}</span>
-          ${b.driver_name && !isDriver() ? `<span class="tp-job-meta block">Driver <b>${escapeHtml(b.driver_name)}</b></span>` : ""}
-          <span class="tp-job-meta block">${trKm(b.distance_km)} by road${b.vehicle_size_label ? ` · <b>${escapeHtml(b.vehicle_size_label)} vehicle</b>` : ""} · ${escapeHtml(b.cargo_summary || "")}${b.provider_earning !== undefined ? ` · <b>${kwacha(b.provider_earning)}</b>` : ""}</span>
+      // One line each: where, what, and what it pays.
+      const routeShort = (b) => `${b.from_area || b.from} → ${b.to_area || b.to}`;
+      const jobCard = (b, attr) => `<button type="button" class="tpj" ${attr}="${b.id}">
+          <span class="tpj-ico">${uiIcon("truck")}</span>
+          <span class="tpj-main">
+            <span class="tpj-route">${escapeHtml(routeShort(b))}</span>
+            <span class="tpj-meta">${[trKm(b.distance_km), b.cargo_summary, b.vehicle_size_label, b.driver_name && !isDriver() ? b.driver_name : ""].filter(Boolean).map(escapeHtml).join(" · ")}</span>
+          </span>
+          <span class="tpj-side">
+            ${b.provider_earning !== undefined && b.provider_earning !== null ? `<span class="tpj-pay">${kwacha(b.provider_earning)}</span>` : ""}
+            ${attr === "data-request" ? `<small>${escapeHtml(timeAgo(b.offered_at))}</small>` : `<span class="tpj-status">${escapeHtml(b.status_label)}</span>`}
+          </span>
         </button>`;
+      const emptyCard = (title, text) => `<div class="empty-state"><p class="font-semibold text-gray-800">${title}</p>${text ? `<p class="text-sm mt-1">${text}</p>` : ""}</div>`;
 
       async function loadRequests() {
         const list = document.getElementById("requests-list");
         if (!approved()) {
-          list.innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">No requests yet</p><p class="text-sm mt-1">You'll see paid delivery requests here once Frontier has approved your account.</p></div>`;
+          list.innerHTML = emptyCard("No requests yet", "They start once Frontier approves you.");
           return;
         }
         let rows = [];
         try { rows = (await transportApi("/api/transport/requests")).data; } catch (error) { list.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(error.message)}</p>`; return; }
         list.innerHTML = rows.length ? rows.map((b) => jobCard(b, "data-request")).join("")
-          : `<div class="empty-state"><p class="font-semibold text-gray-800">No open requests</p><p class="text-sm mt-1">${me.is_available ? "New paid deliveries in your area appear here, and you'll get a notification." : "You're marked as not taking new requests."}</p></div>`;
+          : me.is_available ? emptyCard("No requests right now", "We'll notify you when one comes in.") : emptyCard("You're unavailable", "Switch on Available to get requests.");
         list.querySelectorAll("[data-request]").forEach((b) => b.addEventListener("click", () => openBooking(b.dataset.request)));
         loadStats();
       }
@@ -182,7 +182,7 @@
         const rows = deliveries.filter((b) => ACTIVE.includes(b.status));
         const list = document.getElementById("deliveries-list");
         list.innerHTML = rows.length ? rows.map((b) => jobCard(b, "data-booking")).join("")
-          : `<div class="empty-state"><p class="font-semibold text-gray-800">No active deliveries</p><p class="text-sm mt-1">Deliveries you accept appear here until they're completed.</p></div>`;
+          : emptyCard("No active deliveries", "");
         list.querySelectorAll("[data-booking]").forEach((b) => b.addEventListener("click", () => openBooking(b.dataset.booking)));
         renderHistory();
         loadStats();
@@ -191,23 +191,26 @@
         const past = deliveries.filter((b) => !ACTIVE.includes(b.status));
         document.getElementById("history-card").hidden = !past.length;
         if (!past.length) return;
-        const done = past.filter((b) => b.status === "completed");
-        const earned = done.reduce((t, b) => t + (Number(b.provider_earning) || 0), 0);
-        document.getElementById("history-totals").innerHTML = `<span><b>${done.length}</b> completed</span><span>Earned <b>${kwacha(earned)}</b></span>${past.length > done.length ? `<span><b>${past.length - done.length}</b> cancelled or refunded</span>` : ""}`;
+        renderTotals();
         const rows = pastRows();
         const box = document.getElementById("history-list");
         if (!rows.length) { box.innerHTML = `<p class="text-sm text-gray-500 p-4">No matches.</p>`; return; }
-        box.innerHTML = `<table class="admin-table tp-hist"><thead><tr><th>Date</th><th>Delivery</th><th class="hidden md:table-cell">Route</th><th class="hidden lg:table-cell">Load</th><th class="text-right">Earning</th></tr></thead>
+        box.innerHTML = `<table class="admin-table tp-hist"><thead><tr><th>Date</th><th>Route</th><th class="text-right">Earning</th></tr></thead>
           <tbody>${rows.map((b) => `<tr data-past="${b.id}" tabindex="0">
             <td class="whitespace-nowrap text-gray-600">${escapeHtml(formatDateShort(finishedAt(b)))}</td>
-            <td><b class="text-gray-900">${escapeHtml(b.reference)}</b>${b.status === "completed" ? "" : `<small class="block text-gray-500">${escapeHtml(b.status_label)}</small>`}<small class="block text-gray-500 md:hidden">${escapeHtml(b.from)} → ${escapeHtml(b.to)}</small></td>
-            <td class="hidden md:table-cell text-gray-700">${escapeHtml(b.from)} → ${escapeHtml(b.to)}</td>
-            <td class="hidden lg:table-cell text-gray-700">${escapeHtml(b.cargo_summary || "-")}</td>
+            <td><b class="text-gray-900">${escapeHtml(routeShort(b))}</b><small class="block text-gray-500">${escapeHtml(b.reference)}${b.status === "completed" ? "" : ` · ${escapeHtml(b.status_label)}`}</small></td>
             <td class="text-right whitespace-nowrap">${b.status === "completed" ? `<b>${kwacha(b.provider_earning)}</b>` : `<span class="text-gray-400">-</span>`}</td></tr>`).join("")}</tbody></table>`;
         box.querySelectorAll("[data-past]").forEach((tr) => {
           tr.addEventListener("click", () => openBooking(tr.dataset.past));
           tr.addEventListener("keydown", (e) => { if (e.key === "Enter") openBooking(tr.dataset.past); });
         });
+      }
+      // Completed, earned, and still to be paid (owners only).
+      function renderTotals() {
+        const past = deliveries.filter((b) => !ACTIVE.includes(b.status));
+        const done = past.filter((b) => b.status === "completed");
+        const earned = done.reduce((t, b) => t + (Number(b.provider_earning) || 0), 0);
+        document.getElementById("history-totals").innerHTML = `<span><b>${done.length}</b> completed</span><span>Earned <b>${kwacha(earned)}</b></span>${summary && summary.owed ? `<span>To be paid <b>${kwacha(summary.owed)}</b></span>` : ""}`;
       }
       document.getElementById("history-q").addEventListener("input", (e) => { historyQ = e.target.value.trim().toLowerCase(); renderHistory(); });
       document.getElementById("history-export").addEventListener("click", () => {
@@ -231,36 +234,41 @@
         paintDelivery(bookingView, d);
       }
 
+      // Pickup and drop-off, with a call button once the phone numbers are shown.
+      const tel = (n) => String(n || "").replace(/[^\d+]/g, "");
+      const stopHtml = (kind, title, name, place, phone, note) => `<div class="tp-stop tp-stop-${kind}">
+          <span class="tp-stop-dot"></span>
+          <div class="min-w-0 flex-1"><p class="tp-stop-k">${title}</p>${name ? `<p class="tp-stop-v">${escapeHtml(name)}</p>` : ""}<p class="${name ? "tp-stop-sub" : "tp-stop-v"}">${escapeHtml(place || "-")}</p>${note ? `<p class="tp-stop-sub">${escapeHtml(note)}</p>` : ""}</div>
+          ${phone ? `<a class="tp-call" href="tel:${escapeHtml(tel(phone))}" aria-label="Call ${escapeHtml(phone)}">${uiIcon("phone")}</a>` : ""}
+        </div>`;
+      const chipsHtml = (items) => `<div class="tp-chips">${items.filter(Boolean).map((x) => `<span>${escapeHtml(x)}</span>`).join("")}</div>`;
+      const routeTitle = (d) => `${d.pickup.district || d.pickup.province || d.pickup.label || ""} → ${d.destination.district || d.destination.province || ""}`;
+
       function paintOffer(view, d) {
-        const vs = d.vehicles || [];
+        // Only the vehicles that can take it (right size, free).
+        const vs = (d.vehicles || []).filter((v) => v.fits && !v.busy);
         view.body.innerHTML = `
-          <div class="sv-head"><h1 class="admin-view-title !mb-0">${escapeHtml(d.pickup.district || d.pickup.province || "")} → ${escapeHtml(d.destination.district)}</h1>${trPill(d, true)}</div>
+          <h1 class="admin-view-title">${escapeHtml(routeTitle(d))}</h1>
           <div class="tr-two">
-            <div class="space-y-4 min-w-0">
-              <div class="acc-card"><h2 class="txd-card-title">Request</h2>
-                <dl class="sv-facts">
-                  <div><dt>Pickup address</dt><dd>${escapeHtml(d.pickup.place)}</dd></div>
-                  <div><dt>Delivery address</dt><dd>${escapeHtml(d.destination.place)}</dd></div>
-                  <div><dt>Road distance</dt><dd>${trKm(d.distance_km)}${d.duration_min ? ` · about ${trDuration(d.duration_min)}` : ""}</dd></div>
-                  ${d.offer.pickup_km !== null ? `<div><dt>From your address to pickup</dt><dd>${trKm(d.offer.pickup_km)}</dd></div>` : ""}
-                  <div><dt>Load</dt><dd>${escapeHtml(d.cargo_summary || "-")}</dd></div>
-                  ${d.vehicle_size_label ? `<div><dt>Vehicle size</dt><dd>${escapeHtml(d.vehicle_size_label)}</dd></div>` : ""}
-                  <div><dt>Your earning</dt><dd><b>${kwacha(d.provider_earning)}</b></dd></div>
-                </dl>
-                <ul class="tr-qty mt-3">${d.orders.filter((o) => !o.cancelled).map((o) => `<li><span>${escapeHtml(o.title)}</span><b>${escapeHtml(o.units)}</b></li>`).join("")}</ul>
-                <p class="text-sm text-gray-500 mt-3">The seller's and receiver's phone numbers are shown once you accept.</p>
+            <div class="acc-card min-w-0">
+              <p class="tp-earn"><span>You Earn</span><b>${kwacha(d.provider_earning)}</b></p>
+              <div class="tp-stops">
+                ${stopHtml("from", "Pickup", "", d.pickup.place)}
+                ${stopHtml("to", "Drop-Off", "", d.destination.place)}
               </div>
+              ${chipsHtml([`${trKm(d.distance_km)}${d.duration_min ? ` · ${trDuration(d.duration_min)}` : ""}`, d.offer.pickup_km !== null ? `${trKm(d.offer.pickup_km)} to pickup` : "", d.cargo_summary, d.vehicle_size_label])}
             </div>
-            <div class="space-y-4 min-w-0">
+            <div class="min-w-0">
               ${d.can.accept ? `<form class="acc-card" data-accept novalidate>
-                <h2 class="txd-card-title">Accept With A Vehicle</h2>
-                ${vs.length ? `<div class="tp-choice">${vs.map((v) => `<label class="${v.fits && !v.busy ? "" : "is-off"}"><input type="radio" name="vehicle_id" value="${v.id}" ${v.fits && !v.busy ? "" : "disabled"}><span><b>${escapeHtml(v.registration)}</b> · ${v.size_label ? `${escapeHtml(v.size_label)} · ` : ""}${escapeHtml(v.vehicle_type)}${v.busy ? " · on another delivery" : v.wrong_size ? " · not the size the buyer chose" : !v.fits ? " · can't carry this load" : ""}</span></label>`).join("")}</div>`
-                  : `<p class="text-sm text-gray-600">You have no active vehicles.</p>`}
+                <h2 class="txd-card-title">Choose A Vehicle</h2>
+                ${vs.length ? `<div class="tp-choice">${vs.map((v) => `<label><input type="radio" name="vehicle_id" value="${v.id}"><span><b>${escapeHtml(v.registration)}</b> · ${escapeHtml(v.vehicle_type)}</span></label>`).join("")}</div>`
+                  : `<p class="text-sm text-gray-600">No free vehicle of this size.</p>`}
                 <p class="field-error hidden" data-error-for="vehicle_id"></p>
                 ${d.drivers ? `<label class="field-label mt-4" for="acc-driver">Driver</label>
-                  <select id="acc-driver" name="driver_id" class="field-input"><option value="">Choose later</option>${d.drivers.map((x) => `<option value="${x.id}" data-vehicle="${x.vehicle ? x.vehicle.id : ""}" ${x.busy ? "disabled" : ""}>${escapeHtml(x.name)}${x.vehicle ? ` · ${escapeHtml(x.vehicle.registration)}` : ""}${x.busy ? " · on another delivery" : ""}</option>`).join("")}</select>
+                  <select id="acc-driver" name="driver_id" class="field-input"><option value="">Choose Later</option>${d.drivers.map((x) => `<option value="${x.id}" data-vehicle="${x.vehicle ? x.vehicle.id : ""}" ${x.busy ? "disabled" : ""}>${escapeHtml(x.name)}${x.busy ? " · busy" : ""}</option>`).join("")}</select>
                   <p class="field-error hidden" data-error-for="driver_id"></p>` : ""}
-                <div class="tr-actions mt-4"><button type="submit" class="acc-btn">Accept Delivery</button>${isDriver() ? "" : `<button type="button" class="acc-mini-btn" data-decline>Decline</button>`}</div>
+                <button type="submit" class="acc-btn mt-4" ${vs.length ? "" : "disabled"}>Accept</button>
+                ${isDriver() ? "" : `<button type="button" class="tp-text-btn" data-decline>Decline</button>`}
               </form>` : `<div class="acc-card"><p class="text-sm text-gray-700">${d.offer.status === "declined" ? "You declined this request." : "This request is no longer open."}</p></div>`}
             </div>
           </div>`;
@@ -307,10 +315,10 @@
         const collected = (o) => { const q = d.quantities.find((x) => x.stage === "provider_collected" && Number(x.order_id) === Number(o.id)); return q ? q.quantity : o.quantity; };
         // Collected / Delivered: a comment (with details if something isn't
         // right) and photos. Quantities aren't changed by the provider.
-        const commentForm = (attr, title, intro, notes, button) => `<form class="acc-card" ${attr} novalidate>
-            <h2 class="txd-card-title">${title}</h2>
-            <p class="text-sm text-gray-600">${intro}</p>
-            <label class="field-label mt-4" for="${attr}-c">Comment</label>
+        const commentForm = (attr, title, intro, notes, button) => `<form class="acc-card tp-next" ${attr} novalidate>
+            <h2 class="tp-next-title">${title}</h2>
+            <p class="tp-next-text">${intro}</p>
+            <label class="field-label mt-4" for="${attr}-c">Condition</label>
             <select id="${attr}-c" name="comment" class="field-input">
               <option value="">Choose…</option>
               ${Object.entries(notes).map(([k, v]) => `<option value="${k}">${escapeHtml(v)}</option>`).join("")}
@@ -321,7 +329,7 @@
               <textarea id="${attr}-d" name="details" rows="2" maxlength="1000" class="field-input"></textarea>
               <p class="field-error hidden" data-error-for="details"></p>
             </div>
-            <p class="field-label mt-4">Photos of the goods <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 6)</span></p>
+            <p class="field-label mt-4">Photos <span class="text-gray-400 font-normal">(1 to 6)</span></p>
             <div class="acc-ph-grid" data-photos></div>
             <p class="field-error hidden" data-error-for="images"></p>
             <button type="submit" class="acc-btn mt-4">${button}</button>
@@ -329,42 +337,44 @@
         const onWay = ["provider_accepted", "vehicle_selected", "awaiting_collection", "collection_submitted"].includes(d.status);
         let action = "";
         if (can.collect) {
-          action = commentForm("data-collect", "At the pickup",
-            `Drive to ${escapeHtml(d.pickup.place)}. Check the goods with the seller, then choose a comment, add photos and tap Collected. The buyer and seller are told.`,
-            d.comments.collection, "Collected");
+          action = commentForm("data-collect", "At The Pickup", "Check the goods, add photos, then tap Collected.", d.comments.collection, "Collected");
         } else if (can.start) {
-          action = `<div class="acc-card acc-card-ok"><b>Collected</b><p class="text-sm text-gray-700 mt-1">Tap Start delivery when you leave for ${escapeHtml(d.destination.place)}. The buyer and seller are told you're on the way.</p><button type="button" class="acc-btn mt-3" data-start>${uiIcon("truck")}<span>Start Delivery</span></button></div>`;
+          action = `<div class="acc-card tp-next"><h2 class="tp-next-title">Collected</h2><p class="tp-next-text">Tap when you leave for the buyer.</p><button type="button" class="acc-btn mt-4" data-start>${uiIcon("truck")}<span>Start Delivery</span></button></div>`;
         } else if (can.deliver) {
-          action = `<div class="acc-card"><h2 class="txd-card-title">At The Destination</h2><p class="text-sm text-gray-600">Drive to ${escapeHtml(d.destination.place)}. ${d.status === "arrived" ? "You've arrived. " : "Your arrival is noted automatically from your location. "}Hand the goods over to the buyer, then tap Delivered.</p><button type="button" class="acc-btn mt-4" data-delivered>${uiIcon("check")}<span>Delivered</span></button></div>`;
-        } else if (d.status === "awaiting_confirmation") action = `<div class="acc-card acc-card-ok"><b>Delivered</b><p class="text-sm text-gray-600 mt-1">The buyer has been told. The delivery completes automatically unless they report a problem.</p></div>`;
-        else if (d.status === "disputed") action = `<div class="tr-warn-box"><b>The buyer reported a problem.</b> Frontier is reviewing the records and may contact you.</div>`;
+          action = `<div class="acc-card tp-next"><h2 class="tp-next-title">${d.status === "arrived" ? "You've Arrived" : "On The Way"}</h2><p class="tp-next-text">Hand over the goods, then tap Delivered.</p><button type="button" class="acc-btn mt-4" data-delivered>${uiIcon("check")}<span>Delivered</span></button></div>`;
+        } else if (d.status === "awaiting_confirmation") action = `<div class="acc-card tp-next"><h2 class="tp-next-title">Delivered</h2><p class="tp-next-text">Waiting for the buyer to confirm.</p></div>`;
+        else if (d.status === "disputed") action = `<div class="tr-warn-box"><b>The buyer reported a problem.</b> Frontier will contact you.</div>`;
         const ratingCard = d.status === "completed"
-          ? `<div class="acc-card"><h2 class="txd-card-title">Buyer's Rating</h2>${d.rating ? `<p>${trStarsHtml(d.rating.stars)}</p>${d.rating.feedback ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(d.rating.feedback)}"</p>` : ""}` : `<p class="text-sm text-gray-500">The buyer hasn't rated this delivery yet.</p>`}</div>`
+          ? `<div class="acc-card"><h2 class="txd-card-title">Buyer's Rating</h2>${d.rating ? `<p>${trStarsHtml(d.rating.stars)}</p>${d.rating.feedback ? `<p class="text-sm text-gray-700 mt-1">"${escapeHtml(d.rating.feedback)}"</p>` : ""}` : `<p class="text-sm text-gray-500">Not rated yet.</p>`}</div>`
           : "";
         const showMap = TR_MOVING.includes(d.status) || ["delivery_submitted", "awaiting_confirmation"].includes(d.status);
         const goTo = onWay ? d.pickup : d.destination;
+        // The next step first; then the map, who and where, and the record.
+        const hasRecord = (d.submissions || []).length > 0;
         view.body.innerHTML = `
-          <div class="sv-head"><h1 class="admin-view-title !mb-0">${escapeHtml(d.pickup.district || d.pickup.label)} → ${escapeHtml(d.destination.district)}</h1>${trPill(d, true)}</div>
+          <div class="sv-head"><h1 class="admin-view-title !mb-0">${escapeHtml(routeTitle(d))}</h1><span class="tpj-pay">${kwacha(d.provider_earning)}</span></div>
           ${trProgressHtml(d.status)}
           <div class="tr-two">
             <div class="space-y-4 min-w-0">
-              ${can.share_location ? `<div data-gps></div>` : ""}
-              ${showMap ? `<div class="acc-card"><h2 class="txd-card-title">${onWay ? "To the pickup" : TR_MOVING.includes(d.status) ? "To the buyer" : "Route"}</h2><div data-track></div>
-                ${TR_MOVING.includes(d.status) && goTo.lat ? `<p class="text-sm mt-2"><a class="acc-link" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${goTo.lat},${goTo.lng}">Turn-by-turn directions in your maps app</a></p>` : ""}</div>` : ""}
-              ${d.can && d.can.assign_driver ? `<form class="acc-card" data-assign novalidate><h2 class="txd-card-title">Driver</h2>
-                ${d.drivers.length ? `<div class="flex flex-wrap gap-2 items-end"><select name="driver_id" class="field-input flex-1 min-w-[180px]" aria-label="Driver"><option value="">No driver yet</option>${d.drivers.map((x) => `<option value="${x.id}" ${d.driver && d.driver.id === x.id ? "selected" : ""} ${x.busy && !(d.driver && d.driver.id === x.id) ? "disabled" : ""}>${escapeHtml(x.name)}${x.busy && !(d.driver && d.driver.id === x.id) ? " · on another delivery" : ""}</option>`).join("")}</select><button type="submit" class="acc-mini-btn">Save</button></div>
-                  ${d.driver ? `<p class="text-sm text-gray-600 mt-2">${escapeHtml(d.driver.name)} · <a class="acc-link" href="tel:${escapeHtml(String(d.driver.phone).replace(/[^\d+]/g, ""))}">${escapeHtml(d.driver.phone)}</a></p>` : `<p class="text-sm text-gray-600 mt-2">Choose who drives. They see it when they sign in.</p>`}`
-                  : `<p class="text-sm text-gray-600">Add drivers in the Drivers tab to give them deliveries.</p>`}
-                <p class="field-error hidden" data-error-for="driver_id"></p></form>` : ""}
               ${action}
-              <div class="acc-card"><h2 class="txd-card-title">Delivery Details</h2>${trFactsHtml(d, { role: "provider" })}
-                ${d.driver && !(d.can && d.can.assign_driver) && !isDriver() ? `<p class="text-sm text-gray-700 mt-3">Driver <b>${escapeHtml(d.driver.name)}</b> · ${escapeHtml(d.driver.phone)}</p>` : ""}
-                ${d.vehicle ? `<p class="text-sm text-gray-700 mt-3 tr-inline-icon">${uiIcon("truck")} Vehicle <b>${escapeHtml(d.vehicle.registration)}</b> · ${escapeHtml(d.vehicle.type)}</p>` : ""}
-                <ul class="tr-qty mt-3">${d.orders.filter((o) => !o.cancelled).map((o) => `<li><span>${escapeHtml(o.reference)} · ${escapeHtml(o.title)}</span><b>${escapeHtml(o.units)}</b></li>`).join("")}</ul>
-              </div>
+              ${can.share_location ? `<div data-gps></div>` : ""}
+              ${showMap ? `<div class="acc-card"><div class="flex items-center justify-between gap-3 mb-3"><h2 class="txd-card-title !mb-0">${onWay ? "To The Pickup" : TR_MOVING.includes(d.status) ? "To The Buyer" : "Route"}</h2>
+                ${TR_MOVING.includes(d.status) && goTo.lat ? `<a class="acc-link text-sm" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${goTo.lat},${goTo.lng}">Open In Maps</a>` : ""}</div><div data-track></div></div>` : ""}
             </div>
             <div class="space-y-4 min-w-0">
-              <div class="acc-card"><h2 class="txd-card-title">Collection Record</h2>${trEvidenceHtml(d)}</div>
+              <div class="acc-card">
+                <div class="tp-stops">
+                  ${stopHtml("from", "Pickup", d.pickup.label, d.pickup.place, d.pickup.phone)}
+                  ${stopHtml("to", "Drop-Off", d.destination.contact_name, d.destination.place, d.destination.contact_phone, d.destination.notes)}
+                </div>
+                ${chipsHtml([`${trKm(d.distance_km)}${d.duration_min ? ` · ${trDuration(d.duration_min)}` : ""}`, d.cargo_summary, d.vehicle ? d.vehicle.registration : d.vehicle_size_label, d.driver && !(d.can && d.can.assign_driver) && !isDriver() ? d.driver.name : ""])}
+              </div>
+              ${d.can && d.can.assign_driver ? `<form class="acc-card" data-assign novalidate><h2 class="txd-card-title">Driver</h2>
+                ${d.drivers.length ? `<div class="flex flex-wrap gap-2 items-center"><select name="driver_id" class="field-input flex-1 min-w-[160px]" aria-label="Driver"><option value="">No Driver Yet</option>${d.drivers.map((x) => `<option value="${x.id}" ${d.driver && d.driver.id === x.id ? "selected" : ""} ${x.busy && !(d.driver && d.driver.id === x.id) ? "disabled" : ""}>${escapeHtml(x.name)}${x.busy && !(d.driver && d.driver.id === x.id) ? " · busy" : ""}</option>`).join("")}</select><button type="submit" class="acc-mini-btn">Save</button>
+                  ${d.driver ? `<a class="tp-call" href="tel:${escapeHtml(tel(d.driver.phone))}" aria-label="Call ${escapeHtml(d.driver.name)}">${uiIcon("phone")}</a>` : ""}</div>`
+                  : `<p class="text-sm text-gray-600">No drivers yet.</p>`}
+                <p class="field-error hidden" data-error-for="driver_id"></p></form>` : ""}
+              ${hasRecord ? `<div class="acc-card"><h2 class="txd-card-title">Collection Record</h2>${trEvidenceHtml(d)}</div>` : ""}
               ${ratingCard}
               <details class="acc-card acc-more"><summary>History</summary>${trTimelineHtml(d.events)}</details>
             </div>
@@ -452,7 +462,7 @@
             if (!gpsBox.isConnected) return;
             const on = g.status === "on" && g.bookingId === d.id;
             gpsBox.innerHTML = `<div class="tr-gps ${on ? "tr-gps-on" : "tr-gps-off"}"><span class="tr-gps-dot"></span><span>${on
-              ? `Sharing your location${g.sentAt ? ` · last sent ${escapeHtml(g.sentAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }))}` : ""}. Keep this page open.`
+              ? `Sharing your location${g.sentAt ? ` · ${escapeHtml(g.sentAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }))}` : ""}`
               : escapeHtml(g.error || (g.status === "waiting" ? "Getting your location…" : "Location sharing is off."))}</span>
               ${on ? "" : `<button type="button" class="acc-mini-btn ml-auto" data-gps-on>Share Location</button>`}</div>`;
             gpsBox.querySelector("[data-gps-on]")?.addEventListener("click", () => gps.start(d.id, paint));
