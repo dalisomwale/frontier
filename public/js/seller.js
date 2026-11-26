@@ -334,42 +334,69 @@ const SELLER_NAV = [
 
 const sellerTabHref = (key) => (key === "overview" ? "/seller/" : `/seller/?tab=${key}`);
 
-function renderSellerShell(seller) {
-  const sidebar = document.getElementById("app-sidebar");
-  sidebar.classList.add("app-sidebar");
-  sidebar.innerHTML = `
-    <div class="app-sidebar-brand">
-      <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div>
-      <div class="min-w-0">
-        <p class="text-white font-semibold text-sm leading-tight">Frontier Marketplace</p>
-        <p class="text-xs" style="color: var(--sidebar-text)">Seller</p>
-      </div>
-    </div>
-    <nav class="app-sidebar-nav">
-      ${SELLER_NAV.map((item) => `${item.section ? `<p class="app-sidebar-section">${item.section}</p>` : ""}<a href="${sellerTabHref(item.key)}" data-tab-link="${item.key}">
-        ${uiIcon(item.icon)}<span>${item.label}</span>
-        ${item.badge ? `<span data-${item.badge}-badge class="nav-badge hidden">0</span>` : ""}
-      </a>`).join("")}
-      <p class="app-sidebar-section">Website</p>
-      <a href="/" target="_blank" rel="noopener">${uiIcon("external")}<span>Shop Now</span></a>
-    </nav>
-    <div class="app-sidebar-footer">
-      <p class="text-xs px-3 pb-2 truncate" style="color: var(--sidebar-text)">Signed in as ${escapeHtml(seller.business_name || seller.name)}</p>
-      <button type="button" data-seller-logout>${uiIcon("logout")}<span>Sign Out</span></button>
-    </div>`;
+// Signed-in seller and transport pages wear the buyer account's look: the
+// floating top bar, and a white menu card beside the page (phones keep the
+// bottom bar). nav: [{ key, icon, label, badge, section }]; badges are
+// "[data-<badge>-badge]" counts, shown by setBadge.
+function portalInitials(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  return ((parts[0] || "?")[0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+}
 
-  document.getElementById("seller-topbar").innerHTML = `
-    <nav id="page-topnav" class="site-topnav sticky top-0 z-50">
-      <div class="px-4 sm:px-6 h-16 flex justify-between items-center">
-        <a href="/seller/" data-tab-link="overview" class="flex items-center gap-3">
+function renderPortalShell({ topbar, main, name, sub, nav, href, home, profileKey, extra = "", logoutAttr }) {
+  document.body.classList.add("portal-page");
+  const first = String(name || "").trim().split(/\s+/)[0] || "";
+  topbar.innerHTML = `
+    <nav id="page-topnav" class="site-topnav has-site-nav portal-topnav">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-3">
+        <a href="${home}" class="flex items-center gap-3 flex-shrink-0" aria-label="Frontier Marketplace">
           <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div>
-          <span class="font-bold site-topnav-name">Seller</span>
+          <span class="font-bold site-topnav-name">Frontier Marketplace</span>
         </a>
-        <div class="flex items-center gap-2">
-          <a href="/" target="_blank" rel="noopener" class="hidden sm:inline-flex site-topnav-back px-3 py-2">Shop Now</a>
+        <div class="ml-auto flex items-center gap-2">
+          <a href="${href(profileKey)}" data-tab-link="${profileKey}" class="buyer-chip" aria-label="Profile">
+            <span class="buyer-chip-av">${escapeHtml(portalInitials(name))}</span><span class="buyer-chip-name">${escapeHtml(first)}</span></a>
         </div>
       </div>
     </nav>`;
+
+  const aside = document.getElementById("app-sidebar");
+  aside.className = "acc-nav";
+  aside.setAttribute("aria-label", "Menu");
+  aside.innerHTML = `
+    <div class="acc-user">
+      <span class="acc-av">${escapeHtml(portalInitials(name))}</span>
+      <div class="min-w-0"><p class="acc-user-name">${escapeHtml(name)}</p><p class="acc-user-sub">${escapeHtml(sub)}</p></div>
+    </div>
+    <nav class="acc-links">
+      ${nav.map((i) => `${i.section ? `<p class="acc-section">${i.section}</p>` : ""}<a href="${href(i.key)}" data-tab-link="${i.key}"><span>${uiIcon(i.icon)}</span><span>${i.label}</span>${i.badge ? `<span data-${i.badge}-badge class="acc-count hidden">0</span>` : ""}</a>`).join("")}
+      ${extra}
+      <button type="button" ${logoutAttr}><span>${uiIcon("logout")}</span><span>Sign Out</span></button>
+    </nav>`;
+
+  // The menu and the page side by side, centred (as on the buyer's account).
+  if (!main.parentElement.classList.contains("acc-layout")) {
+    const layout = document.createElement("div");
+    layout.className = "acc-layout";
+    main.before(layout);
+    layout.append(aside, main);
+  }
+  main.className = "acc-main";
+}
+
+function renderSellerShell(seller) {
+  renderPortalShell({
+    topbar: document.getElementById("seller-topbar"),
+    main: document.getElementById("seller-main"),
+    name: seller.name || seller.business_name,
+    sub: "Seller account",
+    nav: SELLER_NAV,
+    href: sellerTabHref,
+    home: "/seller/",
+    profileKey: "profile",
+    extra: `<p class="acc-section">Website</p><a href="/" target="_blank" rel="noopener"><span>${uiIcon("external")}</span><span>Shop Now</span></a>`,
+    logoutAttr: "data-seller-logout",
+  });
 
   const bottom = document.getElementById("app-bottom-nav");
   bottom.classList.add("app-bottom-nav");

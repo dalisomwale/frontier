@@ -7497,3 +7497,9 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .admin-steps .ob-step { padding-top: 14px; }
 .admin-steps .ob-step > * + * { margin-top: 16px; }
 .admin-steps [data-ob-progress] { max-width: 640px; margin: 0 auto; }
+
+/* Seller and transport pages: the buyer account's look (renderPortalShell) */
+.acc-count.hidden { display: none; }
+.portal-page .acc-links button { color: #374151; }
+.portal-page .buyer-chip.active { background: rgba(255, 255, 255, .12); }
+@media (min-width: 1024px) { .portal-page .acc-layout { max-width: 1280px; grid-template-columns: 240px minmax(0, 1fr); } }

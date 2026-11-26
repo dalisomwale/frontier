@@ -66,27 +66,18 @@ function renderTransportShell(p) {
   const nav = transportNavFor(p);
   // Phones: at most 6 buttons along the bottom (Ratings stays in the menu).
   const bottomNav = nav.length > 6 ? nav.filter((i) => i.key !== "ratings") : nav;
-  const sidebar = document.getElementById("app-sidebar");
-  sidebar.classList.add("app-sidebar");
-  sidebar.innerHTML = `
-    <div class="app-sidebar-brand">
-      <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div>
-      <div class="min-w-0"><p class="text-white font-semibold text-sm leading-tight">Frontier Marketplace</p><p class="text-xs" style="color: var(--sidebar-text)">Transport</p></div>
-    </div>
-    <nav class="app-sidebar-nav">
-      ${nav.map((i) => `${i.section ? `<p class="app-sidebar-section">${i.section}</p>` : ""}<a href="${href(i.key)}" data-tab-link="${i.key}">${uiIcon(i.icon)}<span>${i.label}</span>${i.badge ? `<span data-${i.badge}-badge class="nav-badge hidden">0</span>` : ""}</a>`).join("")}
-    </nav>
-    <div class="app-sidebar-footer">
-      <p class="text-xs px-3 pb-2 truncate" style="color: var(--sidebar-text)">Signed in as ${escapeHtml(p.role === "driver" && p.driver ? `${p.driver.name} · ${p.name}` : p.name)}</p>
-      <button type="button" data-transport-logout>${uiIcon("logout")}<span>Sign Out</span></button>
-    </div>`;
-  document.getElementById("transport-topbar").innerHTML = `
-    <nav id="page-topnav" class="site-topnav sticky top-0 z-50">
-      <div class="px-4 sm:px-6 h-16 flex justify-between items-center">
-        <a href="/transport/" class="flex items-center gap-3"><div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div><span class="font-bold site-topnav-name">Transport</span></a>
-        <button type="button" data-transport-logout class="lg:hidden site-topnav-back px-3 py-2">Sign Out</button>
-      </div>
-    </nav>`;
+  const driver = p.role === "driver" && p.driver;
+  renderPortalShell({
+    topbar: document.getElementById("transport-topbar"),
+    main: document.getElementById("tp-main"),
+    name: driver ? p.driver.name : p.name,
+    sub: driver ? `Driver · ${p.name}` : p.kind === "company" ? "Transport company" : "Transport account",
+    nav,
+    href,
+    home: "/transport/",
+    profileKey: "profile",
+    logoutAttr: "data-transport-logout",
+  });
   const bottom = document.getElementById("app-bottom-nav");
   bottom.classList.add("app-bottom-nav");
   bottom.dataset.variant = "admin";
