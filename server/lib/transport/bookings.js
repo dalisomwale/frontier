@@ -368,7 +368,7 @@ async function accept(providerId, bookingId, vehicleId, { admin = null, force = 
     withdrawn = others.map((o) => o.provider_id);
     await core.transition(conn, b, "provider_accepted", {
       event: admin ? "assigned" : "accepted", actor, actorName,
-      detail: admin ? `Frontier (${admin.name}) assigned ${p.name}${force && (!check.eligible || !fits) ? ` although: ${[...check.reasons, ...(fits ? [] : ["the vehicle's listed capacity doesn't cover the load"])].join("; ")}` : ""}.` : `${p.name} accepted the delivery.`,
+      detail: admin ? `Frontier (${admin.name}) assigned ${p.name}${force && (!check.eligible || !fits) ? ` although: ${[...check.reasons, ...(fits ? [] : ["the vehicle doesn't suit the load"])].join("; ")}` : ""}.` : `${p.name} accepted the delivery.`,
       set: { provider_id: providerId, accepted_at: { raw: "NOW()" } },
     });
     await core.transition(conn, b, "vehicle_selected", {

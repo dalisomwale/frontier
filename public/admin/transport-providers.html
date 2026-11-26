@@ -132,7 +132,7 @@
               <div class="acc-card"><div class="flex items-center justify-between gap-2 mb-2"><h2 class="txd-card-title !mb-0">Vehicles</h2><button type="button" class="acc-mini-btn" data-add-vehicle>Add Vehicle</button></div>${p.vehicle_list.length ? `<div class="tp-vehicles">${p.vehicle_list.map((v) => `
                 <div class="tp-vehicle">${v.photos[0] ? `<a href="${escapeHtml(v.photos[0].image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(v.photos[0].thumb_path)}" alt=""></a>` : ""}
                   <div class="tp-vehicle-body"><div class="flex justify-between gap-2"><b>${escapeHtml(v.registration)}</b><span class="so-pill ${v.status === "active" ? "so-done" : "so-off"}">${v.status === "active" ? (v.busy_booking ? `On ${escapeHtml(v.busy_booking.reference)}` : "Active") : "Inactive"}</span></div>
-                  <p class="text-sm text-gray-600">${v.size_label ? `<span class="tp-size">${escapeHtml(v.size_label)}</span> ` : `<span class="text-amber-700">No size set · </span>`}${escapeHtml(v.vehicle_type)}${v.capacity_note ? ` · ${escapeHtml(v.capacity_note)}` : ""}</p>
+                  <p class="text-sm text-gray-600">${v.size_label ? `<span class="tp-size">${escapeHtml(v.size_label)}</span> ` : `<span class="text-amber-700">No size set · </span>`}${escapeHtml(v.vehicle_type)}</p>
                   ${p.kind === "company" ? `<p class="text-sm ${v.driver_name ? "text-gray-700" : "text-amber-700"}">${v.driver_name ? `Driver: ${escapeHtml(v.driver_name)}` : "No driver"}</p>` : ""}
                   ${v.photos.length > 1 ? `<div class="acc-photos mt-2">${v.photos.slice(1).map((ph) => `<a href="${escapeHtml(ph.image_path)}" target="_blank" rel="noopener"><img src="${escapeHtml(ph.thumb_path)}" alt=""></a>`).join("")}</div>` : ""}
                   ${v.documents.length ? `<p class="text-sm mt-2">${v.documents.map((f) => `<a class="acc-link" href="/api/admin/transport/vehicle-files/${f.id}" target="_blank" rel="noopener">${escapeHtml(f.original_name || "Document")}</a>`).join(" · ")}</p>` : ""}
@@ -140,7 +140,7 @@
               ${p.kind === "company" ? `<div class="acc-card"><div class="flex items-center justify-between gap-2 mb-2"><h2 class="txd-card-title !mb-0">Drivers</h2><button type="button" class="acc-mini-btn" data-add-driver>Add Driver</button></div>${(p.drivers || []).length ? `<div class="space-y-3">${p.drivers.map((d) => `
                 <div class="tp-vehicle"><div class="tp-vehicle-body">
                   <div class="flex justify-between gap-2"><b>${escapeHtml(d.name)}</b><span class="so-pill ${!d.is_active ? "so-off" : d.busy_booking ? "so-act" : "so-done"}">${!d.is_active ? "Off" : d.busy_booking ? `On ${escapeHtml(d.busy_booking.reference)}` : "Active"}</span></div>
-                  <p class="text-sm text-gray-600"><a class="acc-link" href="tel:${escapeHtml(String(d.phone).replace(/[^\d+]/g, ""))}">${escapeHtml(d.phone)}</a>${d.licence_number ? ` · Licence ${escapeHtml(d.licence_number)}` : ""}</p>
+                  <p class="text-sm text-gray-600"><a class="acc-link" href="tel:${escapeHtml(String(d.phone).replace(/[^\d+]/g, ""))}">${escapeHtml(d.phone)}</a></p>
                   <p class="text-sm ${d.vehicle ? "text-gray-700" : "text-amber-700"}">${d.vehicle ? `${escapeHtml(d.vehicle.registration)} · ${escapeHtml(d.vehicle.vehicle_type)}${d.vehicle.size_label ? ` · ${escapeHtml(d.vehicle.size_label)}` : ""}` : "No vehicle"}</p>
                   <p class="text-sm">${d.documents.length ? d.documents.map((x) => `<a class="acc-link" href="/api/admin/transport/documents/${x.id}" target="_blank" rel="noopener">${escapeHtml(x.type_label)}</a>`).join(" · ") : `<span class="text-amber-700">No documents</span>`}</p>
                   <p class="text-xs text-gray-500">${d.last_login_at ? `Signed in ${escapeHtml(formatDateShort(d.last_login_at))}` : d.has_code ? "Not signed in yet" : "No sign-in code yet"}</p>
@@ -340,13 +340,12 @@
           card.className = "ob-row";
           card.dataset.driverCard = "1";
           card.innerHTML = `<div class="ob-row-head"><b data-n></b><button type="button" class="ob-row-rm" data-rm>Remove</button></div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label class="field-label">Full Name</label><input data-f="name" class="field-input" maxlength="120"></div>
               <div><label class="field-label">Phone Number</label><input data-f="phone" type="tel" class="field-input" maxlength="30" placeholder="0977 123 456"></div>
-              <div><label class="field-label">Driving Licence No. <span class="ob-opt">(optional)</span></label><input data-f="licence_number" class="field-input" maxlength="80"></div>
             </div>
-            <p class="ob-sub-lead">Their Vehicle</p>${vehicleFieldsHtml()}
-            <p class="ob-sub-lead">Their Documents</p>${driverDocInputs()}`;
+            <p class="ob-sub-lead">Their Documents</p>${driverDocInputs()}
+            <p class="ob-sub-lead">Their Vehicle</p>${vehicleFieldsHtml()}`;
           card.querySelector("[data-rm]").addEventListener("click", () => { card.remove(); renumber(); });
           holder.querySelector("[data-cards]").appendChild(card);
           renumber();
@@ -406,8 +405,8 @@
                 ${input("district", "District", "", 'maxlength="80"')}
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                ${input("coverage_km", "Coverage (km by road)", "", 'type="number" min="1" max="3000" step="1"', "Leave empty to set it later.")}
                 ${input("address", "<span data-address-label>Physical Address</span>", "", 'maxlength="255" placeholder="e.g. Plot 5, Cairo Road"')}
+                ${input("coverage_km", "Coverage (km by road)", "", 'type="number" min="1" max="3000" step="1"', "Leave empty to set it later.")}
               </div>
               <div data-map></div>${errFor("base_point")}
             </section>
@@ -529,18 +528,17 @@
           wide: true,
           submitText: d ? "Save Driver" : "Add Driver",
           body: `
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               ${input("name", "Full Name", d ? d.name : "", 'maxlength="120"')}
               ${input("phone", "Phone Number", d ? d.phone : "", 'type="tel" maxlength="30" placeholder="0977 123 456"', "They sign in with this number.")}
-              ${input("licence_number", "Driving Licence No. <span class=\"text-gray-400 font-normal\">(optional)</span>", d ? d.licence_number : "", 'maxlength="80"')}
             </div>
+            <div><p class="field-label">Their Documents</p>${driverDocInputs("doc_")}${errFor("documents")}</div>
             <div><label class="field-label" for="f-vehicle_id">Their Vehicle</label>
               <select id="f-vehicle_id" name="vehicle_id" class="field-input"><option value="">No vehicle yet</option>${free.map((v) => `<option value="${v.id}" ${d && d.vehicle && d.vehicle.id === v.id ? "selected" : ""}>${escapeHtml(v.registration)} · ${escapeHtml(v.vehicle_type)}${v.size_label ? ` · ${escapeHtml(v.size_label)}` : ""}</option>`).join("")}</select>
-              <p class="text-xs text-gray-500 mt-1">${free.length ? "Each driver has their own vehicle." : "All of the company's vehicles have drivers. Add a vehicle first."}</p>${errFor("vehicle_id")}</div>
-            <div><p class="field-label">Their Documents</p>${driverDocInputs("doc_")}${errFor("documents")}</div>`,
+              <p class="text-xs text-gray-500 mt-1">${free.length ? "Each driver has their own vehicle." : "All of the company's vehicles have drivers. Add a vehicle first."}</p>${errFor("vehicle_id")}</div>`,
           onSubmit: async (form) => {
             const fd = new FormData();
-            ["name", "phone", "licence_number", "vehicle_id"].forEach((k) => fd.append(k, form[k].value.trim()));
+            ["name", "phone", "vehicle_id"].forEach((k) => fd.append(k, form[k].value.trim()));
             DRIVER_DOCS.forEach(([k]) => { const f = form[`doc_${k}`].files[0]; if (f) { fd.append("documents", f); fd.append("doc_types", k); } });
             const res = await adminApi(d ? `/api/admin/transport/drivers/${d.id}` : `/api/admin/transport/providers/${p.id}/drivers`, { method: d ? "PUT" : "POST", body: fd });
             showNotification(res.message, "success");
@@ -609,18 +607,10 @@
       }
 
       function editVehicle(p, v) {
-        const capOptions = (sizeKey, current = "") => {
-          const list = ((meta.sizes.find((x) => x.key === sizeKey) || {}).capacities) || [];
-          return `<option value="">${list.length ? "Choose…" : "Choose the vehicle size first"}</option>${list.map((c) => `<option ${c === current ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}`;
-        };
         openFormModal({
           title: v ? `Vehicle ${v.registration}` : `Add a vehicle for ${p.name}`,
           wide: true,
           submitText: v ? "Save Vehicle" : "Add Vehicle",
-          onOpen: (form) => {
-            const capSel = form.querySelector("select[name=capacity_note]");
-            form.querySelectorAll("input[name=size_class]").forEach((r) => r.addEventListener("change", () => { capSel.innerHTML = capOptions(r.value); capSel.disabled = false; }));
-          },
           body: `
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               ${input("vehicle_type", "Vehicle Name", v ? v.vehicle_type : "", 'maxlength="60" placeholder="e.g. Toyota Hilux"')}
@@ -631,13 +621,12 @@
               ${trSizeCards(meta.sizes, { current: v ? v.size_class : "" })}
               ${errFor("size_class")}
             </div>
-            <div><label class="field-label" for="f-capacity_note">Capacity <span class="text-gray-400 font-normal">(optional)</span></label><select id="f-capacity_note" name="capacity_note" class="field-input" ${v && v.size_class ? "" : "disabled"}>${capOptions(v && v.size_class, v && v.capacity_note)}</select>${errFor("capacity_note")}</div>
             <p class="field-label mt-2">Photos <span class="text-gray-400 font-normal">(optional, up to 4)</span></p>
             <input type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp" class="text-sm">
 `,
           onSubmit: async (form) => {
             const fd = new FormData();
-            ["registration", "vehicle_type", "capacity_note"].forEach((k) => fd.append(k, form[k].value.trim()));
+            ["registration", "vehicle_type"].forEach((k) => fd.append(k, form[k].value.trim()));
             fd.append("size_class", form.size_class.value || "");
             [...form.photos.files].slice(0, 4).forEach((f) => fd.append("photos", f));
             const res = await adminApi(v ? `/api/admin/transport/vehicles/${v.id}` : `/api/admin/transport/providers/${p.id}/vehicles`, { method: v ? "PUT" : "POST", body: fd });

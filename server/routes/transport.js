@@ -608,9 +608,6 @@ async function vehiclePayload(body, providerId, exceptId = 0) {
   const registration = text(body.registration, 30);
   const type = text(body.vehicle_type, 60);
   const size = core.SIZE_KEYS.includes(body.size_class) ? body.size_class : null;
-  // Capacity (optional): one of the kg ranges listed for the chosen size.
-  const capacity = String(body.capacity_note ?? "").trim();
-  const sizeDef = core.SIZES.find((x) => x.key === size);
   const errors = {};
   const reg = registration ? registration.toUpperCase().replace(/\s+/g, " ") : null;
   if (!reg || reg.length < 3) errors.registration = "Please enter the registration number.";
@@ -620,11 +617,10 @@ async function vehiclePayload(body, providerId, exceptId = 0) {
   }
   if (!type || type.length < 2) errors.vehicle_type = "Please enter the vehicle name, e.g. Toyota Hilux.";
   if (!size) errors.size_class = "Please choose the vehicle size.";
-  if (capacity && !(sizeDef && sizeDef.capacities.includes(capacity))) errors.capacity_note = "Please choose the capacity from the list.";
-  // Load limits per animal are gone: the vehicle's size decides what it takes.
-  // Saving clears any limits an older version stored.
+  // Load limits and capacity are gone: the vehicle's size decides what it
+  // takes. Saving clears any an older version stored.
   const cargo = [];
-  return { errors, data: { registration: reg, vehicle_type: type, size_class: size, capacity_note: capacity && !errors.capacity_note ? capacity : null }, cargo };
+  return { errors, data: { registration: reg, vehicle_type: type, size_class: size, capacity_note: null }, cargo };
 }
 
 async function saveVehicleFiles(conn, vehicleId, files) {

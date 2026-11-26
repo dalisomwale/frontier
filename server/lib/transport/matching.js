@@ -6,8 +6,8 @@
 //   3. Frontier has switched their coverage on, and both the pickup point and
 //      the destination are within their coverage distance of their operating
 //      location, by road;
-//   4. they have an active vehicle that isn't on another delivery and can
-//      carry this load (cargo kinds and capacity).
+//   4. they have an active vehicle of the chosen size that isn't on another
+//      delivery.
 // The coverage distance is set by Frontier only (Admin > Transport providers).
 const pool = require("../../db");
 const routing = require("../../services/routing");

@@ -327,7 +327,7 @@
           title: `Assign a provider to ${d.reference}`,
           wide: true,
           body: `<p class="text-sm text-gray-600">Choose a provider and one of their free vehicles. Eligible providers cover both the pickup and the destination by road and have a suitable vehicle.</p><div data-list><span class="btn-spinner chat-spinner"></span></div>
-            <label class="co-terms-box"><input type="checkbox" name="force" value="1"><span>Assign even though they're outside their coverage or the vehicle's listed capacity</span></label>`,
+            <label class="co-terms-box"><input type="checkbox" name="force" value="1"><span>Assign even though they're outside their coverage or the vehicle doesn't suit the load</span></label>`,
           submitText: "Assign",
           onSubmit: async (f) => {
             const v = f.querySelector('input[name="pick"]:checked');
@@ -343,7 +343,7 @@
         const usable = list.filter((x) => x.provider.status === "approved" && x.provider.is_active && x.vehicles.some((v) => !v.busy));
         form.querySelector("[data-list]").innerHTML = usable.length ? `<div class="tp-choice">${usable.sort((a, b) => Number(b.eligible) - Number(a.eligible)).map((x) => x.vehicles.filter((v) => !v.busy).map((v) => `
           <label><input type="radio" name="pick" value="${x.provider.id}:${v.id}"><span><b>${escapeHtml(x.provider.name)}</b> · ${escapeHtml(v.registration)} (${v.size_label ? `${escapeHtml(v.size_label)}, ` : ""}${escapeHtml(v.vehicle_type)})
-            <small class="block ${x.eligible && v.fits ? "text-green-700" : "text-amber-700"}">${x.eligible && v.fits ? "Eligible" : escapeHtml([...x.reasons, ...(v.fits ? [] : ["vehicle's listed capacity doesn't cover the load"])].join("; "))}</small></span></label>`).join("")).join("")}</div>`
+            <small class="block ${x.eligible && v.fits ? "text-green-700" : "text-amber-700"}">${x.eligible && v.fits ? "Eligible" : escapeHtml([...x.reasons, ...(v.fits ? [] : ["vehicle doesn't suit the load"])].join("; "))}</small></span></label>`).join("")).join("")}</div>`
           : `<p class="text-sm text-gray-600">No approved, active provider has a free vehicle.</p>`;
       }
 
