@@ -12,6 +12,8 @@ Use the brands' official merchant / acceptance logos (Visa and Mastercard
 brand centres, or ask Lipila for their payment-method logo pack).
 
 visa.svg, mastercard.svg and airtel.svg come from Simple Icons
-(https://simpleicons.org, CC0), coloured in each brand's colour. Add mtn
-and zamtel files to show the network logos (they appear once all three
-networks have a logo).
+(https://simpleicons.org, CC0), coloured in each brand's colour.
+mtn.svg and zamtel.svg are simple stand-ins in the brands' colours: replace
+them with the official files when you have them (same names). A group of
+logos (the networks, or Visa and Mastercard) only shows once every logo in
+it has loaded; until then the names show as text.

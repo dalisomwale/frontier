@@ -821,3 +821,23 @@ document.addEventListener("change", (e) => {
   const field = pick && pick.querySelector("[data-size-value]");
   if (field) field.value = e.target.value;
 });
+
+// Self-collection at checkout: a buyer carrying a crate away from the farm,
+// drawn like the vehicles (walks while chosen).
+function trCollectArt() {
+  const G = "#166534", G2 = "#15803d", GL = "#dcfce7", T = "#374151";
+  return `<svg class="tp-van" viewBox="0 0 120 48" aria-hidden="true" focusable="false">
+    <line class="tp-van-road" x1="0" y1="46" x2="120" y2="46"/>
+    <rect x="16" y="20" width="32" height="24" fill="${GL}" stroke="${G}" stroke-width="1.5"/>
+    <path d="M11 22L32 6l21 16Z" fill="${G}"/><rect x="27" y="31" width="10" height="13" fill="${G2}"/>
+    <path d="M27 31l10 13M37 31L27 44" stroke="${GL}" stroke-width="1"/>
+    <g class="tp-van-body">
+      <circle cx="80" cy="11" r="4.2" fill="${T}"/>
+      <rect x="76" y="16" width="8.5" height="14" rx="3.5" fill="${G2}"/>
+      <path class="co-leg-a" d="M78.5 29L75 44" stroke="${T}" stroke-width="3" stroke-linecap="round"/>
+      <path class="co-leg-b" d="M82 29l4 15" stroke="${T}" stroke-width="3" stroke-linecap="round"/>
+      <path d="M82 19l7 5" stroke="${T}" stroke-width="2.4" stroke-linecap="round"/>
+      <rect x="86" y="18" width="14" height="11" rx="1.5" fill="#fde68a" stroke="#b45309" stroke-width="1.3"/>
+      <path d="M86 23.5h14" stroke="#b45309" stroke-width="1"/>
+    </g></svg>`;
+}

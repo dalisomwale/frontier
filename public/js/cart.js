@@ -211,3 +211,39 @@ function linkNetworkAndNumber(form, showError) {
   radios.forEach((r) => r.addEventListener("change", () => { if (phone.value.replace(/\D/g, "").length >= 3) update(false); }));
   if (phone.value) update(false);
 }
+
+// Payment logos: files in /images/pay/ (airtel, mtn, zamtel, visa,
+// mastercard; .svg or .png). A group of logos (the networks, or Visa and
+// Mastercard) shows only once every logo in it has loaded, so one brand never
+// stands in for all; the group then gets .has-logos and the names it replaces
+// are kept for screen readers only. Until then the names show as text.
+const PAY_METHOD_LOGOS = {
+  mobile_money: [["airtel", "Airtel Money"], ["mtn", "MTN MoMo"], ["zamtel", "Zamtel Kwacha"]],
+  card: [["visa", "Visa"], ["mastercard", "Mastercard"]],
+};
+const payLogo = (file, alt, cls = "pay-logo") => `<img class="${cls}" src="/images/pay/${file}.svg" data-logo="${file}" alt="${escapeHtml(alt)}">`;
+function showPayLogos(scope) {
+  scope.querySelectorAll("[data-logo-group]").forEach((group) => {
+    const imgs = [...group.querySelectorAll("img[data-logo]")];
+    let loaded = 0;
+    const done = () => {
+      if (++loaded < imgs.length) return;
+      imgs.forEach((img) => img.classList.add("is-loaded"));
+      group.hidden = false;
+      group.classList.add("has-logos");
+      const choice = group.closest(".pm-choice");
+      if (choice) choice.classList.add("has-logos");
+    };
+    imgs.forEach((img) => {
+      const missing = () => {
+        if (!img.dataset.triedPng) { img.dataset.triedPng = "1"; img.src = `/images/pay/${img.dataset.logo}.png`; }
+      };
+      img.addEventListener("load", done, { once: true });
+      img.addEventListener("error", missing);
+      if (img.complete && img.naturalWidth) { img.removeEventListener("load", done); done(); }
+      else if (img.complete) missing();
+    });
+  });
+}
+// One network tile: its logo, with the name as the fallback.
+const payNetworkCard = (key, name, checked = false) => `<label class="operator-card op-${key}" title="${escapeHtml(name)}"><input type="radio" name="mobile_operator" value="${key}" ${checked ? "checked" : ""}><span class="op-tick" aria-hidden="true"></span><span class="op-mark">${payLogo(key, "", "op-logo")}</span><span class="op-name">${escapeHtml(name.split(" ")[0])}</span></label>`;

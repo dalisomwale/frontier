@@ -48,10 +48,7 @@
       let quote = null;
       let ops = [];
       let methods = [];
-      const METHOD_NAMES = {
-        mobile_money: ["Mobile money", "Airtel, MTN or Zamtel"],
-        card: ["Visa / Mastercard", "Secure card page"],
-      };
+      const METHOD_NAMES = { mobile_money: "Mobile Money", card: "Visa / Mastercard" };
       const lockSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>`;
       const OP_NAMES = { airtel: "Airtel Money", mtn: "MTN MoMo", zamtel: "Zamtel Kwacha" };
       const cardSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19M6.5 15h4"/></svg>`;
@@ -142,12 +139,12 @@
                 <h2>Delivery</h2>
                 <div class="pm-choices" role="radiogroup" aria-label="How you'd like to receive your order">
                   <label class="pm-choice"><input type="radio" name="delivery_option" value="collect" checked>
-                    <span class="pm-icon">${uiIcon("location")}</span>
-                    <span class="pm-text"><b>Self-collection</b><small class="pm-sub"><span class="pm-sub-text">Collect from the seller. We'll arrange it with you.</span></small></span>
+                    <span class="co-art">${trCollectArt()}</span>
+                    <span class="pm-text"><b>Self-Collection</b></span>
                     <span class="pm-dot" aria-hidden="true"></span></label>
                   <label class="pm-choice${transportOn ? "" : " is-off"}"${transportOn ? "" : ' title="Not available right now"'}><input type="radio" name="delivery_option" value="transport" ${transportOn ? "" : "disabled"}>
-                    <span class="pm-icon">${uiIcon("truck")}</span>
-                    <span class="pm-text"><b>Include transport</b><small class="pm-sub"><span class="pm-sub-text">${transportOn ? "Delivered by an approved transport provider" : escapeHtml(quote.transport.reason || "Not available right now")}</span></small></span>
+                    <span class="co-art">${trVehicleArt("small")}</span>
+                    <span class="pm-text"><b>Transport</b>${transportOn ? "" : `<small class="co-off">${escapeHtml(quote.transport.reason || "Not available right now")}</small>`}</span>
                     <span class="pm-dot" aria-hidden="true"></span></label>
                 </div>
                 <p class="field-error hidden" data-error-for="delivery_option"></p>
@@ -194,7 +191,8 @@
                 <div class="pm-choices" role="radiogroup" aria-label="How you'd like to pay">
                   ${methods.map((m, n) => `<label class="pm-choice"><input type="radio" name="payment_method" value="${m}" ${n === 0 ? "checked" : ""}>
                     <span class="pm-icon">${METHOD_ICONS[m]}</span>
-                    <span class="pm-text"><b>${METHOD_NAMES[m][0]}</b><small class="pm-sub"><span class="pm-logos" data-logo-group hidden>${METHOD_LOGOS[m].map(([f, alt]) => payLogo(f, alt)).join("")}</span><span class="pm-sub-text">${METHOD_NAMES[m][1]}</span></small></span>
+                    <span class="pm-text"><b class="pm-name">${METHOD_NAMES[m]}</b></span>
+                    <span class="pm-logos" data-logo-group hidden>${PAY_METHOD_LOGOS[m].map(([f, alt]) => payLogo(f, alt)).join("")}</span>
                     <span class="pm-dot" aria-hidden="true"></span></label>`).join("")}
                 </div>
                 <p class="field-error hidden" data-error-for="payment_method"></p>` : ""}
@@ -203,7 +201,7 @@
                 <div data-method-panel="mobile_money" class="pm-panel">
                   <p class="sr-only" id="co-op-label">Your network</p>
                   <div class="operator-grid ${ops.length === 2 ? "co-ops" : ""}" data-logo-group role="radiogroup" aria-labelledby="co-op-label">
-                    ${ops.map((v) => `<label class="operator-card op-${v}"><input type="radio" name="mobile_operator" value="${v}"><span class="op-tick" aria-hidden="true"></span>${payLogo(v, "", "op-logo")}<span title="${OP_NAMES[v]}">${OP_NAMES[v].split(" ")[0]}</span></label>`).join("")}
+                    ${ops.map((v) => payNetworkCard(v, OP_NAMES[v])).join("")}
                   </div>
                   <p class="field-error hidden" data-error-for="mobile_operator"></p>
                   <label for="co-pay-phone" class="field-label mt-4">Mobile money number</label>
@@ -531,38 +529,6 @@
         watchCardPayment(d.id, d.token, () => { window.location.href = d.page_url; });
       }
 
-      // Payment logos: official files in /images/pay/ (airtel, mtn, zamtel,
-      // visa, mastercard; .svg or .png). Until a file is there, the text shows.
-      const METHOD_LOGOS = {
-        mobile_money: [["airtel", "Airtel Money"], ["mtn", "MTN MoMo"], ["zamtel", "Zamtel Kwacha"]],
-        card: [["visa", "Visa"], ["mastercard", "Mastercard"]],
-      };
-      const payLogo = (file, alt, cls = "pay-logo") => `<img class="${cls}" src="/images/pay/${file}.svg" data-logo="${file}" alt="${escapeHtml(alt)}">`;
-      // A group of logos (the networks, or Visa and Mastercard) shows only once
-      // every logo in it has loaded, so one brand never stands in for all.
-      function showPayLogos(scope) {
-        scope.querySelectorAll("[data-logo-group]").forEach((group) => {
-          const imgs = [...group.querySelectorAll("img[data-logo]")];
-          let loaded = 0;
-          const done = () => {
-            if (++loaded < imgs.length) return;
-            imgs.forEach((img) => img.classList.add("is-loaded"));
-            if (group.classList.contains("pm-logos")) {
-              group.hidden = false;
-              group.parentElement.querySelector(".pm-sub-text").hidden = true;
-            }
-          };
-          imgs.forEach((img) => {
-            const missing = () => {
-              if (!img.dataset.triedPng) { img.dataset.triedPng = "1"; img.src = `/images/pay/${img.dataset.logo}.png`; }
-            };
-            img.addEventListener("load", done, { once: true });
-            img.addEventListener("error", missing);
-            if (img.complete && img.naturalWidth) { img.removeEventListener("load", done); done(); }
-            else if (img.complete) missing();
-          });
-        });
-      }
       const METHOD_ICONS = { mobile_money: phoneSvg, card: cardSvg };
 
       document.addEventListener("DOMContentLoaded", load);

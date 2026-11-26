@@ -6368,7 +6368,7 @@ main.has-view > .admin-view:not(:last-child) { display: none; }
 #checkout-form .operator-grid, .pay-form .operator-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 0.5rem; }
 #checkout-form .operator-grid.co-ops { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 #checkout-form .operator-card, .pay-form .operator-card { justify-content: center; text-align: center; padding: 0.6rem 0.4rem; min-height: 0; font-size: 0.85rem; }
-#checkout-form .operator-card .op-tick, #checkout-form .operator-card .op-logo, .pay-form .operator-card .op-tick { display: none; }
+#checkout-form .operator-card .op-tick, .pay-form .operator-card .op-tick, .pay-retry .operator-card .op-tick { display: none; }
 #checkout-form .operator-card:has(input:checked), .pay-form .operator-card:has(input:checked) { border: 2px solid #1a6b3a; background: #eef7ea; color: #1a6b3a; }
 #checkout-form .pm-choice .pm-sub { display: none; }
 #checkout-form .pm-choice { padding: 0.75rem 0.9rem; }
@@ -7558,3 +7558,44 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 @keyframes tp-van-rock { from { transform: translateY(0); } to { transform: translateY(-0.8px); } }
 @keyframes tp-van-road { to { stroke-dashoffset: 11; } }
 @keyframes tp-van-in { from { transform: translateX(-10px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+
+/* Checkout: pictures and logos instead of words. The delivery choices show a
+   drawing (it moves while chosen); payment methods and networks show their
+   logos, with the names kept for screen readers once the logos load. */
+.co-delivery .pm-choice { align-items: center; text-align: center; gap: 6px; }
+.co-art { display: block; width: 100%; max-width: 150px; }
+.co-art .tp-van { max-width: 150px; margin-bottom: 0; }
+.co-off { display: block; font-size: 12px; color: #6b7280; font-weight: 400; }
+.pm-choice:has(input:checked) .tp-van-road { stroke: #86efac; }
+@media (prefers-reduced-motion: no-preference) {
+  .pm-choice:hover .tp-van-wheel, .pm-choice:has(input:checked) .tp-van-wheel { animation: tp-van-spin 0.7s linear infinite; }
+  .pm-choice:hover .tp-van-body, .pm-choice:has(input:checked) .tp-van-body { animation: tp-van-rock 0.35s ease-in-out infinite alternate; }
+  .pm-choice:hover .tp-van-road, .pm-choice:has(input:checked) .tp-van-road { animation: tp-van-road 0.5s linear infinite; }
+  .pm-choice:has(input:checked) .co-leg-a, .pm-choice:hover .co-leg-a { animation: co-step 0.5s ease-in-out infinite alternate; }
+  .pm-choice:has(input:checked) .co-leg-b, .pm-choice:hover .co-leg-b { animation: co-step 0.5s ease-in-out infinite alternate-reverse; }
+}
+.co-leg-a, .co-leg-b { transform-box: fill-box; transform-origin: top center; }
+@keyframes co-step { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
+
+.pm-logos { flex-wrap: wrap; justify-content: center; gap: 8px; margin: 0; }
+.pm-logos[hidden] { display: none; }
+.pm-choice.has-logos { align-items: center; justify-content: center; min-height: 76px; }
+.pm-choice.has-logos .pm-icon { display: none; }
+.pm-choice.has-logos .pm-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.pm-choice.has-logos .pay-logo { height: 28px; max-width: 56px; }
+.pm-choice.has-logos .pay-logo[data-logo="mastercard"], .pm-choice.has-logos .pay-logo[data-logo="airtel"] { height: 30px; }
+
+.operator-card .op-mark { display: none; }
+.has-logos .operator-card .op-mark { display: flex; align-items: center; justify-content: center; }
+.has-logos .operator-card .op-logo { display: block; width: auto; height: 30px; max-width: 64px; border-radius: 4px; }
+.has-logos .operator-card .op-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+#checkout-form .operator-grid.has-logos .operator-card, .pay-form .operator-grid.has-logos .operator-card, .pay-retry .operator-grid.has-logos .operator-card { min-height: 52px; padding: 0.5rem; }
+.pm-choice.has-logos .pm-logos { flex-wrap: nowrap; }
+@media (max-width: 640px) {
+  .co-delivery .pm-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #checkout-form .co-delivery .pm-choice { padding: 36px 8px 10px; }
+  #checkout-form .pm-choice.has-logos { padding: 36px 8px 14px; min-height: 0; }
+  .pm-choice.has-logos .pm-logos { gap: 5px; }
+  .pm-choice.has-logos .pay-logo { height: 22px; max-width: 42px; }
+  .pm-choice.has-logos .pay-logo[data-logo="mastercard"], .pm-choice.has-logos .pay-logo[data-logo="airtel"] { height: 24px; }
+}
