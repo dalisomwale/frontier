@@ -42,7 +42,8 @@
       const root = document.getElementById("cart");
 
       function empty() {
-        root.innerHTML = checkoutSteps(0) + pageHeroHtml({ title: "Your", accent: "Cart" });
+        root.innerHTML = pageHeroHtml({ title: "Your", accent: "Cart", bleed: true }) + checkoutSteps(0);
+        fitPageHero();
         const box = document.createElement("div");
         root.appendChild(box);
         renderEmptyState(box, {
@@ -100,8 +101,8 @@
         const ok = quote.items.filter((i) => i.available);
         const gone = quote.items.length - ok.length;
         root.innerHTML = `
+          ${pageHeroHtml({ title: "Your", accent: "Cart", sub: `${ok.length} ${ok.length === 1 ? "item" : "items"} · ${kwacha(quote.total)}`, bleed: true })}
           ${checkoutSteps(0)}
-          ${pageHeroHtml({ title: "Your", accent: "Cart", sub: `${ok.length} ${ok.length === 1 ? "item" : "items"} · ${kwacha(quote.total)}` })}
           ${gone ? `<div class="alert alert-error text-sm mb-4 cart-card-w">${gone === 1 ? "One item is" : `${gone} items are`} no longer available. Remove ${gone === 1 ? "it" : "them"} to continue.</div>` : ""}
           <div class="cart-card">
             <ul class="cart-list">${quote.items.map(line).join("")}</ul>
@@ -112,6 +113,7 @@
               <a href="/#listings" class="cart-continue">${uiIcon("chevronLeft")}<span>Continue Shopping</span></a>
             </div>
           </div>`;
+        fitPageHero();
         bind(quote);
       }
 

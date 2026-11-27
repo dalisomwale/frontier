@@ -7721,7 +7721,7 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 /* Cart: one card. The products, then the total, Checkout and Continue
    Shopping. Each product: picture, name and details, then quantity, price
    and the bin on one line. */
-.cart-card, .cart-card-w, #cart .page-hero { max-width: 720px; }
+.cart-card, .cart-card-w { max-width: 720px; }
 .cart-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; }
 .cart-card .cart-list { border: 0; border-radius: 0; }
 .cart-card .cart-line { grid-template-columns: 76px minmax(0, 1fr); }
@@ -7754,4 +7754,19 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
   .page-hero { min-height: 130px; padding: 18px 18px; border-radius: 16px; margin-bottom: 16px; }
   .page-hero-title { font-size: 24px; }
   .page-hero-sub { font-size: 13.5px; }
+}
+
+/* Bleed banner: edge to edge and from the top of the page, under the
+   floating menu; the text lines up with the page content. */
+.page-hero.is-bleed {
+  max-width: none; border-radius: 0; box-shadow: none; margin-bottom: 22px;
+  min-height: calc(var(--bleed-top, 96px) + 150px);
+  padding: calc(var(--bleed-top, 96px) + 20px) var(--bleed-right, 16px) 26px var(--bleed-left, 16px);
+  background:
+    linear-gradient(180deg, rgba(8, 28, 16, .55) 0%, rgba(8, 28, 16, 0) 40%),
+    linear-gradient(90deg, rgba(8, 28, 16, .88) 0%, rgba(8, 28, 16, .5) 55%, rgba(8, 28, 16, .15) 100%),
+    var(--page-hero-img) center 45% / cover no-repeat, #14532d;
+}
+@media (max-width: 640px) {
+  .page-hero.is-bleed { min-height: calc(var(--bleed-top, 90px) + 110px); padding-bottom: 20px; margin-bottom: 16px; }
 }
