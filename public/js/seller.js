@@ -382,6 +382,7 @@ function renderPortalShell({ topbar, main, name, sub, nav, href, home, profileKe
     layout.append(aside, main);
   }
   main.className = "acc-main";
+  addPortalHero(main, name, sub);
 }
 
 function renderSellerShell(seller) {

@@ -7812,3 +7812,10 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .news-band-inner { max-width: none !important; border-radius: 0 !important; box-shadow: none !important; padding: 64px 24px 68px !important; }
 @media (max-width: 640px) { .news-band-inner { padding: 48px 16px 52px !important; } }
 main:has(+ .news-band) { margin-bottom: 0 !important; }
+
+/* Signed-in pages: the greeting banner across the top (all screens), the
+   same height as the other banners; the menu bar floats above it. */
+.portal-topnav { z-index: 50; }
+.portal-hero.is-bleed { min-height: calc(var(--bleed-top, 72px) + 182px); }
+@media (max-width: 640px) { .portal-hero.is-bleed { min-height: calc(var(--bleed-top, 66px) + 134px); } }
+.portal-hero.is-bleed { margin-bottom: 0; }

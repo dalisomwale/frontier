@@ -733,6 +733,7 @@
         renderCartButtons();
         document.getElementById("nav-av").textContent = buyerInitials(me.full_name);
         document.getElementById("nav-name").textContent = me.full_name;
+        addPortalHero(document.getElementById("acc-main"), me.full_name, "Buyer account");
         document.getElementById("verify-banner").hidden = Boolean(me.verified);
         document.getElementById("verify-email").textContent = me.email;
       }

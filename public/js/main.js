@@ -448,18 +448,21 @@ function fitPageHero(again = true) {
   // Where the banner would sit without stretching, read from what holds it
   // (so nothing moves while measuring): the top of its box's content, or for
   // a title band right under the menu bar, the bottom of the menu bar.
-  const box = hero.parentElement;
+  // A banner placed straight in the page (not inside a box) sits under the
+  // menu bar, and its text lines up with what follows it.
+  const loose = hero.classList.contains("page-band") || hero.parentElement === document.body;
+  const box = loose && hero.nextElementSibling ? hero.nextElementSibling : hero.parentElement;
   const b = box.getBoundingClientRect();
   const cs = getComputedStyle(box);
   const nav = document.getElementById("page-topnav");
-  const top = hero.classList.contains("page-band")
+  const top = loose
     ? (nav ? nav.offsetHeight : 0)
     : b.top + window.scrollY + parseFloat(cs.paddingTop);
   const left = b.left + parseFloat(cs.paddingLeft);
   const right = b.right - parseFloat(cs.paddingRight);
   const w = document.documentElement.clientWidth;
   hero.style.marginTop = `${-top}px`;
-  hero.style.marginLeft = `${-left}px`;
+  hero.style.marginLeft = loose ? "0px" : `${-left}px`;
   hero.style.width = `${w}px`;
   hero.style.setProperty("--bleed-top", `${top}px`);
   hero.style.setProperty("--bleed-left", `${left}px`);
@@ -485,4 +488,15 @@ function heroTitleHtml(text) {
   const words = String(text || "").trim().split(/\s+/);
   const last = words.pop() || "";
   return `${escapeHtml(words.join(" "))}${words.length ? " " : ""}<span class="page-hero-accent">${escapeHtml(last)}</span>`;
+}
+
+// Signed-in pages (buyer, seller, transport): the picture banner across the
+// top, above the menu and the page, greets the person ("Hello, Grace" ·
+// "Seller account").
+function addPortalHero(main, name, sub) {
+  if (!main || document.querySelector(".portal-hero")) return;
+  const first = String(name || "").trim().split(/\s+/)[0] || "";
+  const anchor = main.closest(".acc-layout") || main;
+  anchor.insertAdjacentHTML("beforebegin", pageHeroHtml({ title: "Hello,", accent: first, sub, bleed: true }).replace('class="page-hero is-bleed"', 'class="page-hero is-bleed portal-hero"'));
+  fitPageHero();
 }
