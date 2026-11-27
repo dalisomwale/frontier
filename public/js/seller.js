@@ -43,7 +43,7 @@ function sellerState(l) {
 // sellers and transport providers all see the same one.
 function authPageHeader() {
   return `
-    <nav class="site-topnav sticky top-0 z-50">
+    <nav id="page-topnav" class="site-topnav has-site-nav auth-topnav sticky top-0 z-50">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-3">
         <a href="/" class="flex items-center gap-3 flex-shrink-0" aria-label="Frontier Marketplace home">
           <div class="brand-mark-full"><img src="/images/logo-full.jpg" alt="Frontier Farms &amp; Consult"></div>

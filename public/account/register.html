@@ -20,13 +20,14 @@
   <body class="bg-gray-50 min-h-screen">
     <div id="account-header"></div>
     <main class="max-w-lg mx-auto px-4 py-8 sm:py-12">
+      <section class="page-hero is-bleed auth-hero" style="--page-hero-img:url('/images/hero/hero-reel-1.webp')">
+        <div class="page-hero-copy">
+          <h1 class="page-hero-title">Create Your <span class="page-hero-accent">Account</span></h1>
+          <p class="page-hero-sub">Your customer account: order, pay and track deliveries.</p>
+        </div>
+      </section>
       <a href="/" class="auth-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Back to home</span></a>
       <div class="ob-card">
-        <div class="ob-head">
-          <span class="ob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
-          <h1 class="ob-title">Create Your Account</h1>
-          <p class="ob-sub">Your customer account: order, pay and track deliveries.</p>
-        </div>
         <form id="register-form" novalidate>
           <div id="checkout-note" class="alert alert-info text-sm mb-4" hidden>Create an account to check out. Your cart is kept.</div>
           <div id="form-alert" class="hidden alert text-sm mb-4" role="alert"></div>

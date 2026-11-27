@@ -440,26 +440,43 @@ function pageHeroHtml({ title = "", accent = "", sub = "", image = "/images/hero
 
 // Stretches a bleed banner to the window's edges: it starts at the top of the
 // page and spans the full width, and its text keeps lining up with the page.
-function fitPageHero() {
+function fitPageHero(again = true) {
   const hero = document.querySelector(".page-hero.is-bleed, .page-band");
   if (!hero) return;
-  hero.style.marginTop = hero.style.marginLeft = hero.style.width = "";
-  const r = hero.getBoundingClientRect();
+  // Where the banner would sit without stretching, read from what holds it
+  // (so nothing moves while measuring): the top of its box's content, or for
+  // a title band right under the menu bar, the bottom of the menu bar.
+  const box = hero.parentElement;
+  const b = box.getBoundingClientRect();
+  const cs = getComputedStyle(box);
+  const nav = document.getElementById("page-topnav");
+  const top = hero.classList.contains("page-band")
+    ? (nav ? nav.offsetHeight : 0)
+    : b.top + window.scrollY + parseFloat(cs.paddingTop);
+  const left = b.left + parseFloat(cs.paddingLeft);
+  const right = b.right - parseFloat(cs.paddingRight);
   const w = document.documentElement.clientWidth;
-  const top = r.top + window.scrollY;
   hero.style.marginTop = `${-top}px`;
-  hero.style.marginLeft = `${-r.left}px`;
+  hero.style.marginLeft = `${-left}px`;
   hero.style.width = `${w}px`;
   hero.style.setProperty("--bleed-top", `${top}px`);
-  hero.style.setProperty("--bleed-left", `${r.left}px`);
-  hero.style.setProperty("--bleed-right", `${Math.max(0, w - r.right)}px`);
+  hero.style.setProperty("--bleed-left", `${left}px`);
+  hero.style.setProperty("--bleed-right", `${Math.max(0, w - right)}px`);
+  // The banner can make the page tall enough for a scrollbar (or not), which
+  // changes the window's width: fit once more to the new width.
+  if (again && document.documentElement.clientWidth !== w) fitPageHero(false);
 }
 window.addEventListener("resize", () => fitPageHero());
 document.addEventListener("DOMContentLoaded", () => {
   if (document.querySelector(".page-hero.is-bleed, .page-band")) fitPageHero();
   // The menu bar can change height as it finishes drawing: refit then too.
+  // So can the page width (a scrollbar appearing as the page fills in).
   const nav = document.getElementById("page-topnav");
-  if (nav && window.ResizeObserver) new ResizeObserver(() => fitPageHero()).observe(nav);
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => fitPageHero());
+    if (nav) ro.observe(nav);
+    ro.observe(document.documentElement);
+  }
 });
 // A banner title with its last word in the accent colour ("Animal Feed").
 function heroTitleHtml(text) {

@@ -7790,3 +7790,15 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .page-band { display: flex; align-items: flex-end; min-height: calc(var(--bleed-top, 72px) + 182px); padding-bottom: 26px; }
 .page-band > div { width: 100%; }
 @media (max-width: 640px) { .page-band { min-height: calc(var(--bleed-top, 66px) + 134px); padding-bottom: 20px; } }
+
+/* Sign-in and sign-up pages: the floating menu bar and the picture banner
+   (title and line from the card's heading), then the card. */
+.has-site-nav.auth-topnav .site-topnav-back { display: inline-flex !important; }
+@media (max-width: 1023px) { .auth-topnav > div:first-child { height: 56px; } .auth-topnav > div:first-child > div { height: auto; } }
+.auth-hero .page-hero-sub { max-width: 32rem; }
+/* Sign-in / sign-up pages start their content lower: same banner height as elsewhere. */
+.auth-hero.is-bleed { min-height: calc(var(--bleed-top, 120px) + 134px); }
+@media (max-width: 640px) { .auth-hero.is-bleed { min-height: calc(var(--bleed-top, 98px) + 102px); } }
+.auth-topnav .ml-auto { display: flex; align-items: center; align-self: stretch; height: auto !important; }
+/* The card's heading moved to the banner: no gap above the first field. */
+.ob-auth form > .hidden + div, .ob-auth form > [hidden] + .hidden + div { margin-top: 0 !important; }
