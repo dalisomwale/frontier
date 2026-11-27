@@ -7802,3 +7802,7 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .auth-topnav .ml-auto { display: flex; align-items: center; align-self: stretch; height: auto !important; }
 /* The card's heading moved to the banner: no gap above the first field. */
 .ob-auth form > .hidden + div, .ob-auth form > [hidden] + .hidden + div { margin-top: 0 !important; }
+/* "Back to home": a plain link, no outline or box. */
+.auth-back { padding: 4px 0; border: 0; background: none; border-radius: 0; }
+.auth-back:hover { background: none; }
+.auth-back:hover span { text-decoration: underline; text-underline-offset: 2px; }
