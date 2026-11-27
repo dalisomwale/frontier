@@ -5711,10 +5711,11 @@ a.btn-checkout { text-decoration: none; }
 .pm-choice .pm-text b { font-size: 14px; }
 .pm-choices:has(> .pm-choice:only-child) { grid-template-columns: 1fr; }
 
-/* Phones and tablets: "Your order" comes first at checkout */
+/* Phones and tablets: "Your order" comes first at checkout (not in the
+   cart, where the products come first and the total and Checkout after). */
 @media (max-width: 1023px) {
-  .checkout > .cart-summary { order: -1; }
-  .checkout > .cart-summary .buy-total { padding-bottom: 0; margin-bottom: 0; }
+  #checkout-form.checkout > .cart-summary { order: -1; }
+  #checkout-form.checkout > .cart-summary .buy-total { padding-bottom: 0; margin-bottom: 0; }
 }
 
 /* Admin > Transactions */
@@ -7694,3 +7695,5 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
   .acc-actionbar .acc-btn { min-width: 0; }
   [data-payout] .acc-btn { width: 100%; }
 }
+/* Cart: the total is the first line of its box, so no divider above it. */
+.cart-summary > .buy-total:first-child { border-top: 0 !important; padding-top: 0 !important; margin-top: 0 !important; }
