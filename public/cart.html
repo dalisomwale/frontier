@@ -61,7 +61,7 @@
               <p class="cart-title">${escapeHtml(item.title || "This listing")}</p>
               <p class="cart-gone">No longer available</p>
             </div>
-            <button type="button" class="cart-remove" data-remove="${item.id}">Remove</button>
+            <button type="button" class="cart-remove" data-remove="${item.id}" aria-label="Remove" title="Remove">${uiIcon("trash")}</button>
           </li>`;
         }
         const lot = item.price_unit === "lot";
@@ -78,7 +78,7 @@
                 <input type="number" inputmode="numeric" min="1" max="${item.max}" value="${item.quantity}" data-qty="${item.id}" aria-label="Quantity">
                 <button type="button" data-step="1" data-id="${item.id}" aria-label="More" ${item.quantity >= item.max ? "disabled" : ""}>+</button>
               </div>`}
-              <button type="button" class="cart-remove" data-remove="${item.id}">Remove</button>
+              <button type="button" class="cart-remove" data-remove="${item.id}" aria-label="Remove" title="Remove">${uiIcon("trash")}</button>
             </div>
           </div>
           <p class="cart-line-total">${kwacha(item.line_total)}</p>
@@ -106,12 +106,12 @@
             <div class="checkout-main">
               ${gone ? `<div class="alert alert-error text-sm">${gone === 1 ? "One item is" : `${gone} items are`} no longer available. Remove ${gone === 1 ? "it" : "them"} to continue.</div>` : ""}
               <ul class="cart-list">${quote.items.map(line).join("")}</ul>
-              <a href="/#listings" class="cart-continue">${uiIcon("chevronLeft")}<span>Continue shopping</span></a>
             </div>
             <aside class="cart-summary">
               <div class="buy-total"><span>Total</span><strong>${kwacha(quote.total)}</strong></div>
               ${quote.sellers > 1 ? `<p class="cart-sum-note">From ${quote.sellers} sellers · you pay once.</p>` : ""}
               <a href="/checkout" class="btn-checkout btn-lg w-full ${ok.length && !gone ? "" : "is-disabled"}" ${ok.length && !gone ? "" : 'aria-disabled="true" tabindex="-1"'}>Checkout</a>
+              <a href="/#listings" class="cart-continue">${uiIcon("chevronLeft")}<span>Continue Shopping</span></a>
             </aside>
           </div>`;
         bind(quote);

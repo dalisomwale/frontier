@@ -7705,3 +7705,15 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
   .tpj-from, .tpj-to { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tpj-to { font-weight: 600; color: #374151; }
 }
+/* Cart: Continue Shopping sits under the Checkout button, centred. */
+.cart-summary .cart-continue { display: flex; justify-content: center; margin-top: 14px; }
+/* Cart: remove is a bin icon. */
+.cart-remove { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9999px; color: #6b7280; text-decoration: none; transition: background-color .15s, color .15s; }
+.cart-remove svg { width: 18px; height: 18px; }
+.cart-remove:hover { color: #b91c1c; background: #fef2f2; }
+/* Quantity fields: smaller (listing page 36px, cart 28px). */
+.qty-stepper { border-radius: 9999px; }
+.qty-stepper button { width: 34px; height: 36px; font-size: 16px; }
+.qty-stepper input { width: 42px; height: 36px; font-size: 14px; }
+.qty-stepper-sm button { width: 28px; height: 28px; font-size: 15px; }
+.qty-stepper-sm input { width: 34px; height: 28px; font-size: 13px; }
