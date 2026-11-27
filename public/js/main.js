@@ -200,10 +200,13 @@ function confirmAction({
   });
 }
 
-function renderEmptyState(container, { title = "Nothing here yet", message = "", icon = "listings", action = "" } = {}) {
+// The cartoon for each icon of an empty message (errors keep the plain icon).
+const EMPTY_ART = { listings: "cow", cattle: "cow", tag: "cow", layers: "sack", feed: "sack", inbox: "box", send: "chat", mail: "chat", check: "check", users: "badge", search: "search", cart: "cart", bell: "bell", star: "star", truck: "truck", chat: "chat" };
+function renderEmptyState(container, { title = "Nothing here yet", message = "", icon = "listings", action = "", art } = {}) {
+  const pic = art === false ? "" : emptyArt(art || EMPTY_ART[icon] || "");
   container.innerHTML = `
     <div class="empty-state col-span-full">
-      <div class="empty-icon">${typeof uiIcon === "function" ? uiIcon(icon) : ""}</div>
+      ${pic || `<div class="empty-icon">${typeof uiIcon === "function" ? uiIcon(icon) : ""}</div>`}
       <h3 class="text-base font-semibold text-gray-900 mb-1">${escapeHtml(title)}</h3>
       ${message ? `<p class="text-sm text-gray-500 max-w-md mx-auto">${escapeHtml(message)}</p>` : ""}
       ${action}
@@ -520,4 +523,81 @@ function addPortalHero(main, name, sub) {
   }).observe(main, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["hidden", "class", "style"] });
   sync();
   fitPageHero();
+}
+
+// Cartoons for empty messages ("No orders yet", "No notifications yet"...):
+// a friendly character with a face, drawn like the transport truck.
+// name: cow, sack, cart, box, chat, bell, star, badge, check, search, truck.
+function emptyArt(name) {
+  const G = "#166534", GL = "#dcfce7", LIME = "#bef264", T = "#1f2937", Y = "#fde047";
+  const eyes = (x1, x2, y) => [x1, x2].map((x) => `<circle cx="${x}" cy="${y}" r="4" fill="${T}"/><circle cx="${x + 1.4}" cy="${y - 1.4}" r="1.3" fill="#fff"/>`).join("");
+  const smile = (x, y, w = 14, color = T) => `<path d="M${x} ${y}q${w / 2} ${w * 0.42} ${w} 0" fill="none" stroke="${color}" stroke-width="2.6" stroke-linecap="round"/>`;
+  const cheeks = (x1, x2, y) => `<circle cx="${x1}" cy="${y}" r="3.4" fill="#fca5a5" opacity=".8"/><circle cx="${x2}" cy="${y}" r="3.4" fill="#fca5a5" opacity=".8"/>`;
+  const face = (cx, cy, gap = 18) => `${eyes(cx - gap / 2, cx + gap / 2, cy)}${cheeks(cx - gap / 2 - 7, cx + gap / 2 + 7, cy + 9)}${smile(cx - 7, cy + 10)}`;
+  const shadow = (rx = 70) => `<ellipse cx="110" cy="128" rx="${rx}" ry="6" fill="#e5e7eb"/>`;
+  const sparkle = (x, y, c = Y) => `<path d="M${x} ${y - 7}v14M${x - 7} ${y}h14" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/>`;
+  const art = {
+    cow: `${shadow(78)}
+      <path d="M58 112v12M78 112v12M128 112v12M146 112v12" stroke="${T}" stroke-width="7" stroke-linecap="round"/>
+      <rect x="44" y="62" width="118" height="54" rx="27" fill="#fff" stroke="${T}" stroke-width="3"/>
+      <ellipse cx="76" cy="80" rx="15" ry="11" fill="${T}"/><ellipse cx="118" cy="98" rx="12" ry="8" fill="${T}"/>
+      <path d="M44 84q-14 4-12 22" fill="none" stroke="${T}" stroke-width="3" stroke-linecap="round"/>
+      <path d="M150 34l-6-12M184 34l6-12" stroke="#d6b98c" stroke-width="5" stroke-linecap="round"/>
+      <ellipse cx="141" cy="48" rx="10" ry="6" fill="#fff" stroke="${T}" stroke-width="3" transform="rotate(-25 141 48)"/>
+      <ellipse cx="193" cy="48" rx="10" ry="6" fill="#fff" stroke="${T}" stroke-width="3" transform="rotate(25 193 48)"/>
+      <rect x="140" y="30" width="54" height="62" rx="24" fill="#fff" stroke="${T}" stroke-width="3"/>
+      ${eyes(158, 176, 54)}
+      <ellipse cx="167" cy="78" rx="22" ry="13" fill="#fbcfe8" stroke="${T}" stroke-width="2.5"/>
+      <circle cx="160" cy="76" r="2.4" fill="${T}"/><circle cx="174" cy="76" r="2.4" fill="${T}"/>${smile(161, 83, 12)}`,
+    sack: `${shadow(56)}
+      <path d="M72 50q-14 30-10 62q2 12 14 12h68q12 0 14-12q4-32-10-62Z" fill="#fde68a" stroke="#b45309" stroke-width="3"/>
+      <path d="M78 52q32-14 64 0" fill="none" stroke="#b45309" stroke-width="3"/>
+      <path d="M84 50l-6-20h64l-6 20" fill="#fcd34d" stroke="#b45309" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M96 30q14-8 28 0" fill="none" stroke="#b45309" stroke-width="3"/>
+      <rect x="84" y="92" width="52" height="20" rx="5" fill="#fff" stroke="#b45309" stroke-width="2"/><path d="M96 104q8-10 18-6q-6 8-18 6Z" fill="${LIME}" stroke="${G}" stroke-width="1.5"/>
+      ${face(110, 70)}`,
+    cart: `${shadow(64)}
+      <path d="M40 40h18l14 58h82" fill="none" stroke="${T}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M62 52h112l-12 40H72Z" fill="${GL}" stroke="${G}" stroke-width="3" stroke-linejoin="round"/>
+      ${face(118, 66)}
+      <circle cx="84" cy="112" r="9" fill="${T}"/><circle cx="148" cy="112" r="9" fill="${T}"/>
+      ${sparkle(186, 34)}`,
+    box: `${shadow(64)}
+      <path d="M64 56l46-20 46 20-46 20Z" fill="#f3d9b1" stroke="#92400e" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M64 56v52l46 18V76Z" fill="#e7c38f" stroke="#92400e" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M156 56v52l-46 18V76Z" fill="#dcb47a" stroke="#92400e" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M86 46l46 20v14" fill="none" stroke="${LIME}" stroke-width="6"/>
+      ${eyes(80, 96, 88)}${cheeks(74, 102, 98)}${smile(81, 98, 12)}`,
+    chat: `${shadow(60)}
+      <path d="M50 30h120q14 0 14 14v46q0 14-14 14H96l-24 18 4-18H50q-14 0-14-14V44q0-14 14-14Z" fill="${GL}" stroke="${G}" stroke-width="3" stroke-linejoin="round"/>
+      ${face(110, 58)}
+      <g class="tp-toon-float"><circle cx="190" cy="22" r="4" fill="${LIME}"/><circle cx="202" cy="14" r="3" fill="${LIME}"/></g>`,
+    bell: `${shadow(50)}
+      <path d="M110 24q-34 0-36 40l-4 36h80l-4-36q-2-40-36-40Z" fill="${Y}" stroke="#a16207" stroke-width="3" stroke-linejoin="round"/>
+      <rect x="64" y="98" width="92" height="10" rx="5" fill="#facc15" stroke="#a16207" stroke-width="3"/>
+      <circle cx="110" cy="116" r="7" fill="#a16207"/><circle cx="110" cy="20" r="5" fill="#facc15" stroke="#a16207" stroke-width="3"/>
+      ${face(110, 62)}
+      <g class="tp-toon-float" stroke="${G}" stroke-width="2.6" stroke-linecap="round" fill="none"><path d="M52 40q-8 10 0 22"/><path d="M168 40q8 10 0 22"/></g>`,
+    star: `${shadow(56)}
+      <path d="M110 22l22 42 46 6-34 32 8 46-42-22-42 22 8-46-34-32 46-6Z" fill="${Y}" stroke="#ca8a04" stroke-width="3" stroke-linejoin="round"/>
+      ${face(110, 78)}
+      <g class="tp-toon-float">${sparkle(42, 36, LIME)}${sparkle(184, 112, LIME)}</g>`,
+    badge: `${shadow(56)}
+      <rect x="66" y="28" width="88" height="96" rx="12" fill="#fff" stroke="${G}" stroke-width="3"/>
+      <path d="M66 40q0-12 12-12h64q12 0 12 12v6H66Z" fill="${G}"/><rect x="98" y="18" width="24" height="16" rx="4" fill="#d1d5db" stroke="${T}" stroke-width="2"/>
+      <circle cx="110" cy="74" r="20" fill="${GL}" stroke="${G}" stroke-width="2.5"/>${eyes(103, 117, 70)}${smile(104, 79, 12)}
+      <rect x="82" y="102" width="56" height="6" rx="3" fill="#e5e7eb"/><rect x="92" y="112" width="36" height="5" rx="2.5" fill="#e5e7eb"/>`,
+    check: `${shadow(56)}
+      <rect x="66" y="26" width="88" height="98" rx="10" fill="#fff" stroke="${G}" stroke-width="3"/>
+      <rect x="92" y="18" width="36" height="16" rx="5" fill="${G}"/>
+      <path d="M88 60l14 14 28-30" fill="none" stroke="#84cc16" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      ${face(110, 94)}`,
+    search: `${shadow(56)}
+      <path d="M136 92l30 28" stroke="${T}" stroke-width="12" stroke-linecap="round"/>
+      <circle cx="104" cy="66" r="40" fill="#e0f2fe" stroke="${G}" stroke-width="7"/>
+      ${eyes(95, 113, 60)}<path d="M96 80q4-4 8 0t8 0" fill="none" stroke="${T}" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="160" y="40" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="800" fill="${LIME}" class="tp-toon-float">?</text>`,
+  };
+  if (name === "truck") return typeof trCartoon === "function" ? trCartoon("road", "medium") : "";
+  return art[name] ? `<svg class="tp-toon empty-art" viewBox="0 0 220 140" aria-hidden="true" focusable="false">${art[name]}</svg>` : "";
 }

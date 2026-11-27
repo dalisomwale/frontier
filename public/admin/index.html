@@ -97,7 +97,7 @@
       function renderRecentInquiries(items) {
         const box = document.getElementById("recent-inquiries");
         if (!items.length) {
-          return renderEmptyState(box, { title: "No inquiries yet", message: "When visitors click Inquire on a listing, their inquiries will appear here.", icon: "inbox" });
+          return renderEmptyState(box, { title: "No inquiries yet", message: "When visitors click Inquire on a listing, their inquiries will appear here.", icon: "inbox", art: "chat" });
         }
         box.innerHTML = `<ul class="divide-y divide-gray-100">${items.map((i) => `
           <li><a href="/admin/inquiries?id=${i.id}" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50">

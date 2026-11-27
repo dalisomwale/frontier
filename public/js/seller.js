@@ -245,7 +245,7 @@ const sellerNotifications = {
       </div>
       ${rows.length
         ? `<ul class="nt-list">${items}</ul>`
-        : `<div class="empty-state"><p class="font-semibold text-gray-800">${this.items.length ? "Nothing here" : "No notifications yet"}</p><p class="text-sm mt-1">${this.items.length ? "Try another filter." : "Updates about your account, listings, orders and messages appear here."}</p></div>`}`;
+        : `<div class="empty-state">${emptyArt(this.items.length ? "search" : "bell")}<p class="font-semibold text-gray-800">${this.items.length ? "Nothing here" : "No notifications yet"}</p><p class="text-sm mt-1">${this.items.length ? "Try another filter." : "Updates about your account, listings, orders and messages appear here."}</p></div>`}`;
     list.querySelectorAll("[data-nfilter]").forEach((b) => b.addEventListener("click", () => { this.filter = b.dataset.nfilter; this.render(); }));
     list.querySelectorAll("[data-notif]").forEach((a) => a.addEventListener("click", (e) => {
       const target = new URL(a.href, location.origin);

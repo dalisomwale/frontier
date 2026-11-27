@@ -152,7 +152,7 @@
             return renderEmptyState(container, {
               title: filtered ? "No feed matches these filters" : `No ${state.type.name} listed yet`,
               message: filtered ? "" : "Please check back soon.",
-              icon: "search",
+              icon: filtered ? "search" : "feed",
             });
           }
           container.innerHTML = res.data.map(renderLivestockCard).join("");

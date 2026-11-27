@@ -92,7 +92,7 @@
             <td class="hidden lg:table-cell">${c.orders}${c.spent ? ` · ${kwacha(c.spent)}` : ""}</td>
             <td class="hidden lg:table-cell text-gray-600">${escapeHtml(dateOnly(c.created_at))}</td>
             <td>${pill(c)}</td></tr>`).join("")}</tbody></table></div>`
-          : `<div class="empty-state"><p class="font-semibold text-gray-800">No customers${state.q ? " match" : " yet"}</p></div>`;
+          : `<div class="empty-state">${emptyArt(state.q ? "search" : "badge")}<p class="font-semibold text-gray-800">No customers${state.q ? " match" : " yet"}</p></div>`;
         list.querySelectorAll("[data-open]").forEach((tr) => {
           tr.addEventListener("click", () => openCustomer(tr.dataset.open));
           tr.addEventListener("keydown", (e) => { if (e.key === "Enter") openCustomer(tr.dataset.open); });

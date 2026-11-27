@@ -205,12 +205,12 @@
         const rows = orders.filter((o) => tab.test(o) && (!q || `${o.reference} ${o.checkout_reference || ""} ${o.title}`.toLowerCase().includes(q)));
         const list = document.getElementById("orders-list");
         if (!orders.length) {
-          list.innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">No orders yet</p><p class="text-sm mt-1">When you buy livestock or feed, your orders appear here.</p><a href="/#listings" class="acc-btn mt-4" style="width:auto;display:inline-flex">Browse Livestock</a></div>`;
+          list.innerHTML = `<div class="empty-state">${emptyArt("box")}<p class="font-semibold text-gray-800">No orders yet</p><p class="text-sm mt-1">When you buy livestock or feed, your orders appear here.</p><a href="/#listings" class="acc-btn mt-4" style="width:auto;display:inline-flex">Browse Livestock</a></div>`;
           return;
         }
         list.innerHTML = rows.length
           ? `<ul class="so-list">${rows.map(orderRow).join("")}</ul>`
-          : `<div class="empty-state"><p class="font-semibold text-gray-800">Nothing here</p><p class="text-sm mt-1">Try another filter or search.</p></div>`;
+          : `<div class="empty-state">${emptyArt("search")}<p class="font-semibold text-gray-800">Nothing here</p><p class="text-sm mt-1">Try another filter or search.</p></div>`;
         list.querySelectorAll("[data-order]").forEach((b) => b.addEventListener("click", () => openOrder(b.dataset.order)));
         setBadge("orders", orders.filter(toConfirm).length);
       }
@@ -655,7 +655,7 @@
         notes = res.data;
         const list = document.getElementById("notifications-list");
         if (!notes.length) {
-          list.innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">No notifications yet</p><p class="text-sm mt-1">Updates about your orders appear here.</p></div>`;
+          list.innerHTML = `<div class="empty-state">${emptyArt("bell")}<p class="font-semibold text-gray-800">No notifications yet</p><p class="text-sm mt-1">Updates about your orders appear here.</p></div>`;
         } else {
           list.innerHTML = `<ul class="nt-list">${notes.map((n) => `
             <li><a href="${escapeHtml(n.link || "/account/")}" data-link class="nt-item ${n.read_at ? "" : "is-unread"}">

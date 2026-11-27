@@ -129,7 +129,7 @@
         } catch (error) {
           return renderEmptyState(list, { title: "Could not load deliveries", message: error.message, icon: "alert" });
         }
-        if (!state.rows.length) return renderEmptyState(list, { title: state.alert ? "Nothing needs attention" : "No deliveries", message: "Deliveries appear here once buyers choose transport at checkout.", icon: "inbox" });
+        if (!state.rows.length) return renderEmptyState(list, { title: state.alert ? "Nothing needs attention" : "No deliveries", message: "Deliveries appear here once buyers choose transport at checkout.", art: state.alert ? "check" : "truck", icon: "inbox" });
         list.innerHTML = `<table class="admin-table">
           <thead><tr><th>Delivery</th><th class="hidden md:table-cell">Booked</th><th>Route</th><th class="hidden lg:table-cell">Seller</th><th class="hidden lg:table-cell">Buyer</th><th class="hidden sm:table-cell">Provider</th><th>Status</th><th class="hidden sm:table-cell">Fee</th></tr></thead>
           <tbody>${state.rows.map((b) => `

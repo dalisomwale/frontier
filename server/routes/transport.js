@@ -96,7 +96,7 @@ async function requireProvider(req, res, next) {
         req.session.destroy(() => {});
         return out("Your driver account is switched off. Please contact your company.");
       }
-      req.driver = { id: d.id, name: d.name, phone: d.phone };
+      req.driver = { id: d.id, name: d.name, phone: d.phone, vehicle_id: d.vehicle ? d.vehicle.id : null };
       req.who = { party: "provider", id: p.id, name: `${d.name} (${p.name})` };
     }
     return next();

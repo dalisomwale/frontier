@@ -53,7 +53,7 @@
           <div class="tx-total"><span>Ratings</span><b>${s.count}</b></div>
           ${state.type === "platform" ? `<div class="tx-total"><span>After self-collection</span><b>${s.collect}</b></div><div class="tx-total"><span>After transport</span><b>${s.transport}</b></div>` : ""}`;
         const list = document.getElementById("list");
-        if (!state.rows.length) return renderEmptyState(list, { title: "No ratings yet", message: "Buyers rate once their order is collected or delivered.", icon: "inbox" });
+        if (!state.rows.length) return renderEmptyState(list, { title: "No ratings yet", message: "Buyers rate once their order is collected or delivered.", icon: "inbox", art: "star" });
         list.innerHTML = `<table class="admin-table"><thead><tr><th>Date</th><th>Rating</th><th>Feedback</th><th class="hidden md:table-cell">${state.type === "platform" ? "Order" : "Provider"}</th><th class="hidden md:table-cell">Buyer</th><th></th></tr></thead>
           <tbody>${state.rows.map((r) => `<tr class="${r.hidden ? "opacity-60" : ""}">
             <td class="whitespace-nowrap text-gray-600">${escapeHtml(formatDateShort(r.created_at))}</td>

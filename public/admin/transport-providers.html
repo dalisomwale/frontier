@@ -75,7 +75,7 @@
           return renderEmptyState(list, { title: "Could not load providers", message: error.message, icon: "alert" });
         }
         renderTabs();
-        if (!state.rows.length) return renderEmptyState(list, { title: "No transport providers", message: "Providers register at /transport/register.", icon: "users" });
+        if (!state.rows.length) return renderEmptyState(list, { title: "No transport providers", message: "Providers register at /transport/register.", icon: "users", art: "truck" });
         list.innerHTML = `<table class="admin-table"><thead><tr><th>Provider</th><th class="hidden md:table-cell">Area</th><th>Status</th><th>Coverage</th><th class="hidden sm:table-cell">Vehicles</th><th class="hidden lg:table-cell">Deliveries</th><th class="hidden lg:table-cell">Rating</th></tr></thead>
           <tbody>${state.rows.map((p) => `<tr class="cursor-pointer" data-open="${p.id}">
             <td><b class="text-gray-900">${escapeHtml(p.name)}</b><small class="block text-gray-500">${escapeHtml(p.phone)}${p.kind === "company" ? " · company" : ""}</small></td>

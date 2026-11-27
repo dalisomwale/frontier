@@ -167,7 +167,7 @@
         const pag = document.getElementById("pagination");
         pag.innerHTML = "";
         if (!res.data.length) {
-          return renderEmptyState(list, { title: "No transactions", message: "Nothing matches these filters.", icon: "inbox" });
+          return renderEmptyState(list, { title: "No transactions", message: "Nothing matches these filters.", icon: "search" });
         }
         const cols = 12;
         list.innerHTML = `<div class="tx-table-wrap"><table class="tx-table">

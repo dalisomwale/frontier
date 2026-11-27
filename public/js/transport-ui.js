@@ -843,40 +843,79 @@ function trCollectArt() {
     </g></svg>`;
 }
 
-// Empty states on the transport pages: a friendly cartoon truck with a face,
+// Empty states on the transport pages: a friendly cartoon of the person's own
+// kind of vehicle (size: bike, small, medium, large, extra_large) with a face,
 // and a small scene for the case. kind: "waiting" (no requests right now),
 // "offline", "road" (no active deliveries), "pending" (awaiting approval).
-function trCartoon(kind = "waiting") {
-  const G = "#166534", GL = "#dcfce7", LIME = "#bef264", T = "#1f2937";
+function trCartoon(kind = "waiting", size = "medium") {
+  const G = "#166534", G2 = "#15803d", G3 = "#14532d", GL = "#dcfce7", LIME = "#bef264", T = "#1f2937", GLASS = "#e0f2fe", LAMP = "#fde047";
   const asleep = kind === "offline";
-  const eye = asleep
-    ? `<path d="M151 68q5 4 10 0" fill="none" stroke="${T}" stroke-width="2.6" stroke-linecap="round"/>`
-    : `<circle cx="156" cy="66" r="4.2" fill="${T}"/><circle cx="157.5" cy="64.5" r="1.4" fill="#fff"/>`;
-  const truck = `
-    <ellipse cx="112" cy="124" rx="92" ry="6" fill="#e5e7eb"/>
-    <rect x="30" y="40" width="100" height="60" rx="10" fill="${GL}" stroke="${G}" stroke-width="3"/>
-    <rect x="31.5" y="76" width="97" height="8" fill="${LIME}"/>
-    <path d="M130 100V58q0-10 10-10h22q8 0 12 8l12 22q3 5 3 10v12Z" fill="${G}"/>
-    <path d="M140 56h20q4 0 6 4l9 17h-35Z" fill="#e0f2fe"/>
-    ${eye}
-    <circle cx="176" cy="88" r="3.2" fill="#fca5a5" opacity=".85"/>
-    <path d="M157 89q7 ${asleep ? 3 : 6} 14 0" fill="none" stroke="${LIME}" stroke-width="2.6" stroke-linecap="round"/>
-    <rect x="183" y="84" width="6" height="7" rx="2" fill="#fde047"/>
-    <rect x="26" y="98" width="166" height="8" rx="4" fill="${T}"/>
-    <circle cx="62" cy="108" r="13" fill="${T}"/><circle cx="62" cy="108" r="5" fill="#d1d5db"/>
-    <circle cx="160" cy="108" r="13" fill="${T}"/><circle cx="160" cy="108" r="5" fill="#d1d5db"/>`;
+  // The face: an eye (open, or closed when asleep), a cheek and a smile.
+  const face = (ex, ey, sx, sy, light = true) => `${asleep
+    ? `<path d="M${ex - 5} ${ey + 2}q5 4 10 0" fill="none" stroke="${T}" stroke-width="2.6" stroke-linecap="round"/>`
+    : `${light ? "" : `<circle cx="${ex}" cy="${ey}" r="6" fill="#fff"/>`}<circle cx="${ex}" cy="${ey}" r="4.2" fill="${T}"/><circle cx="${ex + 1.5}" cy="${ey - 1.5}" r="1.4" fill="#fff"/>`}
+    <circle cx="${sx + 18}" cy="${sy - 2}" r="3.2" fill="#fca5a5" opacity=".85"/>
+    <path d="M${sx} ${sy}q7 ${asleep ? 3 : 6} 14 0" fill="none" stroke="${LIME}" stroke-width="2.6" stroke-linecap="round"/>`;
+  const wheel = (cx, cy, r) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${T}"/><circle cx="${cx}" cy="${cy}" r="${(r * 0.38).toFixed(1)}" fill="#d1d5db"/>`;
+  const shadow = `<ellipse cx="112" cy="124" rx="92" ry="6" fill="#e5e7eb"/>`;
+  const vehicles = {
+    bike: `${shadow}
+      <rect x="38" y="44" width="42" height="32" rx="7" fill="${GL}" stroke="${G}" stroke-width="3"/><rect x="39.5" y="62" width="39" height="6" fill="${LIME}"/>
+      <path d="M60 106L82 82H130L152 106" fill="none" stroke="${G}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="80" y="72" width="38" height="9" rx="4.5" fill="${T}"/>
+      <path d="M150 106L140 62L154 56" fill="none" stroke="${T}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M112 82Q116 58 146 62L152 82Z" fill="${G2}"/>
+      ${face(133, 70, 128, 78, false)}
+      <circle cx="158" cy="74" r="4.5" fill="${LAMP}"/>
+      ${wheel(60, 106, 16)}${wheel(150, 106, 16)}`,
+    small: `${shadow}
+      <rect x="22" y="64" width="98" height="26" rx="6" fill="${G}"/><rect x="26" y="60" width="90" height="7" rx="3.5" fill="${G3}"/>
+      <path d="M116 92V52q0-8 8-8h30l22 24h12q8 0 8 8v16Z" fill="${G2}"/>
+      <path d="M126 50h26l16 18h-42Z" fill="${GLASS}"/>
+      ${face(146, 59, 168, 82)}
+      <rect x="20" y="86" width="178" height="10" rx="5" fill="${G3}"/><rect x="190" y="74" width="7" height="6" rx="2" fill="${LAMP}"/>
+      ${wheel(58, 104, 14)}${wheel(164, 104, 14)}`,
+    medium: `${shadow}
+      <rect x="30" y="40" width="100" height="60" rx="10" fill="${GL}" stroke="${G}" stroke-width="3"/><rect x="31.5" y="76" width="97" height="8" fill="${LIME}"/>
+      <path d="M130 100V58q0-10 10-10h22q8 0 12 8l12 22q3 5 3 10v12Z" fill="${G}"/>
+      <path d="M140 56h20q4 0 6 4l9 17h-35Z" fill="${GLASS}"/>
+      ${face(156, 66, 157, 89)}
+      <rect x="183" y="84" width="6" height="7" rx="2" fill="${LAMP}"/>
+      <rect x="26" y="98" width="166" height="8" rx="4" fill="${T}"/>
+      ${wheel(62, 108, 13)}${wheel(160, 108, 13)}`,
+    large: `${shadow}
+      <rect x="8" y="34" width="134" height="66" rx="10" fill="${GL}" stroke="${G}" stroke-width="3"/><rect x="9.5" y="76" width="131" height="8" fill="${LIME}"/>
+      <path d="M142 100V52q0-10 10-10h22q8 0 12 8l14 26q3 5 3 10v14Z" fill="${G}"/>
+      <path d="M152 50h20q4 0 6 4l11 21h-37Z" fill="${GLASS}"/>
+      ${face(168, 61, 170, 89)}
+      <rect x="196" y="82" width="6" height="7" rx="2" fill="${LAMP}"/>
+      <rect x="4" y="98" width="200" height="8" rx="4" fill="${T}"/>
+      ${wheel(36, 108, 13)}${wheel(68, 108, 13)}${wheel(174, 108, 13)}`,
+    extra_large: `${shadow}
+      <rect x="8" y="60" width="34" height="26" rx="3" fill="${GL}" stroke="${G}" stroke-width="2.5"/>
+      <rect x="46" y="46" width="42" height="40" rx="3" fill="${GL}" stroke="${G}" stroke-width="2.5"/>
+      <rect x="92" y="64" width="32" height="22" rx="3" fill="${GL}" stroke="${G}" stroke-width="2.5"/>
+      <rect x="2" y="86" width="132" height="10" rx="3" fill="${G}"/><rect x="10" y="96" width="60" height="5" fill="${T}"/>
+      <rect x="134" y="30" width="5" height="26" rx="2" fill="#6b7280"/>
+      <path d="M140 104V52q0-8 8-8h22q8 0 12 8l12 22q3 5 3 10v20Z" fill="${G2}"/>
+      <path d="M148 52h20q4 0 6 4l9 17h-35Z" fill="${GLASS}"/>
+      ${face(163, 62, 166, 90)}
+      <rect x="190" y="82" width="6" height="7" rx="2" fill="${LAMP}"/>
+      <rect x="124" y="96" width="76" height="8" rx="4" fill="${T}"/>
+      ${wheel(22, 108, 12)}${wheel(50, 108, 12)}${wheel(156, 108, 12)}${wheel(184, 108, 12)}`,
+  };
   const bubble = (inner) => `<g class="tp-toon-float">
-    <circle cx="190" cy="26" r="18" fill="#fff" stroke="#d1d5db" stroke-width="2"/>
-    <circle cx="176" cy="44" r="4" fill="#fff" stroke="#d1d5db" stroke-width="2"/>
-    <circle cx="170" cy="51" r="2.2" fill="#fff" stroke="#d1d5db" stroke-width="1.5"/>${inner}</g>`;
+    <circle cx="196" cy="20" r="17" fill="#fff" stroke="#d1d5db" stroke-width="2"/>
+    <circle cx="182" cy="38" r="4" fill="#fff" stroke="#d1d5db" stroke-width="2"/>
+    <circle cx="176" cy="45" r="2.2" fill="#fff" stroke="#d1d5db" stroke-width="1.5"/>${inner}</g>`;
   const extra = {
-    waiting: bubble(`<circle cx="190" cy="26" r="10" fill="none" stroke="${G}" stroke-width="2.5"/><path d="M190 20v6l4 3" fill="none" stroke="${G}" stroke-width="2.5" stroke-linecap="round"/>`),
-    pending: bubble(`<path d="M184 16h12M184 36h12M185 16q0 8 5 10q-5 2-5 10M195 16q0 8-5 10q5 2 5 10" fill="none" stroke="${G}" stroke-width="2.2" stroke-linecap="round"/><path d="M187.5 33h5l-2.5-3Z" fill="${LIME}"/>`),
-    offline: `<path d="M40 22a12 12 0 1 0 12 15a9 9 0 1 1-12-15Z" fill="#fde68a"/>
-      <circle cx="70" cy="16" r="1.8" fill="#fde68a"/><circle cx="92" cy="28" r="1.4" fill="#fde68a"/><circle cx="20" cy="44" r="1.4" fill="#fde68a"/>
-      <g class="tp-toon-float" fill="${G}" font-family="Arial, Helvetica, sans-serif" font-weight="800"><text x="172" y="40" font-size="16">Z</text><text x="188" y="26" font-size="12">z</text><text x="200" y="14" font-size="9">z</text></g>`,
-    road: `<circle cx="34" cy="24" r="11" fill="#fde047"/><g stroke="#fde047" stroke-width="2.5" stroke-linecap="round"><path d="M34 6v4M34 38v4M16 24h4M48 24h4M21 11l3 3M44 34l3 3M47 11l-3 3M24 34l-3 3"/></g>
+    waiting: bubble(`<circle cx="196" cy="20" r="10" fill="none" stroke="${G}" stroke-width="2.5"/><path d="M196 14v6l4 3" fill="none" stroke="${G}" stroke-width="2.5" stroke-linecap="round"/>`),
+    pending: bubble(`<path d="M190 10h12M190 30h12M191 10q0 8 5 10q-5 2-5 10M201 10q0 8-5 10q5 2 5 10" fill="none" stroke="${G}" stroke-width="2.2" stroke-linecap="round"/><path d="M193.5 27h5l-2.5-3Z" fill="${LIME}"/>`),
+    offline: `<path d="M32 8a12 12 0 1 0 12 15a9 9 0 1 1-12-15Z" fill="#fde68a"/>
+      <circle cx="62" cy="10" r="1.8" fill="#fde68a"/><circle cx="84" cy="22" r="1.4" fill="#fde68a"/><circle cx="12" cy="30" r="1.4" fill="#fde68a"/>
+      <g class="tp-toon-float" fill="${G}" font-family="Arial, Helvetica, sans-serif" font-weight="800"><text x="180" y="34" font-size="16">Z</text><text x="196" y="20" font-size="12">z</text><text x="208" y="9" font-size="9">z</text></g>`,
+    road: `<circle cx="198" cy="18" r="10" fill="${LAMP}"/><g stroke="${LAMP}" stroke-width="2.5" stroke-linecap="round"><path d="M198 2v3M198 31v3M182 18h3M211 18h3M187 7l2 2M207 27l2 2M209 7l-2 2M189 27l-2 2"/></g>
       <path d="M0 132h220" stroke="#d1d5db" stroke-width="3" stroke-dasharray="14 10"/>`,
   }[kind] || "";
-  return `<svg class="tp-toon" viewBox="0 0 220 140" aria-hidden="true" focusable="false">${extra}${truck}</svg>`;
+  return `<svg class="tp-toon" viewBox="0 0 220 140" aria-hidden="true" focusable="false">${extra}${vehicles[size] || vehicles.medium}</svg>`;
 }

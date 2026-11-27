@@ -119,8 +119,8 @@
 
         if (!state.rows.length) {
           return renderEmptyState(list, state.q || state.tab || state.seller
-            ? { title: "No inquiries here", message: state.q ? "No inquiries match your search." : state.seller ? "No inquiries for this seller." : "No inquiries with this status.", icon: "inbox" }
-            : { title: "No inquiries yet", message: "When visitors contact a seller from a listing, their messages appear here.", icon: "inbox" });
+            ? { title: "No inquiries here", message: state.q ? "No inquiries match your search." : state.seller ? "No inquiries for this seller." : "No inquiries with this status.", icon: "search" }
+            : { title: "No inquiries yet", message: "When visitors contact a seller from a listing, their messages appear here.", icon: "inbox", art: "chat" });
         }
         list.innerHTML = state.rows.map(listItem).join("") +
           (state.page < state.pages ? `<div class="p-3"><button type="button" id="load-more" class="w-full text-sm font-medium text-green-800 py-2 rounded-lg hover:bg-green-50">Load More</button></div>` : "");

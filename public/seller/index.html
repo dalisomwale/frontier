@@ -332,7 +332,7 @@
         const box = document.getElementById("tab-listings");
         listings = (await sellerApi("/api/seller/listings")).data;
         if (!listings.length) {
-          box.innerHTML = `<div class="bg-white rounded-xl border border-gray-100"><div class="empty-state">
+          box.innerHTML = `<div class="bg-white rounded-xl border border-gray-100"><div class="empty-state">${emptyArt("cow")}
             <p class="font-semibold text-gray-800">No listings yet</p>
             <p class="text-sm mt-1">${approved() ? "Add your first listing. Our team will review it before it goes live." : "You can add listings once your account is approved."}</p>
             ${approved() ? `<button type="button" data-add class="btn-grad mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold">Add Listing</button>` : ""}
@@ -378,7 +378,7 @@
         const grid = document.getElementById("listing-grid");
         grid.innerHTML = rows.length
           ? `<div class="ml-grid">${rows.map(listingCard).join("")}</div>`
-          : `<div class="bg-white rounded-xl border border-gray-100"><div class="empty-state"><p class="font-semibold text-gray-800">No matching listings</p><p class="text-sm mt-1">Try a different search or filter.</p></div></div>`;
+          : `<div class="bg-white rounded-xl border border-gray-100"><div class="empty-state">${emptyArt("search")}<p class="font-semibold text-gray-800">No matching listings</p><p class="text-sm mt-1">Try a different search or filter.</p></div></div>`;
         bindListingActions(box);
       }
 
@@ -640,7 +640,7 @@
         const rows = messages.filter((m) => (msgFilter.tab === "all" || !m.seller_seen_at || String(m.id) === selectedMsg)
           && (!q || `${m.livestock_title} ${(m.messages || []).map((x) => x.body).join(" ")}`.toLowerCase().includes(q)));
         if (!rows.length) {
-          list.innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">${q ? "No matching conversations" : "No unread messages"}</p><p class="text-sm mt-1">${q ? "Try a different search." : "You're all caught up."}</p></div>`;
+          list.innerHTML = `<div class="empty-state">${emptyArt(q ? "search" : "chat")}<p class="font-semibold text-gray-800">${q ? "No matching conversations" : "No unread messages"}</p><p class="text-sm mt-1">${q ? "Try a different search." : "You're all caught up."}</p></div>`;
           return;
         }
         list.innerHTML = rows.map(msgListItem).join("");
@@ -738,7 +738,7 @@
         messages = (await sellerApi("/api/seller/messages")).data;
         if (!messages.length) {
           box.classList.remove("has-selection");
-          document.getElementById("msg-list").innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">No messages yet</p><p class="text-sm mt-1">When a buyer is interested in your livestock, Frontier will message you here and by email.</p></div>`;
+          document.getElementById("msg-list").innerHTML = `<div class="empty-state">${emptyArt("chat")}<p class="font-semibold text-gray-800">No messages yet</p><p class="text-sm mt-1">When a buyer is interested in your livestock, Frontier will message you here and by email.</p></div>`;
           msgPlaceholder();
           return;
         }
@@ -1203,7 +1203,7 @@
         const q = orderState.q;
         const rows = orderState.rows.filter((o) => inTab(o, orderState.tab) && (!q || `${o.reference} ${o.title} ${o.location || ""}`.toLowerCase().includes(q)));
         if (!rows.length && q) {
-          list.innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">No matching orders</p><p class="text-sm mt-1">Try a different search or filter.</p></div>`;
+          list.innerHTML = `<div class="empty-state">${emptyArt("search")}<p class="font-semibold text-gray-800">No matching orders</p><p class="text-sm mt-1">Try a different search or filter.</p></div>`;
           return;
         }
         if (!rows.length) {
@@ -1216,7 +1216,7 @@
             cancelled: ["No cancelled orders", "Cancelled orders appear here."],
             all: ["No orders yet", "When a buyer orders and pays for one of your listings, it appears here and we email you."],
           }[orderState.tab];
-          list.innerHTML = `<div class="empty-state"><p class="font-semibold text-gray-800">${empty[0]}</p><p class="text-sm mt-1">${empty[1]}</p></div>`;
+          list.innerHTML = `<div class="empty-state">${emptyArt(orderState.tab === "all" || orderState.tab === "completed" ? "box" : "check")}<p class="font-semibold text-gray-800">${empty[0]}</p><p class="text-sm mt-1">${empty[1]}</p></div>`;
           return;
         }
         list.innerHTML = `<ul class="so-list">${rows.map(orderRow).join("")}</ul>`;

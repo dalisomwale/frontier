@@ -166,7 +166,19 @@
             ${attr === "data-request" ? `<small>${escapeHtml(timeAgo(b.offered_at))}</small>` : `<span class="tpj-status">${escapeHtml(b.status_label)}</span>`}
           </span>
         </button>`;
-      const emptyCard = (title, text, art = "") => `<div class="empty-state">${art ? trCartoon(art) : ""}<p class="font-semibold text-gray-800">${title}</p>${text ? `<p class="text-sm mt-1">${text}</p>` : ""}</div>`;
+      // The cartoon shows the person's own kind of vehicle: a driver's own, an
+      // owner-driver's one, or the size a company has most of.
+      function mySize() {
+        const active = vehicles.filter((v) => v.status === "active" && v.size_class);
+        if (isDriver()) {
+          const mine = vehicles.find((v) => me.driver && v.id === me.driver.vehicle_id);
+          return (mine && mine.size_class) || "medium";
+        }
+        const count = {};
+        active.forEach((v) => { count[v.size_class] = (count[v.size_class] || 0) + 1; });
+        return Object.keys(count).sort((a, b) => count[b] - count[a])[0] || (vehicles.find((v) => v.size_class) || {}).size_class || "medium";
+      }
+      const emptyCard = (title, text, art = "") => `<div class="empty-state">${art ? trCartoon(art, mySize()) : ""}<p class="font-semibold text-gray-800">${title}</p>${text ? `<p class="text-sm mt-1">${text}</p>` : ""}</div>`;
 
       async function loadRequests() {
         const list = document.getElementById("requests-list");
@@ -509,7 +521,7 @@
                 <button type="button" class="acc-mini-btn" data-toggle="${v.id}">${v.status === "active" ? "Deactivate" : "Activate"}</button></div>
             </div>
           </div>`).join("")
-          : `<div class="empty-state"><p class="font-semibold text-gray-800">No vehicles yet</p><p class="text-sm mt-1">Add the vehicles you use.</p></div>`;
+          : `<div class="empty-state">${trCartoon("pending", mySize())}<p class="font-semibold text-gray-800">No vehicles yet</p><p class="text-sm mt-1">Add the vehicles you use.</p></div>`;
         list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => openVehicle(vehicles.find((v) => String(v.id) === b.dataset.edit))));
         list.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", async () => {
           const v = vehicles.find((x) => String(x.id) === b.dataset.toggle);
@@ -595,7 +607,7 @@
               <button type="button" class="acc-mini-btn" data-driver-toggle="${x.id}">${x.is_active ? "Switch Off" : "Switch On"}</button>
             </div>
           </div>`).join("")
-          : `<div class="empty-state"><p class="font-semibold text-gray-800">No drivers yet</p><p class="text-sm mt-1">Add your drivers. Each signs in with their phone number and a code you give them.</p></div>`;
+          : `<div class="empty-state">${emptyArt("badge")}<p class="font-semibold text-gray-800">No drivers yet</p><p class="text-sm mt-1">Add your drivers. Each signs in with their phone number and a code you give them.</p></div>`;
         const find = (id) => driverList.find((x) => String(x.id) === String(id));
         list.querySelectorAll("[data-code]").forEach((b) => b.addEventListener("click", async () => {
           const x = find(b.dataset.code);
@@ -688,7 +700,7 @@
         document.getElementById("ratings-list").innerHTML = `
           <div class="acc-card mb-4"><p class="text-sm text-gray-600">Your average from buyers</p><p class="text-2xl mt-1">${trStarsHtml(s.rating, s.ratings)}</p></div>
           ${rows.length ? `<div class="tp-card-list">${rows.map((r) => `<div class="acc-card"><div class="flex justify-between gap-2"><span>${trStarsHtml(r.stars)}</span><span class="text-sm text-gray-500">${escapeHtml(r.reference)} · ${escapeHtml(formatDateShort(r.created_at))}</span></div>${r.feedback ? `<p class="text-sm text-gray-700 mt-2">"${escapeHtml(r.feedback)}"</p>` : ""}</div>`).join("")}</div>`
-            : `<div class="empty-state"><p class="font-semibold text-gray-800">No ratings yet</p><p class="text-sm mt-1">Buyers rate you after they confirm a delivery.</p></div>`}`;
+            : `<div class="empty-state">${emptyArt("star")}<p class="font-semibold text-gray-800">No ratings yet</p><p class="text-sm mt-1">Buyers rate you after they confirm a delivery.</p></div>`}`;
       }
 
       // ------------------------------------------------------- notifications
@@ -700,7 +712,7 @@
             <span class="nt-icon nt-order" aria-hidden="true">${uiIcon(n.type === "account" ? "users" : "truck")}</span>
             <span class="nt-text"><span class="nt-title">${escapeHtml(n.title)}</span>${n.body ? `<span class="nt-body">${escapeHtml(n.body)}</span>` : ""}<span class="nt-time">${timeAgo(n.created_at)}</span></span>
             ${n.read_at ? "" : `<span class="nt-new">New</span>`}</a></li>`).join("")}</ul>`
-          : `<div class="empty-state"><p class="font-semibold text-gray-800">No notifications yet</p></div>`;
+          : `<div class="empty-state">${emptyArt("bell")}<p class="font-semibold text-gray-800">No notifications yet</p></div>`;
         list.querySelectorAll("[data-link]").forEach((a) => a.addEventListener("click", (e) => {
           const url = new URL(a.href, location.origin);
           if (url.pathname !== "/transport/") return;

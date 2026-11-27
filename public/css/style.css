@@ -7849,3 +7849,5 @@ main.has-view ~ * .tp-switch, body:has(main.has-view) .portal-hero .tp-switch { 
   .tp-toon-float { animation: tp-toon-float 2.6s ease-in-out infinite; transform-box: fill-box; }
 }
 @keyframes tp-toon-float { 0%, 100% { transform: translateY(0); opacity: 1; } 50% { transform: translateY(-4px); opacity: .8; } }
+/* Smaller cartoon. */
+.tp-toon { width: 130px; margin-bottom: 10px; }
