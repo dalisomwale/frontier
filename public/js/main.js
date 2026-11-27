@@ -424,3 +424,14 @@ function orderTrackerHtml(o) {
   return `<ol class="tx-path tx-path-${stages.length}" aria-label="Order progress">${stages.map(([label, st], i) => `
     <li class="tx-step is-${st}"><span class="tx-dot">${mark[st] || i + 1}</span><span class="tx-step-label">${label}</span></li>`).join("")}</ol>`;
 }
+
+// A page banner with a picture (like the home page's), e.g. the cart:
+// pageHeroHtml({ title: "Your", accent: "Cart", sub: "2 items · K 15,000" }).
+function pageHeroHtml({ title = "", accent = "", sub = "", image = "/images/hero/hero-reel-1.webp" } = {}) {
+  return `<section class="page-hero" style="--page-hero-img:url('${escapeHtml(image)}')">
+    <div class="page-hero-copy">
+      <h1 class="page-hero-title">${escapeHtml(title)}${accent ? ` <span class="page-hero-accent">${escapeHtml(accent)}</span>` : ""}</h1>
+      ${sub ? `<p class="page-hero-sub">${escapeHtml(sub)}</p>` : ""}
+    </div>
+  </section>`;
+}

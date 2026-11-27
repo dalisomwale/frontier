@@ -7721,7 +7721,7 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 /* Cart: one card. The products, then the total, Checkout and Continue
    Shopping. Each product: picture, name and details, then quantity, price
    and the bin on one line. */
-.cart-card, .cart-card-w { max-width: 720px; }
+.cart-card, .cart-card-w, #cart .page-hero { max-width: 720px; }
 .cart-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; }
 .cart-card .cart-list { border: 0; border-radius: 0; }
 .cart-card .cart-line { grid-template-columns: 76px minmax(0, 1fr); }
@@ -7735,4 +7735,23 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
   .cart-card .cart-line { grid-template-columns: 64px minmax(0, 1fr); }
   .cart-card .cart-controls { gap: 10px; }
   .cart-card .cart-line-total { font-size: 14.5px; }
+}
+
+/* Page banner with a picture (the cart): the home page's photo under a
+   dark green shade, the title in white with the yellow-to-lime accent. */
+.page-hero {
+  position: relative; display: flex; align-items: flex-end; min-height: 170px; margin-bottom: 20px;
+  padding: 24px 28px; border-radius: 20px; overflow: hidden; color: #fff;
+  background:
+    linear-gradient(90deg, rgba(8, 28, 16, .88) 0%, rgba(8, 28, 16, .55) 55%, rgba(8, 28, 16, .2) 100%),
+    var(--page-hero-img) center 42% / cover no-repeat, #14532d;
+  box-shadow: 0 12px 30px -18px rgba(15, 36, 22, .6);
+}
+.page-hero-title { font-size: 30px; font-weight: 800; line-height: 1.15; letter-spacing: -.01em; }
+.page-hero-accent { background: linear-gradient(90deg, #fde047, #bef264); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: #fde047; }
+.page-hero-sub { margin-top: 6px; font-size: 14.5px; color: rgba(255, 255, 255, .85); font-weight: 600; }
+@media (max-width: 640px) {
+  .page-hero { min-height: 130px; padding: 18px 18px; border-radius: 16px; margin-bottom: 16px; }
+  .page-hero-title { font-size: 24px; }
+  .page-hero-sub { font-size: 13.5px; }
 }
