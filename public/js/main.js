@@ -491,12 +491,33 @@ function heroTitleHtml(text) {
 }
 
 // Signed-in pages (buyer, seller, transport): the picture banner across the
-// top, above the menu and the page, greets the person ("Hello, Grace" ·
-// "Seller account").
+// top, above the menu and the page. Its heading is the page or tab being
+// shown ("My Deliveries", an order, a form), taken from that page's own
+// title, which is then hidden so it isn't shown twice; the line under it is
+// the account ("Seller account").
 function addPortalHero(main, name, sub) {
   if (!main || document.querySelector(".portal-hero")) return;
-  const first = String(name || "").trim().split(/\s+/)[0] || "";
   const anchor = main.closest(".acc-layout") || main;
-  anchor.insertAdjacentHTML("beforebegin", pageHeroHtml({ title: "Hello,", accent: first, sub, bleed: true }).replace('class="page-hero is-bleed"', 'class="page-hero is-bleed portal-hero"'));
+  anchor.insertAdjacentHTML("beforebegin", pageHeroHtml({ title: "", sub, bleed: true }).replace('class="page-hero is-bleed"', 'class="page-hero is-bleed portal-hero"'));
+  const hero = document.querySelector(".portal-hero");
+  const heading = hero.querySelector(".page-hero-title");
+  let shown = null;
+  const sync = () => {
+    // The page's titles that are on screen now (their box is showing); the
+    // last one is the newest view (an order or form opened over a tab).
+    const titles = [...main.querySelectorAll("h1")].filter((h) => !h.hidden && h.parentElement && h.parentElement.getClientRects().length);
+    const current = titles[titles.length - 1];
+    const text = current ? current.textContent.trim() : "";
+    main.querySelectorAll("h1.is-in-hero").forEach((h) => { if (h !== current) h.classList.remove("is-in-hero"); });
+    if (current && !current.classList.contains("is-in-hero")) current.classList.add("is-in-hero");
+    if (text !== shown) { shown = text; heading.innerHTML = text ? heroTitleHtml(text) : `Hello, <span class="page-hero-accent">${escapeHtml(String(name || "").trim().split(/\s+/)[0] || "")}</span>`; }
+  };
+  let queued = false;
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; sync(); });
+  }).observe(main, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["hidden", "class", "style"] });
+  sync();
   fitPageHero();
 }

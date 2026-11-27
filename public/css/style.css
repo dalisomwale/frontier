@@ -7819,3 +7819,5 @@ main:has(+ .news-band) { margin-bottom: 0 !important; }
 .portal-hero.is-bleed { min-height: calc(var(--bleed-top, 72px) + 182px); }
 @media (max-width: 640px) { .portal-hero.is-bleed { min-height: calc(var(--bleed-top, 66px) + 134px); } }
 .portal-hero.is-bleed { margin-bottom: 0; }
+/* The page title shown in the banner isn't repeated below it. */
+.portal-page main h1.is-in-hero, .account-page main h1.is-in-hero { display: none !important; }
