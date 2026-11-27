@@ -60,8 +60,8 @@
             <div class="cart-info">
               <p class="cart-title">${escapeHtml(item.title || "This listing")}</p>
               <p class="cart-gone">No longer available</p>
+              <div class="cart-controls"><button type="button" class="cart-remove" data-remove="${item.id}" aria-label="Remove" title="Remove">${uiIcon("trash")}</button></div>
             </div>
-            <button type="button" class="cart-remove" data-remove="${item.id}" aria-label="Remove" title="Remove">${uiIcon("trash")}</button>
           </li>`;
         }
         const lot = item.price_unit === "lot";
@@ -78,10 +78,10 @@
                 <input type="number" inputmode="numeric" min="1" max="${item.max}" value="${item.quantity}" data-qty="${item.id}" aria-label="Quantity">
                 <button type="button" data-step="1" data-id="${item.id}" aria-label="More" ${item.quantity >= item.max ? "disabled" : ""}>+</button>
               </div>`}
+              <span class="cart-line-total">${kwacha(item.line_total)}</span>
               <button type="button" class="cart-remove" data-remove="${item.id}" aria-label="Remove" title="Remove">${uiIcon("trash")}</button>
             </div>
           </div>
-          <p class="cart-line-total">${kwacha(item.line_total)}</p>
         </li>`;
       }
 
@@ -102,17 +102,15 @@
         root.innerHTML = `
           ${checkoutSteps(0)}
           <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mb-5">Your Cart</h1>
-          <div class="checkout">
-            <div class="checkout-main">
-              ${gone ? `<div class="alert alert-error text-sm">${gone === 1 ? "One item is" : `${gone} items are`} no longer available. Remove ${gone === 1 ? "it" : "them"} to continue.</div>` : ""}
-              <ul class="cart-list">${quote.items.map(line).join("")}</ul>
-            </div>
-            <aside class="cart-summary">
+          ${gone ? `<div class="alert alert-error text-sm mb-4 cart-card-w">${gone === 1 ? "One item is" : `${gone} items are`} no longer available. Remove ${gone === 1 ? "it" : "them"} to continue.</div>` : ""}
+          <div class="cart-card">
+            <ul class="cart-list">${quote.items.map(line).join("")}</ul>
+            <div class="cart-foot">
               <div class="buy-total"><span>Total</span><strong>${kwacha(quote.total)}</strong></div>
               ${quote.sellers > 1 ? `<p class="cart-sum-note">From ${quote.sellers} sellers · you pay once.</p>` : ""}
               <a href="/checkout" class="btn-checkout btn-lg w-full ${ok.length && !gone ? "" : "is-disabled"}" ${ok.length && !gone ? "" : 'aria-disabled="true" tabindex="-1"'}>Checkout</a>
               <a href="/#listings" class="cart-continue">${uiIcon("chevronLeft")}<span>Continue Shopping</span></a>
-            </aside>
+            </div>
           </div>`;
         bind(quote);
       }

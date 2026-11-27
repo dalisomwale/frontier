@@ -7717,3 +7717,22 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .qty-stepper input { width: 42px; height: 36px; font-size: 14px; }
 .qty-stepper-sm button { width: 28px; height: 28px; font-size: 15px; }
 .qty-stepper-sm input { width: 34px; height: 28px; font-size: 13px; }
+
+/* Cart: one card. The products, then the total, Checkout and Continue
+   Shopping. Each product: picture, name and details, then quantity, price
+   and the bin on one line. */
+.cart-card, .cart-card-w { max-width: 720px; }
+.cart-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; }
+.cart-card .cart-list { border: 0; border-radius: 0; }
+.cart-card .cart-line { grid-template-columns: 76px minmax(0, 1fr); }
+.cart-card .cart-controls { flex-wrap: nowrap; gap: 14px; }
+.cart-card .cart-line-total { grid-column: auto; margin-left: auto; font-size: 15px; }
+.cart-card .cart-remove { margin-right: -8px; }
+.cart-foot { border-top: 1px solid #e5e7eb; padding: 16px; background: #fcfdfb; }
+.cart-foot .buy-total { margin: 0 0 14px !important; padding: 0 !important; border: 0 !important; }
+.cart-foot .cart-continue { display: flex; justify-content: center; margin-top: 14px; }
+@media (max-width: 480px) {
+  .cart-card .cart-line { grid-template-columns: 64px minmax(0, 1fr); }
+  .cart-card .cart-controls { gap: 10px; }
+  .cart-card .cart-line-total { font-size: 14.5px; }
+}
