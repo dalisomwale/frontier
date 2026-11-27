@@ -377,7 +377,7 @@ function trQtyFields(orders, { start = (o) => o.quantity, ids = false, label = "
       <label class="field-label" for="qty_${o.id}">${escapeHtml(o.reference)} · ${escapeHtml(o.title)} <span class="text-gray-400 font-normal">(ordered ${escapeHtml(o.units)})</span></label>
       <div class="tr-qty-row"><input id="qty_${o.id}" name="qty_${o.id}" type="number" min="0" max="${start(o)}" step="1" inputmode="numeric" class="field-input" value="${start(o)}" aria-label="${escapeHtml(label)}"><span>${escapeHtml(label.toLowerCase())}</span></div>
       <p class="field-error hidden" data-error-for="qty_${o.id}"></p>
-      ${ids && o.kind !== "feed" ? `<input name="id_${o.id}" class="field-input mt-2" maxlength="500" placeholder="Ear tags / brands / markings (optional)">` : ""}
+      ${ids && o.kind !== "feed" ? `<label class="field-label mt-2" for="id_${o.id}">Ear Tags / Brands / Markings <span class="text-gray-400 font-normal">(optional)</span></label><input id="id_${o.id}" name="id_${o.id}" class="field-input" maxlength="500">` : ""}
     </div>`).join("")}</div>`;
 }
 
@@ -400,7 +400,8 @@ function trRatingForm(holder, { title, hint, name, onSubmit }) {
       ${hint ? `<p class="text-sm text-gray-600 mt-1">${escapeHtml(hint)}</p>` : ""}
       ${trStarsInput(name)}
       <p class="field-error hidden" data-error-for="${name}"></p>
-      <textarea name="feedback" rows="2" maxlength="1000" class="field-input" placeholder="Anything you'd like to tell us? (optional)"></textarea>
+      <label class="field-label mt-3" for="${name}-feedback">Comment <span class="text-gray-400 font-normal">(optional)</span></label>
+      <textarea id="${name}-feedback" name="feedback" rows="2" maxlength="1000" class="field-input"></textarea>
       <button type="submit" class="acc-btn mt-3">Submit Rating</button>
     </form>`;
   const form = holder.querySelector("form");
@@ -528,7 +529,7 @@ function trDistrictField(input, province, { onPick } = {}) {
   const districts = () => (window.ZambiaDistricts ? ZambiaDistricts.list(province()) : []);
   const paintPlaceholder = () => {
     const p = province();
-    input.placeholder = p ? "Search districts" : "Choose province first";
+    input.placeholder = "";
     input.disabled = !p && !input.value;
   };
   const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); active = -1; };

@@ -298,7 +298,7 @@
           submitText: "Reject account",
           body: `
             <p class="text-sm text-gray-600">They won't be able to submit listings. We'll email them to let them know.</p>
-            ${field({ name: "note", label: "Reason (included in the email)", type: "textarea", rows: 3, placeholder: "e.g. We couldn't confirm your farm details. Please call us on ...", attrs: 'maxlength="500"' })}`,
+            ${field({ name: "note", label: "Reason (included in the email)", type: "textarea", rows: 3, attrs: 'maxlength="500"' })}`,
           async onSubmit(form) {
             done(await adminApi(`/api/admin/sellers/${s.id}/account`, { method: "PATCH", body: { action, note: formValues(form).note } }));
           },
@@ -363,7 +363,7 @@
               ${field({ name: "business_name", label: "Farm or Business Name (optional)", value: s.business_name, attrs: 'maxlength="150"' })}
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              ${field({ name: "phone", label: "WhatsApp Number", type: "tel", value: s.phone, required: true, placeholder: "0977 123 456", attrs: 'maxlength="30" inputmode="tel"' })}
+              ${field({ name: "phone", label: "WhatsApp Number", type: "tel", value: s.phone, required: true, attrs: 'maxlength="30" inputmode="tel"' })}
               ${field({ name: "email", label: "Email", type: "email", value: s.email, attrs: 'maxlength="255" inputmode="email"' })}
             </div>`;
         const business = `
@@ -373,7 +373,7 @@
                 ${field({ name: "province", label: "Province", value: s.province || "", options: [{ value: "", label: "Choose…" }, ...ZAMBIA_PROVINCES.map((p) => ({ value: p, label: p }))] })}
                 ${field({ name: "pickup_district", label: "District", value: s.pickup_district, attrs: 'maxlength="80"' })}
               </div>
-              ${field({ name: "pickup_address", label: "Pickup Address or Directions", value: s.pickup_address, placeholder: "e.g. Plot 9, off Great North Rd", attrs: 'maxlength="255"' })}
+              ${field({ name: "pickup_address", label: "Pickup Address or Directions", value: s.pickup_address, attrs: 'maxlength="255"' })}
               <div data-pickup-map class="mt-3"></div>
               <p class="field-error hidden" data-error-for="pickup_point"></p>
             </div>`;

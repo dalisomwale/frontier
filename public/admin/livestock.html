@@ -372,7 +372,7 @@
           submitText: "Send to seller",
           body: `
             <p class="text-sm text-gray-600">"${escapeHtml(title)}" is hidden from the website until the seller updates it. They see your note in their dashboard and by email.</p>
-            ${field({ name: "note", label: "What needs to change?", type: "textarea", rows: 4, required: true, placeholder: "e.g. Please add a clear photo of the animals and the age.", attrs: 'maxlength="500"' })}`,
+            ${field({ name: "note", label: "What needs to change?", type: "textarea", rows: 4, required: true, attrs: 'maxlength="500"' })}`,
           async onSubmit(form) {
             const note = formValues(form).note.trim();
             if (!note) {

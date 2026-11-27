@@ -427,7 +427,8 @@
             <p class="text-sm text-gray-600">${escapeHtml(hint)}</p>
             ${trStarsInput(name, `pop-${name}`)}
             <p class="field-error hidden" data-error-for="${name}"></p>
-            <textarea name="${name}_feedback" rows="2" maxlength="1000" class="field-input" placeholder="Anything you'd like to tell us? (optional)"></textarea>
+            <label class="field-label mt-3" for="pop-${name}-feedback">Comment <span class="text-gray-400 font-normal">(optional)</span></label>
+            <textarea id="pop-${name}-feedback" name="${name}_feedback" rows="2" maxlength="1000" class="field-input"></textarea>
           </div>`;
         const overlay = document.createElement("div");
         overlay.className = "fixed inset-0 z-[150] flex items-center justify-center bg-black bg-opacity-50 p-4";
@@ -516,7 +517,7 @@
               <div class="tp-choice">${Object.entries(d.dispute_reasons).map(([k, v]) => `<label><input type="radio" name="reason" value="${k}"><span>${escapeHtml(v)}</span></label>`).join("")}</div>
               <p class="field-error hidden" data-error-for="reason"></p>
               <label class="field-label mt-4" for="dd-desc">Describe the problem</label>
-              <textarea id="dd-desc" name="description" rows="3" maxlength="2000" class="field-input" placeholder="e.g. Only 4 goats arrived; one is missing."></textarea>
+              <textarea id="dd-desc" name="description" rows="3" maxlength="2000" class="field-input"></textarea>
               <p class="field-error hidden" data-error-for="description"></p>
             </div>
             <div class="acc-card">
@@ -580,7 +581,7 @@
             </div>
             <div class="acc-card">
               <label for="c_note" class="field-label">Anything to add? <span class="text-gray-400 font-normal">(optional)</span></label>
-              <textarea id="c_note" name="note" rows="2" maxlength="500" class="field-input" placeholder="e.g. All in good health. Thank you!"></textarea>
+              <textarea id="c_note" name="note" rows="2" maxlength="500" class="field-input"></textarea>
               <label class="co-terms-box mt-3">
                 <input type="checkbox" name="agree" />
                 <span>I've received ${escapeHtml(o.price_unit === "lot" ? `the whole lot (${o.units})` : o.units)}</span>

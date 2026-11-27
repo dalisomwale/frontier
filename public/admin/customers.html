@@ -115,7 +115,7 @@
         const about = `
             ${field({ name: "full_name", label: "Full Name", value: c.full_name, required: true, attrs: 'maxlength="120" autocomplete="off"' })}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              ${field({ name: "phone", label: "Phone Number", type: "tel", value: c.phone, required: true, placeholder: "0977 123 456", attrs: 'maxlength="30" inputmode="tel"' })}
+              ${field({ name: "phone", label: "Phone Number", type: "tel", value: c.phone, required: true, attrs: 'maxlength="30" inputmode="tel"' })}
               ${field({ name: "email", label: "Email", type: "email", value: c.email, required: true, attrs: 'maxlength="255" inputmode="email"' })}
             </div>`;
         openFormModal({

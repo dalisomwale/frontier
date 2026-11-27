@@ -327,8 +327,8 @@
 
       // ------------------------------------- drivers and vehicles (as at sign-up)
       const vehicleFieldsHtml = () => `<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div><label class="field-label">Vehicle Name</label><input data-f="vehicle_type" class="field-input" maxlength="60" placeholder="e.g. Toyota Hilux"></div>
-          <div><label class="field-label">Registration Number</label><input data-f="registration" class="field-input" maxlength="30" placeholder="e.g. ABC 1234"></div>
+          <div><label class="field-label">Vehicle Name</label><input data-f="vehicle_type" class="field-input" maxlength="60"></div>
+          <div><label class="field-label">Registration Number</label><input data-f="registration" class="field-input" maxlength="30"></div>
           <div class="sm:col-span-2" data-size-pick><p class="field-label">Vehicle Size</p><input type="hidden" data-f="size_class" data-size-value>${trSizeCards(meta.sizes, { name: trSizeName() })}</div>
         </div>`;
       const DRIVER_DOCS = [["nrc", "NRC"], ["drivers_licence", "Driver's Licence"], ["passport", "Passport"]];
@@ -342,7 +342,7 @@
           card.innerHTML = `<div class="ob-row-head"><b data-n></b><button type="button" class="ob-row-rm" data-rm>Remove</button></div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label class="field-label">Full Name</label><input data-f="name" class="field-input" maxlength="120"></div>
-              <div><label class="field-label">Phone Number</label><input data-f="phone" type="tel" class="field-input" maxlength="30" placeholder="0977 123 456"></div>
+              <div><label class="field-label">Phone Number</label><input data-f="phone" type="tel" class="field-input" maxlength="30"></div>
             </div>
             <p class="ob-sub-lead">Their Documents</p>${driverDocInputs()}
             <p class="ob-sub-lead">Their Vehicle</p>${vehicleFieldsHtml()}`;
@@ -389,7 +389,7 @@
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 ${input("name", "<span data-name-label>Full Name</span>", "", 'maxlength="150"')}
                 <div data-company-only hidden>${input("contact_person", "Contact Person", "", 'maxlength="120"')}</div>
-                ${input("phone", "Phone / WhatsApp", "", 'type="tel" maxlength="30" placeholder="0977 123 456"')}
+                ${input("phone", "Phone / WhatsApp", "", 'type="tel" maxlength="30"')}
                 ${input("email", "Email", "", 'type="email" maxlength="255"')}
                 ${input("licence_number", "Driving / Transport Licence No. <span class=\"text-gray-400 font-normal\">(optional)</span>", "", 'maxlength="80"')}
                 ${input("registration_number", "Business Registration No. <span class=\"text-gray-400 font-normal\">(optional)</span>", "", 'maxlength="80"')}
@@ -405,7 +405,7 @@
                 ${input("district", "District", "", 'maxlength="80"')}
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                ${input("address", "<span data-address-label>Physical Address</span>", "", 'maxlength="255" placeholder="e.g. Plot 5, Cairo Road"')}
+                ${input("address", "<span data-address-label>Physical Address</span>", "", 'maxlength="255"')}
                 ${input("coverage_km", "Coverage (km by road)", "", 'type="number" min="1" max="3000" step="1"', "Leave empty to set it later.")}
               </div>
               <div data-map></div>${errFor("base_point")}
@@ -530,7 +530,7 @@
           body: `
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               ${input("name", "Full Name", d ? d.name : "", 'maxlength="120"')}
-              ${input("phone", "Phone Number", d ? d.phone : "", 'type="tel" maxlength="30" placeholder="0977 123 456"', "They sign in with this number.")}
+              ${input("phone", "Phone Number", d ? d.phone : "", 'type="tel" maxlength="30"', "They sign in with this number.")}
             </div>
             <div><p class="field-label">Their Documents</p>${driverDocInputs("doc_")}${errFor("documents")}</div>
             <div><label class="field-label" for="f-vehicle_id">Their Vehicle</label>
@@ -613,8 +613,8 @@
           submitText: v ? "Save Vehicle" : "Add Vehicle",
           body: `
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              ${input("vehicle_type", "Vehicle Name", v ? v.vehicle_type : "", 'maxlength="60" placeholder="e.g. Toyota Hilux"')}
-              ${input("registration", "Registration Number", v ? v.registration : "", 'maxlength="30" placeholder="e.g. ABC 1234"')}
+              ${input("vehicle_type", "Vehicle Name", v ? v.vehicle_type : "", 'maxlength="60"')}
+              ${input("registration", "Registration Number", v ? v.registration : "", 'maxlength="30"')}
             </div>
             <div>
               <p class="field-label">Vehicle Size <span class="text-gray-400 font-normal">(buyers choose a size when they order)</span></p>

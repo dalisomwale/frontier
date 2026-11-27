@@ -267,7 +267,7 @@
                        ${o.can_pay_seller ? "" : `<p class="pay-lock-note">${uiIcon("shield")}Unlocks once the order has been handed over.</p>`}
                        <p class="tl-body-line">Once you've paid ${escapeHtml(o.seller_name || "the seller")}, add the proof of payment. <a href="/admin/payouts?id=${o.seller_id}" class="po-link">Pay all their ready orders together in Payouts</a></p>
                        <label class="field-label" for="pay-ref-${o.id}">Payment reference <span class="text-gray-400 font-normal">(optional)</span></label>
-                       <input id="pay-ref-${o.id}" name="reference" class="field-input" maxlength="150" style="max-width:320px" placeholder="e.g. bank or mobile money reference"${o.can_pay_seller ? "" : " disabled"}>
+                       <input id="pay-ref-${o.id}" name="reference" class="field-input" maxlength="150" style="max-width:320px"${o.can_pay_seller ? "" : " disabled"}>
                        <p class="field-label mt-3">Proof of payment <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(1 to 4 photos or PDFs)</span></p>
                        <div class="acc-ph-grid" data-photos style="max-width:520px">${o.can_pay_seller ? "" : `<span class="acc-ph-add is-off">${uiIcon("camera")}<span>Add photo or PDF</span></span>`}</div>
                        <p class="field-error hidden" data-error-for="images"></p>

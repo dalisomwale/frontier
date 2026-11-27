@@ -92,7 +92,7 @@
               ${Object.entries(OPERATORS).map(([v, l]) => payNetworkCard(v, l, v === p.operator_key)).join("")}
             </div>
             <label for="retry-phone" class="field-label mt-4">Mobile money number</label>
-            <input id="retry-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" maxlength="25" placeholder="0977 123 456">
+            <input id="retry-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" maxlength="25">
             <p class="field-error hidden" data-retry-error></p>
             <button type="submit" class="btn-buy btn-lg w-full mt-4">Send the payment prompt · ${kwacha(p.total)}</button>
           </form>` : `<p class="text-sm text-gray-600 mt-3">${done ? "Nothing more to pay here." : "Our team will contact you to arrange payment."}</p>`}`, p.status === "failed" ? "alert" : "status");
@@ -196,7 +196,7 @@
                 ${Object.entries(OPERATORS).filter(([v]) => !c.operators || c.operators.includes(v)).map(([v, l]) => payNetworkCard(v, l, v === c.operator_key)).join("")}
               </div>
               <label for="pay-phone" class="field-label mt-4">Mobile money number</label>
-              <input id="pay-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" autocomplete="tel" maxlength="25" placeholder="0977 123 456" value="${escapeHtml(lastPhone)}">
+              <input id="pay-phone" name="payment_phone" type="tel" class="field-input" inputmode="tel" autocomplete="tel" maxlength="25" value="${escapeHtml(lastPhone)}">
               <p class="field-error hidden" data-pay-error></p>
               <button type="submit" class="btn-checkout btn-lg w-full mt-5">Pay ${kwacha(c.total)}</button>
               <p class="pay-secure">${phoneIcon}<span>You'll get a prompt on your phone. Enter your PIN to approve. We never see or store your PIN.</span></p>
@@ -348,9 +348,9 @@
             <a href="${escapeHtml(c.pay_url)}" class="btn-checkout btn-lg w-full mt-5">${lockIcon}<span>Enter card details</span></a>` : `
             <form class="pay-form" novalidate>
               <label for="pay-address" class="field-label">Address</label>
-              <input id="pay-address" name="address" type="text" class="field-input" autocomplete="street-address" maxlength="120" placeholder="e.g. Plot 12, Kabulonga Road">
+              <input id="pay-address" name="address" type="text" class="field-input" autocomplete="street-address" maxlength="120">
               <label for="pay-city" class="field-label mt-4">Town / city</label>
-              <input id="pay-city" name="city" type="text" class="field-input" autocomplete="address-level2" maxlength="60" placeholder="e.g. Lusaka">
+              <input id="pay-city" name="city" type="text" class="field-input" autocomplete="address-level2" maxlength="60">
               <p class="field-error hidden" data-pay-error></p>
               <button type="submit" class="btn-checkout btn-lg w-full mt-5">${lockIcon}<span>Enter card details</span></button>
             </form>

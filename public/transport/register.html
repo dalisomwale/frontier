@@ -52,7 +52,7 @@
             </div>
             <div>
               <label for="phone" class="field-label">Phone / WhatsApp</label>
-              <input id="phone" name="phone" type="tel" class="field-input" maxlength="30" autocomplete="tel" inputmode="tel" placeholder="0977 123 456" required />
+              <input id="phone" name="phone" type="tel" class="field-input" maxlength="30" autocomplete="tel" inputmode="tel" required />
               <p class="field-error hidden" data-error-for="phone"></p>
             </div>
             <div>
@@ -79,12 +79,12 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label for="address" class="field-label" data-address-label>Physical Address</label>
-                <input id="address" name="address" class="field-input" maxlength="255" placeholder="e.g. Plot 5, Cairo Road" required />
+                <input id="address" name="address" class="field-input" maxlength="255" required />
                 <p class="field-error hidden" data-error-for="address"></p>
               </div>
               <div>
                 <label for="preferred_coverage_km" class="field-label">How Far You'll Travel</label>
-                <div class="tr-km-row"><input id="preferred_coverage_km" name="preferred_coverage_km" type="number" min="5" max="1000" step="1" inputmode="numeric" class="field-input" placeholder="e.g. 100" required /><span>km</span></div>
+                <div class="tr-km-row"><input id="preferred_coverage_km" name="preferred_coverage_km" type="number" min="5" max="1000" step="1" inputmode="numeric" class="field-input" required /><span>km</span></div>
                 <p class="field-error hidden" data-error-for="preferred_coverage_km"></p>
               </div>
             </div>
@@ -287,8 +287,8 @@
       const vehiclesBox = form.querySelector("[data-vehicles]");
       const vehicleFields = () => `
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div><label class="field-label">Vehicle Name</label><input data-f="vehicle_type" class="field-input" maxlength="60" placeholder="e.g. Toyota Hilux" autocomplete="off"></div>
-          <div><label class="field-label">Registration Number</label><input data-f="registration" class="field-input" maxlength="30" placeholder="e.g. ABC 1234" autocomplete="off"></div>
+          <div><label class="field-label">Vehicle Name</label><input data-f="vehicle_type" class="field-input" maxlength="60" autocomplete="off"></div>
+          <div><label class="field-label">Registration Number</label><input data-f="registration" class="field-input" maxlength="30" autocomplete="off"></div>
           <div class="sm:col-span-2" data-size-pick><p class="field-label">Vehicle Size</p><input type="hidden" data-f="size_class" data-size-value><div data-sizes></div></div>
         </div>`;
       function fillSizes(root) {
@@ -307,7 +307,7 @@
         row.innerHTML = `<div class="ob-row-head"><b></b><button type="button" class="ob-row-rm" data-rm>Remove</button></div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label class="field-label">Full Name</label><input data-f="name" class="field-input" maxlength="120" autocomplete="off"></div>
-            <div><label class="field-label">Phone Number</label><input data-f="phone" type="tel" inputmode="tel" class="field-input" maxlength="30" placeholder="0977 123 456" autocomplete="off"></div>
+            <div><label class="field-label">Phone Number</label><input data-f="phone" type="tel" inputmode="tel" class="field-input" maxlength="30" autocomplete="off"></div>
           </div>
           <p class="ob-sub-lead">Their Documents</p>
           ${docSlotsHtml()}

@@ -67,7 +67,7 @@ function openInquiryModal(listing) {
           <div>
             <label for="inq-phone" class="field-label">Phone Number</label>
             <input id="inq-phone" name="phone" type="tel" class="field-input" autocomplete="tel" inputmode="tel"
-              maxlength="25" required placeholder="0977 123 456">
+              maxlength="25" required>
             <p class="field-error hidden" data-error-for="phone"></p>
           </div>
           <div>

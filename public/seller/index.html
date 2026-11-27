@@ -128,7 +128,7 @@
             <div data-alert class="hidden alert text-sm mb-4" role="alert"></div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div><label class="field-label" for="pk-district">District <span class="text-gray-400 font-normal" data-pk-prov></span></label><input id="pk-district" name="pickup_district" class="field-input" maxlength="80"><p class="field-error hidden" data-error-for="pickup_district"></p></div>
-              <div><label class="field-label" for="pk-address">Address or directions</label><input id="pk-address" name="pickup_address" class="field-input" maxlength="255" placeholder="e.g. Farm 9, 2 km off Great North Rd"><p class="field-error hidden" data-error-for="pickup_address"></p></div>
+              <div><label class="field-label" for="pk-address">Address or directions</label><input id="pk-address" name="pickup_address" class="field-input" maxlength="255"><p class="field-error hidden" data-error-for="pickup_address"></p></div>
             </div>
             <p class="field-label mt-4">The exact pickup point</p>
             <div data-pickup-map></div>
@@ -439,7 +439,7 @@
 
         const body = `
           ${id && !(item.review_status === "approved" && live) ? `<div class="alert alert-info text-sm mb-0">${item.review_status === "approved" ? "Changes you save are kept. Submit it for review to bring it back to the website." : item.review_status === "pending" ? "This listing is waiting for review. Saving updates what our team will review." : "Saving sends this listing to our team for review."}</div>` : ""}
-          ${field({ name: "title", label: "Title", value: item.title, required: true, placeholder: "e.g. 10 Boran heifers, in calf", attrs: 'maxlength="200"' })}
+          ${field({ name: "title", label: "Title", value: item.title, required: true, attrs: 'maxlength="200"' })}
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             ${field({ name: "animal_id", label: "Category", value: animalId, required: true, options: animalOptions() })}
             ${field({ name: "category_id", label: "Production Purpose", value: item.category_id, required: true, options: purposeOptions(animalId) })}
@@ -454,7 +454,7 @@
           </div>
           ${priceFields(item, true)}
           ${field({ name: "description", label: "Description", type: "textarea", value: item.description, rows: 3,
-              placeholder: "Condition, vaccinations, feeding, anything a buyer should know", attrs: 'maxlength="5000"' })}
+              attrs: 'maxlength="5000"' })}
           <div>
             <div class="flex items-baseline justify-between mb-2">
               <span class="field-label !mb-0">Photos <span class="text-red-500">*</span></span>

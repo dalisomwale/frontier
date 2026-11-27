@@ -298,7 +298,7 @@
           }
         });
         form.querySelector("[data-decline]")?.addEventListener("click", async () => {
-          const reason = await trPrompt({ title: "Decline this request?", label: "Reason", placeholder: "e.g. Vehicle not available that day", confirmText: "Decline" });
+          const reason = await trPrompt({ title: "Decline this request?", label: "Reason", confirmText: "Decline" });
           if (reason === null) return;
           try {
             const res = await transportApi(`/api/transport/bookings/${d.id}/decline`, { method: "POST", body: { reason } });
@@ -520,8 +520,8 @@
           <form class="acc-card max-w-2xl" novalidate>
             <h1 class="admin-view-title">${v ? `Edit ${escapeHtml(v.registration)}` : "Add Vehicle"}</h1>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div><label class="field-label" for="v-type">Vehicle Name</label><input id="v-type" name="vehicle_type" class="field-input" maxlength="60" value="${escapeHtml(v ? v.vehicle_type : "")}" placeholder="e.g. Toyota Hilux"><p class="field-error hidden" data-error-for="vehicle_type"></p></div>
-              <div><label class="field-label" for="v-reg">Registration Number</label><input id="v-reg" name="registration" class="field-input" maxlength="30" value="${escapeHtml(v ? v.registration : "")}" placeholder="e.g. ABC 1234"><p class="field-error hidden" data-error-for="registration"></p></div>
+              <div><label class="field-label" for="v-type">Vehicle Name</label><input id="v-type" name="vehicle_type" class="field-input" maxlength="60" value="${escapeHtml(v ? v.vehicle_type : "")}"><p class="field-error hidden" data-error-for="vehicle_type"></p></div>
+              <div><label class="field-label" for="v-reg">Registration Number</label><input id="v-reg" name="registration" class="field-input" maxlength="30" value="${escapeHtml(v ? v.registration : "")}"><p class="field-error hidden" data-error-for="registration"></p></div>
               <div class="sm:col-span-2">
                 <p class="field-label">Vehicle Size <span class="text-gray-400 font-normal">(buyers choose a size when they order)</span></p>
                 ${trSizeCards(meta.sizes, { current: v ? v.size_class : "" })}
@@ -641,7 +641,7 @@
             <h1 class="admin-view-title">${x ? `Edit ${escapeHtml(x.name)}` : "Add a Driver"}</h1>
             <div class="space-y-4">
               <div><label class="field-label" for="d-name">Full Name</label><input id="d-name" name="name" class="field-input" maxlength="120" value="${escapeHtml(x ? x.name : "")}"><p class="field-error hidden" data-error-for="name"></p></div>
-              <div><label class="field-label" for="d-phone">Phone Number</label><input id="d-phone" name="phone" type="tel" inputmode="tel" class="field-input" maxlength="30" placeholder="0977 123 456" value="${escapeHtml(x ? x.phone : "")}"><p class="text-xs text-gray-500 mt-1">They sign in with this number.</p><p class="field-error hidden" data-error-for="phone"></p></div>
+              <div><label class="field-label" for="d-phone">Phone Number</label><input id="d-phone" name="phone" type="tel" inputmode="tel" class="field-input" maxlength="30" value="${escapeHtml(x ? x.phone : "")}"><p class="text-xs text-gray-500 mt-1">They sign in with this number.</p><p class="field-error hidden" data-error-for="phone"></p></div>
               <div><p class="field-label">Their Documents</p><div class="space-y-2">${docRow("nrc", "NRC")}${docRow("drivers_licence", "Driver's Licence")}${docRow("passport", "Passport", true)}</div>
                 <p class="field-error hidden" data-error-for="documents"></p></div>
               <div><label class="field-label" for="d-veh">Their Vehicle</label>
