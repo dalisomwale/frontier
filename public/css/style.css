@@ -7286,7 +7286,7 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .news-band-row:focus-within { box-shadow: 0 0 0 4px rgba(190, 242, 100, 0.45), 0 10px 30px -12px rgba(0, 0, 0, 0.45); }
 .news-band-row input[type="email"] { flex: 1; min-width: 0; height: 46px; padding: 0 18px; border: 0; background: transparent; color: #10231a; font-size: 15px; outline: none; }
 .news-band-row input[type="email"]::placeholder { color: #9ca3af; }
-.news-band-row button { flex: none; height: 46px; padding: 0 24px; border-radius: 999px; background: linear-gradient(90deg, #fde047, #bef264); color: #10231a; font-weight: 700; font-size: 14.5px; transition: filter .2s, transform .2s; }
+.news-band-row button { flex: none; height: 46px; padding: 0 24px; border-radius: 999px; background: var(--btn-grad, linear-gradient(90deg, #ead77a, #b8d97a)); color: #10231a; font-weight: 700; font-size: 14.5px; transition: filter .2s, transform .2s; }
 .news-band-row button:hover { filter: brightness(1.06); }
 .news-band-row button:active { transform: scale(0.98); }
 .news-band-row button:disabled { opacity: 0.7; cursor: wait; }
@@ -7634,9 +7634,10 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
    !important on colour, border and shape.
    ========================================================================== */
 :root {
-  --btn-grad: linear-gradient(90deg, #fde047, #bef264);
-  --btn-lime: #bef264;
-  --btn-lime-hover: #b2ea4f;
+  /* Softer than the first version: less neon, same yellow-to-lime feel. */
+  --btn-grad: linear-gradient(90deg, #ead77a, #b8d97a);
+  --btn-lime: #c4de8f;
+  --btn-lime-hover: #b7d67e;
   --btn-ink: #10231a;
 }
 .btn-grad, .btn-checkout, .btn-buy, .acc-btn:not(.acc-logout-phone), .ob-btn:not(.ob-btn-back),
@@ -7665,3 +7666,31 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 :is(.btn-grad, .btn-checkout, .btn-buy, .acc-btn, .ob-btn, .pf-btn-primary, .btn-lime, .btn-cart, .btn-inquire) .btn-spinner { border-color: rgba(16, 35, 26, .25) !important; border-top-color: var(--btn-ink) !important; }
 /* Outlined Cancel / Back next to them: same pill shape. */
 .ob-btn-back, [data-confirm-cancel], [data-ob-back], button[data-close].border { border-radius: 9999px !important; }
+
+/* Button sizes: two, used everywhere.
+   Regular (40px): main actions and their Cancel / Back.
+   Small (32px): the small pill buttons and the buttons on listing cards.
+   Buttons size to their text; only those marked w-full (and form buttons on
+   phones) stretch across. */
+:root { --btn-h: 40px; --btn-h-sm: 32px; }
+:is(.btn-grad, .btn-checkout, .btn-buy, .btn-cart, .btn-contact, .acc-btn, .ob-btn, .pf-btn, .mf-done,
+    [data-confirm-cancel], [data-confirm-ok], [data-ob-back], button[data-close].border) {
+  height: auto !important;
+  min-height: var(--btn-h) !important;
+  padding: 10px 20px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+}
+:is(.btn-grad, .btn-checkout, .btn-buy, .btn-cart, .btn-contact, .acc-btn, .ob-btn, .pf-btn) svg { width: 16px; height: 16px; }
+:is(.acc-mini-btn, .lv-card .btn-buy, .lv-card .btn-contact) {
+  height: auto !important;
+  min-height: var(--btn-h-sm) !important;
+  padding: 6px 14px !important;
+  font-size: 13px !important;
+  line-height: 20px !important;
+}
+@media (min-width: 640px) {
+  .acc-btn:not(.w-full) { width: auto; }
+  .acc-actionbar .acc-btn { min-width: 0; }
+  [data-payout] .acc-btn { width: 100%; }
+}
