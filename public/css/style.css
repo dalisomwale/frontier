@@ -7806,3 +7806,9 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 .auth-back { padding: 4px 0; border: 0; background: none; border-radius: 0; }
 .auth-back:hover { background: none; }
 .auth-back:hover span { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Newsletter (home page): a full-width band, edge to edge, on the footer. */
+.news-band { padding: 0 !important; background: none; }
+.news-band-inner { max-width: none !important; border-radius: 0 !important; box-shadow: none !important; padding: 64px 24px 68px !important; }
+@media (max-width: 640px) { .news-band-inner { padding: 48px 16px 52px !important; } }
+main:has(+ .news-band) { margin-bottom: 0 !important; }
