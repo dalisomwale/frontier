@@ -232,8 +232,10 @@ function renderSiteFooter() {
   if (!el) return;
   el.classList.add("site-footer");
   const link = (href, text) => `<a href="${href}">${text}</a>`;
-  // The newsletter sign-up: its own band just above the footer.
-  if (!document.querySelector(".news-band") && !location.pathname.startsWith("/newsletter/")) {
+  // The newsletter sign-up: its own band just above the footer, on the home
+  // page only.
+  const home = /^\/(index(\.html)?)?$/.test(location.pathname);
+  if (home && !document.querySelector(".news-band")) {
     const band = document.createElement("section");
     band.className = "news-band";
     band.setAttribute("aria-labelledby", "news-title");
