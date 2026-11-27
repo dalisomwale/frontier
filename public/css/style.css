@@ -7697,3 +7697,11 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 }
 /* Cart: the total is the first line of its box, so no divider above it. */
 .cart-summary > .buy-total:first-child { border-top: 0 !important; padding-top: 0 !important; margin-top: 0 !important; }
+/* Job cards: the route is the two addresses. One line on wide screens;
+   on phones pickup and drop-off each get a line. */
+.tpj-route { font-size: 15px; line-height: 1.3; }
+@media (max-width: 640px) {
+  .tpj-route { white-space: normal; }
+  .tpj-from, .tpj-to { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tpj-to { font-weight: 600; color: #374151; }
+}

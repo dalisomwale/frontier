@@ -147,7 +147,7 @@
       const jobCard = (b, attr) => `<button type="button" class="tpj" ${attr}="${b.id}">
           <span class="tpj-ico">${uiIcon("truck")}</span>
           <span class="tpj-main">
-            <span class="tpj-route">${escapeHtml(routeShort(b))}</span>
+            <span class="tpj-route"><span class="tpj-from">${escapeHtml(b.from_area || b.from || "")}</span> <span class="tpj-to">→ ${escapeHtml(b.to_area || b.to || "")}</span></span>
             <span class="tpj-meta">${[trKm(b.distance_km), b.cargo_summary, b.vehicle_size_label, b.driver_name && !isDriver() ? b.driver_name : ""].filter(Boolean).map(escapeHtml).join(" · ")}</span>
           </span>
           <span class="tpj-side">
@@ -242,7 +242,7 @@
           ${phone ? `<a class="tp-call" href="tel:${escapeHtml(tel(phone))}" aria-label="Call ${escapeHtml(phone)}">${uiIcon("phone")}</a>` : ""}
         </div>`;
       const chipsHtml = (items) => `<div class="tp-chips">${items.filter(Boolean).map((x) => `<span>${escapeHtml(x)}</span>`).join("")}</div>`;
-      const routeTitle = (d) => `${d.pickup.district || d.pickup.province || d.pickup.label || ""} → ${d.destination.district || d.destination.province || ""}`;
+      const routeTitle = (d) => `${d.pickup.address || d.pickup.district || d.pickup.province || d.pickup.label || ""} → ${d.destination.address || d.destination.district || d.destination.province || ""}`;
 
       function paintOffer(view, d) {
         // Only the vehicles that can take it (right size, free).

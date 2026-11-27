@@ -208,7 +208,7 @@
           c.cancel ? `<button type="button" class="acc-mini-btn text-red-700" data-act="cancel">${d.status === "pending_payment" ? "Cancel" : "Cancel and refund the fee"}</button>` : "",
         ].filter(Boolean).join("");
         view.body.innerHTML = `
-          <div class="sv-head"><h1 class="admin-view-title !mb-0">${escapeHtml(d.reference)} · ${escapeHtml(d.pickup.district || d.pickup.label)} → ${escapeHtml(d.destination.district)}</h1>${trPill(d, true)}</div>
+          <div class="sv-head"><h1 class="admin-view-title !mb-0">${escapeHtml(d.reference)} · ${escapeHtml(d.pickup.address || d.pickup.district || d.pickup.label)} → ${escapeHtml(d.destination.address || d.destination.district)}</h1>${trPill(d, true)}</div>
           ${trProgressHtml(d.status)}
           ${d.on_hold ? `<p class="tr-warn-box mb-4">Held back from providers by Frontier.</p>` : ""}
           ${d.alerts.delay_alert_at && ["in_transit", "arrived"].includes(d.status) ? `<p class="tr-warn-box mb-4">Delay alert sent ${escapeHtml(when(d.alerts.delay_alert_at))}: no recent GPS, or the trip is taking much longer than the route.</p>` : ""}

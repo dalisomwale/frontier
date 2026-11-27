@@ -293,9 +293,10 @@ function row(b, role) {
     from: core.pickupPlace(b),
     pickup_label: role === "customer" ? undefined : b.pickup_label,
     to: core.destPlace(b),
-    // Short names for lists ("Chongwe → Kafue").
-    from_area: b.pickup_district || b.pickup_province || null,
-    to_area: b.dest_district || b.dest_province || null,
+    // The route in lists: the two addresses ("Farm 9, Great East Rd → 12
+    // Kabulonga Rd"); the district only when there's no address.
+    from_area: b.pickup_address || b.pickup_district || b.pickup_province || null,
+    to_area: b.dest_address || b.dest_district || b.dest_province || null,
     distance_km: num(b.distance_km),
     cargo_summary: b.cargo_summary,
     vehicle_size_label: core.sizeLabel(b.vehicle_size),
