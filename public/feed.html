@@ -36,14 +36,16 @@
     </nav>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <section class="page-hero is-bleed" style="--page-hero-img:url('/images/hero/hero-reel-2.webp')">
+        <div class="page-hero-copy">
+          <h1 id="feed-title" class="page-hero-title">Animal <span class="page-hero-accent">Feed</span></h1>
+          <p id="feed-subtitle" class="page-hero-sub">Choose a feed type.</p>
+        </div>
+      </section>
       <nav class="text-sm mb-5" aria-label="Breadcrumb">
         <a id="back-link" href="/" class="inline-flex items-center gap-1 font-medium text-green-800 hover:text-green-900"><span class="w-4 h-4" data-icon="chevronLeft"></span><span id="back-label">Back Home</span></a>
       </nav>
 
-      <div class="mb-6">
-        <h1 id="feed-title" class="text-xl sm:text-2xl font-bold text-gray-900">Browse Feed</h1>
-        <p id="feed-subtitle" class="text-sm text-gray-600 mt-1">Select a livestock feed type for more information</p>
-      </div>
 
       <div id="feed-types" class="feed-bento"></div>
 
@@ -198,7 +200,7 @@
         if (!state.type) return showTypes();
 
         document.title = `${state.type.name} - Frontier Marketplace`;
-        document.getElementById("feed-title").textContent = state.type.name;
+        document.getElementById("feed-title").innerHTML = heroTitleHtml(state.type.name);
         document.getElementById("feed-subtitle").textContent = state.type.description || "";
         document.getElementById("feed-types").hidden = true;
         document.getElementById("feed-listings").hidden = false;

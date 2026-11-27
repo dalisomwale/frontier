@@ -7770,3 +7770,23 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
 @media (max-width: 640px) {
   .page-hero.is-bleed { min-height: calc(var(--bleed-top, 90px) + 110px); padding-bottom: 20px; margin-bottom: 16px; }
 }
+/* Contact and policy pages: their title band is the same picture banner,
+   from the top of the page under the floating menu. */
+.page-band {
+  position: relative;
+  padding: calc(var(--bleed-top, 72px) + 44px) 0 34px;
+  background:
+    linear-gradient(180deg, rgba(8, 28, 16, .55) 0%, rgba(8, 28, 16, 0) 40%),
+    linear-gradient(90deg, rgba(8, 28, 16, .9) 0%, rgba(8, 28, 16, .55) 55%, rgba(8, 28, 16, .2) 100%),
+    url('/images/hero/hero-reel-1.webp') center 45% / cover no-repeat, #14532d;
+}
+.page-band-title { font-size: 30px; }
+.page-band-sub { margin-top: 6px; font-weight: 600; color: rgba(255, 255, 255, .85); }
+@media (max-width: 640px) {
+  .page-band { padding: calc(var(--bleed-top, 66px) + 28px) 0 22px; }
+  .page-band-title { font-size: 24px; }
+}
+/* Same height as the other banners, title at the bottom. */
+.page-band { display: flex; align-items: flex-end; min-height: calc(var(--bleed-top, 72px) + 182px); padding-bottom: 26px; }
+.page-band > div { width: 100%; }
+@media (max-width: 640px) { .page-band { min-height: calc(var(--bleed-top, 66px) + 134px); padding-bottom: 20px; } }

@@ -102,8 +102,8 @@
       function render() {
         transportOn = Boolean(quote.transport && quote.transport.offered);
         root.innerHTML = `
+          ${pageHeroHtml({ title: "Secure", accent: "Checkout", bleed: true })}
           ${checkoutSteps(1)}
-          <h1 class="text-xl sm:text-2xl font-bold text-gray-900 mb-5">Checkout</h1>
           <form id="checkout-form" class="checkout" novalidate>
             <div class="checkout-main">
               <div id="co-alert" class="hidden alert alert-error text-sm" role="alert"></div>
@@ -220,6 +220,7 @@
               <button type="submit" class="btn-checkout btn-lg w-full checkout-submit-desktop" data-submit></button>
             </aside>
           </form>`;
+        fitPageHero();
         const form = root.querySelector("#checkout-form");
         const submits = root.querySelectorAll("[data-submit]");
         const picked = () => (form.querySelector('input[name="mobile_operator"]:checked') || {}).value || "";

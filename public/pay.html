@@ -48,7 +48,8 @@
       let timer = null;
 
       function card(inner, role = "status") {
-        root.innerHTML = `<div class="checkout-done pay-wait" role="${role}" aria-live="polite">${inner}</div>`;
+        root.innerHTML = `${pageHeroHtml({ title: "Your", accent: "Payment", bleed: true })}<div class="checkout-done pay-wait" role="${role}" aria-live="polite">${inner}</div>`;
+        fitPageHero();
       }
 
       function showPaid(p) {
@@ -162,7 +163,8 @@
 
         function page(inner, step = 2) {
           clearTimeout(ctimer);
-          root.innerHTML = `${checkoutSteps(step)}<div class="pay-box">${inner}</div>`;
+          root.innerHTML = `${pageHeroHtml({ title: "Your", accent: "Payment", bleed: true })}${checkoutSteps(step)}<div class="pay-box">${inner}</div>`;
+          fitPageHero();
         }
 
         function head(c, title) {

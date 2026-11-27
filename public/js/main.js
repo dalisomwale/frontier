@@ -441,7 +441,7 @@ function pageHeroHtml({ title = "", accent = "", sub = "", image = "/images/hero
 // Stretches a bleed banner to the window's edges: it starts at the top of the
 // page and spans the full width, and its text keeps lining up with the page.
 function fitPageHero() {
-  const hero = document.querySelector(".page-hero.is-bleed");
+  const hero = document.querySelector(".page-hero.is-bleed, .page-band");
   if (!hero) return;
   hero.style.marginTop = hero.style.marginLeft = hero.style.width = "";
   const r = hero.getBoundingClientRect();
@@ -455,3 +455,15 @@ function fitPageHero() {
   hero.style.setProperty("--bleed-right", `${Math.max(0, w - r.right)}px`);
 }
 window.addEventListener("resize", () => fitPageHero());
+document.addEventListener("DOMContentLoaded", () => {
+  if (document.querySelector(".page-hero.is-bleed, .page-band")) fitPageHero();
+  // The menu bar can change height as it finishes drawing: refit then too.
+  const nav = document.getElementById("page-topnav");
+  if (nav && window.ResizeObserver) new ResizeObserver(() => fitPageHero()).observe(nav);
+});
+// A banner title with its last word in the accent colour ("Animal Feed").
+function heroTitleHtml(text) {
+  const words = String(text || "").trim().split(/\s+/);
+  const last = words.pop() || "";
+  return `${escapeHtml(words.join(" "))}${words.length ? " " : ""}<span class="page-hero-accent">${escapeHtml(last)}</span>`;
+}
