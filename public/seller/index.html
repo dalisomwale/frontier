@@ -32,7 +32,7 @@
           <p id="welcome-line" class="text-gray-500 mt-1"></p>
         </div>
         <div class="flex items-center gap-2">
-          <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-green-800 text-white px-4 py-2.5 rounded-lg hover:bg-green-900 font-semibold disabled:opacity-50 disabled:cursor-not-allowed" hidden>
+          <button id="add-btn" type="button" class="btn-grad inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed" hidden>
             <span class="w-5 h-5" data-icon="plus"></span> Add Listing
           </button>
         </div>
@@ -335,7 +335,7 @@
           box.innerHTML = `<div class="bg-white rounded-xl border border-gray-100"><div class="empty-state">
             <p class="font-semibold text-gray-800">No listings yet</p>
             <p class="text-sm mt-1">${approved() ? "Add your first listing. Our team will review it before it goes live." : "You can add listings once your account is approved."}</p>
-            ${approved() ? `<button type="button" data-add class="mt-4 inline-flex items-center gap-2 bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-900 font-semibold">Add Listing</button>` : ""}
+            ${approved() ? `<button type="button" data-add class="btn-grad mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold">Add Listing</button>` : ""}
           </div></div>`;
           box.querySelector("[data-add]")?.addEventListener("click", () => openEditor());
           return;

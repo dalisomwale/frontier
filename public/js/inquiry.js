@@ -185,7 +185,7 @@ function openInquiryModal(listing) {
         </div>
         <h2 class="text-lg font-bold text-gray-900 mb-2">Your inquiry has been sent successfully.</h2>
         <p class="text-sm text-gray-600 mb-6">We'll be in touch shortly.</p>
-        <button type="button" data-close class="w-full sm:w-auto bg-green-800 text-white px-8 py-3 rounded-lg hover:bg-green-900 font-semibold">Done</button>
+        <button type="button" data-close class="btn-grad w-full sm:w-auto px-8 py-3 rounded-lg font-semibold">Done</button>
       </div>`;
     const done = backdrop.querySelector("[data-close]");
     done.addEventListener("click", close);

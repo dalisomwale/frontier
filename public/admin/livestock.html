@@ -26,7 +26,7 @@
           <a id="other-pending" href="#" class="hidden text-sm text-amber-700 hover:underline mt-1"></a>
         </div>
         <div class="flex items-center gap-2">
-          <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-green-800 text-white px-4 py-2.5 rounded-lg hover:bg-green-900 font-semibold">
+          <button id="add-btn" type="button" class="btn-grad inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold">
             <span class="w-5 h-5" data-icon="plus"></span> <span id="add-label">Add Livestock</span>
           </button>
         </div>
@@ -163,7 +163,7 @@
           renderEmptyState(list, filtered
             ? { title: `No matching ${noun}`, message: "Try a different filter or search.", icon: "search" }
             : { title: `No ${noun} listings yet`, message: "Add your first listing. It stays unpublished until you publish it.", icon: "cattle",
-                action: `<button type="button" onclick="openEditor()" class="mt-4 bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-900 text-sm font-semibold">Add ${NOUN}</button>` });
+                action: `<button type="button" onclick="openEditor()" class="btn-grad mt-4 px-4 py-2 rounded-lg text-sm font-semibold">Add ${NOUN}</button>` });
         } else {
           list.innerHTML = `
             <table class="admin-table">

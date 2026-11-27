@@ -258,8 +258,8 @@ function openFormModal({ title, crumb, body, submitText = "Save", wide = false, 
         <div class="admin-form-actions">
           <button type="button" data-close class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium bg-white">Cancel</button>
           ${steps ? `<button type="button" data-ob-back class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium bg-white">Back</button>
-          <button type="button" data-ob-next class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-green-800 hover:bg-green-900 text-white font-semibold">Continue</button>` : ""}
-          <button type="submit" data-submit ${steps ? "data-ob-submit" : ""} class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-green-800 hover:bg-green-900 text-white font-semibold disabled:opacity-70">${escapeHtml(submitText)}</button>
+          <button type="button" data-ob-next class="btn-grad inline-flex items-center gap-2 px-5 py-2 rounded-lg font-semibold">Continue</button>` : ""}
+          <button type="submit" data-submit ${steps ? "data-ob-submit" : ""} class="btn-grad inline-flex items-center gap-2 px-5 py-2 rounded-lg font-semibold disabled:opacity-70">${escapeHtml(submitText)}</button>
         </div>
       </form>`,
   });

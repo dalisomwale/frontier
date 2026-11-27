@@ -7623,3 +7623,45 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
   .co-pay-opts .op-mark { height: 20px; min-width: 0; }
   .co-pay-opts .op-logo { height: 16px; max-width: 24px; }
 }
+
+/* ==========================================================================
+   Buttons: one look across the platform (shop, checkout, accounts, seller,
+   transport, admin).
+   - Main actions: the yellow-to-lime gradient of the newsletter's Subscribe.
+   - Secondary actions: the solid lime of the "Added to cart" View cart.
+   - Cancel / Back (outlined) and danger (red) buttons keep their own look.
+   Earlier rules for these classes set other colours, so these win with
+   !important on colour, border and shape.
+   ========================================================================== */
+:root {
+  --btn-grad: linear-gradient(90deg, #fde047, #bef264);
+  --btn-lime: #bef264;
+  --btn-lime-hover: #b2ea4f;
+  --btn-ink: #10231a;
+}
+.btn-grad, .btn-checkout, .btn-buy, .acc-btn:not(.acc-logout-phone), .ob-btn:not(.ob-btn-back),
+.pf-btn-primary, .mf-done, .chat-send-btn, .snav-auth-solid {
+  background: var(--btn-grad) !important;
+  color: var(--btn-ink) !important;
+  border-color: transparent !important;
+  border-radius: 9999px !important;
+  font-weight: 700;
+  transition: filter .2s, transform .2s, opacity .2s;
+}
+.btn-lime, .btn-cart, .btn-contact.btn-inquire, .acc-mini-btn:not(.text-red-700), .cart-toast-link {
+  background: var(--btn-lime) !important;
+  color: var(--btn-ink) !important;
+  border-color: transparent !important;
+  border-radius: 9999px !important;
+  font-weight: 700;
+  transition: background-color .2s, transform .2s, opacity .2s;
+}
+:is(.btn-grad, .btn-checkout, .btn-buy, .acc-btn, .ob-btn, .pf-btn-primary, .mf-done, .chat-send-btn, .snav-auth-solid):hover:not(:disabled) { filter: brightness(1.06); }
+:is(.btn-lime, .btn-cart, .btn-contact.btn-inquire, .acc-mini-btn:not(.text-red-700), .cart-toast-link):hover:not(:disabled) { background: var(--btn-lime-hover) !important; }
+:is(.btn-grad, .btn-checkout, .btn-buy, .acc-btn, .ob-btn, .pf-btn-primary, .mf-done, .chat-send-btn, .btn-lime, .btn-cart, .btn-contact.btn-inquire, .acc-mini-btn):active:not(:disabled) { transform: scale(0.98); }
+:is(.btn-grad, .btn-checkout, .btn-buy, .acc-btn:not(.acc-logout-phone), .ob-btn:not(.ob-btn-back), .pf-btn-primary, .mf-done, .chat-send-btn, .btn-lime, .btn-cart, .btn-contact.btn-inquire, .acc-mini-btn):disabled,
+.btn-checkout.is-disabled { opacity: .55 !important; filter: grayscale(.25); cursor: not-allowed; }
+/* The spinner shown while a button works: dark on the light colours. */
+:is(.btn-grad, .btn-checkout, .btn-buy, .acc-btn, .ob-btn, .pf-btn-primary, .btn-lime, .btn-cart, .btn-inquire) .btn-spinner { border-color: rgba(16, 35, 26, .25) !important; border-top-color: var(--btn-ink) !important; }
+/* Outlined Cancel / Back next to them: same pill shape. */
+.ob-btn-back, [data-confirm-cancel], [data-ob-back], button[data-close].border { border-radius: 9999px !important; }

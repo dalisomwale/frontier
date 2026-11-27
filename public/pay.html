@@ -132,7 +132,7 @@
             title: "We couldn't find this payment",
             message: "The link may be incomplete. Reply to the email we sent you and we'll help.",
             icon: "alert",
-            action: `<a href="/#listings" class="inline-block mt-4 bg-green-800 text-white px-5 py-2.5 rounded-lg hover:bg-green-900 font-medium">Back to listings</a>`,
+            action: `<a href="/#listings" class="btn-grad inline-block mt-4 px-5 py-2.5 rounded-lg font-medium">Back to listings</a>`,
           });
         }
       });
@@ -440,7 +440,7 @@
                 ? "The link may be incomplete. Reply to the email we sent you and we'll help."
                 : error.status === 0 ? "Please check your internet connection and refresh this page." : `${error.message} Please refresh this page in a moment; your order has been saved.`,
               icon: "alert",
-              action: `<a href="/#listings" class="inline-block mt-4 bg-green-800 text-white px-5 py-2.5 rounded-lg hover:bg-green-900 font-medium">Back to listings</a>`,
+              action: `<a href="/#listings" class="btn-grad inline-block mt-4 px-5 py-2.5 rounded-lg font-medium">Back to listings</a>`,
             });
           }
         });

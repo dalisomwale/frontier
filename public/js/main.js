@@ -167,7 +167,7 @@ function confirmAction({
     const overlay = document.createElement("div");
     overlay.className = "fixed inset-0 z-[150] flex items-center justify-center bg-black bg-opacity-50 p-4";
     const confirmClass =
-      variant === "danger" ? "bg-red-600 hover:bg-red-700 text-white" : "bg-green-800 hover:bg-green-900 text-white";
+      variant === "danger" ? "bg-red-600 hover:bg-red-700 text-white" : "btn-grad";
 
     overlay.innerHTML = `
       <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6" role="dialog" aria-modal="true" aria-labelledby="confirm-action-title">

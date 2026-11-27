@@ -30,7 +30,7 @@
           <p class="text-sm text-gray-500 mt-1">Farmers and suppliers who sell on Frontier.</p>
         </div>
         <div class="flex items-center gap-2">
-          <button id="add-btn" type="button" class="inline-flex items-center gap-2 bg-green-800 text-white px-4 py-2.5 rounded-lg hover:bg-green-900 font-semibold">
+          <button id="add-btn" type="button" class="btn-grad inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold">
             <span class="w-5 h-5" data-icon="plus"></span> Add Seller
           </button>
         </div>
@@ -136,7 +136,7 @@
           return renderEmptyState(list, state.q || state.status
             ? { title: "No matching sellers", message: "Try a different search or filter.", icon: "search" }
             : { title: "No sellers yet", message: "Add the farmers and suppliers whose livestock you list.", icon: "users",
-                action: `<button type="button" onclick="openEditor()" class="mt-4 bg-green-800 text-white px-4 py-2 rounded-lg hover:bg-green-900 text-sm font-semibold">Add Seller</button>` });
+                action: `<button type="button" onclick="openEditor()" class="btn-grad mt-4 px-4 py-2 rounded-lg text-sm font-semibold">Add Seller</button>` });
         }
 
         list.innerHTML = `
@@ -523,7 +523,7 @@
                     ${s.account_note ? `<p class="text-gray-700 mt-1">Note: ${escapeHtml(s.account_note)}</p>` : ""}
                   </div>
                   <div class="flex gap-2">
-                    ${s.account_status !== "approved" ? `<button type="button" data-account="approve" class="px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 font-semibold">Approve</button>` : ""}
+                    ${s.account_status !== "approved" ? `<button type="button" data-account="approve" class="btn-grad px-3 py-1.5 rounded-lg font-semibold">Approve</button>` : ""}
                     ${s.account_status !== "rejected" ? `<button type="button" data-account="reject" class="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium">${s.account_status === "approved" ? "Revoke" : "Reject"}</button>` : ""}
                   </div>
                 </div>
