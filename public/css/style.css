@@ -7612,3 +7612,14 @@ body:has(> #site-footer) > main.max-w-7xl, body:has(> #site-footer) > main[class
   .co-opt-art .tp-van { max-width: 52px; }
   .co-pay-opts .op-logo { height: 22px; max-width: 30px; }
 }
+
+/* Checkout: smaller logos and names under Choose Payment Method. */
+.co-pay-opts .co-opt { font-size: 12px; }
+.co-pay-opts .op-mark { height: 22px; width: auto; min-width: 40px; }
+.co-pay-opts .op-logo { height: 18px; max-width: 28px; }
+.co-pay-opts .co-opt-body { gap: 4px; }
+@media (max-width: 480px) {
+  .co-pay-opts .co-opt { font-size: 11.5px; }
+  .co-pay-opts .op-mark { height: 20px; min-width: 0; }
+  .co-pay-opts .op-logo { height: 16px; max-width: 24px; }
+}
