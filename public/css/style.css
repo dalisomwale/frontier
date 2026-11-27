@@ -7837,3 +7837,8 @@ main:has(+ .news-band) { margin-bottom: 0 !important; }
 main.has-view ~ * .tp-switch, body:has(main.has-view) .portal-hero .tp-switch { display: none; }
 /* Transport: the title row is empty once the title is in the banner and the switch has moved. */
 #tp-main > div:first-child:has(#page-sub[hidden]):not(:has(.tp-switch)) { margin: 0; gap: 0; }
+/* Online / Offline: smaller. */
+.portal-hero .tp-switch { gap: 6px; padding: 4px 10px 4px 6px; font-size: 12px; }
+.portal-hero .tp-switch input { width: 28px; height: 16px; }
+.portal-hero .tp-switch input::after { top: 2px; left: 2px; width: 12px; height: 12px; }
+.portal-hero .tp-switch input:checked::after { transform: translateX(12px); }
