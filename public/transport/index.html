@@ -166,18 +166,18 @@
             ${attr === "data-request" ? `<small>${escapeHtml(timeAgo(b.offered_at))}</small>` : `<span class="tpj-status">${escapeHtml(b.status_label)}</span>`}
           </span>
         </button>`;
-      const emptyCard = (title, text) => `<div class="empty-state"><p class="font-semibold text-gray-800">${title}</p>${text ? `<p class="text-sm mt-1">${text}</p>` : ""}</div>`;
+      const emptyCard = (title, text, art = "") => `<div class="empty-state">${art ? trCartoon(art) : ""}<p class="font-semibold text-gray-800">${title}</p>${text ? `<p class="text-sm mt-1">${text}</p>` : ""}</div>`;
 
       async function loadRequests() {
         const list = document.getElementById("requests-list");
         if (!approved()) {
-          list.innerHTML = emptyCard("No requests yet", "They start once Frontier approves you.");
+          list.innerHTML = emptyCard("No requests yet", "They start once Frontier approves you.", "pending");
           return;
         }
         let rows = [];
         try { rows = (await transportApi("/api/transport/requests")).data; } catch (error) { list.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(error.message)}</p>`; return; }
         list.innerHTML = rows.length ? rows.map((b) => jobCard(b, "data-request")).join("")
-          : me.is_available ? emptyCard("No requests right now", "We'll notify you when one comes in.") : emptyCard("You're offline", "Go online to get requests.");
+          : me.is_available ? emptyCard("No requests right now", "We'll notify you when one comes in.", "waiting") : emptyCard("You're offline", "Go online to get requests.", "offline");
         list.querySelectorAll("[data-request]").forEach((b) => b.addEventListener("click", () => openBooking(b.dataset.request)));
         loadStats();
       }
@@ -193,7 +193,7 @@
         const rows = deliveries.filter((b) => ACTIVE.includes(b.status));
         const list = document.getElementById("deliveries-list");
         list.innerHTML = rows.length ? rows.map((b) => jobCard(b, "data-booking")).join("")
-          : emptyCard("No active deliveries", "");
+          : emptyCard("No active deliveries", "", "road");
         list.querySelectorAll("[data-booking]").forEach((b) => b.addEventListener("click", () => openBooking(b.dataset.booking)));
         renderHistory();
         loadStats();

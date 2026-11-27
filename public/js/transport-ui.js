@@ -842,3 +842,41 @@ function trCollectArt() {
       <path d="M86 23.5h14" stroke="#b45309" stroke-width="1"/>
     </g></svg>`;
 }
+
+// Empty states on the transport pages: a friendly cartoon truck with a face,
+// and a small scene for the case. kind: "waiting" (no requests right now),
+// "offline", "road" (no active deliveries), "pending" (awaiting approval).
+function trCartoon(kind = "waiting") {
+  const G = "#166534", GL = "#dcfce7", LIME = "#bef264", T = "#1f2937";
+  const asleep = kind === "offline";
+  const eye = asleep
+    ? `<path d="M151 68q5 4 10 0" fill="none" stroke="${T}" stroke-width="2.6" stroke-linecap="round"/>`
+    : `<circle cx="156" cy="66" r="4.2" fill="${T}"/><circle cx="157.5" cy="64.5" r="1.4" fill="#fff"/>`;
+  const truck = `
+    <ellipse cx="112" cy="124" rx="92" ry="6" fill="#e5e7eb"/>
+    <rect x="30" y="40" width="100" height="60" rx="10" fill="${GL}" stroke="${G}" stroke-width="3"/>
+    <rect x="31.5" y="76" width="97" height="8" fill="${LIME}"/>
+    <path d="M130 100V58q0-10 10-10h22q8 0 12 8l12 22q3 5 3 10v12Z" fill="${G}"/>
+    <path d="M140 56h20q4 0 6 4l9 17h-35Z" fill="#e0f2fe"/>
+    ${eye}
+    <circle cx="176" cy="88" r="3.2" fill="#fca5a5" opacity=".85"/>
+    <path d="M157 89q7 ${asleep ? 3 : 6} 14 0" fill="none" stroke="${LIME}" stroke-width="2.6" stroke-linecap="round"/>
+    <rect x="183" y="84" width="6" height="7" rx="2" fill="#fde047"/>
+    <rect x="26" y="98" width="166" height="8" rx="4" fill="${T}"/>
+    <circle cx="62" cy="108" r="13" fill="${T}"/><circle cx="62" cy="108" r="5" fill="#d1d5db"/>
+    <circle cx="160" cy="108" r="13" fill="${T}"/><circle cx="160" cy="108" r="5" fill="#d1d5db"/>`;
+  const bubble = (inner) => `<g class="tp-toon-float">
+    <circle cx="190" cy="26" r="18" fill="#fff" stroke="#d1d5db" stroke-width="2"/>
+    <circle cx="176" cy="44" r="4" fill="#fff" stroke="#d1d5db" stroke-width="2"/>
+    <circle cx="170" cy="51" r="2.2" fill="#fff" stroke="#d1d5db" stroke-width="1.5"/>${inner}</g>`;
+  const extra = {
+    waiting: bubble(`<circle cx="190" cy="26" r="10" fill="none" stroke="${G}" stroke-width="2.5"/><path d="M190 20v6l4 3" fill="none" stroke="${G}" stroke-width="2.5" stroke-linecap="round"/>`),
+    pending: bubble(`<path d="M184 16h12M184 36h12M185 16q0 8 5 10q-5 2-5 10M195 16q0 8-5 10q5 2 5 10" fill="none" stroke="${G}" stroke-width="2.2" stroke-linecap="round"/><path d="M187.5 33h5l-2.5-3Z" fill="${LIME}"/>`),
+    offline: `<path d="M40 22a12 12 0 1 0 12 15a9 9 0 1 1-12-15Z" fill="#fde68a"/>
+      <circle cx="70" cy="16" r="1.8" fill="#fde68a"/><circle cx="92" cy="28" r="1.4" fill="#fde68a"/><circle cx="20" cy="44" r="1.4" fill="#fde68a"/>
+      <g class="tp-toon-float" fill="${G}" font-family="Arial, Helvetica, sans-serif" font-weight="800"><text x="172" y="40" font-size="16">Z</text><text x="188" y="26" font-size="12">z</text><text x="200" y="14" font-size="9">z</text></g>`,
+    road: `<circle cx="34" cy="24" r="11" fill="#fde047"/><g stroke="#fde047" stroke-width="2.5" stroke-linecap="round"><path d="M34 6v4M34 38v4M16 24h4M48 24h4M21 11l3 3M44 34l3 3M47 11l-3 3M24 34l-3 3"/></g>
+      <path d="M0 132h220" stroke="#d1d5db" stroke-width="3" stroke-dasharray="14 10"/>`,
+  }[kind] || "";
+  return `<svg class="tp-toon" viewBox="0 0 220 140" aria-hidden="true" focusable="false">${extra}${truck}</svg>`;
+}
