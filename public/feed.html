@@ -151,7 +151,7 @@
             const filtered = state.stage || state.province;
             return renderEmptyState(container, {
               title: filtered ? "No feed matches these filters" : `No ${state.type.name} listed yet`,
-              message: filtered ? "" : "Please check back soon.",
+              message: filtered ? "Try a different filter." : "Please check back soon.",
               icon: filtered ? "search" : "feed",
             });
           }

@@ -207,8 +207,8 @@ function renderEmptyState(container, { title = "Nothing here yet", message = "",
   container.innerHTML = `
     <div class="empty-state col-span-full">
       ${pic || `<div class="empty-icon">${typeof uiIcon === "function" ? uiIcon(icon) : ""}</div>`}
-      <h3 class="text-base font-semibold text-gray-900 mb-1">${escapeHtml(title)}</h3>
-      ${message ? `<p class="text-sm text-gray-500 max-w-md mx-auto">${escapeHtml(message)}</p>` : ""}
+      <p class="font-semibold text-gray-800">${escapeHtml(title)}</p>
+      ${message ? `<p class="text-sm mt-1">${escapeHtml(message)}</p>` : ""}
       ${action}
     </div>`;
 }

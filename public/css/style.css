@@ -7851,3 +7851,7 @@ main.has-view ~ * .tp-switch, body:has(main.has-view) .portal-hero .tp-switch { 
 @keyframes tp-toon-float { 0%, 100% { transform: translateY(0); opacity: 1; } 50% { transform: translateY(-4px); opacity: .8; } }
 /* Smaller cartoon. */
 .tp-toon { width: 130px; margin-bottom: 10px; }
+
+/* Empty messages, everywhere: cartoon, the main message, then one short line. */
+.empty-state > p.font-semibold { font-size: 15px; font-weight: 700; color: #111827; margin: 0; }
+.empty-state > p.font-semibold + p.text-sm { margin: 4px auto 0; max-width: 28rem; font-size: 13.5px; line-height: 1.5; color: #6b7280; }

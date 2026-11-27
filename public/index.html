@@ -462,7 +462,7 @@
           if (!res.data.length) {
             const filtered = [...currentFilters().keys()].length > 0;
             renderEmptyState(container, filtered
-              ? { title: searchQuery ? `No livestock matches "${searchQuery}"` : "No livestock matches these filters", message: "", icon: "search",
+              ? { title: searchQuery ? `No livestock matches "${searchQuery}"` : "No livestock matches these filters", message: "Try a different search or filter.", icon: "search",
                   action: `<button type="button" onclick="clearFilters()" class="mt-4 text-sm font-semibold text-green-800 hover:text-green-900">Clear All Filters</button>` }
               : { title: "No livestock listed yet", message: "Please check back soon.", icon: "cattle" });
           } else {

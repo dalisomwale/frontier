@@ -205,7 +205,7 @@
         const rows = deliveries.filter((b) => ACTIVE.includes(b.status));
         const list = document.getElementById("deliveries-list");
         list.innerHTML = rows.length ? rows.map((b) => jobCard(b, "data-booking")).join("")
-          : emptyCard("No active deliveries", "", "road");
+          : emptyCard("No active deliveries", "Requests you accept appear here.", "road");
         list.querySelectorAll("[data-booking]").forEach((b) => b.addEventListener("click", () => openBooking(b.dataset.booking)));
         renderHistory();
         loadStats();
@@ -712,7 +712,7 @@
             <span class="nt-icon nt-order" aria-hidden="true">${uiIcon(n.type === "account" ? "users" : "truck")}</span>
             <span class="nt-text"><span class="nt-title">${escapeHtml(n.title)}</span>${n.body ? `<span class="nt-body">${escapeHtml(n.body)}</span>` : ""}<span class="nt-time">${timeAgo(n.created_at)}</span></span>
             ${n.read_at ? "" : `<span class="nt-new">New</span>`}</a></li>`).join("")}</ul>`
-          : `<div class="empty-state">${emptyArt("bell")}<p class="font-semibold text-gray-800">No notifications yet</p></div>`;
+          : `<div class="empty-state">${emptyArt("bell")}<p class="font-semibold text-gray-800">No notifications yet</p><p class="text-sm mt-1">Updates about your requests and deliveries appear here.</p></div>`;
         list.querySelectorAll("[data-link]").forEach((a) => a.addEventListener("click", (e) => {
           const url = new URL(a.href, location.origin);
           if (url.pathname !== "/transport/") return;
