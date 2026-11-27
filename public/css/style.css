@@ -7821,3 +7821,19 @@ main:has(+ .news-band) { margin-bottom: 0 !important; }
 .portal-hero.is-bleed { margin-bottom: 0; }
 /* The page title shown in the banner isn't repeated below it. */
 .portal-page main h1.is-in-hero, .account-page main h1.is-in-hero { display: none !important; }
+
+/* Transport: Online / Offline sits in the picture banner, on the right. */
+.portal-hero .tp-switch {
+  margin-left: auto; align-self: flex-end; flex-shrink: 0;
+  padding: 8px 14px 8px 10px; border-radius: 9999px; color: #fff;
+  background: rgba(15, 31, 18, .45); border: 1px solid rgba(255, 255, 255, .25);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.portal-hero .tp-switch[hidden] { display: none; }
+.portal-hero .tp-switch input { background: rgba(255, 255, 255, .35); }
+.portal-hero .tp-switch input:checked { background: #84cc16; }
+.portal-hero { gap: 12px; }
+/* Not over an opened delivery or form. */
+main.has-view ~ * .tp-switch, body:has(main.has-view) .portal-hero .tp-switch { display: none; }
+/* Transport: the title row is empty once the title is in the banner and the switch has moved. */
+#tp-main > div:first-child:has(#page-sub[hidden]):not(:has(.tp-switch)) { margin: 0; gap: 0; }

@@ -499,7 +499,7 @@ router.patch("/me/availability", requireProvider, ownerOnly, async (req, res, ne
   try {
     const on = req.body.available === true || req.body.available === "1" || req.body.available === "true";
     await pool.query("UPDATE transport_providers SET is_available = ? WHERE id = ?", [on ? 1 : 0, req.provider.id]);
-    res.json({ success: true, message: on ? "You're available for new requests." : "You won't get new requests until you switch this back on.", data: await loadProvider(req.provider.id) });
+    res.json({ success: true, message: on ? "You're online. New requests will come to you." : "You're offline. Go online to get new requests.", data: await loadProvider(req.provider.id) });
   } catch (error) {
     next(error);
   }

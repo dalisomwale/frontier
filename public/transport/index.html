@@ -30,7 +30,7 @@
           <h1 id="page-title" class="text-xl sm:text-2xl font-bold text-gray-900">Requests</h1>
           <p id="page-sub" class="text-gray-500 mt-1 text-sm"></p>
         </div>
-        <label class="tp-switch" title="Switch off when you can't take new deliveries"><input type="checkbox" id="available"><span id="available-label">Available</span></label>
+        <label class="tp-switch" title="Go offline when you can't take new deliveries"><input type="checkbox" id="available"><span id="available-label">Online</span></label>
       </div>
       <div id="tp-banner" class="tp-status-banner"></div>
 
@@ -97,6 +97,7 @@
         const sub = document.getElementById("page-sub");
         sub.textContent = isDriver() ? ({ requests: "", deliveries: "", profile: "" }[name] ?? SUBS[name]) : SUBS[name];
         sub.hidden = !sub.textContent;
+        paintSwitch();
         const url = new URL(location.href);
         url.searchParams.set("tab", name);
         ["booking", "welcome"].forEach((k) => url.searchParams.delete(k));
@@ -110,10 +111,20 @@
         setTab(a.dataset.tabLink);
       });
 
+      // Online / Offline: in the picture banner, on Requests and My Deliveries
+      // only (drivers follow their company's setting).
+      function paintSwitch() {
+        const sw = document.querySelector(".tp-switch");
+        if (!sw) return;
+        const hero = document.querySelector(".portal-hero");
+        if (hero && sw.parentElement !== hero) hero.appendChild(sw);
+        sw.hidden = isDriver() || !["requests", "deliveries"].includes(state.tab);
+      }
+
       function renderBanner() {
         const box = document.getElementById("tp-banner");
         let html = "";
-        document.querySelector(".tp-switch").hidden = isDriver();
+        paintSwitch();
         if (isDriver()) {
           box.innerHTML = me.status !== "approved" || !me.is_active ? `<div class="tr-warn-box"><b>${escapeHtml(me.name)} isn't taking deliveries yet.</b> Please check with your company.</div>` : "";
           return;
@@ -127,7 +138,7 @@
         box.innerHTML = html;
         const sw = document.getElementById("available");
         sw.checked = me.is_available;
-        document.getElementById("available-label").textContent = me.is_available ? "Available" : "Unavailable";
+        document.getElementById("available-label").textContent = me.is_available ? "Online" : "Offline";
       }
 
       let summary = null;
@@ -166,7 +177,7 @@
         let rows = [];
         try { rows = (await transportApi("/api/transport/requests")).data; } catch (error) { list.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(error.message)}</p>`; return; }
         list.innerHTML = rows.length ? rows.map((b) => jobCard(b, "data-request")).join("")
-          : me.is_available ? emptyCard("No requests right now", "We'll notify you when one comes in.") : emptyCard("You're unavailable", "Switch on Available to get requests.");
+          : me.is_available ? emptyCard("No requests right now", "We'll notify you when one comes in.") : emptyCard("You're offline", "Go online to get requests.");
         list.querySelectorAll("[data-request]").forEach((b) => b.addEventListener("click", () => openBooking(b.dataset.request)));
         loadStats();
       }
