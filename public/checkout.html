@@ -193,18 +193,6 @@
 
                 ${methods.includes("card") ? `
                 <div data-method-panel="card" class="pm-panel" hidden>
-                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div class="sm:col-span-2">
-                      <label for="co-address" class="field-label">Billing Address</label>
-                      <input id="co-address" name="address" type="text" class="field-input" autocomplete="street-address" maxlength="120" placeholder="e.g. Plot 12, Kabulonga Road">
-                      <p class="field-error hidden" data-error-for="address"></p>
-                    </div>
-                    <div>
-                      <label for="co-city" class="field-label">Town / City</label>
-                      <input id="co-city" name="city" type="text" class="field-input" autocomplete="address-level2" maxlength="60" placeholder="e.g. Lusaka">
-                      <p class="field-error hidden" data-error-for="city"></p>
-                    </div>
-                  </div>
                   <div data-card-slot></div>
                 </div>` : ""}
               </section>
@@ -354,7 +342,7 @@
         form.querySelectorAll('input[name="delivery_option"]').forEach((r) => r.addEventListener("change", showDelivery));
         ["dest_province", "dest_district", "dest_address"].forEach((n) => form.elements[n].addEventListener(n === "dest_province" ? "change" : "input", requote));
         // Show the fields for the chosen way to pay.
-        // The number shows once a network is picked; card shows the address.
+        // The number shows once a network is picked; card shows nothing until the order is placed.
         const showPanel = () => {
           const m = picked() ? method() : "";
           form.querySelectorAll("[data-method-panel]").forEach((panel) => { panel.hidden = panel.dataset.methodPanel !== m; });
@@ -454,10 +442,6 @@
           const numberProblem = mmCheck(v.payment_phone, v.mobile_operator);
           if (numberProblem) e.payment_phone = numberProblem;
         }
-        if (v.payment_method === "card") {
-          if (v.address.length < 3) e.address = "Please enter your address.";
-          if (v.city.length < 2) e.city = "Please enter your town or city.";
-        }
         return e;
       }
 
@@ -471,8 +455,6 @@
           payment_method: chosen || "",
           mobile_operator: chosen === "mobile_money" ? (form.elements.mobile_operator.value || "") : "",
           payment_phone: chosen === "mobile_money" ? form.elements.payment_phone.value.trim() : "",
-          address: chosen === "card" ? form.elements.address.value.trim() : "",
-          city: chosen === "card" ? form.elements.city.value.trim() : "",
           accept_terms: form.elements.accept_terms.checked,
         };
         Object.assign(values, { delivery_option: deliveryOption }, deliveryOption === "transport" ? destValues(form, tstate) : {});
@@ -513,7 +495,7 @@
         }
       }
 
-      // Order placed: Lipila's card form opens under the address and town. The
+      // Order placed: Lipila's card form opens under the ways to pay. The
       // details above are locked, since the order now exists.
       function showCardForm(form, submits, d) {
         form.querySelectorAll("input, select, textarea").forEach((el) => { el.disabled = true; });

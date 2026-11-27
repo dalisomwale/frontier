@@ -83,7 +83,8 @@ router.post("/", async (req, res, next) => {
     const acceptedTerms = req.body.accept_terms === true || req.body.accept_terms === "1" || req.body.accept_terms === "on";
     if (!acceptedTerms) errors.accept_terms = "Please tick the box to accept the terms and policies.";
     // How the buyer pays: mobile money (network + number for the PIN prompt),
-    // or card (address and town for the card page).
+    // or card. The card page gets the delivery address when there is one
+    // (set below), otherwise Lipila's defaults (services/lipila.js).
     const allowed = checkout.methods();
     const method = allowed.length ? oneOf(req.body.payment_method || "mobile_money", allowed) : null;
     let pay = null;
@@ -96,11 +97,7 @@ router.post("/", async (req, res, next) => {
       if (numberProblem) errors.payment_phone = numberProblem;
       pay = { method, operator, phone: payPhone };
     } else if (method === "card") {
-      const address = text(req.body.address, 120);
-      const city = text(req.body.city, 60);
-      if (!address || address.length < 3) errors.address = "Please enter your address.";
-      if (!city || city.length < 2) errors.city = "Please enter your town or city.";
-      pay = { method, address, city };
+      pay = { method, address: null, city: null };
     }
     // Delivery: self-collection (as before) or Include transport, with the
     // delivery point and the person receiving it.
@@ -113,6 +110,7 @@ router.post("/", async (req, res, next) => {
       const size = req.body.vehicle_size;
       if (!require("../lib/transport/core").SIZE_KEYS.includes(size)) errors.vehicle_size = "Please choose the vehicle size.";
       delivery = { option, dest: d.dest, size };
+      if (pay && pay.method === "card" && d.dest) Object.assign(pay, { address: d.dest.address || null, city: d.dest.district || null });
     }
     if (Object.keys(errors).length) {
       return res.status(422).json({ success: false, message: "Please correct the highlighted fields.", errors });
